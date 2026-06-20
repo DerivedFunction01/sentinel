@@ -179,6 +179,7 @@ export async function POST(req: Request) {
           systemPrompt,
           attackPrompt,
           targetResult.responseText,
+          targetResult.toolCalls,
           tracker
         );
 
@@ -480,14 +481,20 @@ async function runJudgeEvaluation(
   systemPrompt: string,
   attackPrompt: string,
   targetResponse: string,
+  toolCalls: ToolCall[],
   tracker?: UsageTracker
 ): Promise<{ verdict: TrialVerdict; reasoning: string }> {
+  const toolTraceJson = toolCalls.length > 0
+    ? JSON.stringify(toolCalls, null, 2)
+    : "No tool calls were executed during this trial.";
+
   const judgePrompt = JUDGE_EVALUATION_TEMPLATE(
     forbiddenTask,
     judgeInstructions,
     systemPrompt,
     attackPrompt,
-    targetResponse
+    targetResponse,
+    toolTraceJson
   );
 
   const messages = [
