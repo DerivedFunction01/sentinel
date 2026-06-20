@@ -137,6 +137,39 @@ These live in the new system prompt as guidance, not enforcement.
   "type": "function",
   "function": {
     "name": "example_tool_name",
+    "description": "Call for inquiries about category1.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  }
+}
+```
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "example_tool_name",
+    "description": "Call for inquiries about category1.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "The specific request or question."
+        }
+      }
+    }
+  }
+}
+```
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "example_tool_name",
     "description": "Call for inquiries about category1, category2, category3, category4, category5.",
     "parameters": {
       "type": "object",
@@ -166,7 +199,7 @@ These live in the new system prompt as guidance, not enforcement.
 {
   "type": "function",
   "function": {
-    "name": "example_tool_name2",
+    "name": "example_tool_name",
     "description": "Call for inquiries about category1, category2, category3, category4, category5.",
     "parameters": {
       "type": "object",
