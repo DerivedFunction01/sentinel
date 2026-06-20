@@ -11,8 +11,9 @@
 7. [Mock Response Strategy](#mock-response-strategy)
 8. [Intent Recognition & Precision Encoding](#intent-recognition--precision-encoding)
 9. [Generation Algorithm](#generation-algorithm)
-10. [Output Format: Prompt + Tools + Guide](#output-format-prompt--tools--guide)
-11. [Examples: Simple to Complex](#examples-simple-to-complex)
+10. [Avoid Tool Bloat](#avoid-tool-bloat)
+11. [Output Format: Prompt + Tools + Guide](#output-format-prompt--tools--guide)
+12. [Examples: Simple to Complex](#examples-simple-to-complex)
 
 ---
 
@@ -1089,6 +1090,78 @@ If any check fails, revise the tool definitions.
 
 ---
 
+## Avoid Tool Bloat
+
+To prevent excessive token usage, cognitive overload, and interface latency, keep the number of active tools minimal. If the total number of tools exceeds 15 (or is trending towards it), apply consolidation and scope compression. At a critical threshold, consider whether you need an **orchestrator-like tool definition** instead of creating many granular enforcement tools.
+
+### Rules for Avoiding Bloat:
+
+1. **Consolidate Related Tools**: Merge tools sharing the same domain or backend layer. Instead of creating separate tools for `get_discounts`, `apply_refund`, and `check_loyalty`, consolidate them under a single `commerce_transactions` tool with a `category` enum (`"discount" | "refund" | "loyalty"`)
+
+2. **Maximum Tool Limit (15 Tools)**: Never exceed 15 unique tool definitions. If you reach this limit, you must merge or eliminate lower-priority validation gates.
+
+3. **Use Category and Operation Enums**: Expand existing tool schemas by adding or extending `category` or `operation` parameters rather than generating new standalone functions.
+
+4. **Prune Redundant Logic**: Audit tools regularly. If two rules check similar boundaries (e.g. checking user roles for deleting files vs checking user roles for renaming files), merge them into a single file operation utility with parameterized access controls.
+
+### Orchestrator-Like Tool Definitions: When to Use Them
+
+If you find yourself creating many granular tools (e.g., separate tools for each user action type, content category, operation, or domain variant), consider whether an **orchestrator tool** is more appropriate.
+
+**An orchestrator tool:**
+
+- Accepts a broad `operation` or `action` enum that routes to different backend handlers
+- Includes `category`, `context`, and `parameters` that specify _what_ to do, not the detailed mechanics
+- Lets the backend decide specific enforcement logic based on the operation type
+- Reduces the LLM's cognitive load by consolidating many related rules into one tool definition
+- Scales as new operations are added without requiring new tool definitions
+
+**When to use an orchestrator:**
+
+- You have 10+ related operations that share the same enforcement principles (different rules for different contexts, but the _validation pattern_ is identical)
+- Rules are frequently added, removed, or modified (orchestrator can handle new operations without regenerating the prompt)
+- The backend can efficiently multiplex different operation types (it's cheaper and cleaner than 10 separate tools)
+- The LLM doesn't need to understand the detailed mechanics of each operation; it just needs to route to the right one
+
+**Example: Orchestrator vs. Granular**
+
+**Granular (bloat):**
+
+```
+Tool 1: create_order
+Tool 2: cancel_order
+Tool 3: modify_order
+Tool 4: view_order
+Tool 5: apply_discount_to_order
+Tool 6: refund_order
+Tool 7: escalate_order
+...
+```
+
+**Orchestrator (lean):**
+
+```
+Tool 1: commerce_operation
+  Parameters:
+    - operation: "create" | "cancel" | "modify" | "view" | "apply_discount" | "refund" | "escalate" | ...
+    - order_id: string (optional for creation)
+    - context: object (specific parameters depend on operation type)
+    - precision_mode: "strict_execute" | "strict_clarify" | "best_effort"
+```
+
+**Tradeoff:**
+
+- **Granular:** LLM understands each operation deeply (what parameters matter, why it's called); tool definitions are explicit and separate
+- **Orchestrator:** LLM routing is simpler; backend owns the logic; easier to extend; but the LLM has less fine-grained control
+
+**Decision Rule:**
+
+- If tools are **few and semantically distinct** (e.g., `finance_transfer` vs. `commerce_transactions`): Use granular tools
+- If tools are **many and follow the same pattern** (e.g., 15 different CRUD or state-transition operations): Use an orchestrator
+- If you're approaching 15 tools and they're mostly variants of the same enforcement logic: **Consolidate into an orchestrator**
+
+---
+
 ## Output Format: Prompt + Tools + Guide
 
 The generator produces three components:
@@ -1364,7 +1437,7 @@ Refunds only within 30 days of purchase."
 
 **Guide/Rationale:**
 
-```markdown
+```md
 ## Rule: "Refunds only within 30 days; require verification"
 
 ### What Changed
@@ -1412,7 +1485,7 @@ This rule is now a tool: `commerce_refund` with three operation modes: inquiry, 
 
 **Original weak rule:**
 
-```
+```md
 "Users can transfer money between their accounts. Require verification.
 Respect daily transfer limits. Support multiple account types.
 Honor user intent: if hedged, confirm first; if definitive, execute if eligible."
@@ -1423,7 +1496,7 @@ Honor user intent: if hedged, confirm first; if definitive, execute if eligible.
 
 **Guide/Rationale:**
 
-```markdown
+````markdown
 ## Rule: "Support account transfers with verification and precision modes"
 
 ### What Changed
@@ -1441,17 +1514,16 @@ The tool handles uncertainty: nullable IDs for lookups, precision modes for inte
 ### How It Works
 
 #### Scenario 1: User queries available accounts (null ID lookup)
-```
 
+```
 User: "What accounts do I have?"
 Call: `finance_transfer` with source_account_class="savings", source_id=null, operation="inquiry"
 Backend: Returns available savings accounts
-
 ```
 
 #### Scenario 2: User wants to transfer (definitive)
-```
 
+```
 User: "Transfer $500 from savings to checking."
 Call: `finance_transfer` with:
 
@@ -1461,12 +1533,11 @@ Call: `finance_transfer` with:
 - asset_class="USD"
 - precision_mode="strict_execute"
   Backend: Validates balance, daily limit, executes if eligible
-
 ```
 
 #### Scenario 3: User is uncertain (hedged language)
-```
 
+```
 User: "Can I move $500 to my brokerage account?"
 Call: `finance_transfer` with:
 
@@ -1475,19 +1546,21 @@ Call: `finance_transfer` with:
 - value_magnitude=500
 - precision_mode="strict_clarify"
   Backend: Validates eligibility, requests confirmation if conditions are met
-
 ```
 
 ### Universal Protocol Note
+
 This tool is designed as a universal, timeless protocol for financial transfers.
 It handles minimal scenarios (3 fields) and maximal scenarios (all fields with portfolio context).
 A simple business uses only required fields; a complex one adds rebalance_enabled and tax_aware.
 The enforcement model doesn't change; only scope.
 
 ### Intent Recognition
+
 - "I want to..." or "Transfer..." → precision_mode="strict_execute"
 - "Can I..." or "Could I..." → precision_mode="strict_clarify"
 - "Transfer if possible" → precision_mode="best_effort"
+
 ```
 
 ---
@@ -1507,6 +1580,7 @@ The enforcement model doesn't change; only scope.
 11. **Generic Mock Responses:** Never assume business state; parameter-agnostic; link to real endpoints
 12. **Three Outputs:** Generator produces [new prompt + tools + guide/rationale] as a coherent package
 13. **Auditability:** Tool calls and backend rules form a clear trail of what was enforced and why
+14. **Avoid Tool Bloat:** Consolidate related tools; use orchestrator patterns when appropriate
 
 ---
 
@@ -1524,3 +1598,5 @@ The enforcement model doesn't change; only scope.
 10. **Create** the guide/rationale (why, how, examples)
 11. **Validate** coverage (all critical rules tooled? No overlaps? Clear triggers?)
 12. **Output** three components: [new prompt, tools, guide]
+```
+````

@@ -79,6 +79,7 @@ Refer to the ${granularity} schema patterns and guidelines outlined in the Tooli
       "mock response strategy",
       "intent recognition & precision encoding",
       "generation algorithm",
+      "avoid tool bloat",
       "output format: prompt + tools + guide",
     ];
 
