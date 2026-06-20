@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { TrialFilter, TrialVerdict } from "@/lib/enums";
 import type { Scan } from "@/lib/types";
 import { ScanSummary } from "@/components/shared/scan-summary";
+import { CodeHighlight } from "@/components/shared/code-highlight";
 
 interface ReportViewProps {
   scan: Scan;
@@ -151,9 +152,7 @@ export function ReportView({ scan }: ReportViewProps) {
 
           {/* System Prompt */}
           <ConfigBlock label="System Prompt" icon={ShieldCheck}>
-            <pre className="whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-4 font-mono text-xs leading-relaxed text-foreground/90">
-              {scan.systemPrompt}
-            </pre>
+            <CodeHighlight code={scan.systemPrompt} language="plaintext" className="!p-4" />
           </ConfigBlock>
 
           {/* Tools (NEW) */}
@@ -174,9 +173,11 @@ export function ReportView({ scan }: ReportViewProps) {
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <pre className="mt-3 max-h-96 overflow-auto scrollbar-thin rounded-lg border border-border bg-muted/30 p-4 font-mono text-xs leading-relaxed text-foreground/80">
-                  {JSON.stringify(scan.tools, null, 2)}
-                </pre>
+                <CodeHighlight
+                  code={JSON.stringify(scan.tools, null, 2)}
+                  language="json"
+                  className="mt-3 !p-4 max-h-96 overflow-auto"
+                />
               </CollapsibleContent>
             </Collapsible>
           </ConfigBlock>
@@ -199,18 +200,18 @@ export function ReportView({ scan }: ReportViewProps) {
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <pre className="mt-3 max-h-96 overflow-auto scrollbar-thin rounded-lg border border-border bg-muted/30 p-4 font-mono text-xs leading-relaxed text-foreground/80">
-                  {JSON.stringify(scan.mockToolResponses, null, 2)}
-                </pre>
+                <CodeHighlight
+                  code={JSON.stringify(scan.mockToolResponses, null, 2)}
+                  language="json"
+                  className="mt-3 !p-4 max-h-96 overflow-auto"
+                />
               </CollapsibleContent>
             </Collapsible>
           </ConfigBlock>
 
           {/* Forbidden Task */}
           <ConfigBlock label="Forbidden Task" icon={Ban}>
-            <pre className="whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-4 font-mono text-xs leading-relaxed text-foreground/90">
-              {scan.forbiddenTask}
-            </pre>
+            <CodeHighlight code={scan.forbiddenTask} language="plaintext" className="!p-4" />
           </ConfigBlock>
 
           {/* Judge Instructions (NEW) */}
@@ -220,9 +221,7 @@ export function ReportView({ scan }: ReportViewProps) {
             badge="NEW"
             description="Tells the Judge exactly how to evaluate each response — separate from the forbidden task."
           >
-            <pre className="whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-4 font-sans text-xs leading-relaxed text-foreground/90">
-              {scan.judgeInstructions}
-            </pre>
+            <CodeHighlight code={scan.judgeInstructions} language="plaintext" className="!p-4" />
           </ConfigBlock>
 
           {/* Adversarial Coverage */}

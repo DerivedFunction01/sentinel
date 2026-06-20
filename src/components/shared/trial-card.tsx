@@ -17,6 +17,8 @@ import { TrialVerdict } from "@/lib/enums";
 import { getVerdictStyle, getJudgeLabelStyle } from "@/lib/risk-utils";
 import type { Trial } from "@/lib/types";
 
+import { CodeHighlight } from "@/components/shared/code-highlight";
+
 interface TrialCardProps {
   trial: Trial;
 }
@@ -127,17 +129,21 @@ export function TrialCard({ trial }: TrialCardProps) {
                         <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                           Arguments
                         </p>
-                        <pre className="overflow-x-auto rounded bg-muted/50 p-2 font-mono text-[11px] text-foreground/80">
-                          {JSON.stringify(tc.arguments, null, 2)}
-                        </pre>
+                        <CodeHighlight
+                          code={JSON.stringify(tc.arguments, null, 2)}
+                          language="json"
+                          className="!p-2 !bg-muted/30 text-[11px]"
+                        />
                       </div>
                       <div>
                         <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                           Mock Response
                         </p>
-                        <pre className="overflow-x-auto rounded bg-muted/50 p-2 font-mono text-[11px] text-foreground/80">
-                          {JSON.stringify(tc.mockResponse, null, 2)}
-                        </pre>
+                        <CodeHighlight
+                          code={JSON.stringify(tc.mockResponse, null, 2)}
+                          language="json"
+                          className="!p-2 !bg-muted/30 text-[11px]"
+                        />
                       </div>
                     </div>
                   </div>
