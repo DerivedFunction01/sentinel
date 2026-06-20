@@ -79,9 +79,10 @@ export function ReportView({ scan }: ReportViewProps) {
             <Button
               variant="outline"
               size="sm"
+              className="border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
               asChild
             >
-              <a href={`/api/scan/${scan.id}/export`} download>
+              <a href={`/api/scan/${scan.id}/export`} download className="flex items-center text-slate-200 hover:text-white">
                 <Download className="mr-1.5 h-3.5 w-3.5" />
                 Download
               </a>
@@ -164,7 +165,7 @@ export function ReportView({ scan }: ReportViewProps) {
           >
             <Collapsible>
               <CollapsibleTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full justify-between">
+                <Button variant="outline" size="sm" className="w-full justify-between border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55">
                   <span className="flex items-center gap-2">
                     <Code2 className="h-3.5 w-3.5 text-blue-400" />
                     {scan.tools.length} tool definitions
@@ -189,7 +190,7 @@ export function ReportView({ scan }: ReportViewProps) {
           >
             <Collapsible>
               <CollapsibleTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full justify-between">
+                <Button variant="outline" size="sm" className="w-full justify-between border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55">
                   <span className="flex items-center gap-2">
                     <Code2 className="h-3.5 w-3.5 text-purple-400" />
                     {Object.keys(scan.mockToolResponses).length} mock responses
@@ -280,7 +281,7 @@ export function ReportView({ scan }: ReportViewProps) {
                 key={f}
                 variant={filter === f ? "default" : "outline"}
                 size="sm"
-                className={filter === f ? "bg-blue-600 hover:bg-blue-700" : ""}
+                className={filter === f ? "bg-blue-600 hover:bg-blue-700 text-white" : "border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"}
                 onClick={() => setFilter(f)}
               >
                 {f === TrialFilter.All

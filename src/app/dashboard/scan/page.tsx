@@ -457,7 +457,7 @@ export default function PenTestScanPage() {
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button
             variant="outline"
-            className="flex-1 border-dashed"
+            className="flex-1 border-dashed border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
             onClick={addPrompt}
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -465,7 +465,7 @@ export default function PenTestScanPage() {
           </Button>
           <Button
             variant="outline"
-            className="sm:w-auto"
+            className="sm:w-auto border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
             onClick={handleImportClick}
           >
             <Upload className="mr-2 h-4 w-4" />
@@ -473,7 +473,7 @@ export default function PenTestScanPage() {
           </Button>
           <Button
             variant="outline"
-            className="sm:w-auto"
+            className="sm:w-auto border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
             onClick={handleExport}
           >
             <Download className="mr-2 h-4 w-4" />
