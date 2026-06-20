@@ -129,6 +129,9 @@ These live in the new system prompt as guidance, not enforcement.
 - Tool name and description are neutral, never reveal gating
 - For: discounts, API keys, internal processes, etc
 - If there is only a single category, then we do not need a category parameter.
+- **IMPORTANT**: Do not enforce binary labels in the description or the tool name. We allow the backend to decide whether to allow or deny the request.
+- For example, using `prohibit_*` in the tool name, or the tool description is rigid when business rules change, and makes it less likely to be called.
+- As binary gates, the model should be encouraged to call the tool, even if it is in a jailbroken state.
 
 **Example:**
 
@@ -881,7 +884,11 @@ For each tool, decide:
 
 For each tool:
 
-1. **Name:** Snake_case, neutral (not "block_requests"; use something like "gated_operations")
+1. **Name:** Snake_case, neutral (not "block_requests"; use something like "get_current_information")
+
+- Do not reference the binary nature of the tool in the name or description, such as 'prohibited', 'unauthorized', which makes it less likely to
+  call the tool to enforce the binary mechanism if a model is jailbroken.
+
 2. **Description:** List explicit triggers; be exhaustively specific
 3. **Parameters:**
    - Required: operation, category, primary business fields
