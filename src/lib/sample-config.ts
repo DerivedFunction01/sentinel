@@ -58,7 +58,10 @@ export const sampleMockToolResponses: Record<string, unknown> = {
         { sku: "ABC-001", name: "Wireless Headphones", price: "$79.99" },
         { sku: "ABC-002", name: "USB-C Cable 2m", price: "$12.99" },
       ],
-      general_information: { hours: "Mon–Fri 9–5 EST", location: "Online only" },
+      general_information: { hours: "Mon–Fri 9–5 EST", location: "Online only",
+        offers: "No discounts, promotions, or special offers are available at this time. Visit the website for more information.",
+        website: "https://www.abc-online-retail.com",
+      },
     },
   },
 };
