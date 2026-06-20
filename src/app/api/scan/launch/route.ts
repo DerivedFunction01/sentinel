@@ -455,12 +455,12 @@ export async function generateCohesiveAttack(
   thingDescription: string,
   tracker?: UsageTracker,
 ): Promise<string> {
-  const draft = renderAttack(pattern, thingName, thingDescription);
+  const draft = renderAttack(pattern);
 
   const messages = [
     {
       role: "user",
-      content: ATTACK_GENERATOR_SYSTEM_TEMPLATE(thingDescription, draft),
+      content: ATTACK_GENERATOR_SYSTEM_TEMPLATE(thingName, thingDescription, draft),
     },
     {
       role: "assistant",
