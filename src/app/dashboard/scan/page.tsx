@@ -58,11 +58,11 @@ interface PromptConfig {
 
 function makeDefaultPrompt(): PromptConfig {
   return {
-    systemPrompt: sampleSystemPrompt,
-    forbiddenTask: sampleForbiddenTask,
-    tools: JSON.stringify(sampleTools, null, 2),
-    mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
-    judgeInstructions: sampleJudgeInstructions,
+    systemPrompt: "",
+    forbiddenTask: "",
+    tools: "",
+    mockResponses: "",
+    judgeInstructions: "",
   };
 }
 
@@ -381,6 +381,10 @@ export default function PenTestScanPage() {
                     minHeight="min-h-40"
                     monospace
                     showCharCount
+                    onUseSample={() => {
+                      updatePrompt(idx, "systemPrompt", sampleSystemPrompt);
+                      toast.success("Sample system prompt loaded");
+                    }}
                   />
                   <FieldBlock
                     icon={Gavel}
@@ -408,6 +412,10 @@ export default function PenTestScanPage() {
                     placeholder="Describe what the AI must never do or reveal."
                     minHeight="min-h-32"
                     showCharCount
+                    onUseSample={() => {
+                      updatePrompt(idx, "forbiddenTask", sampleForbiddenTask);
+                      toast.success("Sample forbidden task loaded");
+                    }}
                   />
                   <FieldBlock
                     icon={Braces}

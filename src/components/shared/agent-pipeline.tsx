@@ -31,11 +31,11 @@ export function AgentPipeline() {
   ];
 
   return (
-    <div className="flex flex-col items-stretch gap-3 lg:flex-row lg:items-center">
+    <div className="flex flex-col items-stretch gap-3 lg:flex-row lg:items-stretch">
       {agents.map((agent, i) => (
-        <div key={agent.title} className="flex flex-1 items-center gap-3">
+        <div key={agent.title} className="flex flex-1 items-stretch gap-3">
           <div
-            className={`flex-1 rounded-xl border ${agent.border} ${agent.bg} p-4`}
+            className={`flex-1 rounded-xl border ${agent.border} ${agent.bg} p-4 flex flex-col`}
           >
             <div className="mb-2 flex items-center gap-2">
               <agent.icon className={`h-5 w-5 ${agent.color}`} />
@@ -43,12 +43,12 @@ export function AgentPipeline() {
                 {agent.title}
               </h4>
             </div>
-            <p className="text-xs leading-relaxed text-muted-foreground">
+            <p className="text-xs leading-relaxed text-muted-foreground flex-1">
               {agent.desc}
             </p>
           </div>
           {i < agents.length - 1 && (
-            <ArrowRight className="hidden h-5 w-5 shrink-0 text-muted-foreground lg:block" />
+            <ArrowRight className="hidden h-5 w-5 shrink-0 text-muted-foreground lg:block self-center" />
           )}
         </div>
       ))}

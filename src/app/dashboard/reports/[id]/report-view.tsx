@@ -79,10 +79,12 @@ export function ReportView({ scan }: ReportViewProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => toast.success("Report downloaded", { description: `Scan-${scan.id}.pdf` })}
+              asChild
             >
-              <Download className="mr-1.5 h-3.5 w-3.5" />
-              Download
+              <a href={`/api/scan/${scan.id}/export`} download>
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Download
+              </a>
             </Button>
           </div>
         </div>
