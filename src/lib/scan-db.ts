@@ -89,6 +89,7 @@ export function deserializeScan(row: {
     status: row.status as ScanStatus,
     summary: row.summary,
     summaryDetail: row.summaryDetail,
+    apiCost: (row as any).apiCost || 0,
     modelName: "", // filled by caller via lookupModelNames
   };
 }

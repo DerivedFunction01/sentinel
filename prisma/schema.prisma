@@ -59,6 +59,7 @@ model Scan {
   breachRate        Int      @default(0)
   summary           String   @default("")
   summaryDetail     String   @default("")
+  apiCost           Float    @default(0.0)
   status            String   @default("COMPLETED") // ScanStatus enum
   createdAt         DateTime @default(now())
 

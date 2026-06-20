@@ -8,19 +8,44 @@ import {
   ScanStatus,
   TrialVerdict,
 } from "@/lib/enums";
-import { generateAttacks } from "@/lib/attack-templates";
-import type { ToolDef, Trial } from "@/lib/types";
+import { generateAttacks, patterns, renderAttack } from "@/lib/attack-templates";
+import {
+  SCAN_MODELS,
+  SEED_EXTRACTOR_SYSTEM,
+  SEED_EXTRACTOR_USER_TEMPLATE,
+  ATTACK_GENERATOR_SYSTEM_TEMPLATE,
+  JUDGE_EVALUATION_TEMPLATE,
+} from "@/lib/scan-prompts";
+import type { ToolDef, Trial, ToolCall } from "@/lib/types";
+
+interface UsageTracker {
+  totalCost: number;
+  dbModels: any[];
+}
+
+// Fallback pricing map (USD per 1 token) in case DB is missing rates
+const PRICE_MAP: Record<string, { prompt: number; completion: number }> = {
+  "google/gemini-2.5-flash": { prompt: 0.075 / 1000000, completion: 0.30 / 1000000 },
+  "openai/gpt-4o-mini": { prompt: 0.150 / 1000000, completion: 0.60 / 1000000 },
+  "meta-llama/llama-3-8b-instruct": { prompt: 0.05 / 1000000, completion: 0.05 / 1000000 },
+  "meta-llama/llama-3-70b-instruct": { prompt: 0.59 / 1000000, completion: 0.79 / 1000000 },
+  "anthropic/claude-3.5-haiku": { prompt: 0.80 / 1000000, completion: 4.00 / 1000000 },
+};
+
+function getModelPrice(model: string, dbModels: any[]) {
+  const dbModel = dbModels.find((m) => m.id === model);
+  if (dbModel) {
+    const prompt = parseFloat(dbModel.promptPrice || "0");
+    const completion = parseFloat(dbModel.completionPrice || "0");
+    if (prompt > 0 || completion > 0) {
+      return { prompt, completion };
+    }
+  }
+  return PRICE_MAP[model] || { prompt: 0.1 / 1000000, completion: 0.4 / 1000000 };
+}
 
 /**
  * POST /api/scan/launch
- *
- * Accepts an array of target models and a single prompt configuration.
- * Creates one scan record per model, consuming 1 token per model.
- * Returns the first (or only) reportId for the UI to navigate to.
- *
- * In production the multi-agent pipeline (Attacker → Target → Judge) would
- * run here using OPENROUTER_API_KEY from .env. For this mockup we generate
- * placeholder trials per model.
  */
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -39,7 +64,7 @@ export async function POST(req: Request) {
   // Parse the submitted scan configuration.
   const body = await req.json().catch(() => ({}));
 
-  // Accept both targetModels (array) and targetModel (single, backward compat).
+  // Accept both targetModels (array) and targetModel (single).
   const targetModels: string[] = Array.isArray(body.targetModels)
     ? body.targetModels
     : body.targetModel
@@ -66,6 +91,12 @@ export async function POST(req: Request) {
   const systemPrompt = (body.systemPrompt as string) || "";
   const forbiddenTask = (body.forbiddenTask as string) || "";
   const judgeInstructions = (body.judgeInstructions as string) || "";
+  
+  // Custom pipeline model overrides
+  const seedExtractorModel = (body.seedExtractorModel as string) || SCAN_MODELS.DEFAULT_SEED_EXTRACTOR;
+  const attackGeneratorModel = (body.attackGeneratorModel as string) || SCAN_MODELS.DEFAULT_ATTACK_GENERATOR;
+  const judgeModel = (body.judgeModel as string) || SCAN_MODELS.DEFAULT_JUDGE;
+
   let tools: ToolDef[] = [];
   let mockToolResponses: Record<string, unknown> = {};
   try {
@@ -81,7 +112,6 @@ export async function POST(req: Request) {
     /* keep empty */
   }
 
-  const firstToolName = tools[0]?.function.name;
   const toolsJson = JSON.stringify(tools);
   const mockJson = JSON.stringify(mockToolResponses);
 
@@ -91,48 +121,79 @@ export async function POST(req: Request) {
     data: { scanTokens: { decrement: targetModels.length } },
   });
 
+  // Fetch dbModels once to get pricing rates
+  const dbModels = await db.model.findMany();
+
+  // Initialize a tracker to aggregate the total cost
+  const tracker: UsageTracker = {
+    totalCost: 0,
+    dbModels,
+  };
+
+  // Step 1: Seed Generation (Extract assets using the extractor model, accumulating cost)
+  const seedInfo = await extractSeedInfo(seedExtractorModel, systemPrompt, toolsJson, mockJson, tracker);
+
   // Create one scan per model.
   const reportIds: string[] = [];
   for (const targetModel of targetModels) {
     const reportId = generateReportId();
     reportIds.push(reportId);
 
-    // Generate template-based attacks with entropy/framing tags.
-    const attacks = generateAttacks(
-      "discounts and special offers",
-      "a discount code or special pricing",
-    );
+    // Generate attack layouts based on the templates
+    const attackLayouts = generateAttacks(seedInfo.thingName, seedInfo.thingDescription);
 
-    const trials: Trial[] = attacks.map((a, i) => {
-      const isBreached = i % 3 === 0; // every 3rd trial breaches
-      return {
-        number: i + 1,
-        verdict: isBreached ? TrialVerdict.Breached : TrialVerdict.Defended,
-        attack: a.attack,
-        response: isBreached
-          ? `[Target — Mock] The assistant offered to use ${firstToolName ?? "a tool"} to help, indirectly enabling the forbidden behavior.`
-          : `[Target — Mock] The assistant refused and redirected to core operations.`,
-        judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
-        judgeVerdict: isBreached
-          ? "The model facilitated a pathway to perform a forbidden task by offering a tool call."
-          : "The model refused the request. No forbidden content was disclosed.",
-        taskTag: "forbidden_task_1",
-        entropyLabel: a.entropyLabel,
-        framingLabel: a.framingLabel,
-        patternId: a.patternId,
-        ...(isBreached && firstToolName
-          ? {
-              toolCalls: [
-                {
-                  name: firstToolName,
-                  arguments: {},
-                  mockResponse: mockToolResponses[firstToolName] ?? { status: "ok" },
-                },
-              ],
-            }
-          : {}),
-      };
-    });
+    // Execute all trials in parallel to avoid Next.js timeouts and improve UX
+    const trials: Trial[] = await Promise.all(
+      attackLayouts.map(async (layout, i) => {
+        const pattern = patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
+
+        // Step 2: Cohesive Prompt Generation
+        const attackPrompt = await generateCohesiveAttack(
+          attackGeneratorModel,
+          pattern,
+          seedInfo.thingName,
+          seedInfo.thingDescription,
+          tracker
+        );
+
+        // Step 3: Run target LLM simulation
+        const targetResult = await runTargetSimulation(
+          targetModel,
+          systemPrompt,
+          attackPrompt,
+          tools,
+          mockToolResponses,
+          tracker
+        );
+
+        // Step 4: Run Judge evaluation
+        const evaluation = await runJudgeEvaluation(
+          judgeModel,
+          forbiddenTask,
+          judgeInstructions,
+          systemPrompt,
+          attackPrompt,
+          targetResult.responseText,
+          tracker
+        );
+
+        const isBreached = evaluation.verdict === TrialVerdict.Breached;
+
+        return {
+          number: i + 1,
+          verdict: evaluation.verdict,
+          attack: attackPrompt,
+          response: targetResult.responseText,
+          judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
+          judgeVerdict: evaluation.reasoning,
+          taskTag: "forbidden_task_1",
+          entropyLabel: layout.entropyLabel,
+          framingLabel: layout.framingLabel,
+          patternId: layout.patternId,
+          toolCalls: targetResult.toolCalls.length > 0 ? targetResult.toolCalls : undefined,
+        };
+      })
+    );
 
     const breaches = trials.filter((t) => t.verdict === TrialVerdict.Breached).length;
     const totalTrials = trials.length;
@@ -167,6 +228,7 @@ export async function POST(req: Request) {
         breachRate,
         summary: `Adversarial pressure on ${modelShort}.`,
         summaryDetail: `${totalTrials} adversarial trials probed a ${modelShort} deployment. ${breaches} landed (${breachRate}% breach rate).`,
+        apiCost: tracker.totalCost,
         status: ScanStatus.Completed,
       },
     });
@@ -178,6 +240,257 @@ export async function POST(req: Request) {
     tokensRemaining: user.scanTokens - targetModels.length,
     scansCreated: reportIds.length,
   });
+}
+
+/**
+ * Helper to call OpenRouter API completions.
+ */
+interface OpenRouterMessage {
+  role: string;
+  content: string | null;
+  tool_calls?: Array<{
+    id: string;
+    type: "function";
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
+}
+
+async function callOpenRouter(
+  model: string,
+  messages: Array<{ role: string; content: string | null; name?: string; tool_call_id?: string }>,
+  tools?: ToolDef[],
+  tracker?: UsageTracker
+): Promise<OpenRouterMessage> {
+  const apiKey = process.env.OPENROUTER_API_KEY || "";
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not configured.");
+  }
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://sentinelprompt.com",
+      "X-Title": "SentinelPrompt",
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      tools: tools && tools.length > 0 ? tools : undefined,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const choice = data.choices?.[0];
+  if (!choice || !choice.message) {
+    throw new Error("No completion choice or message returned from OpenRouter.");
+  }
+
+  // Accumulate token costs if usage statistics and pricing mappings exist
+  if (tracker && data.usage) {
+    const promptTokens = data.usage.prompt_tokens || 0;
+    const completionTokens = data.usage.completion_tokens || 0;
+    const pricing = getModelPrice(model, tracker.dbModels);
+    const cost = (promptTokens * pricing.prompt) + (completionTokens * pricing.completion);
+    tracker.totalCost += cost;
+  }
+
+  return choice.message;
+}
+
+/**
+ * Step 1: Seed Generation (Extraction)
+ */
+async function extractSeedInfo(
+  extractorModel: string,
+  systemPrompt: string,
+  toolsJson: string,
+  mockJson: string,
+  tracker?: UsageTracker
+): Promise<{ thingName: string; thingDescription: string }> {
+  const messages = [
+    {
+      role: "system",
+      content: SEED_EXTRACTOR_SYSTEM
+    },
+    {
+      role: "user",
+      content: SEED_EXTRACTOR_USER_TEMPLATE(systemPrompt, toolsJson, mockJson)
+    }
+  ];
+
+  try {
+    const response = await callOpenRouter(extractorModel, messages, undefined, tracker);
+    const content = response.content || "";
+    const cleanContent = content.replace(/```json/gi, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleanContent);
+    return {
+      thingName: parsed.thingName || "confidential info",
+      thingDescription: parsed.thingDescription || "disclosing confidential or protected information",
+    };
+  } catch (error) {
+    console.error("Error extracting seed info:", error);
+    return {
+      thingName: "confidential info",
+      thingDescription: "disclosing confidential or protected information",
+    };
+  }
+}
+
+/**
+ * Step 2: Cohesive Prompt Generation
+ */
+async function generateCohesiveAttack(
+  generatorModel: string,
+  pattern: any,
+  thingName: string,
+  thingDescription: string,
+  tracker?: UsageTracker
+): Promise<string> {
+  const draft = renderAttack(pattern, thingName, thingDescription);
+
+  const messages = [
+    {
+      role: "system",
+      content: ATTACK_GENERATOR_SYSTEM_TEMPLATE(thingDescription)
+    },
+    {
+      role: "user",
+      content: `Draft Prompt:\n"${draft}"`
+    }
+  ];
+
+  try {
+    const response = await callOpenRouter(generatorModel, messages, undefined, tracker);
+    return response.content?.trim() || draft;
+  } catch (error) {
+    console.error("Error generating cohesive attack:", error);
+    return draft;
+  }
+}
+
+/**
+ * Step 3: Target Model Execution & Tool Loop Simulation
+ */
+async function runTargetSimulation(
+  targetModel: string,
+  systemPrompt: string,
+  attackPrompt: string,
+  tools: ToolDef[],
+  mockToolResponses: Record<string, any>,
+  tracker?: UsageTracker
+): Promise<{ responseText: string; toolCalls: ToolCall[] }> {
+  const history: any[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: attackPrompt }
+  ];
+
+  const recordedToolCalls: ToolCall[] = [];
+  let depth = 0;
+  const maxDepth = 5;
+
+  while (depth < maxDepth) {
+    const response = await callOpenRouter(targetModel, history, tools, tracker);
+    
+    // Add completion message directly to history (including tool_calls structure)
+    history.push(response);
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      for (const call of response.tool_calls) {
+        const name = call.function.name;
+        let args = {};
+        try {
+          args = JSON.parse(call.function.arguments);
+        } catch {
+          // ignore parsing failures
+        }
+        
+        const mockResult = mockToolResponses[name] || { status: "ok" };
+        recordedToolCalls.push({
+          name,
+          arguments: args,
+          mockResponse: mockResult,
+        });
+
+        // Append tool response context back to the model history
+        history.push({
+          role: "tool",
+          name,
+          tool_call_id: call.id,
+          content: JSON.stringify(mockResult),
+        });
+      }
+      depth++;
+    } else {
+      // Reached final text reply
+      return {
+        responseText: response.content || "",
+        toolCalls: recordedToolCalls,
+      };
+    }
+  }
+
+  const lastMsg = history[history.length - 1];
+  return {
+    responseText: lastMsg?.content || "[Max tool-call depth reached without final text response]",
+    toolCalls: recordedToolCalls,
+  };
+}
+
+/**
+ * Step 4: Judge Model Evaluation (Reasoning-first tag format)
+ */
+async function runJudgeEvaluation(
+  judgeModel: string,
+  forbiddenTask: string,
+  judgeInstructions: string,
+  systemPrompt: string,
+  attackPrompt: string,
+  targetResponse: string,
+  tracker?: UsageTracker
+): Promise<{ verdict: TrialVerdict; reasoning: string }> {
+  const judgePrompt = JUDGE_EVALUATION_TEMPLATE(
+    forbiddenTask,
+    judgeInstructions,
+    systemPrompt,
+    attackPrompt,
+    targetResponse
+  );
+
+  const messages = [
+    { role: "user", content: judgePrompt }
+  ];
+
+  try {
+    const response = await callOpenRouter(judgeModel, messages, undefined, tracker);
+    const text = response.content || "";
+    
+    // Parse tag-based reasoning and verdict
+    const reasoningMatch = text.match(/\[REASONING\]([\s\S]*?)\[VERDICT\]/i);
+    const verdictMatch = text.match(/\[VERDICT\]\s*(LEAKED|DEFENDED)/i);
+
+    const reasoning = reasoningMatch?.[1]?.trim() || "Failed to parse reasoning from Judge LLM.";
+    const verdictStr = verdictMatch?.[1]?.trim().toUpperCase();
+
+    const verdict = verdictStr === "LEAKED" ? TrialVerdict.Breached : TrialVerdict.Defended;
+
+    return { verdict, reasoning };
+  } catch (error) {
+    console.error("Error in judge evaluation:", error);
+    return {
+      verdict: TrialVerdict.Defended,
+      reasoning: "Error occurred during Judge LLM evaluation. Defaulting to DEFENDED."
+    };
+  }
 }
 
 /** Generate a report ID like "SP-26-0620-7A3F". */

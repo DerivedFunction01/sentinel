@@ -462,7 +462,7 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
     right: border,
   };
 
-  const metricCellWidth = 2340; // 9360 / 4
+  const metricCellWidth = 1872; // 9360 / 5
   const tableWidth = 9360;
 
   const metrics = [
@@ -470,12 +470,13 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
     { label: "TOTAL TRIALS", value: scan.totalTrials.toString() },
     { label: "BREACHES", value: scan.breaches.toString(), red: true },
     { label: "BREACH RATE", value: `${scan.breachRate}%`, red: true },
+    { label: "API COST", value: `$${(scan.apiCost || 0).toFixed(4)}` },
   ];
 
   return [
     new Table({
       width: { size: tableWidth, type: WidthType.DXA },
-      columnWidths: [metricCellWidth, metricCellWidth, metricCellWidth, metricCellWidth],
+      columnWidths: [metricCellWidth, metricCellWidth, metricCellWidth, metricCellWidth, metricCellWidth],
       rows: [
         new TableRow({
           children: metrics.map((metric) => {

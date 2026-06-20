@@ -64,6 +64,7 @@ export interface Scan {
   status: ScanStatus;
   summary: string;
   summaryDetail: string;
+  apiCost: number;
   trials: Trial[];
 }
 
