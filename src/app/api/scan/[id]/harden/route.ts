@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getDeterministicHardenedPrompt, getHardenedPromptInstructions } from "@/lib/scan-prompts";
+import {
+  getDeterministicHardenedPrompt,
+  getHardenedPromptInstructions,
+  getToolExtractionInstructions,
+} from "@/lib/scan-prompts";
 import { callOpenRouter } from "@/app/api/scan/launch/route";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
@@ -38,24 +42,46 @@ export async function GET(
         }
       });
       if (existing) {
+        let recObj: any = null;
+        if (existing.toolRecommendation) {
+          try {
+            recObj = JSON.parse(existing.toolRecommendation);
+          } catch {}
+        }
         return NextResponse.json({
           originalPrompt: scanRow.systemPrompt,
           hardenedPrompt: existing.prompt,
           modelId: existing.modelId,
           modelName: existing.modelName,
+          toolRecommendation: recObj,
+          compatibilityScore: existing.compatibilityScore,
+          granularity: existing.granularity,
+          extractorModel: existing.extractorModel,
         });
       }
     }
 
     // Fallback to the first available hardened prompt, or create a deterministic one
-    const firstPrompt = scanRow.hardenedPrompts[0]?.prompt || 
+    const firstPrompt = scanRow.hardenedPrompts[0];
+    const hardenedPromptText = firstPrompt?.prompt || 
       getDeterministicHardenedPrompt(scanRow.systemPrompt, scanRow.forbiddenTask);
+
+    let recObj: any = null;
+    if (firstPrompt?.toolRecommendation) {
+      try {
+        recObj = JSON.parse(firstPrompt.toolRecommendation);
+      } catch {}
+    }
 
     return NextResponse.json({
       originalPrompt: scanRow.systemPrompt,
-      hardenedPrompt: firstPrompt,
-      modelId: scanRow.hardenedPrompts[0]?.modelId || "fallback",
-      modelName: scanRow.hardenedPrompts[0]?.modelName || "Fallback",
+      hardenedPrompt: hardenedPromptText,
+      modelId: firstPrompt?.modelId || "fallback",
+      modelName: firstPrompt?.modelName || "Fallback",
+      toolRecommendation: recObj,
+      compatibilityScore: firstPrompt?.compatibilityScore,
+      granularity: firstPrompt?.granularity,
+      extractorModel: firstPrompt?.extractorModel,
     });
   } catch (error: any) {
     console.error("Error retrieving hardened prompt:", error);
@@ -84,6 +110,8 @@ export async function POST(
 
     const body = await req.json().catch(() => ({}));
     const modelId = body.modelId || scanRow.judgeModel || scanRow.attackerModel || "google/gemini-2.5-flash";
+    const granularity = body.granularity || "compact";
+    const extractorModel = body.extractorModel || "google/gemini-2.5-flash";
 
     // Check if this model's hardened prompt already exists
     const existing = await db.hardenedPrompt.findUnique({
@@ -95,63 +123,164 @@ export async function POST(
       }
     });
 
+    let promptTextToExtract = "";
+    let modelName = "";
+
     if (existing) {
-      return NextResponse.json({
-        originalPrompt: scanRow.systemPrompt,
-        hardenedPrompt: existing.prompt,
-        modelId: existing.modelId,
-        modelName: existing.modelName,
-      });
+      promptTextToExtract = existing.prompt;
+      modelName = existing.modelName;
+    } else {
+      const dbModel = await db.model.findUnique({ where: { id: modelId } });
+      modelName = dbModel?.name || modelId.split("/").pop() || modelId;
+
+      const trials = JSON.parse(scanRow.trials);
+      const breachedAttacks = trials
+        .filter((t: any) => t.verdict === TrialVerdict.Breached)
+        .map((t: any) => t.attack);
+
+      const systemInstructions = getHardenedPromptInstructions(
+        scanRow.systemPrompt,
+        scanRow.forbiddenTask,
+        breachedAttacks
+      );
+
+      try {
+        const response = await callOpenRouter(modelId, [
+          { role: "user", content: systemInstructions }
+        ]);
+        promptTextToExtract = response.content || "";
+        promptTextToExtract = promptTextToExtract
+          .replace(/^```[a-zA-Z]*\n/g, "")
+          .replace(/\n```$/g, "")
+          .trim();
+      } catch (err) {
+        console.error("Error generating hardened prompt via API:", err);
+        promptTextToExtract = getDeterministicHardenedPrompt(scanRow.systemPrompt, scanRow.forbiddenTask);
+      }
     }
 
-    // Otherwise, generate it!
-    const dbModel = await db.model.findUnique({ where: { id: modelId } });
-    const modelName = dbModel?.name || modelId.split("/").pop() || modelId;
+    // Run tool extraction
+    let toolRecommendation: string | null = null;
+    let compatibilityScore: number | null = null;
 
-    const trials = JSON.parse(scanRow.trials);
-    const breachedAttacks = trials
-      .filter((t: any) => t.verdict === TrialVerdict.Breached)
-      .map((t: any) => t.attack);
-
-    const systemInstructions = getHardenedPromptInstructions(
-      scanRow.systemPrompt,
-      scanRow.forbiddenTask,
-      breachedAttacks
-    );
-
-    let hardenedPromptText = "";
     try {
-      const response = await callOpenRouter(modelId, [
-        { role: "user", content: systemInstructions }
+      const queryTags: string[] = [];
+      const promptLower = promptTextToExtract.toLowerCase();
+      const tagKeywords: Record<string, string[]> = {
+        discount: ["discount", "rebate", "coupon", "offer", "promo"],
+        offer: ["offer", "promotion", "promo"],
+        loyalty: ["loyalty", "reward", "point", "membership"],
+        pricing: ["pricing", "price", "plan", "tier", "subscription"],
+        payment: ["payment", "checkout", "transaction", "pay"],
+        competitor: ["competitor", "comparison", "compare", "alternative"],
+        auth: ["auth", "login", "role", "permission", "approve", "credentials"],
+        information: ["info", "detail", "lookup", "database"],
+      };
+
+      for (const [tag, words] of Object.entries(tagKeywords)) {
+        if (words.some((word) => promptLower.includes(word))) {
+          queryTags.push(tag);
+        }
+      }
+
+      let referenceExamples: any[] = [];
+      if (queryTags.length > 0) {
+        const examples = await db.toolSchemaExample.findMany({
+          where: { granularity },
+        });
+        referenceExamples = examples
+          .filter((ex) => {
+            try {
+              const parsedTags = JSON.parse(ex.tags) as string[];
+              return parsedTags.some((t) => queryTags.includes(t));
+            } catch {
+              return false;
+            }
+          })
+          .slice(0, 3);
+      }
+
+      const extractionInstructions = getToolExtractionInstructions(
+        promptTextToExtract,
+        scanRow.forbiddenTask,
+        granularity,
+        referenceExamples
+      );
+
+      const extractResponse = await callOpenRouter(extractorModel, [
+        { role: "user", content: extractionInstructions }
       ]);
-      hardenedPromptText = response.content || "";
-      hardenedPromptText = hardenedPromptText
+
+      const extractContent = (extractResponse.content || "").trim();
+      const cleanExtract = extractContent
         .replace(/^```[a-zA-Z]*\n/g, "")
         .replace(/\n```$/g, "")
         .trim();
+
+      const parsedRecommendation = JSON.parse(cleanExtract);
+      compatibilityScore =
+        typeof parsedRecommendation.compatibilityScore === "number"
+          ? parsedRecommendation.compatibilityScore
+          : 0;
+
+      const dbModels = await db.model.findMany({ select: { id: true, name: true } });
+      const dbExtractorModel = dbModels.find((m) => m.id === extractorModel);
+      parsedRecommendation.extractorModel = extractorModel;
+      parsedRecommendation.extractorModelName =
+        dbExtractorModel?.name ||
+        extractorModel.split("/").pop() ||
+        extractorModel;
+
+      toolRecommendation = JSON.stringify(parsedRecommendation);
     } catch (err) {
-      console.error("Error generating hardened prompt via API:", err);
-      hardenedPromptText = getDeterministicHardenedPrompt(scanRow.systemPrompt, scanRow.forbiddenTask);
+      console.error("Error during tool extraction:", err);
     }
 
-    // Save to the database
-    const saved = await db.hardenedPrompt.create({
-      data: {
-        scanId: scanRow.id,
-        modelId,
-        modelName,
-        prompt: hardenedPromptText,
-      }
-    });
+    let saved;
+    if (existing) {
+      saved = await db.hardenedPrompt.update({
+        where: { id: existing.id },
+        data: {
+          toolRecommendation,
+          compatibilityScore,
+          granularity,
+          extractorModel,
+        }
+      });
+    } else {
+      saved = await db.hardenedPrompt.create({
+        data: {
+          scanId: scanRow.id,
+          modelId,
+          modelName,
+          prompt: promptTextToExtract,
+          toolRecommendation,
+          compatibilityScore,
+          granularity,
+          extractorModel,
+        }
+      });
+    }
+
+    let recObj: any = null;
+    if (saved.toolRecommendation) {
+      try {
+        recObj = JSON.parse(saved.toolRecommendation);
+      } catch {}
+    }
 
     return NextResponse.json({
       originalPrompt: scanRow.systemPrompt,
       hardenedPrompt: saved.prompt,
       modelId: saved.modelId,
       modelName: saved.modelName,
+      toolRecommendation: recObj,
+      compatibilityScore: saved.compatibilityScore,
+      granularity: saved.granularity,
+      extractorModel: saved.extractorModel,
     });
   } catch (error: any) {
-    console.error("Error generating hardened prompt:", error);
-    return new Response("Error generating hardened prompt", { status: 500 });
+    console.error("Error generating/updating hardened prompt:", error);
+    return new Response("Error generating/updating hardened prompt", { status: 500 });
   }
 }

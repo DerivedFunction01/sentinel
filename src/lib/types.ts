@@ -49,6 +49,16 @@ export interface Trial {
   seedTemplate?: string;
 }
 
+export interface ToolRecommendation {
+  compatibilityScore: number;
+  rationale: string;
+  tools: ToolDef[];
+  mockToolResponses: Record<string, unknown>;
+  granularity: "compact" | "detailed";
+  extractorModel: string;
+  extractorModelName: string;
+}
+
 export interface HardenedPrompt {
   id: string;
   scanId: string;
@@ -56,6 +66,10 @@ export interface HardenedPrompt {
   modelName: string;
   prompt: string;
   createdAt: string;
+  toolRecommendation?: ToolRecommendation | null;
+  compatibilityScore?: number | null;
+  granularity?: string | null;
+  extractorModel?: string | null;
 }
 
 /** A complete pentest scan. */

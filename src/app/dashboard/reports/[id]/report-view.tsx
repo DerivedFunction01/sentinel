@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Download,
@@ -12,6 +13,9 @@ import {
   Ban,
   Swords,
   Filter,
+  Sparkles,
+  Layers,
+  HelpCircle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,13 +33,119 @@ import { TrialFilter, TrialVerdict } from "@/lib/enums";
 import type { Scan } from "@/lib/types";
 import { ScanSummary } from "@/components/shared/scan-summary";
 import { CodeHighlight } from "@/components/shared/code-highlight";
+import { GranularityPickerDialog } from "@/components/shared/granularity-picker-dialog";
 
 interface ReportViewProps {
   scan: Scan;
 }
 
 export function ReportView({ scan }: ReportViewProps) {
+  const router = useRouter();
   const [filter, setFilter] = useState<TrialFilter>(TrialFilter.All);
+
+  const [selectedHardenedModel, setSelectedHardenedModel] = useState<string>(
+    scan.hardenerModel || "google/gemini-2.5-flash"
+  );
+  
+  const [currentHardenedPrompt, setCurrentHardenedPrompt] = useState<any>(() => {
+    const active = scan.hardenedPrompts.find((hp) => hp.modelId === (scan.hardenerModel || "google/gemini-2.5-flash"));
+    return active || scan.hardenedPrompts[0] || null;
+  });
+
+  const [models, setModels] = useState<Array<{ id: string; name: string }>>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.models && d.models.length > 0) {
+          setModels(d.models);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const fetchHardenedPrompt = async (modelId: string) => {
+    try {
+      const res = await fetch(`/api/scan/${scan.id}/harden?modelId=${encodeURIComponent(modelId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentHardenedPrompt({
+          modelId: data.modelId,
+          modelName: data.modelName,
+          prompt: data.hardenedPrompt,
+          toolRecommendation: data.toolRecommendation,
+          compatibilityScore: data.compatibilityScore,
+          granularity: data.granularity,
+          extractorModel: data.extractorModel,
+        });
+      }
+    } catch (e) {
+      console.error("Error fetching hardened prompt:", e);
+    }
+  };
+
+  const handleModelChange = (modelId: string) => {
+    setSelectedHardenedModel(modelId);
+    fetchHardenedPrompt(modelId);
+  };
+
+  const handleExtractTools = async (granularity: "compact" | "detailed", extractorModel: string) => {
+    setExtracting(true);
+    const toastId = toast.loading("Analyzing prompt for tool recommendations...");
+    try {
+      const res = await fetch(`/api/scan/${scan.id}/harden`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          modelId: selectedHardenedModel,
+          granularity,
+          extractorModel,
+        }),
+      });
+      if (!res.ok) throw new Error("Extraction failed");
+      const data = await res.json();
+      setCurrentHardenedPrompt({
+        modelId: data.modelId,
+        modelName: data.modelName,
+        prompt: data.hardenedPrompt,
+        toolRecommendation: data.toolRecommendation,
+        compatibilityScore: data.compatibilityScore,
+        granularity: data.granularity,
+        extractorModel: data.extractorModel,
+      });
+      toast.success("Tool recommendation generated!", { id: toastId });
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to extract tools from prompt", { id: toastId });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleApplyToConfig = () => {
+    if (!currentHardenedPrompt?.toolRecommendation) return;
+    const rec = currentHardenedPrompt.toolRecommendation;
+    const preset = {
+      targetModels: [scan.targetModel],
+      attackerModel: scan.attackerModel,
+      judgeModel: scan.judgeModel,
+      prompts: [
+        {
+          systemPrompt: currentHardenedPrompt.prompt,
+          forbiddenTask: scan.forbiddenTask,
+          tools: JSON.stringify(rec.tools),
+          mockResponses: JSON.stringify(rec.mockToolResponses),
+          judgeInstructions: scan.judgeInstructions,
+        }
+      ]
+    };
+    localStorage.setItem("sentinelprompt_scan_preset", JSON.stringify(preset));
+    toast.success("Tool recommendation pre-filled! Redirecting to scanner...");
+    router.push("/dashboard/scan");
+  };
 
   const filteredTrials = scan.trials.filter((t) => {
     if (filter === TrialFilter.All) return true;
@@ -276,12 +386,179 @@ export function ReportView({ scan }: ReportViewProps) {
 
         <Separator />
 
-        {/* ── 02 Trial-by-Trial Breakdown ── */}
+        {/* ── 02 Hardened Prompt & Tool Recommendations ── */}
+        <section id="hardened-prompt" className="space-y-6">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">
+              02 — Hardened System Prompt & Tool Recommendations
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Analyze the hardened system prompt and extract conditional gatekeeper rules into structured tool APIs.
+            </p>
+          </div>
+
+          <Card className="border-border bg-card/60 backdrop-blur-md overflow-hidden">
+            <div className="border-b border-border bg-muted/20 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-400" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Select Hardened Prompt Model:
+                </span>
+                <select
+                  value={selectedHardenedModel}
+                  onChange={(e) => handleModelChange(e.target.value)}
+                  className="rounded-md border border-white/10 bg-background px-3 py-1 text-xs text-foreground focus:border-blue-500 focus:outline-none cursor-pointer"
+                >
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                  {models.length === 0 ? (
+                    <option value={selectedHardenedModel}>{selectedHardenedModel}</option>
+                  ) : null}
+                </select>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPickerOpen(true)}
+                disabled={extracting}
+                className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10 text-xs shrink-0"
+              >
+                {currentHardenedPrompt?.toolRecommendation ? "Re-extract Tools" : "Extract Tools to Schema"}
+              </Button>
+            </div>
+
+            <CardContent className="p-0">
+              <div className="p-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Hardened System Prompt Text</label>
+                  <CodeHighlight
+                    code={currentHardenedPrompt?.prompt || "No hardened prompt generated for this model yet."}
+                    language="plaintext"
+                    className="!p-4 max-h-[300px] overflow-y-auto border border-white/5 rounded-lg"
+                  />
+                </div>
+
+                {currentHardenedPrompt?.toolRecommendation ? (
+                  <div className="mt-6 rounded-xl border border-white/5 bg-slate-950/25 p-5 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-foreground">Tool Migration Recommendation</span>
+                        
+                        {(() => {
+                          const score = currentHardenedPrompt.compatibilityScore ?? 0;
+                          const color = score <= 20 
+                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" 
+                            : score <= 60 
+                              ? "bg-amber-500/15 text-amber-400 border-amber-500/20" 
+                              : "bg-red-500/15 text-red-400 border-red-500/20";
+                          const label = score <= 20 
+                            ? "Prompt is self-contained" 
+                            : score <= 60 
+                              ? "Partial tooling candidate" 
+                              : "Heavy tooling recommended";
+                          return (
+                            <Badge variant="outline" className={`text-[10px] font-medium px-2 py-0.5 ${color}`}>
+                              Score: {score} · {label}
+                            </Badge>
+                          );
+                        })()}
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-white/5 uppercase">
+                          {currentHardenedPrompt.granularity || "compact"}
+                        </span>
+                        <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-white/5">
+                          {currentHardenedPrompt.extractorModel?.split("/").pop() || "gemini-2.5-flash"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-xs font-semibold text-slate-400">Migration Rationale</span>
+                      <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/30 p-3 rounded border border-white/5">
+                        {currentHardenedPrompt.toolRecommendation.rationale || "No rationale provided."}
+                      </p>
+                    </div>
+
+                    {currentHardenedPrompt.toolRecommendation.tools?.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                        <div className="space-y-1.5">
+                          <span className="text-xs font-semibold text-slate-400">Generated Tool Definitions</span>
+                          <CodeHighlight
+                            code={JSON.stringify(currentHardenedPrompt.toolRecommendation.tools, null, 2)}
+                            language="json"
+                            className="text-[11px] p-3 max-h-[220px] overflow-y-auto border border-white/5 rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <span className="text-xs font-semibold text-slate-400">Mock Responses</span>
+                          <CodeHighlight
+                            code={JSON.stringify(currentHardenedPrompt.toolRecommendation.mockToolResponses, null, 2)}
+                            language="json"
+                            className="text-[11px] p-3 max-h-[220px] overflow-y-auto border border-white/5 rounded-lg"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {currentHardenedPrompt.toolRecommendation.tools?.length > 0 && (
+                      <div className="pt-2 flex justify-end">
+                        <Button
+                          size="sm"
+                          onClick={handleApplyToConfig}
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs flex items-center gap-1.5 shadow-[0_4px_12px_rgba(59,130,246,0.3)] transition-all"
+                        >
+                          <Layers className="h-3.5 w-3.5" />
+                          Apply to Scan Configuration
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/5 p-6 text-center space-y-3">
+                    <HelpCircle className="mx-auto h-8 w-8 text-slate-500" />
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-slate-300">No tool recommendation extracted</p>
+                      <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                        Offload complex conditional policy rules in this prompt to a structured JSON tool API. Extract them to increase prompt efficiency.
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPickerOpen(true)}
+                      disabled={extracting}
+                      className="border-slate-800 text-slate-400 hover:text-slate-200 text-xs px-3 py-1"
+                    >
+                      Analyze Prompt for Tools
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <GranularityPickerDialog
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            onConfirm={handleExtractTools}
+            defaultGranularity={currentHardenedPrompt?.granularity as any || "compact"}
+            defaultExtractorModel={currentHardenedPrompt?.extractorModel || "google/gemini-2.5-flash"}
+          />
+        </section>
+
+        <Separator />
+
+        {/* ── 03 Trial-by-Trial Breakdown ── */}
         <section id="trial-breakdown" className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-bold text-foreground">
-                02 — Trial-by-Trial Breakdown
+                03 — Trial-by-Trial Breakdown
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {scan.totalTrials} Trials

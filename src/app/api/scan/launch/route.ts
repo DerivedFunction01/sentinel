@@ -17,6 +17,7 @@ import {
   REWRITE_ASSISTANT_PREFILL,
   getHardenedPromptInstructions,
   getDeterministicHardenedPrompt,
+  getToolExtractionInstructions,
 } from "@/lib/scan-prompts";
 import type { ToolDef, Trial, ToolCall } from "@/lib/types";
 
@@ -297,6 +298,87 @@ export async function POST(req: Request) {
     const hardeningDbModel = dbModels.find((m) => m.id === hardeningModelId);
     const hardeningModelName = hardeningDbModel?.name || hardeningModelId.split("/").pop() || hardeningModelId;
 
+    // Run tool extraction
+    let toolRecommendation: string | null = null;
+    let compatibilityScore: number | null = null;
+    const granularity = "compact"; // Default is compact on launch
+    const extractorModel = "google/gemini-2.5-flash"; // Default extractor model
+
+    try {
+      const queryTags: string[] = [];
+      const promptLower = hardenedPrompt.toLowerCase();
+      const tagKeywords: Record<string, string[]> = {
+        discount: ["discount", "rebate", "coupon", "offer", "promo"],
+        offer: ["offer", "promotion", "promo"],
+        loyalty: ["loyalty", "reward", "point", "membership"],
+        pricing: ["pricing", "price", "plan", "tier", "subscription"],
+        payment: ["payment", "checkout", "transaction", "pay"],
+        competitor: ["competitor", "comparison", "compare", "alternative"],
+        auth: ["auth", "login", "role", "permission", "approve", "credentials"],
+        information: ["info", "detail", "lookup", "database"],
+      };
+
+      for (const [tag, words] of Object.entries(tagKeywords)) {
+        if (words.some((word) => promptLower.includes(word))) {
+          queryTags.push(tag);
+        }
+      }
+
+      let referenceExamples: any[] = [];
+      if (queryTags.length > 0) {
+        const examples = await db.toolSchemaExample.findMany({
+          where: { granularity },
+        });
+        referenceExamples = examples
+          .filter((ex) => {
+            try {
+              const parsedTags = JSON.parse(ex.tags) as string[];
+              return parsedTags.some((t) => queryTags.includes(t));
+            } catch {
+              return false;
+            }
+          })
+          .slice(0, 3);
+      }
+
+      const extractionInstructions = getToolExtractionInstructions(
+        hardenedPrompt,
+        forbiddenTask,
+        granularity,
+        referenceExamples
+      );
+
+      const extractResponse = await callOpenRouter(
+        extractorModel,
+        [{ role: "user", content: extractionInstructions }],
+        undefined,
+        tracker
+      );
+
+      const extractContent = (extractResponse.content || "").trim();
+      const cleanExtract = extractContent
+        .replace(/^```[a-zA-Z]*\n/g, "")
+        .replace(/\n```$/g, "")
+        .trim();
+
+      const parsedRecommendation = JSON.parse(cleanExtract);
+      compatibilityScore =
+        typeof parsedRecommendation.compatibilityScore === "number"
+          ? parsedRecommendation.compatibilityScore
+          : 0;
+
+      const dbExtractorModel = dbModels.find((m) => m.id === extractorModel);
+      parsedRecommendation.extractorModel = extractorModel;
+      parsedRecommendation.extractorModelName =
+        dbExtractorModel?.name ||
+        extractorModel.split("/").pop() ||
+        extractorModel;
+
+      toolRecommendation = JSON.stringify(parsedRecommendation);
+    } catch (err) {
+      console.error("Error during tool extraction on launch:", err);
+    }
+
     await db.scan.create({
       data: {
         reportId,
@@ -323,6 +405,10 @@ export async function POST(req: Request) {
             modelId: hardeningModelId,
             modelName: hardeningModelName,
             prompt: hardenedPrompt,
+            toolRecommendation,
+            compatibilityScore,
+            granularity,
+            extractorModel,
           }
         },
         apiCost: tracker.totalCost,

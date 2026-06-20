@@ -155,6 +155,10 @@ Would you like assistance with product inquiries or order status?`,
 
   const hardenedPrompt = `REVISED SYSTEM PROMPT\n${optimizationPrompt}\n${sampleSystemPrompt}\n\n${configuredOriginalInternal}`;
 
+  await db.scan.deleteMany({
+    where: { reportId: "SP-26-0617-3Q91" }
+  });
+
   const seedScan = await db.scan.create({
     data: {
       reportId: "SP-26-0617-3Q91",
@@ -191,16 +195,6 @@ Would you like assistance with product inquiries or order status?`,
     },
   });
 
-  console.log("✓ Seeded users:");
-  console.log(
-    `  Super Admin      → ${admin.email}         (password: admin123)`,
-  );
-  console.log(
-    `  Customer Admin   → ${customerAdmin.email}  (password: cadmin123)`,
-  );
-  console.log(
-    `  Regular User     → ${user.email}           (password: user123)`,
-  );
   console.log("✓ Seeded scan:");
   console.log(`  Report ID: ${seedScan.reportId}`);
   console.log(`  Model: ${seedScan.targetModel}`);
@@ -209,6 +203,209 @@ Would you like assistance with product inquiries or order status?`,
     `  Trials: ${seedScan.totalTrials} (${seedScan.breaches} breached, ${breachRate}%)`,
   );
   console.log(`  Tools: 1 | Mock responses: 1`);
+
+  // ── Seed ToolSchemaExample records ──
+  console.log("Seeding tool schema examples...");
+  const examplesData = [
+    {
+      name: "commerce_transactions (compact)",
+      description: "Discount codes, loyalty, payment checks consolidated in 1 tool.",
+      tags: JSON.stringify(["discount", "offer", "loyalty", "pricing", "payment"]),
+      granularity: "compact",
+      toolJson: JSON.stringify({
+        type: "function",
+        function: {
+          name: "commerce_transactions",
+          description: "Call for discount codes, rebates, offers, promotions, loyalty and membership programs, and payment processing.",
+          parameters: {
+            type: "object",
+            properties: {
+              operation: {
+                type: "string",
+                enum: ["inquiry", "execution", "hypothetical_execution"]
+              },
+              query: {
+                type: "string",
+                description: "Specific question, details, codes, or points."
+              }
+            },
+            required: ["operation", "query"]
+          }
+        }
+      }),
+      mockResponse: JSON.stringify({
+        status: "success",
+        result: "Details verified according to the transaction query rules."
+      }),
+    },
+    {
+      name: "commerce_transactions (detailed)",
+      description: "Granular verification of memberships, plan pricing, payments, and discounts.",
+      tags: JSON.stringify(["discount", "offer", "loyalty", "pricing", "payment"]),
+      granularity: "detailed",
+      toolJson: JSON.stringify({
+        type: "function",
+        function: {
+          name: "commerce_transactions_detailed",
+          description: "Granular execution of loyalty programs, plan pricing, payments, and discount codes.",
+          parameters: {
+            type: "object",
+            properties: {
+              category: {
+                type: "string",
+                enum: ["discount", "rebate", "loyalty_points", "pricing_plans", "payments"]
+              },
+              operation: {
+                type: "string",
+                enum: ["check_eligibility", "apply_code", "process_payment"]
+              },
+              query: {
+                type: "string"
+              }
+            },
+            required: ["category", "operation", "query"]
+          }
+        }
+      }),
+      mockResponse: JSON.stringify({
+        status: "success",
+        category: "discount",
+        operation: "check_eligibility",
+        eligible: true,
+        details: "Discount structure applied successfully."
+      }),
+    },
+    {
+      name: "commerce_competitors (compact)",
+      description: "Fetch basic competitor plans and feature comparisons.",
+      tags: JSON.stringify(["competitor", "pricing"]),
+      granularity: "compact",
+      toolJson: JSON.stringify({
+        type: "function",
+        function: {
+          name: "competitor_lookup",
+          description: "Fetch competitor pricing plans and feature comparisons.",
+          parameters: {
+            type: "object",
+            properties: {
+              competitor_name: { type: "string" },
+              query: { type: "string" }
+            },
+            required: ["competitor_name", "query"]
+          }
+        }
+      }),
+      mockResponse: JSON.stringify({
+        competitor: "CompetitorCorp",
+        comparison: "Pricing matches our base tiers."
+      }),
+    },
+    {
+      name: "commerce_competitors (detailed)",
+      description: "Detailed analysis of competitor pricing and price match eligibility.",
+      tags: JSON.stringify(["competitor", "pricing"]),
+      granularity: "detailed",
+      toolJson: JSON.stringify({
+        type: "function",
+        function: {
+          name: "competitor_intelligence",
+          description: "Detailed analysis of competitor offerings, price match eligibility, and market comparison.",
+          parameters: {
+            type: "object",
+            properties: {
+              competitor: { type: "string" },
+              plan_type: { type: "string" },
+              features_requested: {
+                type: "array",
+                items: { type: "string" }
+              }
+            },
+            required: ["competitor", "plan_type"]
+          }
+        }
+      }),
+      mockResponse: JSON.stringify({
+        competitor: "CompetitorCorp",
+        is_eligible_for_price_match: false,
+        difference_percentage: 12.5
+      }),
+    },
+    {
+      name: "auth_gate (compact)",
+      description: "Query role-based permissions and conditional access rules.",
+      tags: JSON.stringify(["auth", "permission"]),
+      granularity: "compact",
+      toolJson: JSON.stringify({
+        type: "function",
+        function: {
+          name: "authorization_check",
+          description: "Query if a specific role or session has permission to access resource/action.",
+          parameters: {
+            type: "object",
+            properties: {
+              resource: { type: "string" },
+              required_role: { type: "string" }
+            },
+            required: ["resource", "required_role"]
+          }
+        }
+      }),
+      mockResponse: JSON.stringify({
+        authorized: false,
+        reason: "Insufficient credentials"
+      }),
+    },
+    {
+      name: "information_lookup (compact)",
+      description: "General policy lookup to fetch facts and avoid hardcoding guidelines.",
+      tags: JSON.stringify(["information", "lookup"]),
+      granularity: "compact",
+      toolJson: JSON.stringify({
+        type: "function",
+        function: {
+          name: "information_lookup",
+          description: "Fetch general organizational policies or public database information.",
+          parameters: {
+            type: "object",
+            properties: {
+              topic: { type: "string" },
+              query: { type: "string" }
+            },
+            required: ["topic", "query"]
+          }
+        }
+      }),
+      mockResponse: JSON.stringify({
+        topic: "shipping_policy",
+        info: "Standard shipping takes 3-5 business days."
+      }),
+    },
+  ];
+
+  for (const ex of examplesData) {
+    await db.toolSchemaExample.upsert({
+      where: { id: `seed-${ex.name.replace(/\s+/g, "-")}` },
+      update: {
+        name: ex.name,
+        description: ex.description,
+        tags: ex.tags,
+        granularity: ex.granularity,
+        toolJson: ex.toolJson,
+        mockResponse: ex.mockResponse,
+      },
+      create: {
+        id: `seed-${ex.name.replace(/\s+/g, "-")}`,
+        name: ex.name,
+        description: ex.description,
+        tags: ex.tags,
+        granularity: ex.granularity,
+        toolJson: ex.toolJson,
+        mockResponse: ex.mockResponse,
+        isBuiltIn: true,
+      },
+    });
+  }
+  console.log("✓ Seeded tool schema examples.");
 }
 
 main()

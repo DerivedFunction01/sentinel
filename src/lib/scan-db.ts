@@ -42,6 +42,10 @@ export function deserializeScan(row: {
     modelId: string;
     modelName: string;
     prompt: string;
+    toolRecommendation?: string | null;
+    compatibilityScore?: number | null;
+    granularity?: string | null;
+    extractorModel?: string | null;
     createdAt: Date;
   }>;
   status: string;
@@ -104,18 +108,30 @@ export function deserializeScan(row: {
     status: row.status as ScanStatus,
     summary: row.summary,
     summaryDetail: row.summaryDetail,
-    hardenedPrompts: (row.hardenedPrompts || []).map((hp) => ({
-      id: hp.id,
-      scanId: hp.scanId,
-      modelId: hp.modelId,
-      modelName: hp.modelName,
-      prompt: hp.prompt,
-      createdAt: hp.createdAt.toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      }),
-    })),
+    hardenedPrompts: (row.hardenedPrompts || []).map((hp) => {
+      let recObj: any = null;
+      if (hp.toolRecommendation) {
+        try {
+          recObj = JSON.parse(hp.toolRecommendation);
+        } catch {}
+      }
+      return {
+        id: hp.id,
+        scanId: hp.scanId,
+        modelId: hp.modelId,
+        modelName: hp.modelName,
+        prompt: hp.prompt,
+        toolRecommendation: recObj,
+        compatibilityScore: hp.compatibilityScore,
+        granularity: hp.granularity,
+        extractorModel: hp.extractorModel,
+        createdAt: hp.createdAt.toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        }),
+      };
+    }),
     apiCost: (row as any).apiCost || 0,
     modelName: "",          // filled by caller via lookupModelNames
     attackerModelName: "",  // filled by caller via lookupModelNames

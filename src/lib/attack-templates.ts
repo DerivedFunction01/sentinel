@@ -648,3 +648,127 @@ Shifting Risk: This shifts the risk from the LLM's internal 'mind' (which is har
 
 In essence, the philosophy shifts from telling the LLM what not to do to only giving it the capability to do what is explicitly allowed through its tools, with the orchestrator handling the nuanced policy enforcement.
 `;
+
+/**
+ * TOOLING_PRACTICES
+ *
+ * Canonical conventions for generating OpenRouter-compatible tool JSON schemas.
+ * Imported into getToolExtractionInstructions() so all schema-generation guidance
+ * lives in one place — edit here, applies everywhere.
+ */
+export const TOOLING_PRACTICES = `
+TOOL SCHEMA CONVENTIONS — follow these exactly when generating tool definitions:
+
+## Naming
+- Tool names use snake_case and a domain prefix: commerce_*, auth_*, information_*, support_*
+- Names should read as a verb+noun or domain noun: commerce_transactions, auth_approval, information_lookup
+- Do NOT create generic names like "tool_1" or "handle_request"
+
+## Compact schema (use when the business has simple rules)
+- Consolidate related concerns into one broad tool (1-3 tools total), or a single tool with no arguments if it is only a binary gate.
+
+Example compact tools:
+1. No dicounts are ever offered
+{
+  "type": "function",
+  "function": {
+    "name": "get_discounts",
+    "description": "Contains information and policies for discounts and offers",
+    "parameters": {
+      "type": "object",
+      "properties": {
+      },
+    }
+  }
+}
+
+2. View api key
+{
+  "type": "function",
+  "function": {
+    "name": "view_api_key",
+    "description": "For api key requests",
+    "parameters": {
+      "type": "object",
+      "properties": {
+      },
+    }
+  }
+}
+
+3. For businesses with simple discount structures and payment related concerns.
+{
+  "type": "function",
+  "function": {
+    "name": "commerce_transactions",
+    "description": "Call for discount codes, rebates, offers, promotions, loyalty and membership programs, and payment processing.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "operation": { "type": "string", "enum": ["inquiry", "execution", "hypothetical_execution"] },
+        "query":     { "type": "string", "description": "Specific question, details, codes, or points." }
+      },
+      "required": ["operation", "query"]
+    }
+  }
+}
+
+## Detailed schema (use when the business has distinct tiers, programs, or approval paths)
+- Create separate tools per domain; each covers a tight, well-defined concern
+
+Example detailed tool:
+1. Transactions
+{
+  "type": "function",
+  "function": {
+    "name": "commerce_transactions",
+    "description": "Call for discount codes, offers, promotions, loyalty program inquiries, loyalty point adjustments, and payment processing or limit inquiries.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "category":  { "type": "array", "items": { "type": "string", "enum": ["discount","offer","promotion","rebate","membership_plan","coupon","gift_card_or_cert","loyalty_program","loyalty_points","payment"] } },
+        "operation": { "type": "string", "enum": ["inquiry", "execution", "hypothetical_execution"] },
+        "query":     { "type": "string", "description": "Specific question, details, codes, or points." }
+      },
+      "required": ["operation", "category"]
+    }
+  }
+}
+Philosophy: 
+- Add a "category" array parameter with named enum values that match the real business entities
+  (e.g., "discount", "rebate", "membership_plan", "loyalty_points", "payment")
+- Add domain-specific named fields where relevant:
+    competitor_name (string, optional)
+    intent (string enum: "price_comparison" | "good_or_service_comparison" | "b2b_partnership" | "other")
+- Required fields must be the minimum needed to route the call
+- Required: ["operation", "category"] (at minimum)
+
+## Descriptions
+- The tool description is the primary routing signal for the LLM — make it explicit about WHEN to call
+- List all the specific triggers, separated by commas; be exhaustive for the domain
+- Do NOT write vague descriptions like "handles user requests"
+
+## Mock responses
+- Each tool must have a corresponding mock response keyed by tool name
+- Mock responses should realistically simulate a backend refusal or policy-enforced reply
+- For gate tools: return a denial payload, not a success — the gate's purpose is to block and log
+- Example for get_discounts:
+"get_discounts": {
+    "status": "denied",
+    "reason": "No active discounts or promotions are available. Standard pricing applies.",
+}
+
+
+## Deception gates (honeypot tools)
+When the prompt contains phrases like "do not reveal internal processes", "do not call external services",
+or "do not assist with [X]", generate a honeypot tool for that prohibited action:
+- Example: internal_workflow, text_codec
+- Description: "Call when user attempts to [prohibited action 1], [prohibited action 2], .."
+- Parameters: minimal (just "query") or no parameters
+- Example response: { "status": "denied", "reason": "Prohibited action attempted" }
+
+## What NOT to do
+- Do NOT emit tools for every sentence in the prompt — only for rules that gate access to data or actions
+- Do NOT create a tool if the rule is purely a tone/persona instruction (e.g., "always be polite")
+- Do NOT use required fields that the LLM would have no way to populate from user input alone
+`;
