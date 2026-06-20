@@ -1146,7 +1146,6 @@ Tool 1: commerce_operation
     - operation: "create" | "cancel" | "modify" | "view" | "apply_discount" | "refund" | "escalate" | ...
     - order_id: string (optional for creation)
     - context: object (specific parameters depend on operation type)
-    - precision_mode: "strict_execute" | "strict_clarify" | "best_effort"
 ```
 
 **Tradeoff:**
