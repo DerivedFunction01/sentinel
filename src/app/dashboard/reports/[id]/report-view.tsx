@@ -129,12 +129,12 @@ export function ReportView({ scan }: ReportViewProps) {
     if (!currentHardenedPrompt?.toolRecommendation) return;
     const rec = currentHardenedPrompt.toolRecommendation;
     
-    let toolsList: any[] = [];
-    let mockResponsesDict: any = {};
+    let recommendedTools: any[] = [];
+    let recommendedMocks: any = {};
 
     if (Array.isArray(rec.tools)) {
-      toolsList = rec.tools.map((t: any) => t.toolJson || t);
-      mockResponsesDict = rec.tools.reduce((acc: any, t: any) => {
+      recommendedTools = rec.tools.map((t: any) => t.toolJson || t);
+      recommendedMocks = rec.tools.reduce((acc: any, t: any) => {
         const name = t.name || t.toolJson?.function?.name;
         if (name) {
           acc[name] = t.mockResponse || {};
@@ -142,9 +142,51 @@ export function ReportView({ scan }: ReportViewProps) {
         return acc;
       }, {});
     } else {
-      toolsList = rec.tools || [];
-      mockResponsesDict = rec.mockToolResponses || {};
+      recommendedTools = rec.tools || [];
+      recommendedMocks = rec.mockToolResponses || {};
     }
+
+    // Parse existing tools
+    let existingTools: any[] = [];
+    if (Array.isArray(scan.tools)) {
+      existingTools = [...scan.tools];
+    } else if (typeof scan.tools === "string") {
+      try {
+        existingTools = JSON.parse(scan.tools);
+      } catch {}
+    }
+
+    // Parse existing mocks
+    let existingMocks: any = {};
+    if (scan.mockToolResponses && typeof scan.mockToolResponses === "object") {
+      existingMocks = { ...scan.mockToolResponses };
+    } else if (typeof scan.mockToolResponses === "string") {
+      try {
+        existingMocks = JSON.parse(scan.mockToolResponses);
+      } catch {}
+    }
+
+    // Merge by tool name
+    const mergedToolsMap = new Map<string, any>();
+    for (const tool of existingTools) {
+      const name = tool.function?.name;
+      if (name) {
+        mergedToolsMap.set(name, tool);
+      }
+    }
+    for (const tool of recommendedTools) {
+      const name = tool.function?.name;
+      if (name) {
+        mergedToolsMap.set(name, tool);
+      }
+    }
+    const toolsList = Array.from(mergedToolsMap.values());
+
+    // Merge mocks
+    const mockResponsesDict = {
+      ...existingMocks,
+      ...recommendedMocks
+    };
 
     const preset = {
       targetModels: [scan.targetModel],

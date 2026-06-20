@@ -5,7 +5,7 @@ import {
   getDeterministicHardenedPrompt,
   getHardenedPromptInstructions,
 } from "@/lib/scan-prompts";
-import { generateToolRecommendation } from "@/lib/tool-extractor";
+import { generateToolRecommendation, parseSectionedRecommendation } from "@/lib/tool-extractor";
 import { callOpenRouter } from "@/app/api/scan/launch/route";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
@@ -114,7 +114,7 @@ export async function POST(
     const granularity = body.granularity || "compact";
     const extractorModel = body.extractorModel || "google/gemini-2.5-flash";
 
-    // Check if this model's hardened prompt already exists
+    // Check if this model's hardened prompt record already exists
     const existing = await db.hardenedPrompt.findUnique({
       where: {
         scanId_modelId: {
@@ -124,46 +124,13 @@ export async function POST(
       }
     });
 
-    let promptTextToExtract = "";
-    let modelName = "";
+    const dbModel = await db.model.findUnique({ where: { id: modelId } });
+    const modelName = dbModel?.name || modelId.split("/").pop() || modelId;
 
-    if (existing) {
-      promptTextToExtract = existing.prompt;
-      modelName = existing.modelName;
-    } else {
-      const dbModel = await db.model.findUnique({ where: { id: modelId } });
-      modelName = dbModel?.name || modelId.split("/").pop() || modelId;
-
-      const trials = JSON.parse(scanRow.trials);
-      const breachedAttacks = trials
-        .filter((t: any) => t.verdict === TrialVerdict.Breached)
-        .map((t: any) => t.attack);
-
-      const systemInstructions = getHardenedPromptInstructions(
-        scanRow.systemPrompt,
-        scanRow.forbiddenTask,
-        breachedAttacks
-      );
-
-      try {
-        const response = await callOpenRouter(modelId, [
-          { role: "user", content: systemInstructions }
-        ]);
-        promptTextToExtract = response.content || "";
-        promptTextToExtract = promptTextToExtract
-          .replace(/^```[a-zA-Z]*\n/g, "")
-          .replace(/\n```$/g, "")
-          .trim();
-      } catch (err) {
-        console.error("Error generating hardened prompt via API:", err);
-        promptTextToExtract = getDeterministicHardenedPrompt(scanRow.systemPrompt, scanRow.forbiddenTask);
-      }
-    }
-
-    // Run tool extraction
+    // Run tool extraction first on the original system prompt
     const existingTools = scanRow.tools ? (JSON.parse(scanRow.tools) as ToolDef[]) : [];
     const { toolRecommendation, compatibilityScore } = await generateToolRecommendation(
-      promptTextToExtract,
+      scanRow.systemPrompt,
       scanRow.forbiddenTask,
       granularity,
       extractorModel,
@@ -172,11 +139,44 @@ export async function POST(
       existingTools
     );
 
+    // Parse recommended tools to pass to prompt hardener
+    const recommendedToolsList = toolRecommendation
+      ? parseSectionedRecommendation(toolRecommendation)
+      : [];
+
+    const trials = JSON.parse(scanRow.trials);
+    const breachedAttacks = trials
+      .filter((t: any) => t.verdict === TrialVerdict.Breached)
+      .map((t: any) => t.attack);
+
+    const systemInstructions = getHardenedPromptInstructions(
+      scanRow.systemPrompt,
+      scanRow.forbiddenTask,
+      breachedAttacks,
+      recommendedToolsList
+    );
+
+    let promptTextToExtract = "";
+    try {
+      const response = await callOpenRouter(modelId, [
+        { role: "user", content: systemInstructions }
+      ]);
+      promptTextToExtract = response.content || "";
+      promptTextToExtract = promptTextToExtract
+        .replace(/^```[a-zA-Z]*\n/g, "")
+        .replace(/\n```$/g, "")
+        .trim();
+    } catch (err) {
+      console.error("Error generating hardened prompt via API:", err);
+      promptTextToExtract = getDeterministicHardenedPrompt(scanRow.systemPrompt, scanRow.forbiddenTask);
+    }
+
     let saved;
     if (existing) {
       saved = await db.hardenedPrompt.update({
         where: { id: existing.id },
         data: {
+          prompt: promptTextToExtract,
           toolRecommendation,
           compatibilityScore,
           granularity,

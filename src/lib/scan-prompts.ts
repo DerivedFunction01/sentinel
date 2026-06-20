@@ -155,7 +155,30 @@ export function getHardenedPromptInstructions(
   systemPrompt: string,
   forbiddenTask: string,
   breachedAttacks: string[],
+  recommendedTools?: any[],
 ): string {
+  let toolsBlock = "";
+  if (recommendedTools && recommendedTools.length > 0) {
+    toolsBlock = `\nWe have configured/generated the following tool definitions to handle the forbidden task constraints dynamically:
+<available_tools>
+${JSON.stringify(
+  recommendedTools.map((t) => {
+    const toolObj = t.toolJson || t;
+    const fn = toolObj.function;
+    return {
+      name: t.name || fn?.name || toolObj.name,
+      description: fn?.description || toolObj.description,
+    };
+  }),
+  null,
+  2,
+)}
+</available_tools>
+
+Since these tools are configured to enforce the restrictions, do NOT write system prompt guardrails that hardcode direct refusals, policies, or specific answers (such as "firmly restate that no discounts can be offered" or "always say no"). 
+Instead, instruct the LLM to call the appropriate tool when the forbidden task or related inquiries arise. The prompt guardrails should solely instruct the LLM to call the tool and follow its output, avoiding duplicate or conflicting instructions.`;
+  }
+
   return `You are an expert security engineer specializing in LLM system prompt hardening.
 Your task is to produce a hardened version of the system prompt below that is resilient to adversarial jailbreak attempts.
 
@@ -163,6 +186,7 @@ Here is the current system prompt:
 <system_prompt>
 ${systemPrompt}
 </system_prompt>
+${toolsBlock}
 
 The forbidden task — what the assistant must NEVER do, help with, or reveal:
 <forbidden_task>

@@ -18,7 +18,7 @@ import {
   getHardenedPromptInstructions,
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
-import { generateToolRecommendation } from "@/lib/tool-extractor";
+import { generateToolRecommendation, parseSectionedRecommendation } from "@/lib/tool-extractor";
 import type { ToolDef, Trial, ToolCall } from "@/lib/types";
 
 export interface UsageTracker {
@@ -265,6 +265,25 @@ export async function POST(req: Request) {
 
     const modelShort = targetModel.split("/").pop() || targetModel;
 
+    // Run tool extraction
+    const granularity = "compact"; // Default is compact on launch
+    const extractorModel = "google/gemini-2.5-flash"; // Default extractor model
+
+    const { toolRecommendation, compatibilityScore } = await generateToolRecommendation(
+      systemPrompt,
+      forbiddenTask,
+      granularity,
+      extractorModel,
+      tracker,
+      undefined,
+      tools
+    );
+
+    // Parse recommended tools to pass to prompt hardener
+    const recommendedToolsList = toolRecommendation
+      ? parseSectionedRecommendation(toolRecommendation)
+      : [];
+
     // Auto-generate the hardened prompt for this scan
     const breachedAttacks = trials
       .filter((t) => t.verdict === TrialVerdict.Breached)
@@ -274,6 +293,7 @@ export async function POST(req: Request) {
       systemPrompt,
       forbiddenTask,
       breachedAttacks,
+      recommendedToolsList,
     );
 
     let hardenedPrompt = "";
@@ -303,20 +323,6 @@ export async function POST(req: Request) {
       hardeningDbModel?.name ||
       hardeningModelId.split("/").pop() ||
       hardeningModelId;
-
-    // Run tool extraction
-    const granularity = "compact"; // Default is compact on launch
-    const extractorModel = "google/gemini-2.5-flash"; // Default extractor model
-
-    const { toolRecommendation, compatibilityScore } = await generateToolRecommendation(
-      hardenedPrompt,
-      forbiddenTask,
-      granularity,
-      extractorModel,
-      tracker,
-      undefined,
-      tools
-    );
 
     await db.scan.create({
       data: {

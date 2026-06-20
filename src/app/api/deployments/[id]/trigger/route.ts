@@ -278,7 +278,10 @@ export async function POST(
 
     const hardeningModelId = hardenerModel;
     const hardeningDbModel = dbModels.find((m) => m.id === hardeningModelId);
-    const hardeningModelName = hardeningDbModel?.name || hardeningModelId.split("/").pop() || hardeningModelId;
+    const hardeningModelName =
+      hardeningDbModel?.name ||
+      hardeningModelId.split("/").pop() ||
+      hardeningModelId;
 
     await db.scan.create({
       data: {
@@ -306,7 +309,7 @@ export async function POST(
             modelId: hardeningModelId,
             modelName: hardeningModelName,
             prompt: hardenedPrompt,
-          }
+          },
         },
         apiCost: tracker.totalCost,
         status: ScanStatus.Completed,
