@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { authenticateRequest } from "@/lib/auth-utils";
 
 /**
  * GET /api/deployments
  * Returns all active deployment profiles for the logged-in user.
  */
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  const authUser = await authenticateRequest(req);
+  if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const deployments = await db.deployment.findMany({
-      where: { userId: session.user.id },
+      where: { userId: authUser.userId },
       orderBy: { createdAt: "desc" },
     });
 
@@ -37,8 +36,8 @@ export async function GET(req: Request) {
  * Saves a new scan configuration as a triggerable deployment profile.
  */
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  const authUser = await authenticateRequest(req);
+  if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -80,7 +79,7 @@ export async function POST(req: Request) {
         tools: typeof tools === "string" ? tools : JSON.stringify(tools || []),
         mockToolResponses: typeof mockToolResponses === "string" ? mockToolResponses : JSON.stringify(mockToolResponses || {}),
         status: "ACTIVE",
-        userId: session.user.id,
+        userId: authUser.userId,
       },
     });
 

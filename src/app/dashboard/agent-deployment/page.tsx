@@ -20,6 +20,7 @@ import {
   Code2,
   ExternalLink,
   CheckCircle2,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { CodeHighlight } from "@/components/shared/code-highlight";
+import { SdkDocs } from "@/components/shared/sdk-docs";
 import { toast } from "sonner";
 import { findDefaultModel } from "@/lib/scan-prompts";
 import {
@@ -81,6 +83,9 @@ export default function AgentDeploymentPage() {
   const [deploying, setDeploying] = useState(false);
   const [triggeringId, setTriggeringId] = useState<string | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  
+  // Editing state
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Fetch deployments and api keys
   const fetchDeployments = async () => {
@@ -132,6 +137,31 @@ export default function AgentDeploymentPage() {
       .catch(() => {});
   }, []);
 
+  const handleStartEdit = (dep: Deployment) => {
+    setEditingId(dep.id);
+    setName(dep.name);
+    setTargetModel(dep.targetModel);
+    setAttackerModel(dep.attackerModel);
+    setJudgeModel(dep.judgeModel);
+    setSystemPrompt(dep.systemPrompt);
+    setForbiddenTask(dep.forbiddenTask);
+    setJudgeInstructions(dep.judgeInstructions);
+    setTools(dep.tools);
+    setMockResponses(dep.mockToolResponses);
+    toast.info(`Editing deployment profile: "${dep.name}"`);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setName("");
+    setSystemPrompt("");
+    setForbiddenTask("");
+    setJudgeInstructions("");
+    setTools("");
+    setMockResponses("");
+    toast.info("Cancelled editing mode");
+  };
+
   const handleDeploy = async () => {
     if (!name.trim()) {
       toast.error("Enter a deployment name");
@@ -154,47 +184,98 @@ export default function AgentDeploymentPage() {
     }
 
     setDeploying(true);
-    toast.info("Creating deployment profile…");
 
-    try {
-      const res = await fetch("/api/deployments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          targetModel,
-          attackerModel,
-          judgeModel,
-          systemPrompt,
-          forbiddenTask,
-          judgeInstructions,
-          tools,
-          mockToolResponses: mockResponses,
-        }),
-      });
+    if (editingId) {
+      toast.info("Saving changes to deployment profile…");
+      try {
+        const res = await fetch(`/api/deployments/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: name.trim(),
+            targetModel,
+            attackerModel,
+            judgeModel,
+            systemPrompt,
+            forbiddenTask,
+            judgeInstructions,
+            tools,
+            mockToolResponses: mockResponses,
+          }),
+        });
 
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error || "Failed to create deployment");
-        return;
-      }
-
-      toast.success("Deployment profile created successfully!");
-      setName("");
-      // Refresh list
-      const updatedRes = await fetch("/api/deployments");
-      const updatedData = await updatedRes.json();
-      if (updatedRes.ok && updatedData.deployments) {
-        setDeployments(updatedData.deployments);
-        const newDep = updatedData.deployments.find((d: any) => d.id === data.deployment.id);
-        if (newDep) {
-          setSelectedDeployment(newDep);
+        const data = await res.json();
+        if (!res.ok) {
+          toast.error(data.error || "Failed to update deployment");
+          return;
         }
+
+        toast.success("Deployment profile updated successfully!");
+        setEditingId(null);
+        setName("");
+        setSystemPrompt("");
+        setForbiddenTask("");
+        setJudgeInstructions("");
+        setTools("");
+        setMockResponses("");
+
+        // Refresh list
+        const updatedRes = await fetch("/api/deployments");
+        const updatedData = await updatedRes.json();
+        if (updatedRes.ok && updatedData.deployments) {
+          setDeployments(updatedData.deployments);
+          const currentDep = updatedData.deployments.find((d: any) => d.id === editingId);
+          if (currentDep) {
+            setSelectedDeployment(currentDep);
+          }
+        }
+      } catch {
+        toast.error("Something went wrong");
+      } finally {
+        setDeploying(false);
       }
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setDeploying(false);
+    } else {
+      toast.info("Creating deployment profile…");
+      try {
+        const res = await fetch("/api/deployments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: name.trim(),
+            targetModel,
+            attackerModel,
+            judgeModel,
+            systemPrompt,
+            forbiddenTask,
+            judgeInstructions,
+            tools,
+            mockToolResponses: mockResponses,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          toast.error(data.error || "Failed to create deployment");
+          return;
+        }
+
+        toast.success("Deployment profile created successfully!");
+        setName("");
+        // Refresh list
+        const updatedRes = await fetch("/api/deployments");
+        const updatedData = await updatedRes.json();
+        if (updatedRes.ok && updatedData.deployments) {
+          setDeployments(updatedData.deployments);
+          const newDep = updatedData.deployments.find((d: any) => d.id === data.deployment.id);
+          if (newDep) {
+            setSelectedDeployment(newDep);
+          }
+        }
+      } catch {
+        toast.error("Something went wrong");
+      } finally {
+        setDeploying(false);
+      }
     }
   };
 
@@ -413,7 +494,7 @@ export default function AgentDeploymentPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex flex-wrap gap-2 pt-2">
                   <Button
                     className="flex-1 bg-blue-600 hover:bg-blue-700"
                     size="sm"
@@ -431,6 +512,15 @@ export default function AgentDeploymentPage() {
                         Run Scan
                       </>
                     )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-border text-foreground hover:bg-muted"
+                    size="sm"
+                    onClick={() => handleStartEdit(selectedDeployment)}
+                  >
+                    <SettingsIcon className="mr-1.5 h-3.5 w-3.5" />
+                    Edit Config
                   </Button>
                   <Button
                     variant="outline"
@@ -452,10 +542,10 @@ export default function AgentDeploymentPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Rocket className="h-4 w-4 text-blue-400" />
-                Create New Profile
+                {editingId ? `Edit Profile: ${deployments.find(d => d.id === editingId)?.name || ""}` : "Create New Profile"}
               </CardTitle>
               <CardDescription>
-                Define the models, prompts, and options for this deployment profile.
+                {editingId ? "Update settings and prompt configurations for this profile." : "Define the models, prompts, and options for this deployment profile."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -556,7 +646,17 @@ export default function AgentDeploymentPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end gap-3 pt-4">
+                {editingId && (
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                    disabled={deploying}
+                    className="w-full sm:w-auto"
+                  >
+                    Cancel Edit
+                  </Button>
+                )}
                 <Button
                   onClick={handleDeploy}
                   disabled={deploying}
@@ -565,12 +665,12 @@ export default function AgentDeploymentPage() {
                   {deploying ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deploying Profile...
+                      {editingId ? "Saving Changes..." : "Deploying Profile..."}
                     </>
                   ) : (
                     <>
                       <Rocket className="mr-2 h-4 w-4" />
-                      Create Deployment
+                      {editingId ? "Save Changes" : "Create Deployment"}
                     </>
                   )}
                 </Button>
@@ -579,6 +679,15 @@ export default function AgentDeploymentPage() {
           </Card>
         </div>
       </div>
+
+      {selectedDeployment && (
+        <div className="mt-8 border-t border-border pt-8">
+          <SdkDocs
+            apiKey={apiKeys.length > 0 ? `${apiKeys[0].keyPrefix}...` : ""}
+            deploymentId={selectedDeployment.id}
+          />
+        </div>
+      )}
     </div>
   );
 }
