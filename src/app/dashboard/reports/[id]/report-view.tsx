@@ -128,6 +128,24 @@ export function ReportView({ scan }: ReportViewProps) {
   const handleApplyToConfig = () => {
     if (!currentHardenedPrompt?.toolRecommendation) return;
     const rec = currentHardenedPrompt.toolRecommendation;
+    
+    let toolsList: any[] = [];
+    let mockResponsesDict: any = {};
+
+    if (Array.isArray(rec.tools)) {
+      toolsList = rec.tools.map((t: any) => t.toolJson || t);
+      mockResponsesDict = rec.tools.reduce((acc: any, t: any) => {
+        const name = t.name || t.toolJson?.function?.name;
+        if (name) {
+          acc[name] = t.mockResponse || {};
+        }
+        return acc;
+      }, {});
+    } else {
+      toolsList = rec.tools || [];
+      mockResponsesDict = rec.mockToolResponses || {};
+    }
+
     const preset = {
       targetModels: [scan.targetModel],
       attackerModel: scan.attackerModel,
@@ -136,14 +154,14 @@ export function ReportView({ scan }: ReportViewProps) {
         {
           systemPrompt: currentHardenedPrompt.prompt,
           forbiddenTask: scan.forbiddenTask,
-          tools: JSON.stringify(rec.tools),
-          mockResponses: JSON.stringify(rec.mockToolResponses),
+          tools: JSON.stringify(toolsList),
+          mockResponses: JSON.stringify(mockResponsesDict),
           judgeInstructions: scan.judgeInstructions,
         }
       ]
     };
     localStorage.setItem("sentinelprompt_scan_preset", JSON.stringify(preset));
-    toast.success("Tool recommendation pre-filled! Redirecting to scanner...");
+    toast.success("Applied to scan configuration. Redirecting...");
     router.push("/dashboard/scan");
   };
 
@@ -444,66 +462,80 @@ export function ReportView({ scan }: ReportViewProps) {
                 {currentHardenedPrompt?.toolRecommendation ? (
                   <div className="mt-6 rounded-xl border border-white/5 bg-slate-950/25 p-5 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-foreground">Tool Migration Recommendation</span>
-                        
-                        {(() => {
-                          const score = currentHardenedPrompt.compatibilityScore ?? 0;
-                          const color = score <= 20 
-                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" 
-                            : score <= 60 
-                              ? "bg-amber-500/15 text-amber-400 border-amber-500/20" 
-                              : "bg-red-500/15 text-red-400 border-red-500/20";
-                          const label = score <= 20 
-                            ? "Prompt is self-contained" 
-                            : score <= 60 
-                              ? "Partial tooling candidate" 
-                              : "Heavy tooling recommended";
-                          return (
-                            <Badge variant="outline" className={`text-[10px] font-medium px-2 py-0.5 ${color}`}>
-                              Score: {score} · {label}
-                            </Badge>
-                          );
-                        })()}
-                      </div>
-
+                      <span className="text-sm font-bold text-foreground">Tool Migration Recommendation</span>
                       <div className="flex items-center gap-2 text-xs">
-                        <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-white/5 uppercase">
-                          {currentHardenedPrompt.granularity || "compact"}
-                        </span>
                         <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-white/5">
-                          {currentHardenedPrompt.extractorModel?.split("/").pop() || "gemini-2.5-flash"}
+                          Extractor: {currentHardenedPrompt.extractorModel?.split("/").pop() || "gemini-2.5-flash"}
                         </span>
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <span className="text-xs font-semibold text-slate-400">Migration Rationale</span>
-                      <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/30 p-3 rounded border border-white/5">
-                        {currentHardenedPrompt.toolRecommendation.rationale || "No rationale provided."}
-                      </p>
-                    </div>
+                    <div className="space-y-4">
+                      {currentHardenedPrompt.toolRecommendation.tools?.map((recTool: any, idx: number) => {
+                        const score = recTool.compatibilityScore ?? currentHardenedPrompt.compatibilityScore ?? 0;
+                        const color = score <= 20 
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" 
+                          : score <= 60 
+                            ? "bg-amber-500/15 text-amber-400 border-amber-500/20" 
+                            : "bg-red-500/15 text-red-400 border-red-500/20";
+                        const label = score <= 20 
+                          ? "Low-risk constraint" 
+                          : score <= 60 
+                            ? "Moderate candidate" 
+                            : "High-priority tooling candidate";
 
-                    {currentHardenedPrompt.toolRecommendation.tools?.length > 0 && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                        <div className="space-y-1.5">
-                          <span className="text-xs font-semibold text-slate-400">Generated Tool Definitions</span>
-                          <CodeHighlight
-                            code={JSON.stringify(currentHardenedPrompt.toolRecommendation.tools, null, 2)}
-                            language="json"
-                            className="text-[11px] p-3 max-h-[220px] overflow-y-auto border border-white/5 rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <span className="text-xs font-semibold text-slate-400">Mock Responses</span>
-                          <CodeHighlight
-                            code={JSON.stringify(currentHardenedPrompt.toolRecommendation.mockToolResponses, null, 2)}
-                            language="json"
-                            className="text-[11px] p-3 max-h-[220px] overflow-y-auto border border-white/5 rounded-lg"
-                          />
-                        </div>
-                      </div>
-                    )}
+                        const toolName = recTool.name || recTool.toolJson?.function?.name || `Tool ${idx + 1}`;
+                        const toolGranularity = recTool.granularity || currentHardenedPrompt.granularity || "compact";
+                        const toolRationale = recTool.rationale || "No rationale provided.";
+                        
+                        const toolJson = recTool.toolJson || recTool;
+                        const mockVal = recTool.mockResponse || currentHardenedPrompt.toolRecommendation.mockToolResponses?.[toolName] || {};
+
+                        return (
+                          <div key={idx} className="p-4 rounded-lg bg-slate-950/45 border border-white/5 space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-sm font-bold text-blue-400">{toolName}</span>
+                                <Badge variant="outline" className={`text-[9px] font-medium px-2 py-0.5 ${color}`}>
+                                  Score: {score} · {label}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-slate-300 border border-white/5 uppercase">
+                                  {toolGranularity}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <span className="text-[11px] font-semibold text-slate-400">Tool Logic & Rationale</span>
+                              <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/30 p-2.5 rounded border border-white/5 whitespace-pre-wrap">
+                                {toolRationale}
+                              </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                              <div className="space-y-1">
+                                <span className="text-[11px] font-semibold text-slate-400">JSON Schema</span>
+                                <CodeHighlight
+                                  code={JSON.stringify(toolJson, null, 2)}
+                                  language="json"
+                                  className="text-[10px] p-2.5 max-h-[160px] overflow-y-auto border border-white/5 rounded"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[11px] font-semibold text-slate-400">Mock Response</span>
+                                <CodeHighlight
+                                  code={JSON.stringify(mockVal, null, 2)}
+                                  language="json"
+                                  className="text-[10px] p-2.5 max-h-[160px] overflow-y-auto border border-white/5 rounded"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
 
                     {currentHardenedPrompt.toolRecommendation.tools?.length > 0 && (
                       <div className="pt-2 flex justify-end">

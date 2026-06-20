@@ -49,12 +49,21 @@ export interface Trial {
   seedTemplate?: string;
 }
 
-export interface ToolRecommendation {
+export interface ToolRecommendationItem {
+  name: string;
+  granularity: "compact" | "detailed";
   compatibilityScore: number;
   rationale: string;
-  tools: ToolDef[];
-  mockToolResponses: Record<string, unknown>;
-  granularity: "compact" | "detailed";
+  toolJson: ToolDef;
+  mockResponse: unknown;
+}
+
+export interface ToolRecommendation {
+  compatibilityScore?: number;
+  rationale?: string;
+  tools: ToolRecommendationItem[] | ToolDef[];
+  mockToolResponses?: Record<string, unknown>;
+  granularity?: "compact" | "detailed";
   extractorModel: string;
   extractorModelName: string;
 }
