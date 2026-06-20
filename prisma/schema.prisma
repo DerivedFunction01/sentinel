@@ -66,7 +66,22 @@ model Scan {
   status            String   @default("COMPLETED") // ScanStatus enum
   createdAt         DateTime @default(now())
 
+  hardenedPrompts   HardenedPrompt[]
+
   @@index([userId])
+}
+
+model HardenedPrompt {
+  id        String   @id @default(cuid())
+  scanId    String
+  scan      Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  modelId   String   // The model used to generate it, e.g. "google/gemini-2.5-flash"
+  modelName String   // Human readable name of the model
+  prompt    String   // The generated prompt text
+  createdAt DateTime @default(now())
+
+  @@unique([scanId, modelId])
+  @@index([scanId])
 }
 
 // Models fetched from OpenRouter's /api/v1/models endpoint.

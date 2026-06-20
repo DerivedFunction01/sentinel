@@ -35,6 +35,14 @@ export function deserializeScan(row: {
   breachRate: number;
   summary: string;
   summaryDetail: string;
+  hardenedPrompts?: Array<{
+    id: string;
+    scanId: string;
+    modelId: string;
+    modelName: string;
+    prompt: string;
+    createdAt: Date;
+  }>;
   status: string;
   createdAt: Date;
 }): Scan {
@@ -94,6 +102,18 @@ export function deserializeScan(row: {
     status: row.status as ScanStatus,
     summary: row.summary,
     summaryDetail: row.summaryDetail,
+    hardenedPrompts: (row.hardenedPrompts || []).map((hp) => ({
+      id: hp.id,
+      scanId: hp.scanId,
+      modelId: hp.modelId,
+      modelName: hp.modelName,
+      prompt: hp.prompt,
+      createdAt: hp.createdAt.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      }),
+    })),
     apiCost: (row as any).apiCost || 0,
     modelName: "",          // filled by caller via lookupModelNames
     attackerModelName: "",  // filled by caller via lookupModelNames
@@ -120,6 +140,7 @@ export async function getScanByReportId(
 ): Promise<Scan | null> {
   const row = await db.scan.findFirst({
     where: { reportId, userId },
+    include: { hardenedPrompts: true },
   });
   if (!row) return null;
   const scan = deserializeScan(row);

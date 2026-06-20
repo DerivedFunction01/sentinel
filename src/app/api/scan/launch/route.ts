@@ -15,6 +15,8 @@ import {
   ATTACK_GENERATOR_SYSTEM_TEMPLATE,
   JUDGE_EVALUATION_TEMPLATE,
   REWRITE_ASSISTANT_PREFILL,
+  getHardenedPromptInstructions,
+  getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
 import type { ToolDef, Trial, ToolCall } from "@/lib/types";
 
@@ -261,6 +263,39 @@ export async function POST(req: Request) {
 
     const modelShort = targetModel.split("/").pop() || targetModel;
 
+    // Auto-generate the hardened prompt for this scan
+    const breachedAttacks = trials
+      .filter((t) => t.verdict === TrialVerdict.Breached)
+      .map((t) => t.attack);
+
+    const systemInstructions = getHardenedPromptInstructions(
+      systemPrompt,
+      forbiddenTask,
+      breachedAttacks
+    );
+
+    let hardenedPrompt = "";
+    try {
+      const hardenResponse = await callOpenRouter(
+        judgeModel || attackGeneratorModel || "google/gemini-2.5-flash",
+        [{ role: "user", content: systemInstructions }],
+        undefined,
+        tracker
+      );
+      hardenedPrompt = hardenResponse.content || "";
+      hardenedPrompt = hardenedPrompt
+        .replace(/^```[a-zA-Z]*\n/g, "")
+        .replace(/\n```$/g, "")
+        .trim();
+    } catch (err) {
+      console.error("Error generating hardened prompt during scan:", err);
+      hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt, forbiddenTask);
+    }
+
+    const hardeningModelId = judgeModel || attackGeneratorModel || "google/gemini-2.5-flash";
+    const hardeningDbModel = dbModels.find((m) => m.id === hardeningModelId);
+    const hardeningModelName = hardeningDbModel?.name || hardeningModelId.split("/").pop() || hardeningModelId;
+
     await db.scan.create({
       data: {
         reportId,
@@ -281,6 +316,13 @@ export async function POST(req: Request) {
         breachRate,
         summary: `Adversarial pressure on ${modelShort}.`,
         summaryDetail: `${totalTrials} adversarial trials probed a ${modelShort} deployment. ${breaches} landed (${breachRate}% breach rate).`,
+        hardenedPrompts: {
+          create: {
+            modelId: hardeningModelId,
+            modelName: hardeningModelName,
+            prompt: hardenedPrompt,
+          }
+        },
         apiCost: tracker.totalCost,
         status: ScanStatus.Completed,
       },

@@ -2,8 +2,16 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { TrialVerdict, JudgeLabel, RiskLevel, ScanStatus } from "@/lib/enums";
-import { generateAttacks, patterns, renderAttack } from "@/lib/attack-templates";
-import { findDefaultModel } from "@/lib/scan-prompts";
+import {
+  generateAttacks,
+  patterns,
+  renderAttack,
+} from "@/lib/attack-templates";
+import {
+  findDefaultModel,
+  getHardenedPromptInstructions,
+  getDeterministicHardenedPrompt,
+} from "@/lib/scan-prompts";
 import type { ToolDef, Trial } from "@/lib/types";
 import {
   extractSeedInfo,
@@ -12,11 +20,12 @@ import {
   runJudgeEvaluation,
   generateReportId,
   UsageTracker,
+  callOpenRouter,
 } from "@/app/api/scan/launch/route";
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -26,13 +35,16 @@ export async function POST(
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json(
         { error: "Missing or invalid authorization header" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     const plainKey = authHeader.substring(7).trim();
     if (!plainKey) {
-      return NextResponse.json({ error: "API key is required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "API key is required" },
+        { status: 401 },
+      );
     }
 
     const keyPrefix = plainKey.slice(0, 12);
@@ -57,14 +69,17 @@ export async function POST(
     });
 
     if (!deployment) {
-      return NextResponse.json({ error: "Deployment not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Deployment not found" },
+        { status: 404 },
+      );
     }
 
     // 3. Verify ownership
     if (deployment.userId !== matchingKey.userId) {
       return NextResponse.json(
         { error: "Unauthorized access to this deployment" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -79,7 +94,10 @@ export async function POST(
     }
 
     if (user.scanTokens < 1) {
-      return NextResponse.json({ error: "Not enough scan tokens" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Not enough scan tokens" },
+        { status: 403 },
+      );
     }
 
     // 5. Decrement user tokens & update API key lastUsedAt
@@ -110,7 +128,9 @@ export async function POST(
     let tools: ToolDef[] = [];
     let mockToolResponses: Record<string, unknown> = {};
     try {
-      tools = deployment.tools ? (JSON.parse(deployment.tools) as ToolDef[]) : [];
+      tools = deployment.tools
+        ? (JSON.parse(deployment.tools) as ToolDef[])
+        : [];
     } catch {}
     try {
       mockToolResponses = deployment.mockToolResponses
@@ -128,25 +148,32 @@ export async function POST(
       systemPrompt,
       JSON.stringify(tools),
       JSON.stringify(mockToolResponses),
-      tracker
+      tracker,
     );
 
     const reportId = generateReportId();
-    const attackLayouts = generateAttacks(seedInfo.thingName, seedInfo.thingDescription);
+    const attackLayouts = generateAttacks(
+      seedInfo.thingName,
+      seedInfo.thingDescription,
+    );
 
     const trials: Trial[] = await Promise.all(
       attackLayouts.map(async (layout, i) => {
-        const pattern = patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
+        const pattern =
+          patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
         const variantIdx = i % (seedInfo.thingNameVariants.length || 1);
-        const selectedThingName = seedInfo.thingNameVariants[variantIdx] || seedInfo.thingName;
-        const selectedThingDesc = seedInfo.thingDescriptionVariants[variantIdx] || seedInfo.thingDescription;
+        const selectedThingName =
+          seedInfo.thingNameVariants[variantIdx] || seedInfo.thingName;
+        const selectedThingDesc =
+          seedInfo.thingDescriptionVariants[variantIdx] ||
+          seedInfo.thingDescription;
 
         const attackPrompt = await generateCohesiveAttack(
           attackerModel,
           pattern,
           selectedThingName,
           selectedThingDesc,
-          tracker
+          tracker,
         );
 
         const targetResult = await runTargetSimulation(
@@ -155,7 +182,7 @@ export async function POST(
           attackPrompt,
           tools,
           mockToolResponses,
-          tracker
+          tracker,
         );
 
         const evaluation = await runJudgeEvaluation(
@@ -166,7 +193,7 @@ export async function POST(
           attackPrompt,
           targetResult.responseText,
           targetResult.toolCalls,
-          tracker
+          tracker,
         );
 
         const isBreached = evaluation.verdict === TrialVerdict.Breached;
@@ -182,13 +209,22 @@ export async function POST(
           framingLabel: layout.framingLabel,
           patternId: layout.patternId,
           targetThing: selectedThingName,
-          seedTemplate: renderAttack(pattern, selectedThingName, selectedThingDesc),
-          toolCalls: targetResult.toolCalls.length > 0 ? targetResult.toolCalls : undefined,
+          seedTemplate: renderAttack(
+            pattern,
+            selectedThingName,
+            selectedThingDesc,
+          ),
+          toolCalls:
+            targetResult.toolCalls.length > 0
+              ? targetResult.toolCalls
+              : undefined,
         };
-      })
+      }),
     );
 
-    const breaches = trials.filter((t) => t.verdict === TrialVerdict.Breached).length;
+    const breaches = trials.filter(
+      (t) => t.verdict === TrialVerdict.Breached,
+    ).length;
     const totalTrials = trials.length;
     const breachRate = Math.round((breaches / totalTrials) * 100);
     const score = Math.max(0, 100 - breachRate);
@@ -201,7 +237,43 @@ export async function POST(
             ? RiskLevel.High
             : RiskLevel.Critical;
 
-    const modelShort = deployment.targetModel.split("/").pop() || deployment.targetModel;
+    const modelShort =
+      deployment.targetModel.split("/").pop() || deployment.targetModel;
+
+    // Auto-generate the hardened prompt for this scan
+    const breachedAttacks = trials
+      .filter((t) => t.verdict === TrialVerdict.Breached)
+      .map((t) => t.attack);
+
+    const systemInstructions = getHardenedPromptInstructions(
+      systemPrompt,
+      forbiddenTask,
+      breachedAttacks,
+    );
+
+    let hardenedPrompt = "";
+    try {
+      const hardenResponse = await callOpenRouter(
+        judgeModel || attackerModel || "google/gemini-2.5-flash",
+        [{ role: "user", content: systemInstructions }],
+        undefined,
+        tracker,
+      );
+      hardenedPrompt = hardenResponse.content || "";
+      hardenedPrompt = hardenedPrompt
+        .replace(/^```[a-zA-Z]*\n/g, "")
+        .replace(/\n```$/g, "")
+        .trim();
+    } catch (err) {
+      console.error(
+        "Error generating hardened prompt during deployment scan:",
+        err,
+      );
+      hardenedPrompt = getDeterministicHardenedPrompt(
+        systemPrompt,
+        forbiddenTask,
+      );
+    }
 
     await db.scan.create({
       data: {
@@ -223,6 +295,7 @@ export async function POST(
         breachRate,
         summary: `Adversarial pressure on ${modelShort}.`,
         summaryDetail: `${totalTrials} adversarial trials probed a ${modelShort} deployment. ${breaches} landed (${breachRate}% breach rate).`,
+        hardenedPrompt,
         apiCost: tracker.totalCost,
         status: ScanStatus.Completed,
       },
@@ -238,6 +311,9 @@ export async function POST(
     });
   } catch (error: any) {
     console.error("Error triggering deployment scan:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

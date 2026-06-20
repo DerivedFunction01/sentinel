@@ -9,6 +9,7 @@ import {
   TrialVerdict,
 } from "@/lib/enums";
 import { generateAttacks } from "@/lib/attack-templates";
+import { getDeterministicHardenedPrompt } from "@/lib/scan-prompts";
 import type { Trial } from "@/lib/types";
 
 /**
@@ -76,6 +77,8 @@ export async function POST(req: Request) {
   const reportId = generateReportId();
   const modelShort = targetModel.split("/").pop() || targetModel;
 
+  const hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt, forbiddenTask);
+
   await db.scan.create({
     data: {
       reportId,
@@ -94,6 +97,13 @@ export async function POST(req: Request) {
       breachRate,
       summary: `Template attack on ${modelShort}.`,
       summaryDetail: `${totalTrials} template-generated trials (no LLM calls). ${breaches} landed (${breachRate}% breach rate). This is a preview mode — run a full scan for real results.`,
+      hardenedPrompts: {
+        create: {
+          modelId: "mock-hardening-model",
+          modelName: "Mock Hardening Model",
+          prompt: hardenedPrompt,
+        }
+      },
       status: ScanStatus.Completed,
     },
   });

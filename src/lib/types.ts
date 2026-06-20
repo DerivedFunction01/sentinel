@@ -49,6 +49,15 @@ export interface Trial {
   seedTemplate?: string;
 }
 
+export interface HardenedPrompt {
+  id: string;
+  scanId: string;
+  modelId: string;
+  modelName: string;
+  prompt: string;
+  createdAt: string;
+}
+
 /** A complete pentest scan. */
 export interface Scan {
   id: string;
@@ -72,6 +81,7 @@ export interface Scan {
   status: ScanStatus;
   summary: string;
   summaryDetail: string;
+  hardenedPrompts: HardenedPrompt[];
   apiCost: number;
   trials: Trial[];
 }

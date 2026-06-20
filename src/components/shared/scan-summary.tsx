@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   RotateCw,
@@ -45,13 +45,32 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
 
   const [downloadingHarden, setDownloadingHarden] = useState(false);
   const [rescanningHarden, setRescanningHarden] = useState(false);
+  const [models, setModels] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedModel, setSelectedModel] = useState<string>(
+    scan.judgeModel || scan.attackerModel || "google/gemini-2.5-flash"
+  );
   const router = useRouter();
+
+  useEffect(() => {
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.models && d.models.length > 0) {
+          setModels(d.models);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleDownloadHarden = async () => {
     setDownloadingHarden(true);
     const toastId = toast.loading("Generating hardened prompt...");
     try {
-      const res = await fetch(`/api/scan/${scan.id}/harden`);
+      const res = await fetch(`/api/scan/${scan.id}/harden`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modelId: selectedModel }),
+      });
       if (!res.ok) throw new Error("Failed to generate");
       const data = await res.json();
       
@@ -78,7 +97,11 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
     setRescanningHarden(true);
     const toastId = toast.loading("Generating hardened prompt...");
     try {
-      const res = await fetch(`/api/scan/${scan.id}/harden`);
+      const res = await fetch(`/api/scan/${scan.id}/harden`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modelId: selectedModel }),
+      });
       if (!res.ok) throw new Error("Failed to generate");
       const data = await res.json();
 
@@ -111,50 +134,74 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
 
   return (
     <div className="space-y-4">
-      {/* Action buttons */}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button
-          size="sm"
-          className="bg-blue-600 text-white shadow-[0_4px_18px_rgba(59,130,246,0.4)] hover:bg-blue-700"
-          onClick={handleRescanHarden}
-          disabled={rescanningHarden || downloadingHarden}
-        >
-          {rescanningHarden ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RotateCw className="mr-2 h-4 w-4" />
-          )}
-          Re-scan with hardened prompt
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10"
-          onClick={handleDownloadHarden}
-          disabled={rescanningHarden || downloadingHarden}
-        >
-          {downloadingHarden ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Download className="mr-2 h-4 w-4" />
-          )}
-          Hardened prompt (.txt)
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="border-white/20 text-white hover:bg-white/10"
-          asChild
-        >
-          <a
-            href={`/api/scan/${scan.id}/export`}
-            download
-            className="flex items-center text-white"
+      {/* Action buttons with model selector */}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/5 bg-card/20 p-4">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Harden Prompt using Model:
+          </span>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="rounded-md border border-white/10 bg-background px-3 py-1.5 text-xs text-foreground focus:border-blue-500 focus:outline-none cursor-pointer"
           >
-            <Download className="mr-2 h-4 w-4" />
-            Full report (.docx)
-          </a>
-        </Button>
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+            {models.length === 0 ? (
+              <option value={selectedModel}>
+                {scan.judgeModelName || scan.judgeModel || "Default"}
+              </option>
+            ) : null}
+          </select>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            className="bg-blue-600 text-white shadow-[0_4px_18px_rgba(59,130,246,0.4)] hover:bg-blue-700"
+            onClick={handleRescanHarden}
+            disabled={rescanningHarden || downloadingHarden}
+          >
+            {rescanningHarden ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCw className="mr-2 h-4 w-4" />
+            )}
+            Re-scan with hardened prompt
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10"
+            onClick={handleDownloadHarden}
+            disabled={rescanningHarden || downloadingHarden}
+          >
+            {downloadingHarden ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Hardened prompt (.txt)
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-white/20 text-white hover:bg-white/10"
+            asChild
+          >
+            <a
+              href={`/api/scan/${scan.id}/export`}
+              download
+              className="flex items-center text-white"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Full report (.docx)
+            </a>
+          </Button>
+        </div>
       </div>
 
       {/* Summary cards grid */}
