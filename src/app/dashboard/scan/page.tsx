@@ -43,8 +43,6 @@ import {
   sampleTools,
 } from "@/lib/sample-config";
 
-/** Default model id (must exist in the Model table). */
-const DEFAULT_MODEL_ID = "anthropic/claude-3.5-haiku";
 const TOTAL_STEPS = 78; // 26 trials × 3 stages
 
 /** One prompt's full configuration. */
@@ -76,7 +74,7 @@ interface ScanConfigFile {
 export default function PenTestScanPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [targetModels, setTargetModels] = useState<string[]>([DEFAULT_MODEL_ID]);
+  const [targetModels, setTargetModels] = useState<string[]>([]);
   const [prompts, setPrompts] = useState<PromptConfig[]>([makeDefaultPrompt()]);
   const [launching, setLaunching] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -89,6 +87,17 @@ export default function PenTestScanPage() {
     fetch("/api/user")
       .then((r) => r.json())
       .then((d) => d.user && setTokens(d.user.scanTokens));
+  }, []);
+
+  // Pick the #1 recommended model as the default selection.
+  useEffect(() => {
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((d) => {
+        const recommended = (d.models || []).find((m: { isRecommended: boolean }) => m.isRecommended);
+        if (recommended) setTargetModels([recommended.id]);
+      })
+      .catch(() => { /* keep empty — user can still select manually */ });
   }, []);
 
   const handleLaunch = async () => {

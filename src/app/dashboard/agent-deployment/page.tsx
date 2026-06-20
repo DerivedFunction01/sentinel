@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Rocket, Server, GitBranch, Play, Square, Loader2, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ModelSelector } from "@/components/shared/model-selector";
 import { toast } from "sonner";
 
 interface Deployment {
@@ -24,7 +24,7 @@ export default function AgentDeploymentPage() {
     {
       id: "dep-1",
       name: "Production Scanner",
-      model: "anthropic/claude-3.5-haiku",
+      model: "anthropic/claude-sonnet-4",
       status: "running",
       url: "https://agent-1.sentinelprompt.app",
     },
@@ -37,8 +37,19 @@ export default function AgentDeploymentPage() {
     },
   ]);
   const [name, setName] = useState("");
-  const [model, setModel] = useState("anthropic/claude-3.5-haiku");
+  const [model, setModel] = useState("");
   const [deploying, setDeploying] = useState(false);
+
+  // Pick the top recommended model as the default.
+  useEffect(() => {
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((d) => {
+        const recommended = (d.models || []).find((m: { isRecommended: boolean }) => m.isRecommended);
+        if (recommended) setModel(recommended.id);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleDeploy = async () => {
     if (!name.trim()) {
@@ -99,15 +110,7 @@ export default function AgentDeploymentPage() {
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">Target Model</Label>
-            <Select value={model} onValueChange={setModel}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent className="dark">
-                <SelectItem value="anthropic/claude-3.5-haiku">Claude 3.5 Haiku</SelectItem>
-                <SelectItem value="anthropic/claude-sonnet-4">Claude Sonnet 4</SelectItem>
-                <SelectItem value="deepseek/deepseek-chat">DeepSeek Chat</SelectItem>
-                <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
-              </SelectContent>
-            </Select>
+            <ModelSelector value={model} onChange={setModel} />
           </div>
           <div className="flex items-end">
             <Button onClick={handleDeploy} disabled={deploying} className="w-full bg-blue-600 hover:bg-blue-700">

@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const targetModel = (body.targetModel as string) || "anthropic/claude-3.5-haiku";
+  const targetModel = (body.targetModel as string) || "";
   const systemPrompt = (body.systemPrompt as string) || "";
   const forbiddenTask = (body.forbiddenTask as string) || "Performing tasks outside of its scope, performing forbidden behavior, or making up information.";
 
