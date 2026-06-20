@@ -37,6 +37,7 @@ import { ScanProgressPanel } from "@/components/shared/scan-progress-panel";
 import { MultiModelSelector } from "@/components/shared/multi-model-selector";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { toast } from "sonner";
+import { findDefaultModel } from "@/lib/scan-prompts";
 import {
   sampleForbiddenTask,
   sampleJudgeInstructions,
@@ -58,11 +59,11 @@ interface PromptConfig {
 
 function makeDefaultPrompt(): PromptConfig {
   return {
-    systemPrompt: "",
-    forbiddenTask: "",
-    tools: "",
-    mockResponses: "",
-    judgeInstructions: "",
+    systemPrompt: sampleSystemPrompt,
+    forbiddenTask: sampleForbiddenTask,
+    tools: JSON.stringify(sampleTools, null, 2),
+    mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
+    judgeInstructions: sampleJudgeInstructions,
   };
 }
 
@@ -95,16 +96,16 @@ export default function PenTestScanPage() {
       .then((d) => d.user && setTokens(d.user.scanTokens));
   }, []);
 
-  // Pick the #1 recommended model as the default selection.
+  // Pick the default model using db-queried/filtered defaults.
   useEffect(() => {
     fetch("/api/models")
       .then((r) => r.json())
       .then((d) => {
-        const recommended = (d.models || []).find((m: { isRecommended: boolean }) => m.isRecommended);
-        if (recommended) {
-          setTargetModels([recommended.id]);
-          setAttackerModel(recommended.id);
-          setJudgeModel(recommended.id);
+        if (d.models && d.models.length > 0) {
+          const defaultModelId = findDefaultModel(d.models);
+          setTargetModels([defaultModelId]);
+          setAttackerModel(defaultModelId);
+          setJudgeModel(defaultModelId);
         }
       })
       .catch(() => { /* keep empty — user can still select manually */ });

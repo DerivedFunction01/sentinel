@@ -10,7 +10,7 @@ import {
 } from "@/lib/enums";
 import { generateAttacks, patterns, renderAttack } from "@/lib/attack-templates";
 import {
-  SCAN_MODELS,
+  findDefaultModel,
   SEED_EXTRACTOR_SYSTEM,
   SEED_EXTRACTOR_USER_TEMPLATE,
   ATTACK_GENERATOR_SYSTEM_TEMPLATE,
@@ -88,14 +88,20 @@ export async function POST(req: Request) {
     );
   }
 
+  // Fetch dbModels once to get pricing rates and defaults
+  const dbModels = await db.model.findMany({
+    orderBy: [{ isRecommended: "desc" }, { popularityRank: "asc" }],
+  });
+  const defaultModel = findDefaultModel(dbModels);
+
   const systemPrompt = (body.systemPrompt as string) || "";
   const forbiddenTask = (body.forbiddenTask as string) || "";
   const judgeInstructions = (body.judgeInstructions as string) || "";
   
-  // Custom pipeline model overrides — accept either explicit field name
-  const seedExtractorModel = (body.seedExtractorModel as string) || SCAN_MODELS.DEFAULT_SEED_EXTRACTOR;
-  const attackGeneratorModel = (body.attackerModel as string) || (body.attackGeneratorModel as string) || SCAN_MODELS.DEFAULT_ATTACK_GENERATOR;
-  const judgeModel = (body.judgeModel as string) || SCAN_MODELS.DEFAULT_JUDGE;
+  // Custom pipeline model overrides — accept either explicit field name, falling back to dynamically queried default
+  const seedExtractorModel = (body.seedExtractorModel as string) || defaultModel;
+  const attackGeneratorModel = (body.attackerModel as string) || (body.attackGeneratorModel as string) || defaultModel;
+  const judgeModel = (body.judgeModel as string) || defaultModel;
 
   let tools: ToolDef[] = [];
   let mockToolResponses: Record<string, unknown> = {};
@@ -120,9 +126,6 @@ export async function POST(req: Request) {
     where: { id: user.id },
     data: { scanTokens: { decrement: targetModels.length } },
   });
-
-  // Fetch dbModels once to get pricing rates
-  const dbModels = await db.model.findMany();
 
   // Initialize a tracker to aggregate the total cost
   const tracker: UsageTracker = {
