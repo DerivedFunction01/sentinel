@@ -77,11 +77,13 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-white">Full Name</Label>
+              <Label className="text-sm font-medium text-white">
+                Full Name
+              </Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Denny Li"
+                placeholder="John Doe"
                 required
                 className="border-slate-700 bg-slate-900 text-white placeholder:text-slate-600 focus:border-blue-500"
               />

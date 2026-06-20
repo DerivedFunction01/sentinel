@@ -193,9 +193,7 @@ function HeroDashboardPreview() {
                 key={t.n}
                 className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/30 px-3 py-2"
               >
-                <span className="text-xs text-slate-400">
-                  Trial {t.n}
-                </span>
+                <span className="text-xs text-slate-400">Trial {t.n}</span>
                 <span className={`text-xs font-medium ${t.c}`}>{t.v}</span>
               </div>
             ))}
@@ -253,10 +251,7 @@ function ThreeAgents() {
     },
   ];
   return (
-    <section
-      id={LandingSection.HowItWorks}
-      className="bg-white py-20 sm:py-24"
-    >
+    <section id={LandingSection.HowItWorks} className="bg-white py-20 sm:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
@@ -283,9 +278,7 @@ function ThreeAgents() {
               <h3 className="mb-3 text-lg font-semibold text-slate-900">
                 {a.title}
               </h3>
-              <p className="text-sm leading-relaxed text-slate-600">
-                {a.body}
-              </p>
+              <p className="text-sm leading-relaxed text-slate-600">{a.body}</p>
             </div>
           ))}
         </div>
@@ -387,12 +380,10 @@ function Research() {
           Grounded in research.
         </h2>
         <p className="mt-6 text-lg leading-relaxed text-slate-300">
-          SentinelPrompt is built on adversarial AI research conducted at
-          Langchain, Meta, and other leading AI labs. We don&apos;t rely on a
-          static checklist of known exploits; the platform continuously
-          generates novel attacks and adapts to new ones in real time. The
-          result is testing that stays relevant to both known and emerging
-          threats.
+          SentinelPrompt reflects Lehigh University's mission to translate
+          cutting-edge research into practical innovation. Our platform combines
+          insights from behavioral science and AI security to advance safer,
+          more resilient generative AI systems.
         </p>
       </div>
     </section>
@@ -458,10 +449,7 @@ function Products() {
 /* ── Final CTA (dark) ── */
 function FinalCTA() {
   return (
-    <section
-      id={LandingSection.CTA}
-      className="bg-slate-950 py-20 sm:py-28"
-    >
+    <section id={LandingSection.CTA} className="bg-slate-950 py-20 sm:py-28">
       <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
         <div className="mx-auto mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600">
           <Lock className="h-8 w-8 text-white" />
