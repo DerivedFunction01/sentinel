@@ -14,6 +14,7 @@ import {
   SEED_EXTRACTOR_USER_TEMPLATE,
   ATTACK_GENERATOR_SYSTEM_TEMPLATE,
   JUDGE_EVALUATION_TEMPLATE,
+  REWRITE_ASSISTANT_PREFILL,
 } from "@/lib/scan-prompts";
 import type { ToolDef, Trial, ToolCall } from "@/lib/types";
 
@@ -463,7 +464,7 @@ export async function generateCohesiveAttack(
     },
     {
       role: "assistant",
-      content: "Here is the rewritten draft text: <BEGIN>",
+      content: REWRITE_ASSISTANT_PREFILL,
     },
   ];
 
