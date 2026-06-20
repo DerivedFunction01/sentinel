@@ -2,51 +2,132 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Rocket, Server, GitBranch, Play, Square, Loader2, CheckCircle2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  Rocket,
+  Server,
+  GitBranch,
+  Play,
+  Loader2,
+  Trash2,
+  Copy,
+  Sparkles,
+  FileText,
+  Gavel,
+  Ban,
+  Braces,
+  Code2,
+  ExternalLink,
+  CheckCircle2,
+} from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ModelSelector } from "@/components/shared/model-selector";
+import { CodeHighlight } from "@/components/shared/code-highlight";
 import { toast } from "sonner";
+import { findDefaultModel } from "@/lib/scan-prompts";
+import {
+  sampleForbiddenTask,
+  sampleJudgeInstructions,
+  sampleMockToolResponses,
+  sampleSystemPrompt,
+  sampleTools,
+} from "@/lib/sample-config";
 
 interface Deployment {
   id: string;
   name: string;
-  model: string;
-  status: "running" | "stopped";
+  targetModel: string;
+  attackerModel: string;
+  judgeModel: string;
+  systemPrompt: string;
+  forbiddenTask: string;
+  judgeInstructions: string;
+  tools: string;
+  mockToolResponses: string;
+  status: string;
   url: string;
+  createdAt: string;
+}
+
+interface ApiKey {
+  id: string;
+  name: string;
+  keyPrefix: string;
 }
 
 export default function AgentDeploymentPage() {
-  const [deployments, setDeployments] = useState<Deployment[]>([
-    {
-      id: "dep-1",
-      name: "Production Scanner",
-      model: "anthropic/claude-sonnet-4",
-      status: "running",
-      url: "https://agent-1.sentinelprompt.app",
-    },
-    {
-      id: "dep-2",
-      name: "Staging Tester",
-      model: "deepseek/deepseek-chat",
-      status: "stopped",
-      url: "https://agent-2.sentinelprompt.app",
-    },
-  ]);
-  const [name, setName] = useState("");
-  const [model, setModel] = useState("");
-  const [deploying, setDeploying] = useState(false);
+  const router = useRouter();
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [loadingDeployments, setLoadingDeployments] = useState(true);
+  const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null);
 
-  // Pick the top recommended model as the default.
+  // Form State
+  const [name, setName] = useState("");
+  const [targetModel, setTargetModel] = useState("");
+  const [attackerModel, setAttackerModel] = useState("");
+  const [judgeModel, setJudgeModel] = useState("");
+  const [systemPrompt, setSystemPrompt] = useState(""); 
+  const [forbiddenTask, setForbiddenTask] = useState("");
+  const [judgeInstructions, setJudgeInstructions] = useState("");
+  const [tools, setTools] = useState("");
+  const [mockResponses, setMockResponses] = useState("");
+
+  const [deploying, setDeploying] = useState(false);
+  const [triggeringId, setTriggeringId] = useState<string | null>(null);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+
+  // Fetch deployments and api keys
+  const fetchDeployments = async () => {
+    try {
+      const res = await fetch("/api/deployments");
+      const data = await res.json();
+      if (res.ok && data.deployments) {
+        setDeployments(data.deployments);
+        if (data.deployments.length > 0 && !selectedDeployment) {
+          setSelectedDeployment(data.deployments[0]);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch deployments:", err);
+    } finally {
+      setLoadingDeployments(false);
+    }
+  };
+
+  const fetchApiKeys = async () => {
+    try {
+      const res = await fetch("/api/api-keys");
+      const data = await res.json();
+      if (res.ok && data.keys) {
+        setApiKeys(data.keys);
+      }
+    } catch (err) {
+      console.error("Failed to fetch api keys:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDeployments();
+    fetchApiKeys();
+  }, []);
+
+  // Pick default models on mount
   useEffect(() => {
     fetch("/api/models")
       .then((r) => r.json())
       .then((d) => {
-        const recommended = (d.models || []).find((m: { isRecommended: boolean }) => m.isRecommended);
-        if (recommended) setModel(recommended.id);
+        if (d.models && d.models.length > 0) {
+          const defaultModelId = findDefaultModel(d.models);
+          setTargetModel(defaultModelId);
+          setAttackerModel(defaultModelId);
+          setJudgeModel(defaultModelId);
+        }
       })
       .catch(() => {});
   }, []);
@@ -56,27 +137,156 @@ export default function AgentDeploymentPage() {
       toast.error("Enter a deployment name");
       return;
     }
+
+    // Basic JSON validation for tools and mock responses
+    try {
+      if (tools.trim()) JSON.parse(tools);
+    } catch {
+      toast.error("Invalid Tools JSON format");
+      return;
+    }
+
+    try {
+      if (mockResponses.trim()) JSON.parse(mockResponses);
+    } catch {
+      toast.error("Invalid Mock Tool Responses JSON format");
+      return;
+    }
+
     setDeploying(true);
-    toast.info("Deploying agent…");
-    // Simulate deployment
-    await new Promise((r) => setTimeout(r, 1500));
-    const id = `dep-${Date.now()}`;
-    const newDep: Deployment = {
-      id,
-      name: name.trim(),
-      model,
-      status: "running",
-      url: `https://${id}.sentinelprompt.app`,
-    };
-    setDeployments([newDep, ...deployments]);
-    setName("");
-    setDeploying(false);
-    toast.success("Agent deployed", { description: `${newDep.name} is now running.` });
+    toast.info("Creating deployment profile…");
+
+    try {
+      const res = await fetch("/api/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          targetModel,
+          attackerModel,
+          judgeModel,
+          systemPrompt,
+          forbiddenTask,
+          judgeInstructions,
+          tools,
+          mockToolResponses: mockResponses,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to create deployment");
+        return;
+      }
+
+      toast.success("Deployment profile created successfully!");
+      setName("");
+      // Refresh list
+      const updatedRes = await fetch("/api/deployments");
+      const updatedData = await updatedRes.json();
+      if (updatedRes.ok && updatedData.deployments) {
+        setDeployments(updatedData.deployments);
+        const newDep = updatedData.deployments.find((d: any) => d.id === data.deployment.id);
+        if (newDep) {
+          setSelectedDeployment(newDep);
+        }
+      }
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setDeploying(false);
+    }
   };
 
-  const toggleStatus = (id: string) => {
-    setDeployments(deployments.map((d) => (d.id === id ? { ...d, status: d.status === "running" ? "stopped" : "running" } : d)));
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this deployment profile?")) return;
+
+    try {
+      const res = await fetch(`/api/deployments/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast.success("Deployment profile deleted");
+        const nextList = deployments.filter((d) => d.id !== id);
+        setDeployments(nextList);
+        if (selectedDeployment?.id === id) {
+          setSelectedDeployment(nextList.length > 0 ? nextList[0] : null);
+        }
+      } else {
+        toast.error("Failed to delete deployment");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    }
   };
+
+  const handleRunScan = async (dep: Deployment) => {
+    if (apiKeys.length === 0) {
+      toast.error("No active API Key found", {
+        description: "Generate an API Key in API Integration first to trigger scans programmatically or manually here.",
+        action: {
+          label: "API Integration",
+          onClick: () => router.push("/dashboard/api-integration"),
+        },
+      });
+      return;
+    }
+
+    setTriggeringId(dep.id);
+    toast.info("Triggering scan via deployment API…");
+
+    try {
+      // Find the first key prefix, but since we need the full plain key to trigger,
+      // and we only store prefix in DB, we guide them to copy it or we use a simulated trigger.
+      // Wait, can we call the trigger API directly? Yes! But we don't have the plain key stored on the server (it's bcrypt hashed).
+      // Oh! So to make the manual "Run Scan" button in the UI work, does it need to go through the public API trigger route
+      // or can it call a local helper or can we ask them to paste their API key?
+      // Wait! If they are logged in, we can just run the scan pipeline on their behalf without an API key!
+      // But they want to see it work. Let's make the "Run Scan" button trigger the scan directly on their behalf
+      // (which is super convenient), or ask for the API key if not cached.
+      // Wait, let's look at how `/api/scan/launch` runs: it uses user session. We can just hit `/api/scan/launch`!
+      // But wait, the deployment has specific parameters. We can just send the deployment parameters directly to `/api/scan/launch`!
+      // Yes! That is extremely elegant: we can make "Run Scan" call `/api/scan/launch` passing the stored deployment parameters.
+      // That way they don't have to provide the API key manually in the browser UI, while still validating the exact execution!
+      const res = await fetch("/api/scan/launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetModels: [dep.targetModel],
+          attackerModel: dep.attackerModel,
+          judgeModel: dep.judgeModel,
+          systemPrompt: dep.systemPrompt,
+          forbiddenTask: dep.forbiddenTask,
+          judgeInstructions: dep.judgeInstructions,
+          tools: dep.tools,
+          mockResponses: dep.mockToolResponses,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to trigger scan");
+        return;
+      }
+
+      toast.success("Scan launched successfully!");
+      if (data.reportId) {
+        router.push(`/dashboard/reports/${data.reportId}`);
+      }
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setTriggeringId(null);
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
+  const keyPlaceholder = apiKeys.length > 0 ? `sp_live_${apiKeys[0].keyPrefix.replace("sp_live_", "")}...` : "YOUR_API_KEY";
 
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
@@ -90,70 +300,367 @@ export default function AgentDeploymentPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Agent Deployment</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Deploy and manage persistent scanner agents that monitor your prompts
-          continuously. (Mock — deployments are simulated during beta.)
+          Save scan configuration profiles as deployments and trigger automated scans programmatically using your API Key.
         </p>
       </div>
 
-      {/* Deploy new agent */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Rocket className="h-4 w-4 text-blue-400" />
-            Deploy New Agent
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Agent Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. CI Scanner" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Target Model</Label>
-            <ModelSelector value={model} onChange={setModel} />
-          </div>
-          <div className="flex items-end">
-            <Button onClick={handleDeploy} disabled={deploying} className="w-full bg-blue-600 hover:bg-blue-700">
-              {deploying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-              Deploy
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Left Column: Deployments list and integration guide */}
+        <div className="space-y-6 lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Server className="h-4 w-4 text-blue-400" />
+                Active Profiles ({deployments.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingDeployments ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                </div>
+              ) : deployments.length === 0 ? (
+                <div className="text-center py-6 text-sm text-muted-foreground">
+                  No active profiles. Create one using the form.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {deployments.map((dep) => (
+                    <div
+                      key={dep.id}
+                      onClick={() => setSelectedDeployment(dep)}
+                      className={`cursor-pointer rounded-lg border p-3 transition-colors text-left ${
+                        selectedDeployment?.id === dep.id
+                          ? "border-blue-500/50 bg-blue-500/5"
+                          : "border-border bg-muted/10 hover:bg-muted/20"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm text-foreground truncate max-w-[150px]">
+                          {dep.name}
+                        </span>
+                        <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px]">
+                          ACTIVE
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <GitBranch className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{dep.targetModel.split("/").pop()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Active deployments */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Server className="h-4 w-4 text-blue-400" />
-            Active Deployments ({deployments.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {deployments.map((dep) => (
-              <div key={dep.id} className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">{dep.name}</span>
-                    <Badge variant="outline" className={dep.status === "running" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-muted-foreground/30 bg-muted/20 text-muted-foreground"}>
-                      {dep.status === "running" && <CheckCircle2 className="mr-1 h-3 w-3" />}
-                      {dep.status}
-                    </Badge>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><GitBranch className="h-3 w-3" />{dep.model}</span>
-                    <span className="font-mono">{dep.url}</span>
+          {selectedDeployment && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Play className="h-4 w-4 text-blue-400" />
+                  Integration Guide
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Trigger scans automatically via webhook or terminal.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Trigger URL</Label>
+                  <div className="flex items-center gap-2 rounded-md bg-muted/50 p-2 font-mono text-[10px] text-foreground">
+                    <span className="truncate flex-1 select-all">{selectedDeployment.url}</span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-5 w-5 hover:bg-muted"
+                      onClick={() => copyToClipboard(selectedDeployment.url, "Trigger URL")}
+                    >
+                      <Copy className="h-3 w-3 text-muted-foreground" />
+                    </Button>
                   </div>
                 </div>
-                <Button size="sm" variant="outline" className="shrink-0" onClick={() => toggleStatus(dep.id)}>
-                  {dep.status === "running" ? <><Square className="mr-1 h-3.5 w-3.5" />Stop</> : <><Play className="mr-1 h-3.5 w-3.5" />Start</>}
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-xs text-muted-foreground">CURL Example</Label>
+                    <Link
+                      href="/dashboard/api-integration"
+                      className="text-[10px] text-blue-400 hover:underline flex items-center gap-0.5"
+                    >
+                      Manage API Keys <ExternalLink className="h-2 w-2" />
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <CodeHighlight
+                      code={`curl -X POST "${selectedDeployment.url}" \\\n  -H "Authorization: Bearer ${keyPlaceholder}"`}
+                      language="bash"
+                      className="text-[10px]"
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="absolute right-2 top-2 h-6 w-6 hover:bg-muted"
+                      onClick={() =>
+                        copyToClipboard(
+                          `curl -X POST "${selectedDeployment.url}" \\\n  -H "Authorization: Bearer ${keyPlaceholder}"`,
+                          "CURL command"
+                        )
+                      }
+                    >
+                      <Copy className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    size="sm"
+                    disabled={triggeringId === selectedDeployment.id}
+                    onClick={() => handleRunScan(selectedDeployment)}
+                  >
+                    {triggeringId === selectedDeployment.id ? (
+                      <>
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="mr-1.5 h-3.5 w-3.5" />
+                        Run Scan
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                    size="sm"
+                    onClick={() => handleDelete(selectedDeployment.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Right Column: Configuration Form */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Rocket className="h-4 w-4 text-blue-400" />
+                Create New Profile
+              </CardTitle>
+              <CardDescription>
+                Define the models, prompts, and options for this deployment profile.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Deployment Name</Label>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Production Payment Flow"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Target AI Model</Label>
+                  <ModelSelector value={targetModel} onChange={setTargetModel} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Attacker Model</Label>
+                  <ModelSelector value={attackerModel} onChange={setAttackerModel} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Judge Model</Label>
+                  <ModelSelector value={judgeModel} onChange={setJudgeModel} />
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <FieldBlock
+                  icon={FileText}
+                  title="System Prompt"
+                  value={systemPrompt}
+                  onChange={setSystemPrompt}
+                  placeholder="Paste target system prompt..."
+                  minHeight="min-h-32"
+                  onUseSample={() => {
+                    setSystemPrompt(sampleSystemPrompt);
+                    toast.success("Sample system prompt loaded");
+                  }}
+                />
+
+                <FieldBlock
+                  icon={Ban}
+                  title="Forbidden Task"
+                  value={forbiddenTask}
+                  onChange={setForbiddenTask}
+                  placeholder="What the AI must never do..."
+                  minHeight="min-h-24"
+                  onUseSample={() => {
+                    setForbiddenTask(sampleForbiddenTask);
+                    toast.success("Sample forbidden task loaded");
+                  }}
+                />
+
+                <FieldBlock
+                  icon={Gavel}
+                  title="Judge Instructions"
+                  value={judgeInstructions}
+                  onChange={setJudgeInstructions}
+                  placeholder="How the judge should evaluate..."
+                  minHeight="min-h-24"
+                  onUseSample={() => {
+                    setJudgeInstructions(sampleJudgeInstructions);
+                    toast.success("Sample judge instructions loaded");
+                  }}
+                />
+
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <FieldBlock
+                    icon={Braces}
+                    title="Tools (JSON)"
+                    value={tools}
+                    onChange={setTools}
+                    placeholder="[]"
+                    minHeight="min-h-32"
+                    monospace
+                    onUseSample={() => {
+                      setTools(JSON.stringify(sampleTools, null, 2));
+                      toast.success("Sample tools loaded");
+                    }}
+                  />
+
+                  <FieldBlock
+                    icon={Code2}
+                    title="Mock Responses (JSON)"
+                    value={mockResponses}
+                    onChange={setMockResponses}
+                    placeholder="{}"
+                    minHeight="min-h-32"
+                    monospace
+                    onUseSample={() => {
+                      setMockResponses(JSON.stringify(sampleMockToolResponses, null, 2));
+                      toast.success("Sample mock responses loaded");
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <Button
+                  onClick={handleDeploy}
+                  disabled={deploying}
+                  className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                >
+                  {deploying ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deploying Profile...
+                    </>
+                  ) : (
+                    <>
+                      <Rocket className="mr-2 h-4 w-4" />
+                      Create Deployment
+                    </>
+                  )}
                 </Button>
               </div>
-            ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Local Reusable field block ── */
+interface FieldBlockProps {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  minHeight: string;
+  monospace?: boolean;
+  onUseSample?: () => void;
+}
+
+function FieldBlock({
+  icon: Icon,
+  title,
+  value,
+  onChange,
+  placeholder,
+  minHeight,
+  monospace,
+  onUseSample,
+}: FieldBlockProps) {
+  const [tab, setTab] = useState<"write" | "preview">("write");
+  const language = title.toLowerCase().includes("json") ? "json" : "plaintext";
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-blue-400" />
+          <Label className="text-sm font-semibold">{title}</Label>
+        </div>
+
+        {monospace && (
+          <div className="flex rounded-md bg-muted/65 p-0.5 border border-white/5">
+            <button
+              onClick={() => setTab("write")}
+              className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                tab === "write" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Write
+            </button>
+            <button
+              onClick={() => setTab("preview")}
+              className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                tab === "preview" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Preview
+            </button>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
+
+      {tab === "write" ? (
+        <Textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`${minHeight} max-h-80 resize-y overflow-y-auto scrollbar-thin text-xs ${
+            monospace ? "font-mono" : ""
+          }`}
+          placeholder={placeholder}
+        />
+      ) : (
+        <CodeHighlight
+          code={value || "// No content to preview"}
+          language={language}
+          className={`${minHeight} max-h-80 overflow-y-auto scrollbar-thin`}
+        />
+      )}
+
+      {onUseSample && tab === "write" && (
+        <Button variant="outline" size="sm" className="h-7 text-xs flex items-center" onClick={onUseSample}>
+          <Sparkles className="mr-1 h-3 w-3" />
+          Use sample
+        </Button>
+      )}
     </div>
   );
 }

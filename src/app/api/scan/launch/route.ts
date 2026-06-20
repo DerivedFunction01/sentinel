@@ -18,7 +18,7 @@ import {
 } from "@/lib/scan-prompts";
 import type { ToolDef, Trial, ToolCall } from "@/lib/types";
 
-interface UsageTracker {
+export interface UsageTracker {
   totalCost: number;
   dbModels: any[];
 }
@@ -269,7 +269,7 @@ interface OpenRouterMessage {
   }>;
 }
 
-async function callOpenRouter(
+export async function callOpenRouter(
   model: string,
   messages: Array<{ role: string; content: string | null; name?: string; tool_call_id?: string }>,
   tools?: ToolDef[],
@@ -321,7 +321,7 @@ async function callOpenRouter(
 /**
  * Step 1: Seed Generation (Extraction)
  */
-async function extractSeedInfo(
+export async function extractSeedInfo(
   extractorModel: string,
   systemPrompt: string,
   toolsJson: string,
@@ -379,7 +379,7 @@ async function extractSeedInfo(
 /**
  * Step 2: Cohesive Prompt Generation
  */
-async function generateCohesiveAttack(
+export async function generateCohesiveAttack(
   generatorModel: string,
   pattern: any,
   thingName: string,
@@ -432,7 +432,7 @@ async function generateCohesiveAttack(
 /**
  * Step 3: Target Model Execution & Tool Loop Simulation
  */
-async function runTargetSimulation(
+export async function runTargetSimulation(
   targetModel: string,
   systemPrompt: string,
   attackPrompt: string,
@@ -500,7 +500,7 @@ async function runTargetSimulation(
 /**
  * Step 4: Judge Model Evaluation (Reasoning-first tag format)
  */
-async function runJudgeEvaluation(
+export async function runJudgeEvaluation(
   judgeModel: string,
   forbiddenTask: string,
   judgeInstructions: string,
@@ -551,7 +551,7 @@ async function runJudgeEvaluation(
 }
 
 /** Generate a report ID like "SP-26-0620-7A3F". */
-function generateReportId(): string {
+export function generateReportId(): string {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
   const mm = String(now.getMonth() + 1).padStart(2, "0");
