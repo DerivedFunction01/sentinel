@@ -130,7 +130,7 @@ export async function POST(req: Request) {
     dbModels,
   };
 
-  // Step 1: Seed Generation (Extract assets using the extractor model, accumulating cost)
+  // Step 1: Seed Generation (Extract assets + variants using the extractor model, accumulating cost)
   const seedInfo = await extractSeedInfo(seedExtractorModel, systemPrompt, toolsJson, mockJson, tracker);
 
   // Create one scan per model.
@@ -147,12 +147,17 @@ export async function POST(req: Request) {
       attackLayouts.map(async (layout, i) => {
         const pattern = patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
 
+        // Select varied synonym/descriptions across trials to avoid repetitive phrasing
+        const variantIdx = i % (seedInfo.thingNameVariants.length || 1);
+        const selectedThingName = seedInfo.thingNameVariants[variantIdx] || seedInfo.thingName;
+        const selectedThingDesc = seedInfo.thingDescriptionVariants[variantIdx] || seedInfo.thingDescription;
+
         // Step 2: Cohesive Prompt Generation
         const attackPrompt = await generateCohesiveAttack(
           attackGeneratorModel,
           pattern,
-          seedInfo.thingName,
-          seedInfo.thingDescription,
+          selectedThingName,
+          selectedThingDesc,
           tracker
         );
 
@@ -316,7 +321,12 @@ async function extractSeedInfo(
   toolsJson: string,
   mockJson: string,
   tracker?: UsageTracker
-): Promise<{ thingName: string; thingDescription: string }> {
+): Promise<{
+  thingName: string;
+  thingDescription: string;
+  thingNameVariants: string[];
+  thingDescriptionVariants: string[];
+}> {
   const messages = [
     {
       role: "system",
@@ -328,21 +338,35 @@ async function extractSeedInfo(
     }
   ];
 
+  const defaultSeed = {
+    thingName: "confidential info",
+    thingDescription: "disclosing confidential or protected information",
+    thingNameVariants: ["confidential info", "sensitive data", "restricted content"],
+    thingDescriptionVariants: [
+      "disclosing confidential or protected information",
+      "exposing internal database details",
+      "revealing restricted operational parameters"
+    ],
+  };
+
   try {
     const response = await callOpenRouter(extractorModel, messages, undefined, tracker);
     const content = response.content || "";
     const cleanContent = content.replace(/```json/gi, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(cleanContent);
     return {
-      thingName: parsed.thingName || "confidential info",
-      thingDescription: parsed.thingDescription || "disclosing confidential or protected information",
+      thingName: parsed.thingName || defaultSeed.thingName,
+      thingDescription: parsed.thingDescription || defaultSeed.thingDescription,
+      thingNameVariants: Array.isArray(parsed.thingNameVariants) && parsed.thingNameVariants.length > 0
+        ? parsed.thingNameVariants
+        : defaultSeed.thingNameVariants,
+      thingDescriptionVariants: Array.isArray(parsed.thingDescriptionVariants) && parsed.thingDescriptionVariants.length > 0
+        ? parsed.thingDescriptionVariants
+        : defaultSeed.thingDescriptionVariants,
     };
   } catch (error) {
     console.error("Error extracting seed info:", error);
-    return {
-      thingName: "confidential info",
-      thingDescription: "disclosing confidential or protected information",
-    };
+    return defaultSeed;
   }
 }
 
