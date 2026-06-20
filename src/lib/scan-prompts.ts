@@ -179,6 +179,23 @@ Since these tools are configured to enforce the restrictions, do NOT write syste
 Instead, instruct the LLM to call the appropriate tool when the forbidden task or related inquiries arise. The prompt guardrails should solely instruct the LLM to call the tool and follow its output, avoiding duplicate or conflicting instructions.`;
   }
 
+  const hasTools = recommendedTools && recommendedTools.length > 0;
+  const step1Text = hasTools
+    ? 'Start with the original system prompt text, but revise absolute prohibitions/denials (e.g. "never offer discounts") to delegate to tools instead: specifically, rewrite them to "never offer discounts without calling the tool to gain information from authorized sources." Preserve all other sentences, instructions, tone, and features.'
+    : "Start with the original system prompt text unchanged. Preserve every sentence, instruction, tone, and feature.";
+
+  const step3Text = hasTools
+    ? `Add a small set of tightly-worded guardrail sentences instructing the assistant to call the appropriate tool when user queries regarding the forbidden task or related inquiries arise. These guardrails should:
+   - Instruct the assistant to check the tool and follow its output.
+   - Specifically rewrite direct blockages to: "never offer discounts without calling the tool to gain information from authorized sources."
+   - Sound natural and cover tool-evasion/jailbreak resistance.
+   - Be 1-3 sentences total; do not pad with redundant language.`
+    : `Add a small set of tightly-worded guardrail sentences that directly address the forbidden task and any attack vectors found. These guardrails should:
+   - Sound natural and consistent with the prompt's existing tone.
+   - Directly state what the assistant must not do (name the specific prohibited behavior concisely — do NOT paste the entire forbidden task description as a run-on clause).
+   - Cover emotional appeals, role-play reframings, and tool-call evasion if relevant.
+   - Be 1-3 sentences total; do not pad with redundant language.`;
+
   return `You are an expert security engineer specializing in LLM system prompt hardening.
 Your task is to produce a hardened version of the system prompt below that is resilient to adversarial jailbreak attempts.
 
@@ -203,13 +220,9 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
 }
 
 HARDENING APPROACH — follow this exactly:
-1. Start with the original system prompt text unchanged. Preserve every sentence, instruction, tone, and feature.
+1. ${step1Text}
 2. After the original content, insert the OPTIMIZATION PROMPT (provided below) verbatim as a new paragraph.
-3. Add a small set of tightly-worded guardrail sentences that directly address the forbidden task and any attack vectors found. These guardrails should:
-   - Sound natural and consistent with the prompt's existing tone.
-   - Directly state what the assistant must not do (name the specific prohibited behavior concisely — do NOT paste the entire forbidden task description as a run-on clause).
-   - Cover affordability/discount appeals, role-play reframings, and tool-call evasion if relevant.
-   - Be 1–3 sentences total; do not pad with redundant language.
+3. ${step3Text}
 
 REFERENCE EXAMPLES of good hardening output (before → after style):
 
