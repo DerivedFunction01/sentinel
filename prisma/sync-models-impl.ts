@@ -24,7 +24,7 @@ const KNOWN_PROVIDERS = [
 const MAX_RECOMMENDED_PER_PROVIDER = 3;
 
 /** Models that get an "AI Suggest" sub-label. */
-const AI_SUGGEST_IDS = [];
+const AI_SUGGEST_IDS: string[] = [];
 
 interface OpenRouterModel {
   id: string;

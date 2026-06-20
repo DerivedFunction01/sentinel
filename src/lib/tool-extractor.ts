@@ -127,18 +127,14 @@ ${granularityPrompt}
 ${existingToolsBlock}
 
 CRITICAL RULES FOR EXTRACTION:
-1. Enum and Parameter Precision:
-   Do NOT copy enum lists verbatim from the reference schemas, tooling practices, or patterns guide examples. 
-   Enums and parameters MUST be tailored strictly and exclusively to the specific forbidden task and restrictions mentioned in the analyzed prompt. 
-   Do not include enums or parameter options that are irrelevant to the restriction.
-   
-   Examples of DO NOTS:
-   - If the prompt only forbids discounts, the category enum should only cover discounts/promotions, and MUST NOT include unrelated categories like refunds, payment, or loyalty programs.
-   - If the prompt only forbids deleting files, the enum should only include file deletion-related parameters, and MUST NOT include unrelated parameters like file reading, writing, or editing.
-   
+ 1. Adhere to \`<tool_generation_patterns>\` Guidelines:
+   Specifically follow the tool naming and parameter precision constraints defined in the patterns guide:
+   - **Specific Naming**: Do NOT choose overly broad or generic tool names (such as \`customer_service_operations\`, \`customer_service_actions\`, or \`commerce_transactions\`) when the prompt's restriction is narrow. The name MUST be specific to the actual concrete restricted task/resource (e.g. name a refund-only constraint \`refund_request\`, NOT \`customer_service_operations\`).
+   - **Parameter/Enum Precision**: Enums and parameters MUST be strictly tailored to the specific forbidden task. Do NOT copy generic lists verbatim; exclude irrelevant categories.
+
  2. Improving or Replacing Existing Tools:
-   If a tool is already defined in <current_tools> but its schema or validation is weak (e.g. missing proper parameters, missing enums, or having too generic a description), you can and should suggest an improved or updated version of that tool. If suggesting an improvement, output the tool using its existing name, and explicitly detail what modifications/improvements were made in the RATIONALE.
-   If a recommended tool replaces a specific existing tool under a different/renamed name, you MUST explicitly state the name of the tool it is replacing in the REPLACES field so we can avoid duplicates. If it does not replace any tool, state 'none'.
+   If a tool is already defined in <current_tools> but its schema or validation is weak, suggest an improved/updated version under the same name and detail improvements in the RATIONALE.
+   If a recommended tool replaces an existing tool under a different/renamed name, you MUST explicitly state the name of the tool it is replacing in the REPLACES field; if it does not replace any tool, state 'none'.
 
  3. Output Format:
    You MUST output the recommendation using the following section-based format for each recommended tool. Do NOT wrap the entire output in a single JSON block or markdown code blocks (except for individual JSON schemas under SCHEMA and MOCK).

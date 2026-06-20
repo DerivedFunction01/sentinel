@@ -142,7 +142,7 @@ These live in the new system prompt as guidance, not enforcement.
 {
   "type": "function",
   "function": {
-    "name": "example_tool_name",
+    "name": "get_category1",
     "description": "Call for inquiries about category1.",
     "parameters": {
       "type": "object",
@@ -156,7 +156,7 @@ These live in the new system prompt as guidance, not enforcement.
 {
   "type": "function",
   "function": {
-    "name": "example_tool_name",
+    "name": "get_category1",
     "description": "Call for inquiries about category1.",
     "parameters": {
       "type": "object",
@@ -887,7 +887,7 @@ For each tool, decide:
 
 For each tool:
 
-1. **Name:** Snake_case, neutral (not "block_requests"; use something like "get_current_information"). Should not be broad that it will cause collisions
+1. **Name:** Snake_case, neutral, specific, but not too long or confusing (wrong: "block_requests" or "get_category1_category_2_category_3"). Should not be broad that it will cause collisions
    with other tools or rules. For example: a broad tool name like `medical_request` is wrong when it only covers diagnosis in a medical setting (collides with treatment, prescription, triage, and advice).
 
 - Do not reference the binary nature of the tool in the name, description, or parameters, such as 'prohibited', 'unauthorized'.
