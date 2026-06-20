@@ -69,6 +69,7 @@ function makeDefaultPrompt(): PromptConfig {
 /** Shape of an exported/imported scan config file. */
 interface ScanConfigFile {
   targetModels: string[];
+  targetModel?: string;
   prompts: PromptConfig[];
 }
 

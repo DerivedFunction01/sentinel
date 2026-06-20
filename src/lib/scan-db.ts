@@ -10,6 +10,7 @@ import {
   RiskLevel,
   ScanStatus,
   TrialVerdict,
+  formatModelName,
 } from "@/lib/enums";
 import type { Scan, ScanSummary, ToolDef, Trial } from "@/lib/types";
 
@@ -117,7 +118,7 @@ export async function getScanByReportId(
   if (!row) return null;
   const scan = deserializeScan(row);
   const names = await lookupModelNames([scan.targetModel]);
-  scan.modelName = names[scan.targetModel] || scan.targetModel;
+  scan.modelName = names[scan.targetModel] || formatModelName(scan.targetModel);
   return scan;
 }
 
@@ -136,7 +137,7 @@ export async function getUserScans(userId: string): Promise<ScanSummary[]> {
       year: "numeric",
     }),
     targetModel: row.targetModel,
-    modelName: names[row.targetModel] || row.targetModel,
+    modelName: names[row.targetModel] || formatModelName(row.targetModel),
     promptExcerpt: row.systemPrompt.slice(0, 80),
     breaches: row.breaches,
     totalTrials: row.totalTrials,
@@ -161,7 +162,7 @@ export async function getAllScans(): Promise<ScanSummary[]> {
       year: "numeric",
     }),
     targetModel: row.targetModel,
-    modelName: names[row.targetModel] || row.targetModel,
+    modelName: names[row.targetModel] || formatModelName(row.targetModel),
     promptExcerpt: row.systemPrompt.slice(0, 80),
     breaches: row.breaches,
     totalTrials: row.totalTrials,

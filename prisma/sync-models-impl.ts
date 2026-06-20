@@ -8,18 +8,19 @@
  */
 import type { PrismaClient } from "@prisma/client";
 
-/** OpenRouter model ids we want flagged as recommended in the dropdown. */
-const RECOMMENDED_IDS = [
-  "anthropic/claude-3.5-haiku",
-  "anthropic/claude-sonnet-4",
-  "anthropic/claude-sonnet-4.5",
-  "anthropic/claude-haiku-4.5",
-  "anthropic/claude-sonnet-4.6",
-  "cohere/command-a",
-  "cohere/command-r-plus-08-2024",
-  "deepseek/deepseek-chat",
-  "deepseek/deepseek-r1",
+/** Known providers whose top models we want to highlight. */
+const KNOWN_PROVIDERS = [
+  "anthropic",
+  "openai",
+  "google",
+  "meta-llama",
+  "qwen",
+  "deepseek",
+  "cohere",
+  "mistralai",
 ];
+
+const MAX_RECOMMENDED_PER_PROVIDER = 3;
 
 /** Models that get an "AI Suggest" sub-label. */
 const AI_SUGGEST_IDS = ["deepseek/deepseek-r1"];
@@ -35,8 +36,8 @@ interface OpenRouterModel {
 
 /** Fetch all models from OpenRouter and upsert them into the DB. */
 export async function syncModels(db: PrismaClient): Promise<void> {
-  console.log("Fetching models from OpenRouter…");
-  const res = await fetch("https://openrouter.ai/api/v1/models");
+  console.log("Fetching models from OpenRouter sorted by popularity…");
+  const res = await fetch("https://openrouter.ai/api/v1/models?sort=most-popular");
   if (!res.ok) {
     throw new Error(`OpenRouter API returned ${res.status}`);
   }
@@ -46,10 +47,27 @@ export async function syncModels(db: PrismaClient): Promise<void> {
 
   let upserted = 0;
   let recommended = 0;
-  for (const m of models) {
+  const providerCounts: Record<string, number> = {};
+
+  for (let i = 0; i < models.length; i++) {
+    const m = models[i];
     if (!m.id || !m.name) continue;
-    const isRecommended = RECOMMENDED_IDS.includes(m.id);
+
+    const parts = m.id.split("/");
+    const provider = parts[0] || "";
+
+    let isRecommended = false;
+    if (KNOWN_PROVIDERS.includes(provider)) {
+      const currentCount = providerCounts[provider] || 0;
+      if (currentCount < MAX_RECOMMENDED_PER_PROVIDER) {
+        isRecommended = true;
+        providerCounts[provider] = currentCount + 1;
+      }
+    }
+
     const aiSuggest = AI_SUGGEST_IDS.includes(m.id);
+    const popularityRank = i + 1;
+
     await db.model.upsert({
       where: { id: m.id },
       create: {
@@ -62,6 +80,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
         completionPrice: m.pricing?.completion ?? null,
         isRecommended,
         aiSuggest,
+        popularityRank,
       },
       update: {
         name: m.name,
@@ -72,6 +91,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
         completionPrice: m.pricing?.completion ?? null,
         isRecommended,
         aiSuggest,
+        popularityRank,
       },
     });
     upserted++;

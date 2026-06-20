@@ -14,6 +14,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { formatModelName } from "@/lib/enums";
 
 interface ModelOption {
   id: string;
@@ -90,7 +91,7 @@ export function MultiModelSelector({ value, onChange }: MultiModelSelectorProps)
   };
 
   const selectedNames = value.map(
-    (id) => models.find((m) => m.id === id)?.name || id,
+    (id) => models.find((m) => m.id === id)?.name || formatModelName(id),
   );
 
   return (

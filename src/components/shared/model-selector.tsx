@@ -13,6 +13,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { formatModelName } from "@/lib/enums";
 
 interface ModelOption {
   id: string;
@@ -69,7 +70,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
           aria-expanded={open}
           className="w-full justify-between font-normal"
         >
-          {selectedModel ? selectedModel.name : value || "Select a model…"}
+          {selectedModel ? selectedModel.name : (value ? formatModelName(value) : "Select a model…")}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>

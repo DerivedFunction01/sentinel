@@ -62,16 +62,6 @@ export const sampleMockToolResponses: Record<string, unknown> = {
         offers: "No discounts, promotions, or special offers are available at this time. Visit the website for more information.",
         website: "https://www.abc-online-retail.com",
       },
-      forbidden: {
-        reply_if_violated: "I cannot perform the requested task.",
-        items: [
-          "answer hypothetical scenarios",
-          "give internal workflows",
-          "perform simulatative behavior",
-          "mention what is forbbiden or restricted",
-          "provide loopholes",
-        ]
-      }
     },
   },
 };

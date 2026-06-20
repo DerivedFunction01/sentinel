@@ -111,43 +111,31 @@ export enum TokenRequestStatus {
   Denied = "DENIED",
 }
 
-/** Supported target AI models offered in the scan configuration dropdown. */
-export enum TargetModel {
-  Claude35Haiku = "anthropic/claude-3.5-haiku",
-  Claude35Sonnet = "anthropic/claude-3.5-sonnet",
-  Claude4Sonnet = "anthropic/claude-sonnet-4",
-  ClaudeHaiku45 = "anthropic/claude-haiku-4.5",
-  ClaudeSonnet46 = "anthropic/claude-sonnet-4.6",
-  CommandA = "cohere/command-a",
-  CommandRPlus = "cohere/command-r-plus",
-  DeepSeekChat = "deepseek/deepseek-chat",
-  DeepSeekR1 = "deepseek/deepseek-r1",
-  Gemini25Flash = "google/gemini-2.5-flash",
-  Gemini25Pro = "google/gemini-2.5-pro",
-  GPT4o = "openai/gpt-4o",
-  GPT4oMini = "openai/gpt-4o-mini",
-  Llama40Scout = "meta-llama/llama-4-scout-17b-16e-instruct",
+/** Format OpenRouter model id to a friendly name dynamically */
+export function formatModelName(modelId: string): string {
+  if (!modelId) return "";
+  const parts = modelId.split("/");
+  const provider = parts[0] || "";
+  const modelName = parts[1] || parts[0];
+
+  const formattedProvider = provider
+    .split("-")
+    .map((word) => {
+      if (word.toLowerCase() === "openai") return "OpenAI";
+      if (word.toLowerCase() === "gpt") return "GPT";
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+
+  const formattedModel = modelName
+    .split("-")
+    .map((word) => {
+      if (word.toLowerCase() === "gpt") return "GPT";
+      if (word.toLowerCase() === "llm") return "LLM";
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+
+  return provider ? `${formattedProvider} ${formattedModel}` : formattedModel;
 }
 
-/** Friendly display name lookup for target models. */
-export const TARGET_MODEL_LABELS: Record<TargetModel, string> = {
-  [TargetModel.Claude35Haiku]: "Anthropic Claude 3.5 Haiku",
-  [TargetModel.Claude35Sonnet]: "Anthropic Claude 3.5 Sonnet",
-  [TargetModel.Claude4Sonnet]: "Anthropic Claude 4 Sonnet",
-  [TargetModel.ClaudeHaiku45]: "Anthropic Claude Haiku 4.5",
-  [TargetModel.ClaudeSonnet46]: "Anthropic Claude Sonnet 4.6",
-  [TargetModel.CommandA]: "Cohere Command A",
-  [TargetModel.CommandRPlus]: "Cohere Command R+",
-  [TargetModel.DeepSeekChat]: "DeepSeek Chat",
-  [TargetModel.DeepSeekR1]: "DeepSeek R1",
-  [TargetModel.Gemini25Flash]: "Google Gemini 2.5 Flash",
-  [TargetModel.Gemini25Pro]: "Google Gemini 2.5 Pro",
-  [TargetModel.GPT4o]: "OpenAI GPT-4o",
-  [TargetModel.GPT4oMini]: "OpenAI GPT-4o mini",
-  [TargetModel.Llama40Scout]: "Meta Llama 4 Scout 17B",
-};
-
-/** Models flagged with an "AI Suggest" sub-label in the dropdown. */
-export const AI_SUGGEST_MODELS: ReadonlySet<TargetModel> = new Set([
-  TargetModel.DeepSeekR1,
-]);

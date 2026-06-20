@@ -24,7 +24,7 @@ export async function GET(req: Request) {
 
   const models = await db.model.findMany({
     where,
-    orderBy: [{ isRecommended: "desc" }, { name: "asc" }],
+    orderBy: [{ isRecommended: "desc" }, { popularityRank: "asc" }],
     take: 200, // cap to keep the dropdown snappy
   });
 
@@ -39,6 +39,7 @@ export async function GET(req: Request) {
       completionPrice: m.completionPrice,
       isRecommended: m.isRecommended,
       aiSuggest: m.aiSuggest,
+      popularityRank: m.popularityRank,
     })),
   });
 }
