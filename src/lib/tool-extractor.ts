@@ -117,7 +117,16 @@ ${patternsContent}
 ${granularityPrompt}
 
 CRITICAL RULES FOR EXTRACTION:
-1. Output Format:
+1. Enum and Parameter Precision:
+   Do NOT copy enum lists verbatim from the reference schemas, tooling practices, or patterns guide examples. 
+   Enums and parameters MUST be tailored strictly and exclusively to the specific forbidden task and restrictions mentioned in the analyzed prompt. 
+   Do not include enums or parameter options that are irrelevant to the restriction.
+   
+   Examples of DO NOTS:
+   - If the prompt only forbids discounts, the category enum should only cover discounts/promotions, and MUST NOT include unrelated categories like refunds, payment, or loyalty programs.
+   - If the prompt only forbids deleting files, the enum should only include file deletion-related parameters, and MUST NOT include unrelated parameters like file reading, writing, or editing.
+   
+2. Output Format:
    You MUST output the recommendation using the following section-based format for each recommended tool. Do NOT wrap the entire output in a single JSON block or markdown code blocks (except for individual JSON schemas under SCHEMA and MOCK).
 
    For each recommended tool, output exactly this structure:
