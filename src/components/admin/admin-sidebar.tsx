@@ -43,6 +43,7 @@ const SUPER_ADMIN_NAV: NavEntry[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/admin/token-requests", label: "Token Requests", icon: Coins },
   { href: "/admin/user-management", label: "User Management", icon: Users },
+  { href: "/admin/tool-examples", label: "Tool Examples", icon: Settings },
 ];
 
 /** Customer admin nav — org-level management. */

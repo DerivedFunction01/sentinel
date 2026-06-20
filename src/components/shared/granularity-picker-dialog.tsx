@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { CodeHighlight } from "@/components/shared/code-highlight";
@@ -10,7 +17,10 @@ import { Sparkles, Check } from "lucide-react";
 interface GranularityPickerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (granularity: "compact" | "detailed", extractorModel: string) => void;
+  onConfirm: (
+    granularity: "compact" | "detailed",
+    extractorModel: string,
+  ) => void;
   defaultGranularity?: "compact" | "detailed";
   defaultExtractorModel?: string;
 }
@@ -22,8 +32,12 @@ export function GranularityPickerDialog({
   defaultGranularity = "compact",
   defaultExtractorModel = "google/gemini-2.5-flash",
 }: GranularityPickerDialogProps) {
-  const [granularity, setGranularity] = useState<"compact" | "detailed">(defaultGranularity);
-  const [extractorModel, setExtractorModel] = useState<string>(defaultExtractorModel);
+  const [granularity, setGranularity] = useState<"compact" | "detailed">(
+    defaultGranularity,
+  );
+  const [extractorModel, setExtractorModel] = useState<string>(
+    defaultExtractorModel,
+  );
 
   const compactCodeSample = `{
   "type": "function",
@@ -78,7 +92,8 @@ export function GranularityPickerDialog({
             Extract Tools from Hardened Prompt
           </DialogTitle>
           <DialogDescription className="text-slate-400 text-xs mt-1">
-            Analyze prompt constraints and convert conditional gatekeeper rules into structured tool schemas.
+            Analyze prompt constraints and convert conditional gatekeeper rules
+            into structured tool schemas.
           </DialogDescription>
         </DialogHeader>
 
@@ -108,7 +123,8 @@ export function GranularityPickerDialog({
                     )}
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-400 mb-3">
-                    Best for simple prompts. Consolidates gatekeeper checks into 1–3 broad tools with simple parameters.
+                    Best for simple prompts. Consolidates gatekeeper checks into
+                    1–3 broad tools with simple parameters.
                   </p>
                 </div>
                 <CodeHighlight
@@ -137,7 +153,8 @@ export function GranularityPickerDialog({
                     )}
                   </div>
                   <p className="text-[11px] leading-relaxed text-slate-400 mb-3">
-                    Best for complex environments. Creates separate domain tools with rich category enums and specific parameters.
+                    Best for complex environments. Creates separate domain tools
+                    with rich category enums and specific parameters.
                   </p>
                 </div>
                 <CodeHighlight
@@ -155,19 +172,33 @@ export function GranularityPickerDialog({
               Extraction Model
             </label>
             <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800 space-y-2">
-              <ModelSelector value={extractorModel} onChange={setExtractorModel} />
+              <ModelSelector
+                value={extractorModel}
+                onChange={setExtractorModel}
+              />
               <p className="text-[10px] text-slate-400 leading-normal">
-                For complex prompts with many rules, choosing a larger reasoning model (e.g., Anthropic Claude or GPT-4o) can yield cleaner, more precise tool schemas.
+                For complex prompts with many rules, choosing a larger reasoning
+                model (e.g., Anthropic Claude or GPT-4o) can yield cleaner, more
+                precise tool schemas.
               </p>
             </div>
           </div>
         </div>
 
         <DialogFooter className="border-t border-slate-800/80 pt-4 flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} className="text-slate-400 hover:text-slate-200">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            className="text-slate-400 hover:text-slate-200"
+          >
             Cancel
           </Button>
-          <Button size="sm" onClick={handleConfirm} className="bg-blue-600 hover:bg-blue-700 text-white font-medium">
+          <Button
+            size="sm"
+            onClick={handleConfirm}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+          >
             Generate Recommendation
           </Button>
         </DialogFooter>

@@ -56,7 +56,7 @@ const STATUS_STYLES: Record<string, { label: string; cls: string; icon: React.Co
   },
 };
 
-type Filter = "ALL" | typeof TokenRequestStatus[keyof typeof TokenRequestStatus];
+type Filter = "ALL" | "PENDING" | "APPROVED" | "DENIED";
 
 export function TokenRequestsClient({ requests: initialRequests }: TokenRequestsClientProps) {
   const [requests, setRequests] = useState(initialRequests);

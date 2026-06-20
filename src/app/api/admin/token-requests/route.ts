@@ -10,7 +10,7 @@ export async function GET() {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (session.user.role !== UserRole.Admin) {
+  if (session.user.role !== UserRole.SuperAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -37,7 +37,7 @@ export async function PATCH(req: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (session.user.role !== UserRole.Admin) {
+  if (session.user.role !== UserRole.SuperAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

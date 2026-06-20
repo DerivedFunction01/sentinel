@@ -96,6 +96,7 @@ export enum SuperAdminRoute {
   Overview = "overview",
   TokenRequests = "token-requests",
   UserManagement = "user-management",
+  ToolExamples = "tool-examples",
 }
 
 /** Routes available to regular users (beyond the core dashboard). */
