@@ -136,15 +136,17 @@ CRITICAL RULES FOR EXTRACTION:
    - If the prompt only forbids discounts, the category enum should only cover discounts/promotions, and MUST NOT include unrelated categories like refunds, payment, or loyalty programs.
    - If the prompt only forbids deleting files, the enum should only include file deletion-related parameters, and MUST NOT include unrelated parameters like file reading, writing, or editing.
    
-2. Improving Existing Tools:
+ 2. Improving or Replacing Existing Tools:
    If a tool is already defined in <current_tools> but its schema or validation is weak (e.g. missing proper parameters, missing enums, or having too generic a description), you can and should suggest an improved or updated version of that tool. If suggesting an improvement, output the tool using its existing name, and explicitly detail what modifications/improvements were made in the RATIONALE.
+   If a recommended tool replaces a specific existing tool under a different/renamed name, you MUST explicitly state the name of the tool it is replacing in the REPLACES field so we can avoid duplicates. If it does not replace any tool, state 'none'.
 
-3. Output Format:
+ 3. Output Format:
    You MUST output the recommendation using the following section-based format for each recommended tool. Do NOT wrap the entire output in a single JSON block or markdown code blocks (except for individual JSON schemas under SCHEMA and MOCK).
 
    For each recommended tool, output exactly this structure:
    
    [TOOL: tool_name]
+   REPLACES: <existing_tool_name_or_none>
    GRANULARITY: ${granularity}
    SCORE: <compatibility score from 0-100 for this specific tool constraint>
    RATIONALE:
@@ -208,6 +210,15 @@ export function parseSectionedRecommendation(
     const granMatch = body.match(/GRANULARITY:\s*(compact|detailed)/i);
     if (granMatch) {
       granularity = granMatch[1].toLowerCase() as "compact" | "detailed";
+    }
+
+    let replaces: string | undefined = undefined;
+    const replacesMatch = body.match(/REPLACES:\s*([a-zA-Z0-9_-]+|none)/i);
+    if (replacesMatch) {
+      const val = replacesMatch[1].trim();
+      if (val.toLowerCase() !== "none") {
+        replaces = val;
+      }
     }
 
     let compatibilityScore = 100;
@@ -274,6 +285,7 @@ export function parseSectionedRecommendation(
         rationale,
         toolJson,
         mockResponse,
+        replaces,
       });
     }
   }

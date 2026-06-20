@@ -56,6 +56,7 @@ export interface ToolRecommendationItem {
   rationale: string;
   toolJson: ToolDef;
   mockResponse: unknown;
+  replaces?: string;
 }
 
 export interface ToolRecommendation {

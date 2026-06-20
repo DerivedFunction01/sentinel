@@ -131,9 +131,16 @@ export function ReportView({ scan }: ReportViewProps) {
     
     let recommendedTools: any[] = [];
     let recommendedMocks: any = {};
+    const replacements = new Map<string, string>(); // newName -> oldName
 
     if (Array.isArray(rec.tools)) {
-      recommendedTools = rec.tools.map((t: any) => t.toolJson || t);
+      recommendedTools = rec.tools.map((t: any) => {
+        const name = t.name || t.toolJson?.function?.name;
+        if (name && t.replaces && t.replaces !== "none") {
+          replacements.set(name, t.replaces);
+        }
+        return t.toolJson || t;
+      });
       recommendedMocks = rec.tools.reduce((acc: any, t: any) => {
         const name = t.name || t.toolJson?.function?.name;
         if (name) {
@@ -174,6 +181,15 @@ export function ReportView({ scan }: ReportViewProps) {
         mergedToolsMap.set(name, tool);
       }
     }
+
+    // Delete tools/mocks replaced under different names
+    for (const [newName, oldName] of Array.from(replacements.entries())) {
+      if (oldName && oldName !== newName) {
+        mergedToolsMap.delete(oldName);
+        delete existingMocks[oldName];
+      }
+    }
+
     for (const tool of recommendedTools) {
       const name = tool.function?.name;
       if (name) {
