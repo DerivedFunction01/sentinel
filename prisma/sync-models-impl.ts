@@ -14,6 +14,7 @@ const KNOWN_PROVIDERS = [
   "openai",
   "google",
   "meta-llama",
+  "xai",
   "qwen",
   "deepseek",
   "cohere",
@@ -23,7 +24,7 @@ const KNOWN_PROVIDERS = [
 const MAX_RECOMMENDED_PER_PROVIDER = 3;
 
 /** Models that get an "AI Suggest" sub-label. */
-const AI_SUGGEST_IDS = ["deepseek/deepseek-r1"];
+const AI_SUGGEST_IDS = [];
 
 interface OpenRouterModel {
   id: string;
@@ -37,7 +38,9 @@ interface OpenRouterModel {
 /** Fetch all models from OpenRouter and upsert them into the DB. */
 export async function syncModels(db: PrismaClient): Promise<void> {
   console.log("Fetching models from OpenRouter sorted by popularity…");
-  const res = await fetch("https://openrouter.ai/api/v1/models?sort=most-popular");
+  const res = await fetch(
+    "https://openrouter.ai/api/v1/models?sort=most-popular",
+  );
   if (!res.ok) {
     throw new Error(`OpenRouter API returned ${res.status}`);
   }
@@ -104,11 +107,13 @@ export async function syncModels(db: PrismaClient): Promise<void> {
 // CLI entry point — run with: bun run prisma/sync-models-impl.ts
 // Using dynamic import to avoid require() which is forbidden by ESLint.
 if (import.meta.url === `file://${process.argv[1]}`) {
-  import("@prisma/client").then(({ PrismaClient }) => {
-    const db = new PrismaClient();
-    return syncModels(db).finally(() => db.$disconnect());
-  }).catch((e) => {
-    console.error("Model sync failed:", e);
-    process.exit(1);
-  });
+  import("@prisma/client")
+    .then(({ PrismaClient }) => {
+      const db = new PrismaClient();
+      return syncModels(db).finally(() => db.$disconnect());
+    })
+    .catch((e) => {
+      console.error("Model sync failed:", e);
+      process.exit(1);
+    });
 }
