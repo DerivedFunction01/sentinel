@@ -938,6 +938,20 @@ function createConfigurationSection(scan: Scan): any[] {
       ],
     }),
     createAdversarialCoverageCard(scan),
+
+    // Agent Models Used
+    new Paragraph({
+      spacing: { before: 250, after: 100 },
+      children: [
+        new TextRun({
+          text: "AGENT MODELS USED",
+          bold: true,
+          size: 16,
+          color: "999999",
+        }),
+      ],
+    }),
+    createAgentModelsTable(scan),
   ];
 }
 
@@ -994,6 +1008,90 @@ function createAdversarialCoverageCard(scan: Scan): Table {
           }),
         ],
       }),
+    ],
+  });
+}
+
+/**
+ * Table showing the three pipeline models: Attacker, Judge, Target
+ */
+function createAgentModelsTable(scan: Scan): Table {
+  const border = { style: BorderStyle.SINGLE, size: 4, color: "DDDDDD" };
+  const borders = { top: border, bottom: border, left: border, right: border };
+
+  const rows = [
+    {
+      role: "Attacker",
+      color: "E74C3C",
+      id: scan.attackerModel || "—",
+      name: scan.attackerModelName || scan.attackerModel || "Anonymous Attacker",
+    },
+    {
+      role: "Judge",
+      color: "27AE60",
+      id: scan.judgeModel || "—",
+      name: scan.judgeModelName || scan.judgeModel || "Anonymous Judge",
+    },
+    {
+      role: "Target",
+      color: "2E75B6",
+      id: scan.targetModel || "—",
+      name: scan.modelName || scan.targetModel || "—",
+    },
+  ];
+
+  return new Table({
+    width: { size: 9360, type: WidthType.DXA },
+    columnWidths: [1800, 3780, 3780],
+    rows: [
+      // Header row
+      new TableRow({
+        tableHeader: true,
+        children: [
+          new TableCell({
+            borders,
+            shading: { fill: "1F4788", type: ShadingType.CLEAR },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [new Paragraph({ children: [new TextRun({ text: "ROLE", bold: true, size: 16, color: "FFFFFF" })] })],
+          }),
+          new TableCell({
+            borders,
+            shading: { fill: "1F4788", type: ShadingType.CLEAR },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [new Paragraph({ children: [new TextRun({ text: "DISPLAY NAME", bold: true, size: 16, color: "FFFFFF" })] })],
+          }),
+          new TableCell({
+            borders,
+            shading: { fill: "1F4788", type: ShadingType.CLEAR },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [new Paragraph({ children: [new TextRun({ text: "MODEL ID", bold: true, size: 16, color: "FFFFFF" })] })],
+          }),
+        ],
+      }),
+      ...rows.map((r, idx) =>
+        new TableRow({
+          children: [
+            new TableCell({
+              borders,
+              shading: { fill: idx % 2 === 0 ? "F8F8F8" : "FFFFFF", type: ShadingType.CLEAR },
+              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              children: [new Paragraph({ children: [new TextRun({ text: r.role, bold: true, size: 18, color: r.color })] })],
+            }),
+            new TableCell({
+              borders,
+              shading: { fill: idx % 2 === 0 ? "F8F8F8" : "FFFFFF", type: ShadingType.CLEAR },
+              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 18, color: "1A1A1A" })] })],
+            }),
+            new TableCell({
+              borders,
+              shading: { fill: idx % 2 === 0 ? "F8F8F8" : "FFFFFF", type: ShadingType.CLEAR },
+              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              children: [new Paragraph({ children: [new TextRun({ text: r.id, size: 16, font: "Courier New", color: "555555" })] })],
+            }),
+          ],
+        })
+      ),
     ],
   });
 }

@@ -92,9 +92,9 @@ export async function POST(req: Request) {
   const forbiddenTask = (body.forbiddenTask as string) || "";
   const judgeInstructions = (body.judgeInstructions as string) || "";
   
-  // Custom pipeline model overrides
+  // Custom pipeline model overrides — accept either explicit field name
   const seedExtractorModel = (body.seedExtractorModel as string) || SCAN_MODELS.DEFAULT_SEED_EXTRACTOR;
-  const attackGeneratorModel = (body.attackGeneratorModel as string) || SCAN_MODELS.DEFAULT_ATTACK_GENERATOR;
+  const attackGeneratorModel = (body.attackerModel as string) || (body.attackGeneratorModel as string) || SCAN_MODELS.DEFAULT_ATTACK_GENERATOR;
   const judgeModel = (body.judgeModel as string) || SCAN_MODELS.DEFAULT_JUDGE;
 
   let tools: ToolDef[] = [];
@@ -221,6 +221,8 @@ export async function POST(req: Request) {
         reportId,
         userId: user.id,
         targetModel,
+        attackerModel: attackGeneratorModel,
+        judgeModel,
         systemPrompt,
         forbiddenTask,
         judgeInstructions,

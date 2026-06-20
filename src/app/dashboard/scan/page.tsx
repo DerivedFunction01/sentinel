@@ -11,6 +11,7 @@ import {
   Code2,
   Braces,
   Gavel,
+  Swords,
   Loader2,
   Copy,
   Plus,
@@ -34,6 +35,7 @@ import { PageHeader } from "@/components/dashboard/dashboard-parts";
 import { AgentPipeline } from "@/components/shared/agent-pipeline";
 import { ScanProgressPanel } from "@/components/shared/scan-progress-panel";
 import { MultiModelSelector } from "@/components/shared/multi-model-selector";
+import { ModelSelector } from "@/components/shared/model-selector";
 import { toast } from "sonner";
 import {
   sampleForbiddenTask,
@@ -68,6 +70,8 @@ function makeDefaultPrompt(): PromptConfig {
 interface ScanConfigFile {
   targetModels: string[];
   targetModel?: string;
+  attackerModel?: string;
+  judgeModel?: string;
   prompts: PromptConfig[];
 }
 
@@ -75,6 +79,8 @@ export default function PenTestScanPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [targetModels, setTargetModels] = useState<string[]>([]);
+  const [attackerModel, setAttackerModel] = useState<string>("");
+  const [judgeModel, setJudgeModel] = useState<string>("");
   const [prompts, setPrompts] = useState<PromptConfig[]>([makeDefaultPrompt()]);
   const [launching, setLaunching] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -95,7 +101,11 @@ export default function PenTestScanPage() {
       .then((r) => r.json())
       .then((d) => {
         const recommended = (d.models || []).find((m: { isRecommended: boolean }) => m.isRecommended);
-        if (recommended) setTargetModels([recommended.id]);
+        if (recommended) {
+          setTargetModels([recommended.id]);
+          setAttackerModel(recommended.id);
+          setJudgeModel(recommended.id);
+        }
       })
       .catch(() => { /* keep empty — user can still select manually */ });
   }, []);
@@ -127,6 +137,8 @@ export default function PenTestScanPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           targetModels,
+          attackerModel,
+          judgeModel,
           systemPrompt: first.systemPrompt,
           forbiddenTask: first.forbiddenTask,
           judgeInstructions: first.judgeInstructions,
@@ -220,7 +232,7 @@ export default function PenTestScanPage() {
 
   /** Export the current scan configuration to a JSON file. */
   const handleExport = () => {
-    const config: ScanConfigFile = { targetModels, prompts };
+    const config: ScanConfigFile = { targetModels, attackerModel, judgeModel, prompts };
     const blob = new Blob([JSON.stringify(config, null, 2)], {
       type: "application/json",
     });
@@ -261,6 +273,8 @@ export default function PenTestScanPage() {
         // Backward compat with old single-model config files.
         setTargetModels([data.targetModel]);
       }
+      if (data.attackerModel) setAttackerModel(data.attackerModel);
+      if (data.judgeModel) setJudgeModel(data.judgeModel);
       setPrompts(
         data.prompts.map((p) => ({
           systemPrompt: p.systemPrompt ?? "",
@@ -294,15 +308,35 @@ export default function PenTestScanPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Target Model & Tokens</CardTitle>
+            <CardTitle className="text-base">Models &amp; Tokens</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label className="text-sm font-medium">Target AI Model</Label>
               <MultiModelSelector value={targetModels} onChange={setTargetModels} />
               <p className="text-xs text-muted-foreground">
                 Search OpenRouter&apos;s catalog (e.g. &quot;llama&quot;,
                 &quot;gemini&quot;, &quot;gpt-4&quot;).
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5 text-sm font-medium">
+                <Swords className="h-3.5 w-3.5 text-red-400" />
+                Attacker Model
+              </Label>
+              <ModelSelector value={attackerModel} onChange={setAttackerModel} />
+              <p className="text-xs text-muted-foreground">
+                Generates adversarial prompts targeting the forbidden task.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5 text-sm font-medium">
+                <Gavel className="h-3.5 w-3.5 text-emerald-400" />
+                Judge Model
+              </Label>
+              <ModelSelector value={judgeModel} onChange={setJudgeModel} />
+              <p className="text-xs text-muted-foreground">
+                Evaluates whether the target leaked restricted info.
               </p>
             </div>
             <div className="space-y-2">

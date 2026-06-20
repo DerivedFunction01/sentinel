@@ -51,6 +51,10 @@ export interface Scan {
   issuedDate: string;
   targetModel: string; // OpenRouter model id, e.g. "anthropic/claude-3.5-haiku"
   modelName: string; // human-readable name from the Model table
+  attackerModel: string; // OpenRouter model id used for attack generation
+  attackerModelName: string; // human-readable name
+  judgeModel: string; // OpenRouter model id used for judging
+  judgeModelName: string; // human-readable name
   systemPrompt: string;
   forbiddenTask: string;
   judgeInstructions: string;

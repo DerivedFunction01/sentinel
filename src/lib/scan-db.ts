@@ -20,6 +20,8 @@ export function deserializeScan(row: {
   reportId: string;
   userId: string;
   targetModel: string;
+  attackerModel: string;
+  judgeModel: string;
   systemPrompt: string;
   forbiddenTask: string;
   judgeInstructions: string;
@@ -76,6 +78,8 @@ export function deserializeScan(row: {
       year: "numeric",
     }),
     targetModel: row.targetModel,
+    attackerModel: row.attackerModel || "",
+    judgeModel: row.judgeModel || "",
     systemPrompt: row.systemPrompt,
     forbiddenTask: row.forbiddenTask,
     judgeInstructions: row.judgeInstructions,
@@ -91,7 +95,9 @@ export function deserializeScan(row: {
     summary: row.summary,
     summaryDetail: row.summaryDetail,
     apiCost: (row as any).apiCost || 0,
-    modelName: "", // filled by caller via lookupModelNames
+    modelName: "",          // filled by caller via lookupModelNames
+    attackerModelName: "",  // filled by caller via lookupModelNames
+    judgeModelName: "",     // filled by caller via lookupModelNames
   };
 }
 
@@ -117,8 +123,11 @@ export async function getScanByReportId(
   });
   if (!row) return null;
   const scan = deserializeScan(row);
-  const names = await lookupModelNames([scan.targetModel]);
+  const allIds = [scan.targetModel, scan.attackerModel, scan.judgeModel].filter(Boolean);
+  const names = await lookupModelNames(allIds);
   scan.modelName = names[scan.targetModel] || formatModelName(scan.targetModel);
+  scan.attackerModelName = names[scan.attackerModel] || formatModelName(scan.attackerModel);
+  scan.judgeModelName = names[scan.judgeModel] || formatModelName(scan.judgeModel);
   return scan;
 }
 

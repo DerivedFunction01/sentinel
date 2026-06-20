@@ -46,6 +46,8 @@ model Scan {
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   targetModel       String   // OpenRouter model id, e.g. "anthropic/claude-3.5-haiku"
+  attackerModel     String   @default("") // OpenRouter model id used for attack generation
+  judgeModel        String   @default("") // OpenRouter model id used for judging
   systemPrompt      String
   forbiddenTask     String
   judgeInstructions String

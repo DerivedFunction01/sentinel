@@ -190,8 +190,8 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
                 <Swords className="h-3.5 w-3.5 text-red-400" />
                 Attacker
               </span>
-              <span className="font-mono text-xs text-foreground">
-                anonymous-attacker-model
+              <span className="max-w-[55%] truncate text-right font-mono text-xs text-foreground" title={scan.attackerModel}>
+                {scan.attackerModelName || scan.attackerModel || <span className="italic text-muted-foreground">anonymous</span>}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -199,8 +199,8 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
                 <Gavel className="h-3.5 w-3.5 text-emerald-400" />
                 Judge
               </span>
-              <span className="font-mono text-xs text-foreground">
-                anonymous-judge-model
+              <span className="max-w-[55%] truncate text-right font-mono text-xs text-foreground" title={scan.judgeModel}>
+                {scan.judgeModelName || scan.judgeModel || <span className="italic text-muted-foreground">anonymous</span>}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -208,10 +208,16 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
                 <Target className="h-3.5 w-3.5 text-blue-400" />
                 Target
               </span>
-              <span className="font-mono text-xs text-foreground">
+              <span className="max-w-[55%] truncate text-right font-mono text-xs text-foreground" title={scan.targetModel}>
                 {scan.modelName || scan.targetModel}
               </span>
             </div>
+            {scan.apiCost > 0 && (
+              <div className="border-t border-white/5 pt-2 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">API Cost</span>
+                <span className="font-mono text-xs text-amber-400">${scan.apiCost.toFixed(4)}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
