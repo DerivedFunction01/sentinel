@@ -5,13 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   RotateCw,
   Download,
-  FileText,
   Shield,
   Target,
   Swords,
   Gavel,
   AlertTriangle,
-  Loader2,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,9 +29,14 @@ import {
 
 interface ScanSummaryProps {
   scan: Scan;
+  activeHardenedPrompt?: {
+    modelId: string;
+    modelName: string;
+    prompt: string;
+  } | null;
 }
 
-export function ScanSummary({ scan }: ScanSummaryProps) {
+export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
   const defended = scan.totalTrials - scan.breaches;
   const defenseRate =
     scan.totalTrials > 0 ? Math.round((defended / scan.totalTrials) * 100) : 0;
@@ -52,13 +55,6 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
       ? "Strong posture — your prompt defends well against adversarial attacks."
       : "Moderate posture — some vulnerabilities detected. Review breached trials.";
 
-  const [downloadingHarden, setDownloadingHarden] = useState(false);
-  const [rescanningHarden, setRescanningHarden] = useState(false);
-  const [models, setModels] = useState<Array<{ id: string; name: string }>>([]);
-  const [selectedModel, setSelectedModel] = useState<string>(
-    scan.hardenerModel || "google/gemini-2.5-flash"
-  );
-  
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [selectedExportPrompts, setSelectedExportPrompts] = useState<string[]>([]);
   const router = useRouter();
@@ -85,139 +81,81 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
     setExportDialogOpen(false);
   };
 
-  useEffect(() => {
-    fetch("/api/models")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.models && d.models.length > 0) {
-          setModels(d.models);
+  const handleDownloadHarden = () => {
+    if (!activeHardenedPrompt?.prompt) {
+      toast.error("No hardened prompt selected.");
+      return;
+    }
+    
+    const blob = new Blob([activeHardenedPrompt.prompt], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `hardened-prompt-${activeHardenedPrompt.modelId.replace(/\//g, "-")}-${scan.id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Hardened prompt downloaded!");
+  };
+
+  const handleRescanHarden = () => {
+    if (!activeHardenedPrompt?.prompt) {
+      toast.error("No hardened prompt selected.");
+      return;
+    }
+
+    const preset = {
+      targetModels: [scan.targetModel],
+      attackerModel: scan.attackerModel,
+      judgeModel: scan.judgeModel,
+      prompts: [
+        {
+          systemPrompt: activeHardenedPrompt.prompt,
+          forbiddenTask: scan.forbiddenTask,
+          tools: JSON.stringify(scan.tools),
+          mockResponses: JSON.stringify(scan.mockToolResponses),
+          judgeInstructions: scan.judgeInstructions,
         }
-      })
-      .catch(() => {});
-  }, []);
-
-  const handleDownloadHarden = async () => {
-    setDownloadingHarden(true);
-    const toastId = toast.loading("Generating hardened prompt...");
-    try {
-      const res = await fetch(`/api/scan/${scan.id}/harden`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modelId: selectedModel }),
-      });
-      if (!res.ok) throw new Error("Failed to generate");
-      const data = await res.json();
-      
-      const blob = new Blob([data.hardenedPrompt], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `hardened-prompt-${scan.id}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      toast.success("Hardened prompt downloaded!", { id: toastId });
-    } catch (e) {
-      console.error(e);
-      toast.error("Failed to generate hardened prompt", { id: toastId });
-    } finally {
-      setDownloadingHarden(false);
-    }
+      ]
+    };
+    
+    localStorage.setItem("sentinelprompt_scan_preset", JSON.stringify(preset));
+    toast.success("Hardened prompt applied. Redirecting to scanner...");
+    router.push("/dashboard/scan");
   };
 
-  const handleRescanHarden = async () => {
-    setRescanningHarden(true);
-    const toastId = toast.loading("Generating hardened prompt...");
-    try {
-      const res = await fetch(`/api/scan/${scan.id}/harden`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modelId: selectedModel }),
-      });
-      if (!res.ok) throw new Error("Failed to generate");
-      const data = await res.json();
-
-      // Store configuration preset in localStorage
-      const preset = {
-        targetModels: [scan.targetModel],
-        attackerModel: scan.attackerModel,
-        judgeModel: scan.judgeModel,
-        prompts: [
-          {
-            systemPrompt: data.hardenedPrompt,
-            forbiddenTask: scan.forbiddenTask,
-            tools: JSON.stringify(scan.tools),
-            mockResponses: JSON.stringify(scan.mockToolResponses),
-            judgeInstructions: scan.judgeInstructions,
-          }
-        ]
-      };
-      
-      localStorage.setItem("sentinelprompt_scan_preset", JSON.stringify(preset));
-      toast.success("Hardened prompt generated. Redirecting to scanner...", { id: toastId });
-      router.push("/dashboard/scan");
-    } catch (e) {
-      console.error(e);
-      toast.error("Failed to generate hardened prompt for rescan", { id: toastId });
-    } finally {
-      setRescanningHarden(false);
-    }
-  };
+  const hasPrompt = !!activeHardenedPrompt;
 
   return (
     <div className="space-y-4">
-      {/* Action buttons with model selector */}
+      {/* Action buttons */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/5 bg-card/20 p-4">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Harden Prompt using Model:
+          <Sparkles className="h-4 w-4 text-purple-400" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+            {hasPrompt ? `Active Version: ${activeHardenedPrompt.modelName}` : "Harden prompt below to enable actions"}
           </span>
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            className="rounded-md border border-white/10 bg-background px-3 py-1.5 text-xs text-foreground focus:border-blue-500 focus:outline-none cursor-pointer"
-          >
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-            {models.length === 0 ? (
-              <option value={selectedModel}>
-                {scan.judgeModelName || scan.judgeModel || "Default"}
-              </option>
-            ) : null}
-          </select>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
-            className="bg-blue-600 text-white shadow-[0_4px_18px_rgba(59,130,246,0.4)] hover:bg-blue-700"
+            className="bg-blue-600 text-white shadow-[0_4px_18px_rgba(59,130,246,0.4)] hover:bg-blue-700 disabled:opacity-50"
             onClick={handleRescanHarden}
-            disabled={rescanningHarden || downloadingHarden}
+            disabled={!hasPrompt}
           >
-            {rescanningHarden ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RotateCw className="mr-2 h-4 w-4" />
-            )}
+            <RotateCw className="mr-2 h-4 w-4" />
             Re-scan with hardened prompt
           </Button>
           <Button
             size="sm"
             variant="outline"
-            className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10"
+            className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10 disabled:opacity-50"
             onClick={handleDownloadHarden}
-            disabled={rescanningHarden || downloadingHarden}
+            disabled={!hasPrompt}
           >
-            {downloadingHarden ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="mr-2 h-4 w-4" />
-            )}
+            <Download className="mr-2 h-4 w-4" />
             Hardened prompt (.txt)
           </Button>
           <Button

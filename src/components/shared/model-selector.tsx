@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Check, ChevronsUpDown, Search, Loader2 } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -59,20 +63,24 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
   // dropdown opens or the search query changes. Debounced for search.
   useEffect(() => {
     let active = true;
-    const t = setTimeout(async () => {
-      if (open) setLoading(true);
-      const params = search.length >= 2 ? `?q=${encodeURIComponent(search)}` : "";
-      try {
-        const res = await fetch(`/api/models${params}`);
-        const data = await res.json();
-        if (active) {
-          setModels(data.models || []);
-          setLoading(false);
+    const t = setTimeout(
+      async () => {
+        if (open) setLoading(true);
+        const params =
+          search.length >= 2 ? `?q=${encodeURIComponent(search)}` : "";
+        try {
+          const res = await fetch(`/api/models${params}`);
+          const data = await res.json();
+          if (active) {
+            setModels(data.models || []);
+            setLoading(false);
+          }
+        } catch {
+          if (active) setLoading(false);
         }
-      } catch {
-        if (active) setLoading(false);
-      }
-    }, open ? 250 : 0);
+      },
+      open ? 250 : 0,
+    );
     return () => {
       active = false;
       clearTimeout(t);
@@ -104,7 +112,11 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
           aria-expanded={open}
           className="w-full justify-between font-normal"
         >
-          {selectedModel ? selectedModel.name : (value ? formatModelName(value) : "Select a model…")}
+          {selectedModel
+            ? selectedModel.name
+            : value
+              ? formatModelName(value)
+              : "Select a model…"}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
