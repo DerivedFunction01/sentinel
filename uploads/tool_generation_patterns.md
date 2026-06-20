@@ -108,9 +108,9 @@ These live in the new system prompt as guidance, not enforcement.
   - **Rationale**: Different domains (finance vs. medical); different backend enforcement
   - **Context**: One is a business policy; one is a safety gate
 
-- "No refunds" + "Refund eligibility check" → Combine? No. Split into `refund_denial` + `refund_eligibility`
-  - **Rationale**: One blocks refunds entirely; one validates conditions. Different intent.
-  - **Context**: Business denies some refunds but accepts others based on conditions
+- "No refunds" + "Refund eligibility check" → Combine? Yes.
+  - **Rationale**: Refund is a conditional action. Combine it into a single tool with three operation modes: inquiry, verification, and execution.
+  - **Context**: Business denies some refunds but accepts others based on conditions.
 
 **When unclear:** Ask—Does the backend handle them identically, or do they require different validation paths? If identical, combine. If different, split.
 
