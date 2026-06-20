@@ -207,7 +207,9 @@ export function TrialCard({ trial }: TrialCardProps) {
             label="Judge — Verdict"
             iconColor={isBreached ? "text-red-400" : "text-emerald-400"}
             bgColor={isBreached ? "bg-red-500/5" : "bg-emerald-500/5"}
-            borderColor={isBreached ? "border-red-500/10" : "border-emerald-500/10"}
+            borderColor={
+              isBreached ? "border-red-500/10" : "border-emerald-500/10"
+            }
           >
             <div className="mb-2">
               <span
@@ -249,7 +251,12 @@ function Section({
     <div>
       <div className="mb-2 flex items-center gap-2">
         <Icon className={cn("h-3.5 w-3.5", iconColor)} />
-        <p className={cn("text-[10px] font-medium uppercase tracking-wider", iconColor)}>
+        <p
+          className={cn(
+            "text-[10px] font-medium uppercase tracking-wider",
+            iconColor,
+          )}
+        >
           {label}
         </p>
       </div>
