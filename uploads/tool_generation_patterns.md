@@ -104,8 +104,8 @@ These live in the new system prompt as guidance, not enforcement.
 
 **Split rules into separate tools** when they belong to different domains or have different validation logic:
 
-- "No discounts" + "No medical dosing" → Combine? No. Split into `commerce_discounts` + `medical_validator`
-  - **Rationale**: Different domains (commerce vs. safety); different backend enforcement
+- "No financial transfers" + "No medical advice" → Combine? No. Split into `finance_transfer` + `medical_advice`
+  - **Rationale**: Different domains (finance vs. medical); different backend enforcement
   - **Context**: One is a business policy; one is a safety gate
 
 - "No refunds" + "Refund eligibility check" → Combine? No. Split into `refund_denial` + `refund_eligibility`
