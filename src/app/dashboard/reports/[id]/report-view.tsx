@@ -43,17 +43,21 @@ export function ReportView({ scan }: ReportViewProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<TrialFilter>(TrialFilter.All);
 
-  const [selectedHardenedModel, setSelectedHardenedModel] = useState<string>(
-    scan.hardenerModel || "google/gemini-2.5-flash"
-  );
+  const [selectedHardenedModel, setSelectedHardenedModel] = useState<string>(() => {
+    const active = scan.hardenedPrompts.find((hp) => hp.modelId === (scan.hardenerModel || "google/gemini-2.5-flash"));
+    return active?.modelId || scan.hardenedPrompts[0]?.modelId || "google/gemini-2.5-flash";
+  });
   
   const [currentHardenedPrompt, setCurrentHardenedPrompt] = useState<any>(() => {
     const active = scan.hardenedPrompts.find((hp) => hp.modelId === (scan.hardenerModel || "google/gemini-2.5-flash"));
     return active || scan.hardenedPrompts[0] || null;
   });
 
+  const [historyModels, setHistoryModels] = useState<any[]>(() => scan.hardenedPrompts || []);
   const [models, setModels] = useState<Array<{ id: string; name: string }>>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<"current" | "new">("current");
+  const [newModelToHarden, setNewModelToHarden] = useState<string>("");
   const [extracting, setExtracting] = useState(false);
 
   useEffect(() => {
@@ -67,12 +71,29 @@ export function ReportView({ scan }: ReportViewProps) {
       .catch(() => {});
   }, []);
 
+  const availableModelsToHarden = models.filter(
+    (m) => !historyModels.some((hm) => hm.modelId === m.id)
+  );
+
+  useEffect(() => {
+    if (availableModelsToHarden.length > 0 && !newModelToHarden) {
+      setNewModelToHarden(availableModelsToHarden[0].id);
+    }
+  }, [availableModelsToHarden, newModelToHarden]);
+
   const fetchHardenedPrompt = async (modelId: string) => {
+    // Check history first to avoid API call
+    const cached = historyModels.find((hm) => hm.modelId === modelId);
+    if (cached) {
+      setCurrentHardenedPrompt(cached);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/scan/${scan.id}/harden?modelId=${encodeURIComponent(modelId)}`);
       if (res.ok) {
         const data = await res.json();
-        setCurrentHardenedPrompt({
+        const fetched = {
           modelId: data.modelId,
           modelName: data.modelName,
           prompt: data.hardenedPrompt,
@@ -80,6 +101,11 @@ export function ReportView({ scan }: ReportViewProps) {
           compatibilityScore: data.compatibilityScore,
           granularity: data.granularity,
           extractorModel: data.extractorModel,
+        };
+        setCurrentHardenedPrompt(fetched);
+        setHistoryModels((prev) => {
+          if (prev.some((x) => x.modelId === modelId)) return prev;
+          return [...prev, fetched];
         });
       }
     } catch (e) {
@@ -92,7 +118,21 @@ export function ReportView({ scan }: ReportViewProps) {
     fetchHardenedPrompt(modelId);
   };
 
+  const openCurrentPicker = () => {
+    setPickerTarget("current");
+    setPickerOpen(true);
+  };
+
+  const openNewPicker = () => {
+    if (!newModelToHarden) return;
+    setPickerTarget("new");
+    setPickerOpen(true);
+  };
+
   const handleExtractTools = async (granularity: "compact" | "detailed", extractorModel: string) => {
+    const targetModelId = pickerTarget === "new" ? newModelToHarden : selectedHardenedModel;
+    if (!targetModelId) return;
+
     setExtracting(true);
     const toastId = toast.loading("Analyzing prompt for tool recommendations...");
     try {
@@ -100,14 +140,14 @@ export function ReportView({ scan }: ReportViewProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          modelId: selectedHardenedModel,
+          modelId: targetModelId,
           granularity,
           extractorModel,
         }),
       });
       if (!res.ok) throw new Error("Extraction failed");
       const data = await res.json();
-      setCurrentHardenedPrompt({
+      const newPrompt = {
         modelId: data.modelId,
         modelName: data.modelName,
         prompt: data.hardenedPrompt,
@@ -115,7 +155,24 @@ export function ReportView({ scan }: ReportViewProps) {
         compatibilityScore: data.compatibilityScore,
         granularity: data.granularity,
         extractorModel: data.extractorModel,
+      };
+      
+      setCurrentHardenedPrompt(newPrompt);
+      setSelectedHardenedModel(data.modelId);
+      
+      // Update historyModels
+      setHistoryModels((prev) => {
+        const exists = prev.some((hp) => hp.modelId === data.modelId);
+        if (exists) {
+          return prev.map((hp) => hp.modelId === data.modelId ? newPrompt : hp);
+        } else {
+          return [...prev, newPrompt];
+        }
       });
+      
+      // Reset new model selection
+      setNewModelToHarden("");
+      
       toast.success("Tool recommendation generated!", { id: toastId });
     } catch (e) {
       console.error(e);
@@ -474,33 +531,66 @@ export function ReportView({ scan }: ReportViewProps) {
           </div>
 
           <Card className="border-border bg-card/60 backdrop-blur-md overflow-hidden">
-            <div className="border-b border-border bg-muted/20 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-purple-400" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Select Hardened Prompt Model:
-                </span>
-                <select
-                  value={selectedHardenedModel}
-                  onChange={(e) => handleModelChange(e.target.value)}
-                  className="rounded-md border border-white/10 bg-background px-3 py-1 text-xs text-foreground focus:border-blue-500 focus:outline-none cursor-pointer"
-                >
-                  {models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                  {models.length === 0 ? (
-                    <option value={selectedHardenedModel}>{selectedHardenedModel}</option>
-                  ) : null}
-                </select>
+            <div className="border-b border-border bg-muted/20 px-5 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-4">
+                {/* Select Hardened Version */}
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-purple-400" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Version:
+                  </span>
+                  <select
+                    value={selectedHardenedModel}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    className="rounded-md border border-white/10 bg-background px-3 py-1 text-xs text-foreground focus:border-blue-500 focus:outline-none cursor-pointer"
+                  >
+                    {historyModels.map((hm) => (
+                      <option key={hm.modelId} value={hm.modelId}>
+                        {hm.modelName}
+                      </option>
+                    ))}
+                    {historyModels.length === 0 ? (
+                      <option value={selectedHardenedModel}>{selectedHardenedModel}</option>
+                    ) : null}
+                  </select>
+                </div>
+
+                {/* Generate for New Model */}
+                {availableModelsToHarden.length > 0 && (
+                  <div className="flex items-center gap-2 border-l border-white/10 pl-4">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Harden for:
+                    </span>
+                    <select
+                      value={newModelToHarden}
+                      onChange={(e) => setNewModelToHarden(e.target.value)}
+                      className="rounded-md border border-white/10 bg-background px-3 py-1 text-xs text-foreground focus:border-blue-500 focus:outline-none cursor-pointer"
+                    >
+                      {availableModelsToHarden.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={openNewPicker}
+                      disabled={extracting || !newModelToHarden}
+                      className="border-purple-500/40 text-purple-400 hover:bg-purple-600/10 text-xs px-2.5 py-0 h-7"
+                    >
+                      Harden Model
+                    </Button>
+                  </div>
+                )}
               </div>
+
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPickerOpen(true)}
+                onClick={openCurrentPicker}
                 disabled={extracting}
-                className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10 text-xs shrink-0"
+                className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10 text-xs shrink-0 self-start md:self-auto"
               >
                 {currentHardenedPrompt?.toolRecommendation ? "Re-extract Tools" : "Extract Tools to Schema"}
               </Button>

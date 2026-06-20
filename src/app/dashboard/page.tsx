@@ -70,7 +70,7 @@ export default async function OverviewPage() {
     </div>
   );
 }
-function statCards(stats: { totalScans: number; totalBreaches: number; avgScore: number; apiScans: number; riskDistribution: ({ level: "low"; count: number; } | { level: "medium"; count: number; } | { level: "high"; count: number; } | { level: "critical"; count: number; })[]; scoreTrend: { label: string; score: number; }[]; modelUsage: { model: string; scans: number; name: string; }[]; attackSuccessRate: { category: string; breached: number; defended: number; rate: number; }[]; }) {
+function statCards(stats: any) {
   return <div className="flex-none grid grid-cols-2 gap-4 lg:grid-cols-4">
     <StatCard
       label="Total Scans"
@@ -95,7 +95,7 @@ function statCards(stats: { totalScans: number; totalBreaches: number; avgScore:
   </div>;
 }
 
-function scoreTrend(stats: { totalScans: number; totalBreaches: number; avgScore: number; apiScans: number; riskDistribution: ({ level: "low"; count: number; } | { level: "medium"; count: number; } | { level: "high"; count: number; } | { level: "critical"; count: number; })[]; scoreTrend: { label: string; score: number; }[]; modelUsage: { model: string; scans: number; name: string; }[]; attackSuccessRate: { category: string; breached: number; defended: number; rate: number; }[]; }) {
+function scoreTrend(stats: any) {
   return <Card className="flex-1 min-h-0 flex flex-col">
     <CardHeader className="py-2.5 px-4 flex-none">
       <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -117,7 +117,7 @@ function scoreTrend(stats: { totalScans: number; totalBreaches: number; avgScore
   </Card>;
 }
 
-function riskDistribution(stats: { totalScans: number; totalBreaches: number; avgScore: number; apiScans: number; riskDistribution: ({ level: "low"; count: number; } | { level: "medium"; count: number; } | { level: "high"; count: number; } | { level: "critical"; count: number; })[]; scoreTrend: { label: string; score: number; }[]; modelUsage: { model: string; scans: number; name: string; }[]; attackSuccessRate: { category: string; breached: number; defended: number; rate: number; }[]; }) {
+function riskDistribution(stats: any) {
   return <Card className="flex-1 min-h-0 flex flex-col">
     <CardHeader className="py-2.5 px-4 flex-none">
       <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Risk Distribution</CardTitle>
@@ -136,7 +136,7 @@ function riskDistribution(stats: { totalScans: number; totalBreaches: number; av
   </Card>;
 }
 
-function analytics(stats: { totalScans: number; totalBreaches: number; avgScore: number; apiScans: number; riskDistribution: ({ level: "low"; count: number; } | { level: "medium"; count: number; } | { level: "high"; count: number; } | { level: "critical"; count: number; })[]; scoreTrend: { label: string; score: number; }[]; modelUsage: { model: string; scans: number; name: string; }[]; attackSuccessRate: { category: string; breached: number; defended: number; rate: number; }[]; }, maxModelScans: number) {
+function analytics(stats: any, maxModelScans: number) {
   return <Card className="h-[45%] min-h-0 flex flex-col">
     <Tabs defaultValue="models" className="flex-1 flex flex-col min-h-0">
       <CardHeader className="py-2.5 px-4 flex flex-row items-center justify-between space-y-0 flex-none">

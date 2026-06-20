@@ -124,6 +124,7 @@ export async function POST(req: Request) {
     defaultModel;
   const judgeModel = (body.judgeModel as string) || defaultModel;
   const hardenerModel = (body.hardenerModel as string) || defaultModel;
+  const extractorModel = (body.extractorModel as string) || "google/gemini-2.5-flash";
 
   let tools: ToolDef[] = [];
   let mockToolResponses: Record<string, unknown> = {};
@@ -267,7 +268,6 @@ export async function POST(req: Request) {
 
     // Run tool extraction
     const granularity = "compact"; // Default is compact on launch
-    const extractorModel = "google/gemini-2.5-flash"; // Default extractor model
 
     const { toolRecommendation, compatibilityScore } = await generateToolRecommendation(
       systemPrompt,

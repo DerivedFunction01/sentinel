@@ -247,10 +247,10 @@ export function computeDashboardStats(scans: ScanSummary[]) {
   const riskCounts = { low: 0, medium: 0, high: 0, critical: 0 } as Record<string, number>;
   for (const s of scans) riskCounts[s.riskLevel] = (riskCounts[s.riskLevel] || 0) + 1;
   const riskDistribution = [
-    { level: "low" as const, count: riskCounts["low"] || 0 },
-    { level: "medium" as const, count: riskCounts["medium"] || 0 },
-    { level: "high" as const, count: riskCounts["high"] || 0 },
-    { level: "critical" as const, count: riskCounts["critical"] || 0 },
+    { level: RiskLevel.Low, count: riskCounts["low"] || 0 },
+    { level: RiskLevel.Medium, count: riskCounts["medium"] || 0 },
+    { level: RiskLevel.High, count: riskCounts["high"] || 0 },
+    { level: RiskLevel.Critical, count: riskCounts["critical"] || 0 },
   ].filter((s) => s.count > 0);
 
   // Score trend (oldest → newest)

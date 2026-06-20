@@ -20,6 +20,14 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { Scan } from "@/lib/types";
 import { getRiskStyle } from "@/lib/risk-utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ScanSummaryProps {
   scan: Scan;
@@ -50,7 +58,32 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
   const [selectedModel, setSelectedModel] = useState<string>(
     scan.hardenerModel || "google/gemini-2.5-flash"
   );
+  
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [selectedExportPrompts, setSelectedExportPrompts] = useState<string[]>([]);
   const router = useRouter();
+
+  // Initialize selected prompts when dialog opens
+  useEffect(() => {
+    if (exportDialogOpen && scan.hardenedPrompts) {
+      setSelectedExportPrompts(scan.hardenedPrompts.map((hp) => hp.modelId));
+    }
+  }, [exportDialogOpen, scan.hardenedPrompts]);
+
+  const handleDownloadReportClick = (e: React.MouseEvent) => {
+    if (scan.hardenedPrompts && scan.hardenedPrompts.length > 1) {
+      e.preventDefault();
+      setExportDialogOpen(true);
+    }
+  };
+
+  const executeExport = () => {
+    const query = selectedExportPrompts.length > 0
+      ? `?prompts=${selectedExportPrompts.map(encodeURIComponent).join(",")}`
+      : "";
+    window.location.href = `/api/scan/${scan.id}/export${query}`;
+    setExportDialogOpen(false);
+  };
 
   useEffect(() => {
     fetch("/api/models")
@@ -191,16 +224,24 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
             size="sm"
             variant="outline"
             className="border-white/20 text-white hover:bg-white/10"
-            asChild
+            onClick={handleDownloadReportClick}
+            asChild={!(scan.hardenedPrompts && scan.hardenedPrompts.length > 1)}
           >
-            <a
-              href={`/api/scan/${scan.id}/export`}
-              download
-              className="flex items-center text-white"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Full report (.docx)
-            </a>
+            {scan.hardenedPrompts && scan.hardenedPrompts.length > 1 ? (
+              <span className="flex items-center text-white cursor-pointer">
+                <Download className="mr-2 h-4 w-4" />
+                Full report (.docx)
+              </span>
+            ) : (
+              <a
+                href={`/api/scan/${scan.id}/export`}
+                download
+                className="flex items-center text-white"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Full report (.docx)
+              </a>
+            )}
           </Button>
         </div>
       </div>
@@ -436,6 +477,76 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent className="dark max-w-md border-border bg-slate-900 text-slate-100 p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Download className="h-5 w-5 text-blue-400" />
+              Export Report Options
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs mt-1">
+              Select which hardened prompt versions to include in your document.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Hardened Prompt Versions
+            </span>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {scan.hardenedPrompts?.map((hp) => {
+                const checked = selectedExportPrompts.includes(hp.modelId);
+                return (
+                  <label
+                    key={hp.modelId}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-slate-800 bg-slate-950/40 hover:bg-slate-950/60 cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        if (checked) {
+                          setSelectedExportPrompts(selectedExportPrompts.filter((id) => id !== hp.modelId));
+                        } else {
+                          setSelectedExportPrompts([...selectedExportPrompts, hp.modelId]);
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-slate-200">
+                        {hp.modelName}
+                      </span>
+                      <span className="text-xs text-slate-500 font-mono">
+                        {hp.modelId}
+                      </span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-slate-800/80 pt-4 flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setExportDialogOpen(false)}
+              className="text-slate-400 hover:text-slate-200"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={executeExport}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+            >
+              Download Document
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

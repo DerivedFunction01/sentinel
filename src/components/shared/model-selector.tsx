@@ -27,6 +27,28 @@ interface ModelSelectorProps {
   onChange: (modelId: string) => void;
 }
 
+const RECENT_MODELS_KEY = "sentinelprompt_recent_models";
+
+function getRecentModels(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_MODELS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentModel(modelId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const recents = getRecentModels();
+    const filtered = recents.filter((id) => id !== modelId);
+    filtered.unshift(modelId);
+    if (filtered.length > 5) filtered.pop();
+    localStorage.setItem(RECENT_MODELS_KEY, JSON.stringify(filtered));
+  } catch {}
+}
+
 export function ModelSelector({ value, onChange }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<ModelOption[]>([]);
@@ -61,6 +83,18 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
   const others = models.filter((m) => !m.isRecommended);
   const selectedModel = models.find((m) => m.id === value);
 
+  const recentIds = getRecentModels();
+  const recentModels: ModelOption[] = recentIds.map((id) => {
+    const found = models.find((m) => m.id === id);
+    if (found) return found;
+    return {
+      id,
+      name: formatModelName(id),
+      isRecommended: false,
+      aiSuggest: false,
+    };
+  });
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -79,15 +113,11 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
         align="start"
       >
         <Command shouldFilter={false}>
-          <div className="flex items-center border-b border-border px-3">
-            <Search className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
-            <CommandInput
-              value={search}
-              onValueChange={setSearch}
-              placeholder="Search OpenRouter (type 2+ chars)"
-              className="h-9 flex-1 bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
-            />
-          </div>
+          <CommandInput
+            value={search}
+            onValueChange={setSearch}
+            placeholder="Search OpenRouter (type 2+ chars)"
+          />
           <CommandList className="max-h-72 overflow-y-auto scrollbar-thin">
             {loading ? (
               <div className="flex items-center justify-center py-6">
@@ -97,6 +127,25 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
               <CommandEmpty>No model found.</CommandEmpty>
             ) : (
               <>
+                {search.length === 0 && recentModels.length > 0 && (
+                  <CommandGroup
+                    heading="RECENTLY USED"
+                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2"
+                  >
+                    {recentModels.map((model) => (
+                      <ModelItem
+                        key={`recent-${model.id}`}
+                        model={model}
+                        selected={model.id === value}
+                        onSelect={(id) => {
+                          saveRecentModel(id);
+                          onChange(id);
+                          setOpen(false);
+                        }}
+                      />
+                    ))}
+                  </CommandGroup>
+                )}
                 {recommended.length > 0 && (
                   <CommandGroup
                     heading="RECOMMENDED"
@@ -108,6 +157,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
                         model={model}
                         selected={model.id === value}
                         onSelect={(id) => {
+                          saveRecentModel(id);
                           onChange(id);
                           setOpen(false);
                         }}
@@ -123,6 +173,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
                         model={model}
                         selected={model.id === value}
                         onSelect={(id) => {
+                          saveRecentModel(id);
                           onChange(id);
                           setOpen(false);
                         }}

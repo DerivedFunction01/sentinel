@@ -2,6 +2,7 @@
 
 import { getRiskStyle } from "@/lib/risk-utils";
 import type { RiskDistributionSegment } from "@/lib/types";
+import { RiskLevel } from "@/lib/enums";
 
 interface RiskDonutProps {
   data: RiskDistributionSegment[];
@@ -33,7 +34,17 @@ export function RiskDonut({ data }: RiskDonutProps) {
         segments: [...acc.segments, segment],
       };
     },
-    { cumulative: 0, segments: [] as Array<ReturnType<typeof getRiskStyle> & { count: number; dash: number; gap: number; offset: number }> },
+    {
+      cumulative: 0,
+      segments: [] as Array<{
+        level: RiskLevel;
+        count: number;
+        style: ReturnType<typeof getRiskStyle>;
+        dash: number;
+        gap: number;
+        offset: number;
+      }>,
+    },
   );
 
   return (

@@ -29,6 +29,28 @@ interface MultiModelSelectorProps {
   onChange: (ids: string[]) => void;
 }
 
+const RECENT_MODELS_KEY = "sentinelprompt_recent_models";
+
+function getRecentModels(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_MODELS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentModel(modelId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const recents = getRecentModels();
+    const filtered = recents.filter((id) => id !== modelId);
+    filtered.unshift(modelId);
+    if (filtered.length > 5) filtered.pop();
+    localStorage.setItem(RECENT_MODELS_KEY, JSON.stringify(filtered));
+  } catch {}
+}
+
 export function MultiModelSelector({ value, onChange }: MultiModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<ModelOption[]>([]);
@@ -79,6 +101,7 @@ export function MultiModelSelector({ value, onChange }: MultiModelSelectorProps)
   const others = models.filter((m) => !m.isRecommended);
 
   const toggleModel = (id: string) => {
+    saveRecentModel(id);
     if (value.includes(id)) {
       onChange(value.filter((v) => v !== id));
     } else {
@@ -93,6 +116,18 @@ export function MultiModelSelector({ value, onChange }: MultiModelSelectorProps)
   const selectedNames = value.map(
     (id) => models.find((m) => m.id === id)?.name || formatModelName(id),
   );
+
+  const recentIds = getRecentModels();
+  const recentModels: ModelOption[] = recentIds.map((id) => {
+    const found = models.find((m) => m.id === id);
+    if (found) return found;
+    return {
+      id,
+      name: formatModelName(id),
+      isRecommended: false,
+      aiSuggest: false,
+    };
+  });
 
   return (
     <div className="space-y-2">
@@ -141,15 +176,11 @@ export function MultiModelSelector({ value, onChange }: MultiModelSelectorProps)
           align="start"
         >
           <Command shouldFilter={false}>
-            <div className="flex items-center border-b border-border px-3">
-              <Search className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
-              <CommandInput
-                value={search}
-                onValueChange={setSearch}
-                placeholder="Search OpenRouter (type 2+ chars)"
-                className="h-9 flex-1 bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
-              />
-            </div>
+            <CommandInput
+              value={search}
+              onValueChange={setSearch}
+              placeholder="Search OpenRouter (type 2+ chars)"
+            />
             <CommandList className="max-h-72 overflow-y-auto scrollbar-thin">
               {loading ? (
                 <div className="flex items-center justify-center py-6">
@@ -159,6 +190,21 @@ export function MultiModelSelector({ value, onChange }: MultiModelSelectorProps)
                 <CommandEmpty>No model found.</CommandEmpty>
               ) : (
                 <>
+                  {search.length === 0 && recentModels.length > 0 && (
+                    <CommandGroup
+                      heading="RECENTLY USED"
+                      className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2"
+                    >
+                      {recentModels.map((model) => (
+                        <ModelItem
+                          key={`recent-${model.id}`}
+                          model={model}
+                          selected={value.includes(model.id)}
+                          onSelect={() => toggleModel(model.id)}
+                        />
+                      ))}
+                    </CommandGroup>
+                  )}
                   {recommended.length > 0 && (
                     <CommandGroup
                       heading="RECOMMENDED"

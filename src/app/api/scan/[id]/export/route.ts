@@ -20,7 +20,11 @@ export async function GET(
       return new Response("Scan not found", { status: 404 });
     }
 
-    const buffer = await generateScanReport(scan);
+    const urlObj = new URL(req.url);
+    const promptsParam = urlObj.searchParams.get("prompts");
+    const selectedPromptIds = promptsParam ? promptsParam.split(",") : undefined;
+
+    const buffer = await generateScanReport(scan, undefined, selectedPromptIds);
 
     return new Response(new Uint8Array(buffer), {
       status: 200,

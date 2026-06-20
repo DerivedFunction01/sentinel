@@ -49,6 +49,7 @@ export async function POST(req: Request) {
       attackerModel,
       judgeModel,
       hardenerModel,
+      extractorModel,
       systemPrompt,
       forbiddenTask,
       judgeInstructions,
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
     const finalAttacker = attackerModel || targetModel;
     const finalJudge = judgeModel || targetModel;
     const finalHardener = hardenerModel || "google/gemini-2.5-flash";
+    const finalExtractor = extractorModel || "google/gemini-2.5-flash";
 
     // Create record
     const deployment = await db.deployment.create({
@@ -76,6 +78,7 @@ export async function POST(req: Request) {
         attackerModel: finalAttacker,
         judgeModel: finalJudge,
         hardenerModel: finalHardener,
+        extractorModel: finalExtractor,
         systemPrompt,
         forbiddenTask,
         judgeInstructions: judgeInstructions || "",

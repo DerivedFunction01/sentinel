@@ -29,7 +29,8 @@ import { TrialVerdict, RiskLevel } from "@/lib/enums";
  */
 export async function generateScanReport(
   scan: Scan,
-  outputPath?: string
+  outputPath?: string,
+  selectedPromptIds?: string[]
 ): Promise<Buffer> {
   const doc = new Document({
     styles: {
@@ -268,13 +269,26 @@ export async function generateScanReport(
             ],
           }),
         },
-        children: [
-          ...createTitlePage(scan),
-          new Paragraph({ children: [new PageBreak()] }),
-          ...createConfigurationSection(scan),
-          new Paragraph({ children: [new PageBreak()] }),
-          ...createTrialSection(scan),
-        ],
+        children: (() => {
+          const children = [
+            ...createTitlePage(scan),
+            new Paragraph({ children: [new PageBreak()] }),
+            ...createConfigurationSection(scan),
+            new Paragraph({ children: [new PageBreak()] }),
+            ...createTrialSection(scan),
+          ];
+
+          const filteredPrompts = scan.hardenedPrompts.filter((hp) => {
+            if (!selectedPromptIds || selectedPromptIds.length === 0) return true;
+            return selectedPromptIds.includes(hp.modelId);
+          });
+
+          if (filteredPrompts.length > 0) {
+            children.push(new Paragraph({ children: [new PageBreak()] }));
+            children.push(...createHardenedPromptsSection(scan, selectedPromptIds));
+          }
+          return children;
+        })(),
       },
     ],
   });
@@ -1534,4 +1548,174 @@ function createTrialSection(scan: Scan): any[] {
     separatorLine,
     ...trialCards,
   ];
+}
+
+function createHardenedPromptsSection(scan: Scan, selectedPromptIds?: string[]): any[] {
+  const filteredPrompts = scan.hardenedPrompts.filter((hp) => {
+    if (!selectedPromptIds || selectedPromptIds.length === 0) return true;
+    return selectedPromptIds.includes(hp.modelId);
+  });
+
+  if (filteredPrompts.length === 0) return [];
+
+  const elements: any[] = [
+    new Paragraph({
+      spacing: { before: 200, after: 100 },
+      children: [
+        new TextRun({
+          text: "—  03 – HARDENED PROMPTS & TOOLING",
+          bold: true,
+          size: 18,
+          color: "2E75B6",
+        }),
+      ],
+    }),
+    new Paragraph({
+      spacing: { after: 200 },
+      children: [
+        new TextRun({
+          text: "Generated hardened prompts and extracted tool recommendations optimized for each target architecture.",
+          size: 20,
+          color: "666666",
+        }),
+      ],
+    }),
+  ];
+
+  filteredPrompts.forEach((hp, idx) => {
+    elements.push(
+      new Paragraph({
+        spacing: { before: 250, after: 100 },
+        children: [
+          new TextRun({
+            text: `HARDENED VERSION: ${hp.modelName.toUpperCase()} (${hp.modelId})`,
+            bold: true,
+            size: 20,
+            color: "1F4788",
+          }),
+        ],
+      })
+    );
+
+    // Metadata details
+    const metadataParts = [
+      `Granularity: ${hp.granularity || "N/A"}`,
+      `Extractor: ${hp.extractorModel?.split("/").pop() || "N/A"}`
+    ];
+    if (hp.compatibilityScore !== null && hp.compatibilityScore !== undefined) {
+      metadataParts.unshift(`Compatibility Score: ${hp.compatibilityScore}/100`);
+    }
+
+    elements.push(
+      new Paragraph({
+        spacing: { after: 120 },
+        children: [
+          new TextRun({
+            text: metadataParts.join("   |   "),
+            size: 18,
+            color: "555555",
+            bold: true
+          })
+        ]
+      })
+    );
+
+    // Rationale if available
+    let rationaleText = "No rationale provided.";
+    if (hp.toolRecommendation) {
+      try {
+        const rec = typeof hp.toolRecommendation === "string" ? JSON.parse(hp.toolRecommendation) : hp.toolRecommendation;
+        if (rec && rec.rationale) {
+          rationaleText = rec.rationale;
+        }
+      } catch {}
+    }
+
+    elements.push(
+      new Paragraph({
+        spacing: { before: 100, after: 60 },
+        children: [
+          new TextRun({
+            text: "RATIONALE",
+            bold: true,
+            size: 16,
+            color: "999999",
+          }),
+        ],
+      }),
+      new Paragraph({
+        spacing: { after: 150 },
+        children: [
+          new TextRun({
+            text: rationaleText,
+            size: 18,
+            italics: true,
+            color: "444444",
+          }),
+        ],
+      })
+    );
+
+    // Hardened Prompt Text
+    elements.push(
+      new Paragraph({
+        spacing: { before: 100, after: 60 },
+        children: [
+          new TextRun({
+            text: "HARDENED SYSTEM PROMPT",
+            bold: true,
+            size: 16,
+            color: "999999",
+          }),
+        ],
+      }),
+      createCodeBlock(hp.prompt)
+    );
+
+    // Recommended Tools if available
+    if (hp.toolRecommendation) {
+      try {
+        const rec = typeof hp.toolRecommendation === "string" ? JSON.parse(hp.toolRecommendation) : hp.toolRecommendation;
+        if (rec && rec.tools && rec.tools.length > 0) {
+          elements.push(
+            new Paragraph({
+              spacing: { before: 200, after: 60 },
+              children: [
+                new TextRun({
+                  text: "RECOMMENDED MIGRATION TOOLS",
+                  bold: true,
+                  size: 16,
+                  color: "999999",
+                }),
+              ],
+            }),
+            createCodeBlock(JSON.stringify(rec.tools, null, 2))
+          );
+        }
+        if (rec && rec.mockToolResponses && Object.keys(rec.mockToolResponses).length > 0) {
+          elements.push(
+            new Paragraph({
+              spacing: { before: 200, after: 60 },
+              children: [
+                new TextRun({
+                  text: "RECOMMENDED MOCK RESPONSES",
+                  bold: true,
+                  size: 16,
+                  color: "999999",
+                }),
+              ],
+            }),
+            createCodeBlock(JSON.stringify(rec.mockToolResponses, null, 2))
+          );
+        }
+      } catch {}
+    }
+
+    // Add a spacing or divider if not the last one
+    if (idx < filteredPrompts.length - 1) {
+      elements.push(new Paragraph({ spacing: { before: 300 } }));
+    }
+  });
+
+  return elements;
 }
