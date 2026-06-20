@@ -436,7 +436,102 @@ Use:
 - `minimum`, `maximum`, `pattern` for constraints
 - Nested `object` for layered validation
 
-### 3. Descriptions: What Backend Will Validate
+### 3. When NOT to Use Enums
+
+**Constraint:** Use enums only for small, exhaustively-defined taxonomies (under 15-20 values).
+
+**Do NOT use enum if:**
+
+- Taxonomy is too broad or unbounded (medical codes, product ontologies, currency codes, legal jurisdictions)
+- New values are added frequently (user-defined categories, domain-specific taxonomies)
+- Contextual or domain knowledge is required to list all values
+
+**Instead, use `string` with a description specifying the format:**
+
+```json
+{
+  "currency_code": {
+    "type": "string",
+    "description": "ISO-4217 currency code (e.g., USD, EUR, GBP, JPY). Backend validates against supported currencies."
+  }
+}
+```
+
+**Examples:**
+
+**WRONG (enum too large):**
+
+```json
+{
+  "medical_condition": {
+    "type": "string",
+    "enum": ["diabetes", "hypertension", "asthma", "arthritis", ...]
+  }
+}
+```
+
+(Medical taxonomy is vast; enum would be incomplete)
+
+**RIGHT (string with format description):**
+
+```json
+{
+  "medical_condition": {
+    "type": "string",
+    "description": "ICD-10 or SNOMED medical code or description. Backend validates against supported conditions."
+  }
+}
+```
+
+**WRONG (enum too broad):**
+
+```json
+{
+  "product_category": {
+    "type": "string",
+    "enum": ["electronics", "clothing", "furniture", "books", ...]
+  }
+}
+```
+
+```json
+{
+  "brand_name": {
+    "type": "string",
+    "enum": ["Sony", "Samsung", "Apple", "LG", ...]
+  }
+}
+```
+
+(Product categories and brands grow constantly; enum becomes stale)
+
+**RIGHT (string with format description):**
+
+```json
+{
+  "product_category": {
+    "type": "string",
+    "description": "Product category (e.g., electronics, clothing, furniture). Backend validates against catalog."
+  }
+}
+```
+
+**Enums are good for:**
+
+- Simple categorization: `["checking", "savings", "brokerage", "retirement"]` or `["car", "truck", "motorcycle"]`
+- Operations: `["inquiry", "execution", "verification"]`
+- Boolean-like choices: `["yes", "no", "maybe"]`
+
+**Strings are better for:**
+
+- Standardized and well known codes (e.g. ISO-4217 for currency)
+- Medical codes (ICD-10, SNOMED)
+- Legal jurisdictions
+- Product SKUs or ontologies
+- User-defined categories
+- Domain-specific taxonomies that grow over time
+
+### 4. Descriptions: What Backend Will Validate
 
 Descriptions are for the generator and backend implementers. They explain:
 
@@ -724,7 +819,7 @@ For each tool:
 3. **Parameters:**
    - Required: operation, category, primary business fields
    - Optional: query, metadata, context
-   - Use enums for frozen taxonomies
+   - **Constraint:** Use enums for frozen taxonomies. If a taxonomy will have too many enums (>15-20) or is hard to define exhaustively, do NOT use enum. For example: Medical taxonomies or contextual flags, product ontologies, currency codes, or legal codes are too broad; use `string` with a description of desired format (ex. 'ISO-4217 currency code such as USD').
    - Use nullable types for lookups
    - Embed constraints (min, max, pattern)
 4. **Validation:** Describe what backend will check
