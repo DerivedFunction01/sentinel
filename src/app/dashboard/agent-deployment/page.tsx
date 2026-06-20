@@ -12,7 +12,6 @@ import {
   Loader2,
   Trash2,
   Copy,
-  Sparkles,
   FileText,
   Gavel,
   Ban,
@@ -22,13 +21,19 @@ import {
   CheckCircle2,
   Settings as SettingsIcon,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { ModelSelector } from "@/components/shared/model-selector";
+import { FieldBlock } from "@/components/shared/field-block";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { SdkDocs } from "@/components/shared/sdk-docs";
 import { toast } from "sonner";
@@ -68,7 +73,8 @@ export default function AgentDeploymentPage() {
   const router = useRouter();
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loadingDeployments, setLoadingDeployments] = useState(true);
-  const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null);
+  const [selectedDeployment, setSelectedDeployment] =
+    useState<Deployment | null>(null);
 
   // Form State
   const [name, setName] = useState("");
@@ -76,7 +82,7 @@ export default function AgentDeploymentPage() {
   const [attackerModel, setAttackerModel] = useState("");
   const [judgeModel, setJudgeModel] = useState("");
   const [hardenerModel, setHardenerModel] = useState("");
-  const [systemPrompt, setSystemPrompt] = useState(""); 
+  const [systemPrompt, setSystemPrompt] = useState("");
   const [forbiddenTask, setForbiddenTask] = useState("");
   const [judgeInstructions, setJudgeInstructions] = useState("");
   const [tools, setTools] = useState("");
@@ -85,7 +91,7 @@ export default function AgentDeploymentPage() {
   const [deploying, setDeploying] = useState(false);
   const [triggeringId, setTriggeringId] = useState<string | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  
+
   // Editing state
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -230,7 +236,9 @@ export default function AgentDeploymentPage() {
         const updatedData = await updatedRes.json();
         if (updatedRes.ok && updatedData.deployments) {
           setDeployments(updatedData.deployments);
-          const currentDep = updatedData.deployments.find((d: any) => d.id === editingId);
+          const currentDep = updatedData.deployments.find(
+            (d: any) => d.id === editingId,
+          );
           if (currentDep) {
             setSelectedDeployment(currentDep);
           }
@@ -273,7 +281,9 @@ export default function AgentDeploymentPage() {
         const updatedData = await updatedRes.json();
         if (updatedRes.ok && updatedData.deployments) {
           setDeployments(updatedData.deployments);
-          const newDep = updatedData.deployments.find((d: any) => d.id === data.deployment.id);
+          const newDep = updatedData.deployments.find(
+            (d: any) => d.id === data.deployment.id,
+          );
           if (newDep) {
             setSelectedDeployment(newDep);
           }
@@ -287,7 +297,8 @@ export default function AgentDeploymentPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this deployment profile?")) return;
+    if (!confirm("Are you sure you want to delete this deployment profile?"))
+      return;
 
     try {
       const res = await fetch(`/api/deployments/${id}`, {
@@ -312,7 +323,8 @@ export default function AgentDeploymentPage() {
   const handleRunScan = async (dep: Deployment) => {
     if (apiKeys.length === 0) {
       toast.error("No active API Key found", {
-        description: "Generate an API Key in API Integration first to trigger scans programmatically or manually here.",
+        description:
+          "Generate an API Key in API Integration first to trigger scans programmatically or manually here.",
         action: {
           label: "API Integration",
           onClick: () => router.push("/dashboard/api-integration"),
@@ -375,7 +387,10 @@ export default function AgentDeploymentPage() {
     toast.success(`${label} copied to clipboard`);
   };
 
-  const keyPlaceholder = apiKeys.length > 0 ? `sp_live_${apiKeys[0].keyPrefix.replace("sp_live_", "")}...` : "YOUR_API_KEY";
+  const keyPlaceholder =
+    apiKeys.length > 0
+      ? `sp_live_${apiKeys[0].keyPrefix.replace("sp_live_", "")}...`
+      : "YOUR_API_KEY";
 
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
@@ -387,9 +402,12 @@ export default function AgentDeploymentPage() {
       </Button>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Agent Deployment</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Agent Deployment
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Save scan configuration profiles as deployments and trigger automated scans programmatically using your API Key.
+          Save scan configuration profiles as deployments and trigger automated
+          scans programmatically using your API Key.
         </p>
       </div>
 
@@ -428,13 +446,18 @@ export default function AgentDeploymentPage() {
                         <span className="font-medium text-sm text-foreground truncate max-w-[150px]">
                           {dep.name}
                         </span>
-                        <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px]">
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px]"
+                        >
                           ACTIVE
                         </Badge>
                       </div>
                       <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                         <GitBranch className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{dep.targetModel.split("/").pop()}</span>
+                        <span className="truncate">
+                          {dep.targetModel.split("/").pop()}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -456,14 +479,20 @@ export default function AgentDeploymentPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Trigger URL</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Trigger URL
+                  </Label>
                   <div className="flex items-center gap-2 rounded-md bg-muted/50 p-2 font-mono text-[10px] text-foreground">
-                    <span className="truncate flex-1 select-all">{selectedDeployment.url}</span>
+                    <span className="truncate flex-1 select-all">
+                      {selectedDeployment.url}
+                    </span>
                     <Button
                       size="icon"
                       variant="ghost"
                       className="h-5 w-5 hover:bg-muted"
-                      onClick={() => copyToClipboard(selectedDeployment.url, "Trigger URL")}
+                      onClick={() =>
+                        copyToClipboard(selectedDeployment.url, "Trigger URL")
+                      }
                     >
                       <Copy className="h-3 w-3 text-muted-foreground" />
                     </Button>
@@ -472,7 +501,9 @@ export default function AgentDeploymentPage() {
 
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
-                    <Label className="text-xs text-muted-foreground">CURL Example</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      CURL Example
+                    </Label>
                     <Link
                       href="/dashboard/api-integration"
                       className="text-[10px] text-blue-400 hover:underline flex items-center gap-0.5"
@@ -493,7 +524,7 @@ export default function AgentDeploymentPage() {
                       onClick={() =>
                         copyToClipboard(
                           `curl -X POST "${selectedDeployment.url}" \\\n  -H "Authorization: Bearer ${keyPlaceholder}"`,
-                          "CURL command"
+                          "CURL command",
                         )
                       }
                     >
@@ -550,10 +581,14 @@ export default function AgentDeploymentPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Rocket className="h-4 w-4 text-blue-400" />
-                {editingId ? `Edit Profile: ${deployments.find(d => d.id === editingId)?.name || ""}` : "Create New Profile"}
+                {editingId
+                  ? `Edit Profile: ${deployments.find((d) => d.id === editingId)?.name || ""}`
+                  : "Create New Profile"}
               </CardTitle>
               <CardDescription>
-                {editingId ? "Update settings and prompt configurations for this profile." : "Define the models, prompts, and options for this deployment profile."}
+                {editingId
+                  ? "Update settings and prompt configurations for this profile."
+                  : "Define the models, prompts, and options for this deployment profile."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -568,14 +603,20 @@ export default function AgentDeploymentPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Target AI Model</Label>
-                  <ModelSelector value={targetModel} onChange={setTargetModel} />
+                  <ModelSelector
+                    value={targetModel}
+                    onChange={setTargetModel}
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Attacker Model</Label>
-                  <ModelSelector value={attackerModel} onChange={setAttackerModel} />
+                  <ModelSelector
+                    value={attackerModel}
+                    onChange={setAttackerModel}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Judge Model</Label>
@@ -583,7 +624,10 @@ export default function AgentDeploymentPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Hardener Model</Label>
-                  <ModelSelector value={hardenerModel} onChange={setHardenerModel} />
+                  <ModelSelector
+                    value={hardenerModel}
+                    onChange={setHardenerModel}
+                  />
                 </div>
               </div>
 
@@ -651,7 +695,9 @@ export default function AgentDeploymentPage() {
                     minHeight="min-h-32"
                     monospace
                     onUseSample={() => {
-                      setMockResponses(JSON.stringify(sampleMockToolResponses, null, 2));
+                      setMockResponses(
+                        JSON.stringify(sampleMockToolResponses, null, 2),
+                      );
                       toast.success("Sample mock responses loaded");
                     }}
                   />
@@ -699,88 +745,6 @@ export default function AgentDeploymentPage() {
             deploymentId={selectedDeployment.id}
           />
         </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Local Reusable field block ── */
-interface FieldBlockProps {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  minHeight: string;
-  monospace?: boolean;
-  onUseSample?: () => void;
-}
-
-function FieldBlock({
-  icon: Icon,
-  title,
-  value,
-  onChange,
-  placeholder,
-  minHeight,
-  monospace,
-  onUseSample,
-}: FieldBlockProps) {
-  const [tab, setTab] = useState<"write" | "preview">("write");
-  const language = title.toLowerCase().includes("json") ? "json" : "plaintext";
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-blue-400" />
-          <Label className="text-sm font-semibold">{title}</Label>
-        </div>
-
-        {monospace && (
-          <div className="flex rounded-md bg-muted/65 p-0.5 border border-white/5">
-            <button
-              onClick={() => setTab("write")}
-              className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                tab === "write" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Write
-            </button>
-            <button
-              onClick={() => setTab("preview")}
-              className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                tab === "preview" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Preview
-            </button>
-          </div>
-        )}
-      </div>
-
-      {tab === "write" ? (
-        <Textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`${minHeight} max-h-80 resize-y overflow-y-auto scrollbar-thin text-xs ${
-            monospace ? "font-mono" : ""
-          }`}
-          placeholder={placeholder}
-        />
-      ) : (
-        <CodeHighlight
-          code={value || "// No content to preview"}
-          language={language}
-          className={`${minHeight} max-h-80 overflow-y-auto scrollbar-thin`}
-        />
-      )}
-
-      {onUseSample && tab === "write" && (
-        <Button variant="outline" size="sm" className="h-7 text-xs flex items-center" onClick={onUseSample}>
-          <Sparkles className="mr-1 h-3 w-3" />
-          Use sample
-        </Button>
       )}
     </div>
   );
