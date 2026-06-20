@@ -887,10 +887,12 @@ For each tool, decide:
 
 For each tool:
 
-1. **Name:** Snake_case, neutral, specific, but not too long or confusing (wrong: "block_requests" or "get_category1_category_2_category_3"). Should not be broad that it will cause collisions
+1. **Name:** Snake_case, neutral, specific, but not too long or confusing (wrong: `block_requests` or `get_category1_category_2_category_3`). Should not be broad that it will cause collisions
    with other tools or rules. For example: a broad tool name like `medical_request` is wrong when it only covers diagnosis in a medical setting (collides with treatment, prescription, triage, and advice).
 
 - Do not reference the binary nature of the tool in the name, description, or parameters, such as 'prohibited', 'unauthorized'.
+- Also do not try to collide with already existing tools. If it does, then attempt to merge them together by expanding it as long it doesn't
+  make the tool parameters too complicated and verbose.
 
 2. **Description:** List explicit triggers; be exhaustively specific
 3. **Parameters:**
@@ -900,6 +902,34 @@ For each tool:
    - Use nullable types for lookups
    - Embed constraints (min, max, pattern)
 4. **Validation:** Describe what backend will check
+
+**Example naming convention:**
+
+```md
+Target: The model is not allowed to access a database in a SWE setting
+
+Bad:
+
+- `deny_database_access` (explicitly mention the binary nature of the tool in name)
+- `database` (this might collide with other tools that need to access database, or is too broad)
+
+Good:
+
+- `database_lookup` (if no other database tool exist)
+- Expand the original `database_operation` tool to include an `access` enum.
+
+Target: The model is not allowed to give investment advice in a bank setting
+
+Bad:
+
+- `investment_operation` with generic `query` parameter (this might collide with banking investment functions and tools, such as research and porfolio analytics)
+- `investment_advisor_role_restriction` (explicitly mention the binary nature of the tool in name)
+
+Good:
+
+- `investment_advice` (scoped to this bank's regulations for giving investment advice)
+- `investment_operation` with category enums of `advice`, `research`, `analytics`, `order`, etc.
+```
 
 **Example description formula:**
 
