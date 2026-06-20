@@ -68,6 +68,8 @@ export interface Scan {
   attackerModelName: string; // human-readable name
   judgeModel: string; // OpenRouter model id used for judging
   judgeModelName: string; // human-readable name
+  hardenerModel: string; // OpenRouter model id used for prompt hardening
+  hardenerModelName: string; // human-readable name
   systemPrompt: string;
   forbiddenTask: string;
   judgeInstructions: string;

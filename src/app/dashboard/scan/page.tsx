@@ -84,6 +84,7 @@ interface ScanConfigFile {
   targetModel?: string;
   attackerModel?: string;
   judgeModel?: string;
+  hardenerModel?: string;
   prompts: PromptConfig[];
 }
 
@@ -93,6 +94,7 @@ export default function PenTestScanPage() {
   const [targetModels, setTargetModels] = useState<string[]>([]);
   const [attackerModel, setAttackerModel] = useState<string>("");
   const [judgeModel, setJudgeModel] = useState<string>("");
+  const [hardenerModel, setHardenerModel] = useState<string>("");
   const [prompts, setPrompts] = useState<PromptConfig[]>([makeEmptyPrompt()]);
   const [launching, setLaunching] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -119,6 +121,7 @@ export default function PenTestScanPage() {
             setTargetModels([defaultModelId]);
             setAttackerModel(defaultModelId);
             setJudgeModel(defaultModelId);
+            setHardenerModel(defaultModelId);
           }
         }
       })
@@ -136,6 +139,7 @@ export default function PenTestScanPage() {
         if (preset.targetModels) setTargetModels(preset.targetModels);
         if (preset.attackerModel) setAttackerModel(preset.attackerModel);
         if (preset.judgeModel) setJudgeModel(preset.judgeModel);
+        if (preset.hardenerModel) setHardenerModel(preset.hardenerModel);
         if (preset.prompts) setPrompts(preset.prompts);
         
         localStorage.removeItem("sentinelprompt_scan_preset");
@@ -178,6 +182,7 @@ export default function PenTestScanPage() {
           targetModels,
           attackerModel,
           judgeModel,
+          hardenerModel,
           systemPrompt: first.systemPrompt,
           forbiddenTask: first.forbiddenTask,
           judgeInstructions: first.judgeInstructions,
@@ -283,6 +288,7 @@ export default function PenTestScanPage() {
       targetModels,
       attackerModel,
       judgeModel,
+      hardenerModel,
       prompts,
     };
     const blob = new Blob([JSON.stringify(config, null, 2)], {
@@ -331,6 +337,7 @@ export default function PenTestScanPage() {
       }
       if (data.attackerModel) setAttackerModel(data.attackerModel);
       if (data.judgeModel) setJudgeModel(data.judgeModel);
+      if (data.hardenerModel) setHardenerModel(data.hardenerModel);
       setPrompts(
         data.prompts.map((p) => ({
           systemPrompt: p.systemPrompt ?? "",
@@ -399,6 +406,16 @@ export default function PenTestScanPage() {
               <ModelSelector value={judgeModel} onChange={setJudgeModel} />
               <p className="text-xs text-muted-foreground">
                 Evaluates whether the target leaked restricted info.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5 text-sm font-medium">
+                <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                Hardener Model
+              </Label>
+              <ModelSelector value={hardenerModel} onChange={setHardenerModel} />
+              <p className="text-xs text-muted-foreground">
+                Generates a hardened system prompt following the scan.
               </p>
             </div>
             <div className="space-y-2">

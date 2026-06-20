@@ -122,6 +122,7 @@ export async function POST(req: Request) {
     (body.attackGeneratorModel as string) ||
     defaultModel;
   const judgeModel = (body.judgeModel as string) || defaultModel;
+  const hardenerModel = (body.hardenerModel as string) || defaultModel;
 
   let tools: ToolDef[] = [];
   let mockToolResponses: Record<string, unknown> = {};
@@ -277,7 +278,7 @@ export async function POST(req: Request) {
     let hardenedPrompt = "";
     try {
       const hardenResponse = await callOpenRouter(
-        judgeModel || attackGeneratorModel || "google/gemini-2.5-flash",
+        hardenerModel,
         [{ role: "user", content: systemInstructions }],
         undefined,
         tracker
@@ -292,7 +293,7 @@ export async function POST(req: Request) {
       hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt, forbiddenTask);
     }
 
-    const hardeningModelId = judgeModel || attackGeneratorModel || "google/gemini-2.5-flash";
+    const hardeningModelId = hardenerModel;
     const hardeningDbModel = dbModels.find((m) => m.id === hardeningModelId);
     const hardeningModelName = hardeningDbModel?.name || hardeningModelId.split("/").pop() || hardeningModelId;
 
@@ -303,6 +304,7 @@ export async function POST(req: Request) {
         targetModel,
         attackerModel: attackGeneratorModel,
         judgeModel,
+        hardenerModel,
         systemPrompt,
         forbiddenTask,
         judgeInstructions,

@@ -22,6 +22,7 @@ export function deserializeScan(row: {
   targetModel: string;
   attackerModel: string;
   judgeModel: string;
+  hardenerModel: string;
   systemPrompt: string;
   forbiddenTask: string;
   judgeInstructions: string;
@@ -88,6 +89,7 @@ export function deserializeScan(row: {
     targetModel: row.targetModel,
     attackerModel: row.attackerModel || "",
     judgeModel: row.judgeModel || "",
+    hardenerModel: row.hardenerModel || "google/gemini-2.5-flash",
     systemPrompt: row.systemPrompt,
     forbiddenTask: row.forbiddenTask,
     judgeInstructions: row.judgeInstructions,
@@ -118,6 +120,7 @@ export function deserializeScan(row: {
     modelName: "",          // filled by caller via lookupModelNames
     attackerModelName: "",  // filled by caller via lookupModelNames
     judgeModelName: "",     // filled by caller via lookupModelNames
+    hardenerModelName: "",  // filled by caller via lookupModelNames
   };
 }
 
@@ -144,11 +147,12 @@ export async function getScanByReportId(
   });
   if (!row) return null;
   const scan = deserializeScan(row);
-  const allIds = [scan.targetModel, scan.attackerModel, scan.judgeModel].filter(Boolean);
+  const allIds = [scan.targetModel, scan.attackerModel, scan.judgeModel, scan.hardenerModel].filter(Boolean);
   const names = await lookupModelNames(allIds);
   scan.modelName = names[scan.targetModel] || formatModelName(scan.targetModel);
   scan.attackerModelName = names[scan.attackerModel] || formatModelName(scan.attackerModel);
   scan.judgeModelName = names[scan.judgeModel] || formatModelName(scan.judgeModel);
+  scan.hardenerModelName = names[scan.hardenerModel] || formatModelName(scan.hardenerModel);
   return scan;
 }
 

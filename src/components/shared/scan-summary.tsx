@@ -12,6 +12,7 @@ import {
   Gavel,
   AlertTriangle,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +48,7 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
   const [rescanningHarden, setRescanningHarden] = useState(false);
   const [models, setModels] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedModel, setSelectedModel] = useState<string>(
-    scan.judgeModel || scan.attackerModel || "google/gemini-2.5-flash"
+    scan.hardenerModel || "google/gemini-2.5-flash"
   );
   const router = useRouter();
 
@@ -356,6 +357,22 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
                 title={scan.judgeModel}
               >
                 {scan.judgeModelName || scan.judgeModel || (
+                  <span className="italic text-muted-foreground">
+                    anonymous
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                Hardener
+              </span>
+              <span
+                className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
+                title={scan.hardenerModel}
+              >
+                {scan.hardenerModelName || scan.hardenerModel || (
                   <span className="italic text-muted-foreground">
                     anonymous
                   </span>

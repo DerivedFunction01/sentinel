@@ -48,6 +48,7 @@ export async function POST(req: Request) {
       targetModel,
       attackerModel,
       judgeModel,
+      hardenerModel,
       systemPrompt,
       forbiddenTask,
       judgeInstructions,
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
     // Default attacker/judge to target model if not explicitly specified
     const finalAttacker = attackerModel || targetModel;
     const finalJudge = judgeModel || targetModel;
+    const finalHardener = hardenerModel || "google/gemini-2.5-flash";
 
     // Create record
     const deployment = await db.deployment.create({
@@ -73,6 +75,7 @@ export async function POST(req: Request) {
         targetModel,
         attackerModel: finalAttacker,
         judgeModel: finalJudge,
+        hardenerModel: finalHardener,
         systemPrompt,
         forbiddenTask,
         judgeInstructions: judgeInstructions || "",

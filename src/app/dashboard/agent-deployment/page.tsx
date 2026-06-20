@@ -47,6 +47,7 @@ interface Deployment {
   targetModel: string;
   attackerModel: string;
   judgeModel: string;
+  hardenerModel: string;
   systemPrompt: string;
   forbiddenTask: string;
   judgeInstructions: string;
@@ -74,6 +75,7 @@ export default function AgentDeploymentPage() {
   const [targetModel, setTargetModel] = useState("");
   const [attackerModel, setAttackerModel] = useState("");
   const [judgeModel, setJudgeModel] = useState("");
+  const [hardenerModel, setHardenerModel] = useState("");
   const [systemPrompt, setSystemPrompt] = useState(""); 
   const [forbiddenTask, setForbiddenTask] = useState("");
   const [judgeInstructions, setJudgeInstructions] = useState("");
@@ -132,6 +134,7 @@ export default function AgentDeploymentPage() {
           setTargetModel(defaultModelId);
           setAttackerModel(defaultModelId);
           setJudgeModel(defaultModelId);
+          setHardenerModel(defaultModelId);
         }
       })
       .catch(() => {});
@@ -143,6 +146,7 @@ export default function AgentDeploymentPage() {
     setTargetModel(dep.targetModel);
     setAttackerModel(dep.attackerModel);
     setJudgeModel(dep.judgeModel);
+    setHardenerModel(dep.hardenerModel || "");
     setSystemPrompt(dep.systemPrompt);
     setForbiddenTask(dep.forbiddenTask);
     setJudgeInstructions(dep.judgeInstructions);
@@ -154,6 +158,7 @@ export default function AgentDeploymentPage() {
   const handleCancelEdit = () => {
     setEditingId(null);
     setName("");
+    setHardenerModel("");
     setSystemPrompt("");
     setForbiddenTask("");
     setJudgeInstructions("");
@@ -196,6 +201,7 @@ export default function AgentDeploymentPage() {
             targetModel,
             attackerModel,
             judgeModel,
+            hardenerModel,
             systemPrompt,
             forbiddenTask,
             judgeInstructions,
@@ -245,6 +251,7 @@ export default function AgentDeploymentPage() {
             targetModel,
             attackerModel,
             judgeModel,
+            hardenerModel,
             systemPrompt,
             forbiddenTask,
             judgeInstructions,
@@ -337,6 +344,7 @@ export default function AgentDeploymentPage() {
           targetModels: [dep.targetModel],
           attackerModel: dep.attackerModel,
           judgeModel: dep.judgeModel,
+          hardenerModel: dep.hardenerModel || "google/gemini-2.5-flash",
           systemPrompt: dep.systemPrompt,
           forbiddenTask: dep.forbiddenTask,
           judgeInstructions: dep.judgeInstructions,
@@ -564,7 +572,7 @@ export default function AgentDeploymentPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Attacker Model</Label>
                   <ModelSelector value={attackerModel} onChange={setAttackerModel} />
@@ -572,6 +580,10 @@ export default function AgentDeploymentPage() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Judge Model</Label>
                   <ModelSelector value={judgeModel} onChange={setJudgeModel} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Hardener Model</Label>
+                  <ModelSelector value={hardenerModel} onChange={setHardenerModel} />
                 </div>
               </div>
 

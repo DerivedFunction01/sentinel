@@ -49,6 +49,7 @@ model Scan {
   targetModel       String   // OpenRouter model id, e.g. "anthropic/claude-3.5-haiku"
   attackerModel     String   @default("") // OpenRouter model id used for attack generation
   judgeModel        String   @default("") // OpenRouter model id used for judging
+  hardenerModel     String   @default("google/gemini-2.5-flash") // OpenRouter model id used for prompt hardening
   systemPrompt      String
   forbiddenTask     String
   judgeInstructions String
@@ -108,6 +109,7 @@ model Deployment {
   targetModel       String   // Target model to pentest
   attackerModel     String   // Attacker generator model
   judgeModel        String   // Evaluation judge model
+  hardenerModel     String   @default("google/gemini-2.5-flash") // Hardener model
   systemPrompt      String
   forbiddenTask     String
   judgeInstructions String

@@ -123,6 +123,7 @@ export async function POST(
 
     const attackerModel = deployment.attackerModel || defaultModel;
     const judgeModel = deployment.judgeModel || defaultModel;
+    const hardenerModel = deployment.hardenerModel || defaultModel;
     const seedExtractorModel = defaultModel;
 
     let tools: ToolDef[] = [];
@@ -254,7 +255,7 @@ export async function POST(
     let hardenedPrompt = "";
     try {
       const hardenResponse = await callOpenRouter(
-        judgeModel || attackerModel || "google/gemini-2.5-flash",
+        hardenerModel,
         [{ role: "user", content: systemInstructions }],
         undefined,
         tracker,
@@ -275,6 +276,10 @@ export async function POST(
       );
     }
 
+    const hardeningModelId = hardenerModel;
+    const hardeningDbModel = dbModels.find((m) => m.id === hardeningModelId);
+    const hardeningModelName = hardeningDbModel?.name || hardeningModelId.split("/").pop() || hardeningModelId;
+
     await db.scan.create({
       data: {
         reportId,
@@ -282,6 +287,7 @@ export async function POST(
         targetModel: deployment.targetModel,
         attackerModel,
         judgeModel,
+        hardenerModel,
         systemPrompt,
         forbiddenTask,
         judgeInstructions,
@@ -295,7 +301,13 @@ export async function POST(
         breachRate,
         summary: `Adversarial pressure on ${modelShort}.`,
         summaryDetail: `${totalTrials} adversarial trials probed a ${modelShort} deployment. ${breaches} landed (${breachRate}% breach rate).`,
-        hardenedPrompt,
+        hardenedPrompts: {
+          create: {
+            modelId: hardeningModelId,
+            modelName: hardeningModelName,
+            prompt: hardenedPrompt,
+          }
+        },
         apiCost: tracker.totalCost,
         status: ScanStatus.Completed,
       },
