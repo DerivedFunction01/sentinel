@@ -620,7 +620,7 @@ Descriptions are for the generator and backend implementers. They explain:
 
 This tells the backend: "If null, return available accounts; if string, validate it exists."
 
-### 4. Required Fields
+### 5. Required Fields
 
 Include only fields needed to **route** the call. Optional fields add context but don't block execution.
 
@@ -887,10 +887,10 @@ For each tool, decide:
 
 For each tool:
 
-1. **Name:** Snake_case, neutral (not "block_requests"; use something like "get_current_information")
+1. **Name:** Snake_case, neutral (not "block_requests"; use something like "get_current_information"). Should not be broad that it will cause collisions
+   with other tools or rules. For example: a broad tool name like `medical_request` is wrong when it only covers diagnosis in a medical setting (collides with treatment, prescription, triage, and advice).
 
-- Do not reference the binary nature of the tool in the name or description, such as 'prohibited', 'unauthorized', which makes it less likely to
-  call the tool to enforce the binary mechanism if a model is jailbroken.
+- Do not reference the binary nature of the tool in the name, description, or parameters, such as 'prohibited', 'unauthorized'.
 
 2. **Description:** List explicit triggers; be exhaustively specific
 3. **Parameters:**
@@ -1469,7 +1469,7 @@ The enforcement model doesn't change; only scope.
 3. **Scope Compression:** Combine related rules (same domain, same backend logic); split different domains
 4. **Tier Selection:** Match tool complexity to validation complexity (binary gate, conditional, multi-stage)
 5. **Universal Protocols:** Some tools are maximal-yet-minimal; simple businesses use fewer fields; complex ones use more
-6. **Neutral Naming:** Tool names don't reveal gating ("gated_operations" not "deny_discounts")
+6. **Neutral Naming:** Tool names don't reveal gating ("discount_request" not "deny_discounts")
 7. **Minimal Required Fields:** Route with operation + category; optional fields add context
 8. **Frozen Taxonomies:** Enums reflect real entities, not linguistic variants
 9. **If-Thens in Schema:** Constraints and precision modes encode backend logic
