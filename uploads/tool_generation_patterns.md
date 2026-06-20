@@ -1141,17 +1141,27 @@ Tool 7: escalate_order
 **Orchestrator (lean):**
 
 ```
-Tool 1: commerce_operation
+Tool 1: order_management
   Parameters:
-    - operation: "create" | "cancel" | "modify" | "view" | "apply_discount" | "refund" | "escalate" | ...
+    - operation: "create" | "cancel" | "modify" | "view" | "escalate" | ...
     - order_id: string (optional for creation)
+    - context: object (specific parameters depend on operation type)
+Tool 2: discount_management
+  Parameters:
+    - operation: "apply" | "remove" | "inquiry" | ...
+    - discount_id: string (optional)
+    - context: object (specific parameters depend on operation type)
+Tool 3: refund_management
+  Parameters:
+    - operation: "initiate" | "cancel" | "status" | "inquiry"| ...
+    - refund_id: string (optional)
     - context: object (specific parameters depend on operation type)
 ```
 
 **Tradeoff:**
 
-- **Granular:** LLM understands each operation deeply (what parameters matter, why it's called); tool definitions are explicit and separate
-- **Orchestrator:** LLM routing is simpler; backend owns the logic; easier to extend; but the LLM has less fine-grained control
+- **Granular:** Single LLM agent understands each operation deeply (what parameters matter, why it's called); tool definitions are explicit; one model call to the right tool
+- **Orchestrator:** Requires multiple model calls or agentic loops—first to route/recognize the operation, then to handle specifics with detailed parameters; backend owns enforcement logic; easier to extend without regenerating prompts; but adds latency and complexity
 
 **Decision Rule:**
 
