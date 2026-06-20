@@ -133,6 +133,9 @@ These live in the new system prompt as guidance, not enforcement.
 - For example, using `prohibit_*` in the tool name, or the tool description is rigid when business rules change, and makes it less likely to be called.
 - As binary gates, the model should be encouraged to call the tool, even if it is in a jailbroken state.
 
+- Many operations fall into these categories: inquiry, execution or a what-if hypothetical execution.
+- Example: "Can I have X?" (inquiry to policy), "I want to apply X" (execution), "What if I have X?" (hypothetical)
+
 **Example:**
 
 ```json
