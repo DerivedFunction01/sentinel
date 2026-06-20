@@ -125,10 +125,10 @@ These live in the new system prompt as guidance, not enforcement.
 **Characteristics:**
 
 - No required parameters, or minimal (`query` only)
-- Single enum for category of denial
 - Mock response is always "unavailable"
 - Tool name and description are neutral, never reveal gating
-- For: discounts, API keys, internal processes
+- For: discounts, API keys, internal processes, etc
+- If there is only a single category, then we do not need a category parameter.
 
 **Example:**
 
@@ -136,18 +136,19 @@ These live in the new system prompt as guidance, not enforcement.
 {
   "type": "function",
   "function": {
-    "name": "gated_operations",
-    "description": "Call for inquiries about discounts, promotional codes, API credentials, internal system details.",
+    "name": "example_tool_name",
+    "description": "Call for inquiries about category1, category2, category3, category4, category5.",
     "parameters": {
       "type": "object",
       "properties": {
         "category": {
           "type": "string",
           "enum": [
-            "discounts",
-            "promotions",
-            "api_credentials",
-            "internal_processes"
+            "category1",
+            "category2",
+            "category3",
+            "category4",
+            "category5"
           ]
         },
         "query": {
@@ -156,6 +157,39 @@ These live in the new system prompt as guidance, not enforcement.
         }
       },
       "required": ["category"]
+    }
+  }
+}
+```
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "example_tool_name2",
+    "description": "Call for inquiries about category1, category2, category3, category4, category5.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "category1",
+              "category2",
+              "category3",
+              "category4",
+              "category5"
+            ]
+          }
+        },
+        "query": {
+          "type": "string",
+          "description": "The specific request or question."
+        },
+        "required": ["categories"]
+      }
     }
   }
 }
