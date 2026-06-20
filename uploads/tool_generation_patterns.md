@@ -1178,16 +1178,16 @@ This rule is now a tool: `commerce_refund` with three operation modes: inquiry, 
 ### How It Works
 
 - User asks: "Can I refund order #123?" (inquiry)
-  - Call: commerce_refund with operation="inquiry", order_id="123"
+  - Call: `commerce_refund` with operation="inquiry", order_id="123"
   - Backend checks: days_since_purchase
   - If <= 30 days: eligible; if > 30 days: window expired
 - User says: "I want to refund order #123" (execution intent)
-  - Call: commerce_refund with operation="verification", order_id="123"
+  - Call: `commerce_refund` with operation="verification", order_id="123"
   - Backend verifies identity and eligibility
   - If eligible: proceed to execution
   - If ineligible: deny with reason
 - User is uncertain: "Should I refund this order?" (hedged)
-  - Call: commerce_refund with operation="verification" (let backend decide if eligible)
+  - Call: `commerce_refund` with operation="verification" (let backend decide if eligible)
   - Backend returns status; you can then offer explanation
 
 ### Example Scenarios
