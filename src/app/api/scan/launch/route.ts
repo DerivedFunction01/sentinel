@@ -229,6 +229,12 @@ export async function POST(req: Request) {
           entropyLabel: layout.entropyLabel,
           framingLabel: layout.framingLabel,
           patternId: layout.patternId,
+          targetThing: selectedThingName,
+          seedTemplate: renderAttack(
+            pattern,
+            selectedThingName,
+            selectedThingDesc,
+          ),
           toolCalls:
             targetResult.toolCalls.length > 0
               ? targetResult.toolCalls
@@ -455,6 +461,10 @@ export async function generateCohesiveAttack(
       role: "user",
       content: ATTACK_GENERATOR_SYSTEM_TEMPLATE(thingDescription, draft),
     },
+    {
+      role: "assistant",
+      content: "Here is the rewritten draft text: <BEGIN>",
+    },
   ];
 
   try {
@@ -466,7 +476,9 @@ export async function generateCohesiveAttack(
     );
     let text = response.content || "";
 
-    // Attempt to extract content between <BEGIN> and <END>
+    // Since the assistant prompt was pre-filled with "<BEGIN>", the response
+    // is normally the text after "<BEGIN>". We check if the model repeated
+    // the "<BEGIN>" tag; if not, we extract everything before the "<END>" tag.
     const beginIndex = text.indexOf("<BEGIN>");
     const endIndex = text.indexOf("<END>");
 
@@ -476,6 +488,8 @@ export async function generateCohesiveAttack(
       } else {
         text = text.substring(beginIndex + 7).trim();
       }
+    } else if (endIndex !== -1) {
+      text = text.substring(0, endIndex).trim();
     } else {
       text = text.trim();
     }

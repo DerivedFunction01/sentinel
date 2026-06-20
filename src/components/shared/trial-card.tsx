@@ -100,6 +100,42 @@ export function TrialCard({ trial }: TrialCardProps) {
             </pre>
           </Section>
 
+          {/* Debug Metadata */}
+          {(trial.targetThing || trial.seedTemplate) && (
+            <Section
+              icon={Swords}
+              label="Generation Metadata (Debug)"
+              iconColor="text-amber-400"
+              bgColor="bg-amber-500/5"
+              borderColor="border-amber-500/10"
+            >
+              <div className="space-y-3">
+                {trial.targetThing && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Targeted Synonym / Concept
+                    </p>
+                    <span className="font-mono text-xs text-amber-300">
+                      "{trial.targetThing}"
+                    </span>
+                  </div>
+                )}
+                {trial.seedTemplate && (
+                  <div>
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Adversarial Seed Template
+                    </p>
+                    <CodeHighlight
+                      code={trial.seedTemplate}
+                      language="plaintext"
+                      className="!p-2 !bg-muted/30 text-[11px]"
+                    />
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
+
           {/* Tool calls (if any) */}
           {trial.toolCalls && trial.toolCalls.length > 0 && (
             <Section

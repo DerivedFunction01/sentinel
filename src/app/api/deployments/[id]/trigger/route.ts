@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { TrialVerdict, JudgeLabel, RiskLevel, ScanStatus } from "@/lib/enums";
-import { generateAttacks, patterns } from "@/lib/attack-templates";
+import { generateAttacks, patterns, renderAttack } from "@/lib/attack-templates";
 import { findDefaultModel } from "@/lib/scan-prompts";
 import type { ToolDef, Trial } from "@/lib/types";
 import {
@@ -178,10 +178,11 @@ export async function POST(
           response: targetResult.responseText,
           judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
           judgeVerdict: evaluation.reasoning,
-          taskTag: "forbidden_task_1",
           entropyLabel: layout.entropyLabel,
           framingLabel: layout.framingLabel,
           patternId: layout.patternId,
+          targetThing: selectedThingName,
+          seedTemplate: renderAttack(pattern, selectedThingName, selectedThingDesc),
           toolCalls: targetResult.toolCalls.length > 0 ? targetResult.toolCalls : undefined,
         };
       })

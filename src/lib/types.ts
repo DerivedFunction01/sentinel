@@ -43,6 +43,10 @@ export interface Trial {
   framingLabel?: string;
   /** The pattern that generated this attack, e.g. "curiosity_pattern". */
   patternId?: string;
+  /** The specific thing synonym or variant targeted by this trial. */
+  targetThing?: string;
+  /** The raw seed prompt template before attack generator optimization. */
+  seedTemplate?: string;
 }
 
 /** A complete pentest scan. */
