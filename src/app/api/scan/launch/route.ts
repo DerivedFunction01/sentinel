@@ -401,7 +401,28 @@ async function generateCohesiveAttack(
 
   try {
     const response = await callOpenRouter(generatorModel, messages, undefined, tracker);
-    return response.content?.trim() || draft;
+    let text = response.content || "";
+    
+    // Attempt to extract content between <BEGIN> and <END>
+    const beginIndex = text.indexOf("<BEGIN>");
+    const endIndex = text.indexOf("<END>");
+    
+    if (beginIndex !== -1) {
+      if (endIndex !== -1 && endIndex > beginIndex) {
+        text = text.substring(beginIndex + 7, endIndex).trim();
+      } else {
+        text = text.substring(beginIndex + 7).trim();
+      }
+    } else {
+      text = text.trim();
+    }
+    
+    // Clean up any residual formatting (like wrapping double quotes if the model outputted them)
+    if (text.startsWith('"') && text.endsWith('"')) {
+      text = text.substring(1, text.length - 1).trim();
+    }
+    
+    return text || draft;
   } catch (error) {
     console.error("Error generating cohesive attack:", error);
     return draft;

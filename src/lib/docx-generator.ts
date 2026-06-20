@@ -1337,6 +1337,101 @@ function createTrialSection(scan: Scan): any[] {
                   children: [new TextRun("")],
                 }),
 
+                // Tool Calls Section (if any were made during the trial)
+                ...(trial.toolCalls && trial.toolCalls.length > 0
+                  ? [
+                      new Paragraph({
+                        spacing: { before: 100, after: 60 },
+                        children: [
+                          new TextRun({
+                            text: "❘ ",
+                            color: "8E44AD", // Purple for tool calls
+                            bold: true,
+                            size: 18,
+                          }),
+                          new TextRun({
+                            text: "TOOL CALLS",
+                            bold: true,
+                            size: 16,
+                            color: "8E44AD",
+                          }),
+                        ],
+                      }),
+                      ...trial.toolCalls.flatMap((tc, i) => [
+                        new Paragraph({
+                          spacing: { before: 60, after: 40 },
+                          children: [
+                            new TextRun({
+                              text: `Round ${i + 1}: `,
+                              bold: true,
+                              color: "555555",
+                              size: 16,
+                            }),
+                            new TextRun({
+                              text: `${tc.name}`,
+                              bold: true,
+                              color: "8E44AD",
+                              size: 18,
+                            }),
+                            new TextRun({
+                              text: " called with arguments: ",
+                              color: "555555",
+                              size: 16,
+                            }),
+                          ],
+                        }),
+                        new Paragraph({
+                          spacing: { before: 20, after: 60 },
+                          indent: { left: 360 },
+                          children: [
+                            new TextRun({
+                              text: JSON.stringify(tc.arguments, null, 2),
+                              font: "Consolas",
+                              size: 16,
+                              color: "2C3E50",
+                            }),
+                          ],
+                        }),
+                        new Paragraph({
+                          spacing: { before: 40, after: 40 },
+                          children: [
+                            new TextRun({
+                              text: `   → Mock Response:`,
+                              italics: true,
+                              color: "7F8C8D",
+                              size: 16,
+                            }),
+                          ],
+                        }),
+                        new Paragraph({
+                          spacing: { before: 20, after: 100 },
+                          indent: { left: 360 },
+                          children: [
+                            new TextRun({
+                              text: JSON.stringify(tc.mockResponse, null, 2),
+                              font: "Consolas",
+                              italics: true,
+                              size: 16,
+                              color: "27AE60", // green for successful mock output
+                            }),
+                          ],
+                        }),
+                      ]),
+                      // Separator after tool calls
+                      new Paragraph({
+                        spacing: { before: 100, after: 100 },
+                        border: {
+                          bottom: {
+                            color: "E0E0E0",
+                            style: BorderStyle.SINGLE,
+                            size: 4,
+                          },
+                        },
+                        children: [new TextRun("")],
+                      }),
+                    ]
+                  : []),
+
                 // Response Heading
                 new Paragraph({
                   spacing: { before: 100, after: 60 },
