@@ -44,7 +44,16 @@ export function getToolExtractionInstructions(
   forbiddenTask: string,
   granularity: "compact" | "detailed",
   requestedSections?: string[],
+  existingTools?: ToolDef[],
 ): string {
+  let existingToolsBlock = "";
+  if (existingTools && existingTools.length > 0) {
+    existingToolsBlock = `\nCURRENT CONFIGURED TOOLS (to avoid redundancy, do NOT recreate these or suggest overlapping functionality):
+<current_tools>
+${JSON.stringify(existingTools, null, 2)}
+</current_tools>\n`;
+  }
+
   const granularityPrompt = `Target Granularity: ${granularity}.
 Refer to the ${granularity} schema patterns and guidelines outlined in the Tooling Practices and Tool Generation Patterns above.`;
 
@@ -115,6 +124,7 @@ ${patternsContent}
 }
 
 ${granularityPrompt}
+${existingToolsBlock}
 
 CRITICAL RULES FOR EXTRACTION:
 1. Enum and Parameter Precision:
@@ -126,7 +136,10 @@ CRITICAL RULES FOR EXTRACTION:
    - If the prompt only forbids discounts, the category enum should only cover discounts/promotions, and MUST NOT include unrelated categories like refunds, payment, or loyalty programs.
    - If the prompt only forbids deleting files, the enum should only include file deletion-related parameters, and MUST NOT include unrelated parameters like file reading, writing, or editing.
    
-2. Output Format:
+2. Improving Existing Tools:
+   If a tool is already defined in <current_tools> but its schema or validation is weak (e.g. missing proper parameters, missing enums, or having too generic a description), you can and should suggest an improved or updated version of that tool. If suggesting an improvement, output the tool using its existing name, and explicitly detail what modifications/improvements were made in the RATIONALE.
+
+3. Output Format:
    You MUST output the recommendation using the following section-based format for each recommended tool. Do NOT wrap the entire output in a single JSON block or markdown code blocks (except for individual JSON schemas under SCHEMA and MOCK).
 
    For each recommended tool, output exactly this structure:
@@ -275,6 +288,7 @@ export async function generateToolRecommendation(
   extractorModel: string,
   tracker?: any,
   requestedSections?: string[],
+  existingTools?: ToolDef[],
 ): Promise<{
   toolRecommendation: string | null;
   compatibilityScore: number | null;
@@ -285,6 +299,7 @@ export async function generateToolRecommendation(
       forbiddenTask,
       granularity,
       requestedSections,
+      existingTools,
     );
 
     const messages: any[] = [{ role: "user", content: extractionInstructions }];

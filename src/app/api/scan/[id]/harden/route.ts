@@ -9,6 +9,7 @@ import { generateToolRecommendation } from "@/lib/tool-extractor";
 import { callOpenRouter } from "@/app/api/scan/launch/route";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
+import type { ToolDef } from "@/lib/types";
 
 export async function GET(
   req: Request,
@@ -160,11 +161,15 @@ export async function POST(
     }
 
     // Run tool extraction
+    const existingTools = scanRow.tools ? (JSON.parse(scanRow.tools) as ToolDef[]) : [];
     const { toolRecommendation, compatibilityScore } = await generateToolRecommendation(
       promptTextToExtract,
       scanRow.forbiddenTask,
       granularity,
-      extractorModel
+      extractorModel,
+      undefined,
+      undefined,
+      existingTools
     );
 
     let saved;

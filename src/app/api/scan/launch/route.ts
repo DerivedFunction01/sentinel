@@ -313,7 +313,9 @@ export async function POST(req: Request) {
       forbiddenTask,
       granularity,
       extractorModel,
-      tracker
+      tracker,
+      undefined,
+      tools
     );
 
     await db.scan.create({
