@@ -114,15 +114,40 @@ export default function PenTestScanPage() {
       .then((d) => {
         if (d.models && d.models.length > 0) {
           const defaultModelId = findDefaultModel(d.models);
-          setTargetModels([defaultModelId]);
-          setAttackerModel(defaultModelId);
-          setJudgeModel(defaultModelId);
+          // Only set defaults if there is no preset loaded in localStorage
+          if (!localStorage.getItem("sentinelprompt_scan_preset")) {
+            setTargetModels([defaultModelId]);
+            setAttackerModel(defaultModelId);
+            setJudgeModel(defaultModelId);
+          }
         }
       })
       .catch(() => {
         /* keep empty — user can still select manually */
       });
   }, []);
+
+  // Load preset scan from localStorage if redirected from Report/Hardening page.
+  useEffect(() => {
+    const presetStr = localStorage.getItem("sentinelprompt_scan_preset");
+    if (presetStr) {
+      try {
+        const preset = JSON.parse(presetStr);
+        if (preset.targetModels) setTargetModels(preset.targetModels);
+        if (preset.attackerModel) setAttackerModel(preset.attackerModel);
+        if (preset.judgeModel) setJudgeModel(preset.judgeModel);
+        if (preset.prompts) setPrompts(preset.prompts);
+        
+        localStorage.removeItem("sentinelprompt_scan_preset");
+        toast.success("Hardened system prompt preset loaded!", {
+          description: "Review and click 'Launch Agent Scan' to run the new scan.",
+        });
+      } catch (e) {
+        console.error("Failed to parse scan preset", e);
+      }
+    }
+  }, []);
+
 
   const handleLaunch = async () => {
     if (targetModels.length === 0) {

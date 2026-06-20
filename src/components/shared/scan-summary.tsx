@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   RotateCw,
   Download,
@@ -9,6 +11,7 @@ import {
   Swords,
   Gavel,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +43,72 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
       ? "Strong posture — your prompt defends well against adversarial attacks."
       : "Moderate posture — some vulnerabilities detected. Review breached trials.";
 
+  const [downloadingHarden, setDownloadingHarden] = useState(false);
+  const [rescanningHarden, setRescanningHarden] = useState(false);
+  const router = useRouter();
+
+  const handleDownloadHarden = async () => {
+    setDownloadingHarden(true);
+    const toastId = toast.loading("Generating hardened prompt...");
+    try {
+      const res = await fetch(`/api/scan/${scan.id}/harden`);
+      if (!res.ok) throw new Error("Failed to generate");
+      const data = await res.json();
+      
+      const blob = new Blob([data.hardenedPrompt], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `hardened-prompt-${scan.id}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Hardened prompt downloaded!", { id: toastId });
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to generate hardened prompt", { id: toastId });
+    } finally {
+      setDownloadingHarden(false);
+    }
+  };
+
+  const handleRescanHarden = async () => {
+    setRescanningHarden(true);
+    const toastId = toast.loading("Generating hardened prompt...");
+    try {
+      const res = await fetch(`/api/scan/${scan.id}/harden`);
+      if (!res.ok) throw new Error("Failed to generate");
+      const data = await res.json();
+
+      // Store configuration preset in localStorage
+      const preset = {
+        targetModels: [scan.targetModel],
+        attackerModel: scan.attackerModel,
+        judgeModel: scan.judgeModel,
+        prompts: [
+          {
+            systemPrompt: data.hardenedPrompt,
+            forbiddenTask: scan.forbiddenTask,
+            tools: JSON.stringify(scan.tools),
+            mockResponses: JSON.stringify(scan.mockToolResponses),
+            judgeInstructions: scan.judgeInstructions,
+          }
+        ]
+      };
+      
+      localStorage.setItem("sentinelprompt_scan_preset", JSON.stringify(preset));
+      toast.success("Hardened prompt generated. Redirecting to scanner...", { id: toastId });
+      router.push("/dashboard/scan");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to generate hardened prompt for rescan", { id: toastId });
+    } finally {
+      setRescanningHarden(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Action buttons */}
@@ -47,40 +116,44 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
         <Button
           size="sm"
           className="bg-blue-600 text-white shadow-[0_4px_18px_rgba(59,130,246,0.4)] hover:bg-blue-700"
-          onClick={() =>
-            toast.info("Re-scan with hardened prompt", {
-              description: "This feature is coming soon.",
-            })
-          }
+          onClick={handleRescanHarden}
+          disabled={rescanningHarden || downloadingHarden}
         >
-          <RotateCw className="mr-2 h-4 w-4" />
+          {rescanningHarden ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RotateCw className="mr-2 h-4 w-4" />
+          )}
           Re-scan with hardened prompt
         </Button>
         <Button
           size="sm"
           variant="outline"
           className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10"
-          onClick={() =>
-            toast.success("Hardened prompt downloaded", {
-              description: "hardened-prompt.txt",
-            })
-          }
+          onClick={handleDownloadHarden}
+          disabled={rescanningHarden || downloadingHarden}
         >
-          <Download className="mr-2 h-4 w-4" />
+          {downloadingHarden ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-2 h-4 w-4" />
+          )}
           Hardened prompt (.txt)
         </Button>
         <Button
           size="sm"
           variant="outline"
           className="border-white/20 text-white hover:bg-white/10"
-          onClick={() =>
-            toast.success("Report downloaded", {
-              description: `Scan-${scan.id}.pdf`,
-            })
-          }
+          asChild
         >
-          <Download className="mr-2 h-4 w-4" />
-          Full report (.pdf)
+          <a
+            href={`/api/scan/${scan.id}/export`}
+            download
+            className="flex items-center text-white"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Full report (.docx)
+          </a>
         </Button>
       </div>
 
