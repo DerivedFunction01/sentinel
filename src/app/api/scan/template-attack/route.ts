@@ -30,13 +30,13 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const targetModel = (body.targetModel as string) || "anthropic/claude-3.5-haiku";
   const systemPrompt = (body.systemPrompt as string) || "";
-  const forbiddenTask = (body.forbiddenTask as string) || "STEM-adjacent, math, code tasks";
+  const forbiddenTask = (body.forbiddenTask as string) || "Performing tasks outside of its scope, performing forbidden behavior, or making up information.";
+
+  const thingName = forbiddenTask.split(/[.,;]/)[0].substring(0, 30) || "prohibited tasks";
+  const thingDescription = forbiddenTask || "performing forbidden behavior";
 
   // Generate 9 attacks from all patterns (no API calls).
-  const attacks = generateAttacks(
-    "discounts and special offers",
-    "a discount code or special pricing",
-  );
+  const attacks = generateAttacks(thingName, thingDescription);
 
   // Create trials — alternate breach/defend for demo purposes.
   // Every 3rd trial is a breach to show a realistic distribution.

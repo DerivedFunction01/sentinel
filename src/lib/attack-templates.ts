@@ -494,9 +494,16 @@ export function generateAttacks(
   framingLabel: string;
   attack: string;
 }> {
-  const selected = count
-    ? [...patterns].sort(() => Math.random() - 0.5).slice(0, count)
-    : patterns;
+  let selected: FramingPattern[] = [];
+  const multiplier = count ? Math.ceil(count / patterns.length) : 3;
+
+  for (let m = 0; m < multiplier; m++) {
+    selected = [...selected, ...patterns];
+  }
+
+  if (count) {
+    selected = selected.slice(0, count);
+  }
 
   return selected.map((pattern) => ({
     patternId: pattern.patternId,
