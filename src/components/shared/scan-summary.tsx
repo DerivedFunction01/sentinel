@@ -1,6 +1,15 @@
 "use client";
 
-import { RotateCw, Download, FileText, ShieldCheck, Target, Swords, Gavel, AlertTriangle } from "lucide-react";
+import {
+  RotateCw,
+  Download,
+  FileText,
+  Shield,
+  Target,
+  Swords,
+  Gavel,
+  AlertTriangle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +23,8 @@ interface ScanSummaryProps {
 
 export function ScanSummary({ scan }: ScanSummaryProps) {
   const defended = scan.totalTrials - scan.breaches;
-  const defenseRate = scan.totalTrials > 0 ? Math.round((defended / scan.totalTrials) * 100) : 0;
+  const defenseRate =
+    scan.totalTrials > 0 ? Math.round((defended / scan.totalTrials) * 100) : 0;
   const isWeak = defenseRate < 50;
   const riskStyle = getRiskStyle(scan.riskLevel);
 
@@ -37,7 +47,11 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
         <Button
           size="sm"
           className="bg-blue-600 text-white shadow-[0_4px_18px_rgba(59,130,246,0.4)] hover:bg-blue-700"
-          onClick={() => toast.info("Re-scan with hardened prompt", { description: "This feature is coming soon." })}
+          onClick={() =>
+            toast.info("Re-scan with hardened prompt", {
+              description: "This feature is coming soon.",
+            })
+          }
         >
           <RotateCw className="mr-2 h-4 w-4" />
           Re-scan with hardened prompt
@@ -46,7 +60,11 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
           size="sm"
           variant="outline"
           className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10"
-          onClick={() => toast.success("Hardened prompt downloaded", { description: "hardened-prompt.txt" })}
+          onClick={() =>
+            toast.success("Hardened prompt downloaded", {
+              description: "hardened-prompt.txt",
+            })
+          }
         >
           <Download className="mr-2 h-4 w-4" />
           Hardened prompt (.txt)
@@ -55,7 +73,11 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
           size="sm"
           variant="outline"
           className="border-white/20 text-white hover:bg-white/10"
-          onClick={() => toast.success("Report downloaded", { description: `Scan-${scan.id}.pdf` })}
+          onClick={() =>
+            toast.success("Report downloaded", {
+              description: `Scan-${scan.id}.pdf`,
+            })
+          }
         >
           <Download className="mr-2 h-4 w-4" />
           Full report (.pdf)
@@ -68,13 +90,16 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
         <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              <ShieldCheck className="h-4 w-4" />
+              <Shield className="h-4 w-4" />
               Defense Rate
             </CardTitle>
           </CardHeader>
           <CardContent className="flex items-center gap-5">
             {/* Circular gauge */}
-            <div className="relative shrink-0" style={{ width: 128, height: 128 }}>
+            <div
+              className="relative shrink-0"
+              style={{ width: 128, height: 128 }}
+            >
               <svg width={128} height={128} className="-rotate-90">
                 <circle
                   cx={64}
@@ -190,8 +215,15 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
                 <Swords className="h-3.5 w-3.5 text-red-400" />
                 Attacker
               </span>
-              <span className="max-w-[55%] truncate text-right font-mono text-xs text-foreground" title={scan.attackerModel}>
-                {scan.attackerModelName || scan.attackerModel || <span className="italic text-muted-foreground">anonymous</span>}
+              <span
+                className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
+                title={scan.attackerModel}
+              >
+                {scan.attackerModelName || scan.attackerModel || (
+                  <span className="italic text-muted-foreground">
+                    anonymous
+                  </span>
+                )}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -199,8 +231,15 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
                 <Gavel className="h-3.5 w-3.5 text-emerald-400" />
                 Judge
               </span>
-              <span className="max-w-[55%] truncate text-right font-mono text-xs text-foreground" title={scan.judgeModel}>
-                {scan.judgeModelName || scan.judgeModel || <span className="italic text-muted-foreground">anonymous</span>}
+              <span
+                className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
+                title={scan.judgeModel}
+              >
+                {scan.judgeModelName || scan.judgeModel || (
+                  <span className="italic text-muted-foreground">
+                    anonymous
+                  </span>
+                )}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -208,14 +247,19 @@ export function ScanSummary({ scan }: ScanSummaryProps) {
                 <Target className="h-3.5 w-3.5 text-blue-400" />
                 Target
               </span>
-              <span className="max-w-[55%] truncate text-right font-mono text-xs text-foreground" title={scan.targetModel}>
+              <span
+                className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
+                title={scan.targetModel}
+              >
                 {scan.modelName || scan.targetModel}
               </span>
             </div>
             {scan.apiCost > 0 && (
               <div className="border-t border-white/5 pt-2 flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">API Cost</span>
-                <span className="font-mono text-xs text-amber-400">${scan.apiCost.toFixed(4)}</span>
+                <span className="font-mono text-xs text-amber-400">
+                  ${scan.apiCost.toFixed(4)}
+                </span>
               </div>
             )}
           </CardContent>

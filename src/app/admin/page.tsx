@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Coins, Users, ShieldCheck, TrendingUp, ArrowRight } from "lucide-react";
+import { Coins, Users, Shield, TrendingUp, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { requireAdmin } from "@/lib/auth-helpers";
@@ -12,15 +12,16 @@ export default async function AdminOverviewPage() {
   const isSuperAdmin = admin.role === UserRole.SuperAdmin;
 
   // Fetch stats based on role.
-  const [totalUsers, pendingRequests, totalScans, totalTokensGranted] = await Promise.all([
-    db.user.count(),
-    db.tokenRequest.count({ where: { status: "PENDING" } }),
-    db.scan.count(),
-    db.tokenRequest.aggregate({
-      where: { status: "APPROVED" },
-      _sum: { amount: true },
-    }),
-  ]);
+  const [totalUsers, pendingRequests, totalScans, totalTokensGranted] =
+    await Promise.all([
+      db.user.count(),
+      db.tokenRequest.count({ where: { status: "PENDING" } }),
+      db.scan.count(),
+      db.tokenRequest.aggregate({
+        where: { status: "APPROVED" },
+        _sum: { amount: true },
+      }),
+    ]);
 
   const recentRequests = await db.tokenRequest.findMany({
     take: 5,
@@ -43,13 +44,28 @@ export default async function AdminOverviewPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatBox label="Total Users" value={totalUsers} icon={Users} accent="blue" />
-        <StatBox label="Pending Requests" value={pendingRequests} icon={Coins} accent="amber" />
-        <StatBox label="Total Scans" value={totalScans} icon={TrendingUp} accent="emerald" />
+        <StatBox
+          label="Total Users"
+          value={totalUsers}
+          icon={Users}
+          accent="blue"
+        />
+        <StatBox
+          label="Pending Requests"
+          value={pendingRequests}
+          icon={Coins}
+          accent="amber"
+        />
+        <StatBox
+          label="Total Scans"
+          value={totalScans}
+          icon={TrendingUp}
+          accent="emerald"
+        />
         <StatBox
           label="Tokens Granted"
           value={totalTokensGranted._sum.amount ?? 0}
-          icon={ShieldCheck}
+          icon={Shield}
           accent="default"
         />
       </div>
@@ -73,11 +89,36 @@ export default async function AdminOverviewPage() {
           </>
         ) : (
           <>
-            <QuickLink href="/admin/api-admin" title="API Admin" description="Manage API keys and access." icon={ShieldCheck} />
-            <QuickLink href="/admin/user-management" title="User Management" description="Manage org users and permissions." icon={Users} />
-            <QuickLink href="/admin/billing-management" title="Billing Management" description="View invoices and manage subscriptions." icon={Coins} />
-            <QuickLink href="/admin/email-center" title="Email Center" description="Send and review email notifications." icon={TrendingUp} />
-            <QuickLink href="/admin/system-management" title="System Management" description="Configure system settings and integrations." icon={ShieldCheck} />
+            <QuickLink
+              href="/admin/api-admin"
+              title="API Admin"
+              description="Manage API keys and access."
+              icon={Shield}
+            />
+            <QuickLink
+              href="/admin/user-management"
+              title="User Management"
+              description="Manage org users and permissions."
+              icon={Users}
+            />
+            <QuickLink
+              href="/admin/billing-management"
+              title="Billing Management"
+              description="View invoices and manage subscriptions."
+              icon={Coins}
+            />
+            <QuickLink
+              href="/admin/email-center"
+              title="Email Center"
+              description="Send and review email notifications."
+              icon={TrendingUp}
+            />
+            <QuickLink
+              href="/admin/system-management"
+              title="System Management"
+              description="Configure system settings and integrations."
+              icon={Shield}
+            />
           </>
         )}
       </div>

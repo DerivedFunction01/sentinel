@@ -1,9 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, FileText, ShieldCheck } from "lucide-react";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { ArrowRight, FileText, Shield } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/dashboard-parts";
 import { getUserScans } from "@/lib/scan-db";
@@ -49,7 +46,9 @@ export default async function ReportsPage() {
                   <span
                     className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${style.bgClass} ${style.textClass} ${style.borderClass}`}
                   >
-                    <span className={`h-1 w-1 rounded-full ${style.dotClass}`} />
+                    <span
+                      className={`h-1 w-1 rounded-full ${style.dotClass}`}
+                    />
                     {style.label}
                   </span>
                 </div>
@@ -98,7 +97,7 @@ export default async function ReportsPage() {
       {reports.length === 0 && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <ShieldCheck className="mb-4 h-12 w-12 text-muted-foreground" />
+            <Shield className="mb-4 h-12 w-12 text-muted-foreground" />
             <h3 className="text-lg font-semibold text-foreground">
               No reports yet
             </h3>

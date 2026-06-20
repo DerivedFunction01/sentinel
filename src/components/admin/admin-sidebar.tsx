@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  ShieldCheck,
+  Shield,
   ShieldAlert,
   ArrowLeft,
   LogOut,
@@ -22,6 +22,7 @@ import { UserRole } from "@/lib/enums";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { LogoIcon } from "@/components/shared/logo";
 
 interface AdminUser {
   id: string;
@@ -49,9 +50,17 @@ const CUSTOMER_ADMIN_NAV: NavEntry[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/admin/api-admin", label: "API Admin", icon: KeyRound },
   { href: "/admin/user-management", label: "User Management", icon: Users },
-  { href: "/admin/billing-management", label: "Billing Management", icon: CreditCard },
+  {
+    href: "/admin/billing-management",
+    label: "Billing Management",
+    icon: CreditCard,
+  },
   { href: "/admin/email-center", label: "Email Center", icon: Mail },
-  { href: "/admin/system-management", label: "System Management", icon: Settings },
+  {
+    href: "/admin/system-management",
+    label: "System Management",
+    icon: Settings,
+  },
 ];
 
 interface AdminSidebarProps {
@@ -69,15 +78,14 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
     return pathname === entry.href || pathname.startsWith(entry.href + "/");
   };
 
-  const initials = (user.name?.[0] ?? "A") + (user.name?.split(" ")[1]?.[0] ?? "");
+  const initials =
+    (user.name?.[0] ?? "A") + (user.name?.split(" ")[1]?.[0] ?? "");
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-            <ShieldCheck className="h-5 w-5 text-white" />
-          </div>
+          <LogoIcon size="sm" />
           <span className="text-base font-bold text-sidebar-foreground">
             SentinelPrompt
           </span>
@@ -167,7 +175,10 @@ export function MobileAdminNav({ user }: AdminSidebarProps) {
 
   return (
     <nav className="flex items-center gap-1 overflow-x-auto border-b border-sidebar-border bg-sidebar px-2 py-2 scrollbar-thin md:hidden">
-      <Link href="/dashboard" className="flex shrink-0 items-center gap-1.5 px-2">
+      <Link
+        href="/dashboard"
+        className="flex shrink-0 items-center gap-1.5 px-2"
+      >
         <ArrowLeft className="h-4 w-4 text-sidebar-foreground/60" />
       </Link>
       {nav.map((entry) => {

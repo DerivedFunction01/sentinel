@@ -1,6 +1,6 @@
 "use client";
 
-import { Target, ShieldCheck, Gavel, ArrowRight } from "lucide-react";
+import { Target, Shield, Gavel, ArrowRight } from "lucide-react";
 
 export function AgentPipeline() {
   const agents = [
@@ -13,7 +13,7 @@ export function AgentPipeline() {
       border: "border-red-500/20",
     },
     {
-      icon: ShieldCheck,
+      icon: Shield,
       title: "Target Model",
       desc: "Receives the attack prompt with your system prompt",
       color: "text-blue-400",

@@ -8,20 +8,18 @@ import {
   Crosshair,
   FileText,
   Settings,
-  ShieldCheck,
+  Shield,
   LogOut,
   ChevronRight,
   KeyRound,
   Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  Avatar,
-  AvatarFallback,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { UserRole, ADMIN_ROLES } from "@/lib/enums";
+import { LogoIcon } from "@/components/shared/logo";
 
 interface SidebarUser {
   id: string;
@@ -44,10 +42,18 @@ const NAV_ENTRIES: NavEntry[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/scan", label: "PenTest Scan", icon: Crosshair },
   { href: "/dashboard/reports", label: "Reports", icon: FileText },
-  { href: "/dashboard/api-integration", label: "API Integration", icon: KeyRound },
-  { href: "/dashboard/agent-deployment", label: "Agent Deployment", icon: Rocket },
+  {
+    href: "/dashboard/api-integration",
+    label: "API Integration",
+    icon: KeyRound,
+  },
+  {
+    href: "/dashboard/agent-deployment",
+    label: "Agent Deployment",
+    icon: Rocket,
+  },
   { href: "/dashboard/settings", label: "Settings & Billing", icon: Settings },
-  { href: "/admin", label: "Admin Panel", icon: ShieldCheck, adminOnly: true },
+  { href: "/admin", label: "Admin Panel", icon: Shield, adminOnly: true },
 ];
 
 export function DashboardSidebar({ user }: { user: SidebarUser }) {
@@ -68,9 +74,7 @@ export function DashboardSidebar({ user }: { user: SidebarUser }) {
     <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-            <ShieldCheck className="h-5 w-5 text-white" />
-          </div>
+          <LogoIcon size="sm" />
           <span className="text-base font-bold text-sidebar-foreground">
             SentinelPrompt
           </span>
@@ -145,9 +149,7 @@ export function MobileDashboardNav({ user }: { user: SidebarUser }) {
   return (
     <nav className="flex items-center gap-1 overflow-x-auto border-b border-sidebar-border bg-sidebar px-2 py-2 scrollbar-thin md:hidden">
       <Link href="/" className="flex shrink-0 items-center gap-1.5 px-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-600">
-          <ShieldCheck className="h-4 w-4 text-white" />
-        </div>
+        <LogoIcon size="sm" className="h-7 w-7 rounded-md" />
       </Link>
       {visibleEntries.map((entry) => {
         const active = isActive(entry);

@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Download,
-  ShieldCheck,
+  Shield,
   Wrench,
   Code2,
   Gavel,
@@ -13,10 +13,7 @@ import {
   Swords,
   Filter,
 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -42,7 +39,8 @@ export function ReportView({ scan }: ReportViewProps) {
 
   const filteredTrials = scan.trials.filter((t) => {
     if (filter === TrialFilter.All) return true;
-    if (filter === TrialFilter.Breached) return t.verdict === TrialVerdict.Breached;
+    if (filter === TrialFilter.Breached)
+      return t.verdict === TrialVerdict.Breached;
     return t.verdict === TrialVerdict.Defended;
   });
 
@@ -74,7 +72,10 @@ export function ReportView({ scan }: ReportViewProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="hidden border-amber-500/30 text-amber-400 sm:inline-flex">
+            <Badge
+              variant="outline"
+              className="hidden border-amber-500/30 text-amber-400 sm:inline-flex"
+            >
               CONFIDENTIAL
             </Badge>
             <Button
@@ -83,7 +84,11 @@ export function ReportView({ scan }: ReportViewProps) {
               className="border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
               asChild
             >
-              <a href={`/api/scan/${scan.id}/export`} download className="flex items-center text-slate-200 hover:text-white">
+              <a
+                href={`/api/scan/${scan.id}/export`}
+                download
+                className="flex items-center text-slate-200 hover:text-white"
+              >
                 <Download className="mr-1.5 h-3.5 w-3.5" />
                 Download
               </a>
@@ -96,7 +101,7 @@ export function ReportView({ scan }: ReportViewProps) {
         {/* ── Summary hero ── */}
         <section id="summary" className="space-y-6">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5 text-blue-400" />
+            <Shield className="h-3.5 w-3.5 text-blue-400" />
             Report · Pentest Scan
           </div>
 
@@ -151,8 +156,12 @@ export function ReportView({ scan }: ReportViewProps) {
           </div>
 
           {/* System Prompt */}
-          <ConfigBlock label="System Prompt" icon={ShieldCheck}>
-            <CodeHighlight code={scan.systemPrompt} language="plaintext" className="!p-4" />
+          <ConfigBlock label="System Prompt" icon={Shield}>
+            <CodeHighlight
+              code={scan.systemPrompt}
+              language="plaintext"
+              className="!p-4"
+            />
           </ConfigBlock>
 
           {/* Tools (NEW) */}
@@ -164,12 +173,18 @@ export function ReportView({ scan }: ReportViewProps) {
           >
             <Collapsible>
               <CollapsibleTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full justify-between border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-between border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+                >
                   <span className="flex items-center gap-2">
                     <Code2 className="h-3.5 w-3.5 text-blue-400" />
                     {scan.tools.length} tool definitions
                   </span>
-                  <span className="text-xs text-muted-foreground">Click to expand</span>
+                  <span className="text-xs text-muted-foreground">
+                    Click to expand
+                  </span>
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -191,12 +206,18 @@ export function ReportView({ scan }: ReportViewProps) {
           >
             <Collapsible>
               <CollapsibleTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full justify-between border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-between border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+                >
                   <span className="flex items-center gap-2">
                     <Code2 className="h-3.5 w-3.5 text-purple-400" />
                     {Object.keys(scan.mockToolResponses).length} mock responses
                   </span>
-                  <span className="text-xs text-muted-foreground">Click to expand</span>
+                  <span className="text-xs text-muted-foreground">
+                    Click to expand
+                  </span>
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -211,7 +232,11 @@ export function ReportView({ scan }: ReportViewProps) {
 
           {/* Forbidden Task */}
           <ConfigBlock label="Forbidden Task" icon={Ban}>
-            <CodeHighlight code={scan.forbiddenTask} language="plaintext" className="!p-4" />
+            <CodeHighlight
+              code={scan.forbiddenTask}
+              language="plaintext"
+              className="!p-4"
+            />
           </ConfigBlock>
 
           {/* Judge Instructions (NEW) */}
@@ -221,7 +246,11 @@ export function ReportView({ scan }: ReportViewProps) {
             badge="NEW"
             description="Tells the Judge exactly how to evaluate each response — separate from the forbidden task."
           >
-            <CodeHighlight code={scan.judgeInstructions} language="plaintext" className="!p-4" />
+            <CodeHighlight
+              code={scan.judgeInstructions}
+              language="plaintext"
+              className="!p-4"
+            />
           </ConfigBlock>
 
           {/* Adversarial Coverage */}
@@ -280,7 +309,11 @@ export function ReportView({ scan }: ReportViewProps) {
                 key={f}
                 variant={filter === f ? "default" : "outline"}
                 size="sm"
-                className={filter === f ? "bg-blue-600 hover:bg-blue-700 text-white" : "border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"}
+                className={
+                  filter === f
+                    ? "bg-blue-600 hover:bg-blue-700 text-white"
+                    : "border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+                }
                 onClick={() => setFilter(f)}
               >
                 {f === TrialFilter.All
@@ -311,9 +344,7 @@ export function ReportView({ scan }: ReportViewProps) {
         {/* Report footer */}
         <Separator />
         <div className="flex items-center justify-between pb-8 text-xs text-muted-foreground">
-          <span>
-            SentinelPrompt · Security Insights Report · Confidential
-          </span>
+          <span>SentinelPrompt · Security Insights Report · Confidential</span>
           <span>Page 1 of 27</span>
         </div>
       </div>

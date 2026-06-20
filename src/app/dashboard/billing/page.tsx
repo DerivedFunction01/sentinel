@@ -10,7 +10,7 @@ import {
   Building2,
   Rocket,
   Loader2,
-  ShieldCheck,
+  Shield,
   Coins,
 } from "lucide-react";
 import {
@@ -215,7 +215,7 @@ export default function BillingPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex gap-3">
-            <ShieldCheck className="h-5 w-5 shrink-0 text-blue-400" />
+            <Shield className="h-5 w-5 shrink-0 text-blue-400" />
             <div>
               <h4 className="text-sm font-semibold text-foreground">
                 How billing works during beta

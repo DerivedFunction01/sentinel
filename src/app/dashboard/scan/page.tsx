@@ -68,6 +68,16 @@ function makeDefaultPrompt(): PromptConfig {
   };
 }
 
+function makeEmptyPrompt(): PromptConfig {
+  return {
+    systemPrompt: "",
+    forbiddenTask: "",
+    tools: "",
+    mockResponses: "",
+    judgeInstructions: "",
+  };
+}
+
 /** Shape of an exported/imported scan config file. */
 interface ScanConfigFile {
   targetModels: string[];
@@ -83,7 +93,7 @@ export default function PenTestScanPage() {
   const [targetModels, setTargetModels] = useState<string[]>([]);
   const [attackerModel, setAttackerModel] = useState<string>("");
   const [judgeModel, setJudgeModel] = useState<string>("");
-  const [prompts, setPrompts] = useState<PromptConfig[]>([makeDefaultPrompt()]);
+  const [prompts, setPrompts] = useState<PromptConfig[]>([makeEmptyPrompt()]);
   const [launching, setLaunching] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [templateLoading, setTemplateLoading] = useState(false);
@@ -109,7 +119,9 @@ export default function PenTestScanPage() {
           setJudgeModel(defaultModelId);
         }
       })
-      .catch(() => { /* keep empty — user can still select manually */ });
+      .catch(() => {
+        /* keep empty — user can still select manually */
+      });
   }, []);
 
   const handleLaunch = async () => {
@@ -214,7 +226,7 @@ export default function PenTestScanPage() {
   };
 
   const addPrompt = () => {
-    setPrompts([...prompts, makeDefaultPrompt()]);
+    setPrompts([...prompts, makeEmptyPrompt()]);
   };
 
   const removePrompt = (idx: number) => {
@@ -224,17 +236,30 @@ export default function PenTestScanPage() {
 
   const copyFromPrevious = (idx: number) => {
     if (idx === 0) return;
-    setPrompts(prompts.map((p, i) => (i === idx ? { ...prompts[idx - 1] } : p)));
+    setPrompts(
+      prompts.map((p, i) => (i === idx ? { ...prompts[idx - 1] } : p)),
+    );
     toast.success(`Copied configuration from Prompt ${idx}`);
   };
 
-  const updatePrompt = (idx: number, field: keyof PromptConfig, value: string) => {
-    setPrompts(prompts.map((p, i) => (i === idx ? { ...p, [field]: value } : p)));
+  const updatePrompt = (
+    idx: number,
+    field: keyof PromptConfig,
+    value: string,
+  ) => {
+    setPrompts(
+      prompts.map((p, i) => (i === idx ? { ...p, [field]: value } : p)),
+    );
   };
 
   /** Export the current scan configuration to a JSON file. */
   const handleExport = () => {
-    const config: ScanConfigFile = { targetModels, attackerModel, judgeModel, prompts };
+    const config: ScanConfigFile = {
+      targetModels,
+      attackerModel,
+      judgeModel,
+      prompts,
+    };
     const blob = new Blob([JSON.stringify(config, null, 2)], {
       type: "application/json",
     });
@@ -263,7 +288,11 @@ export default function PenTestScanPage() {
     try {
       const text = await file.text();
       const data = JSON.parse(text) as ScanConfigFile;
-      if (!data.prompts || !Array.isArray(data.prompts) || data.prompts.length === 0) {
+      if (
+        !data.prompts ||
+        !Array.isArray(data.prompts) ||
+        data.prompts.length === 0
+      ) {
         toast.error("Invalid config file", {
           description: "The JSON must contain a non-empty 'prompts' array.",
         });
@@ -315,7 +344,10 @@ export default function PenTestScanPage() {
           <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label className="text-sm font-medium">Target AI Model</Label>
-              <MultiModelSelector value={targetModels} onChange={setTargetModels} />
+              <MultiModelSelector
+                value={targetModels}
+                onChange={setTargetModels}
+              />
               <p className="text-xs text-muted-foreground">
                 Search OpenRouter&apos;s catalog (e.g. &quot;llama&quot;,
                 &quot;gemini&quot;, &quot;gpt-4&quot;).
@@ -326,7 +358,10 @@ export default function PenTestScanPage() {
                 <Swords className="h-3.5 w-3.5 text-red-400" />
                 Attacker Model
               </Label>
-              <ModelSelector value={attackerModel} onChange={setAttackerModel} />
+              <ModelSelector
+                value={attackerModel}
+                onChange={setAttackerModel}
+              />
               <p className="text-xs text-muted-foreground">
                 Generates adversarial prompts targeting the forbidden task.
               </p>
@@ -442,7 +477,11 @@ export default function PenTestScanPage() {
                     placeholder="e.g. Only mark LEAKED if the forbidden content appears verbatim in the response."
                     minHeight="min-h-32"
                     onUseSample={() => {
-                      updatePrompt(idx, "judgeInstructions", sampleJudgeInstructions);
+                      updatePrompt(
+                        idx,
+                        "judgeInstructions",
+                        sampleJudgeInstructions,
+                      );
                       toast.success("Sample judge instructions loaded");
                     }}
                   />
@@ -474,7 +513,11 @@ export default function PenTestScanPage() {
                     minHeight="min-h-40"
                     monospace
                     onUseSample={() => {
-                      updatePrompt(idx, "tools", JSON.stringify(sampleTools, null, 2));
+                      updatePrompt(
+                        idx,
+                        "tools",
+                        JSON.stringify(sampleTools, null, 2),
+                      );
                       toast.success("Sample tools loaded");
                     }}
                   />
@@ -489,7 +532,11 @@ export default function PenTestScanPage() {
                     minHeight="min-h-32"
                     monospace
                     onUseSample={() => {
-                      updatePrompt(idx, "mockResponses", JSON.stringify(sampleMockToolResponses, null, 2));
+                      updatePrompt(
+                        idx,
+                        "mockResponses",
+                        JSON.stringify(sampleMockToolResponses, null, 2),
+                      );
                       toast.success("Sample mock responses loaded");
                     }}
                   />
@@ -552,7 +599,8 @@ export default function PenTestScanPage() {
                 ) : (
                   <>
                     <span className="font-semibold text-foreground">
-                      {targetModels.length} model{targetModels.length !== 1 ? "s" : ""}
+                      {targetModels.length} model
+                      {targetModels.length !== 1 ? "s" : ""}
                     </span>{" "}
                     ×{" "}
                     <span className="font-semibold text-foreground">
@@ -560,7 +608,8 @@ export default function PenTestScanPage() {
                     </span>{" "}
                     ={" "}
                     <span className="font-semibold text-amber-400">
-                      {targetModels.length * prompts.length} token{targetModels.length * prompts.length !== 1 ? "s" : ""}
+                      {targetModels.length * prompts.length} token
+                      {targetModels.length * prompts.length !== 1 ? "s" : ""}
                     </span>
                   </>
                 )}
@@ -570,7 +619,12 @@ export default function PenTestScanPage() {
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               onClick={handleLaunch}
-              disabled={launching || scanning || tokens === 0 || targetModels.length === 0}
+              disabled={
+                launching ||
+                scanning ||
+                tokens === 0 ||
+                targetModels.length === 0
+              }
               className="bg-blue-600 hover:bg-blue-700"
               size="lg"
             >

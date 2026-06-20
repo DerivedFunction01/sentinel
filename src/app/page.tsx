@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  ShieldCheck,
+  Shield,
   Target,
   Gavel,
   ScanSearch,
@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Menu,
 } from "lucide-react";
+import { LogoIcon } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 import { LandingSection } from "@/lib/enums";
 
@@ -48,9 +49,7 @@ function LandingHeader() {
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900">
-            <ShieldCheck className="h-5 w-5 text-white" />
-          </div>
+          <LogoIcon size="sm" />
           <span className="text-lg font-bold tracking-tight text-slate-900">
             SentinelPrompt
           </span>
@@ -239,7 +238,7 @@ function ThreeAgents() {
     },
     {
       num: "2",
-      icon: ShieldCheck,
+      icon: Shield,
       title: "Your prompt is put under pressure",
       body: "Each attack is aimed at the model running your system prompt, exactly as it would behave in production. Nothing is simulated or softened — the results reflect the real risk your deployed AI carries today.",
     },
@@ -504,9 +503,7 @@ function LandingFooter() {
     <footer className="bg-slate-950 border-t border-slate-800 py-12">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-4 sm:px-6 md:flex-row">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800">
-            <ShieldCheck className="h-5 w-5 text-white" />
-          </div>
+          <LogoIcon size="sm" />
           <span className="text-lg font-bold text-white">SentinelPrompt</span>
         </Link>
         <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-400">

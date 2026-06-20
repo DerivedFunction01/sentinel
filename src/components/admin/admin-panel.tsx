@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import {
-  ShieldCheck,
+  Shield,
   ShieldAlert,
   ArrowLeft,
   CheckCircle2,
@@ -16,18 +16,14 @@ import {
   Mail,
   Building2,
 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { TokenRequestStatus } from "@/lib/enums";
+import { LogoIcon } from "@/components/shared/logo";
 
 interface AdminRequest {
   id: string;
@@ -69,7 +65,14 @@ interface AdminPanelProps {
   admin: AdminUser;
 }
 
-const STATUS_STYLES: Record<string, { label: string; cls: string; icon: React.ComponentType<{ className?: string }> }> = {
+const STATUS_STYLES: Record<
+  string,
+  {
+    label: string;
+    cls: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }
+> = {
   [TokenRequestStatus.Pending]: {
     label: "Pending",
     cls: "border-amber-500/30 bg-amber-500/10 text-amber-400",
@@ -87,16 +90,26 @@ const STATUS_STYLES: Record<string, { label: string; cls: string; icon: React.Co
   },
 };
 
-type Filter = "ALL" | typeof TokenRequestStatus[keyof typeof TokenRequestStatus];
+type Filter = "ALL" | TokenRequestStatus;
 
-export function AdminPanel({ requests: initialRequests, stats, admin }: AdminPanelProps) {
+export function AdminPanel({
+  requests: initialRequests,
+  stats,
+  admin,
+}: AdminPanelProps) {
   const [requests, setRequests] = useState(initialRequests);
   const [filter, setFilter] = useState<Filter>("ALL");
   const [processing, setProcessing] = useState<string | null>(null);
 
-  const filtered = requests.filter((r) => filter === "ALL" || r.status === filter);
+  const filtered = requests.filter(
+    (r) => filter === "ALL" || r.status === filter,
+  );
 
-  const handleAction = async (id: string, action: TokenRequestStatus, adminNote?: string) => {
+  const handleAction = async (
+    id: string,
+    action: TokenRequestStatus,
+    adminNote?: string,
+  ) => {
     setProcessing(id);
     try {
       const res = await fetch("/api/admin/token-requests", {
@@ -109,9 +122,7 @@ export function AdminPanel({ requests: initialRequests, stats, admin }: AdminPan
         toast.error(data.error || "Action failed");
         return;
       }
-      setRequests((prev) =>
-        prev.map((r) => (r.id === id ? data.request : r)),
-      );
+      setRequests((prev) => prev.map((r) => (r.id === id ? data.request : r)));
       toast.success(
         action === TokenRequestStatus.Approved
           ? "Request approved — tokens credited"
@@ -130,9 +141,7 @@ export function AdminPanel({ requests: initialRequests, stats, admin }: AdminPan
       <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
         <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-              <ShieldCheck className="h-5 w-5 text-white" />
-            </div>
+            <LogoIcon size="sm" />
             <span className="text-base font-bold text-sidebar-foreground">
               SentinelPrompt
             </span>
@@ -204,15 +213,35 @@ export function AdminPanel({ requests: initialRequests, stats, admin }: AdminPan
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <StatBox label="Total Requests" value={stats.total} icon={Clock} />
-            <StatBox label="Pending" value={stats.pending} icon={Clock} accent="amber" />
-            <StatBox label="Approved" value={stats.approved} icon={CheckCircle2} accent="emerald" />
-            <StatBox label="Tokens Granted" value={stats.tokensApproved} icon={Coins} accent="blue" />
-            <StatBox label="Total Users" value={stats.users} icon={Users} accent="default" />
+            <StatBox
+              label="Pending"
+              value={stats.pending}
+              icon={Clock}
+              accent="amber"
+            />
+            <StatBox
+              label="Approved"
+              value={stats.approved}
+              icon={CheckCircle2}
+              accent="emerald"
+            />
+            <StatBox
+              label="Tokens Granted"
+              value={stats.tokensApproved}
+              icon={Coins}
+              accent="blue"
+            />
+            <StatBox
+              label="Total Users"
+              value={stats.users}
+              icon={Users}
+              accent="default"
+            />
           </div>
 
           {/* Filter */}
           <div className="flex flex-wrap items-center gap-2">
-            {(["ALL", "PENDING", "APPROVED", "DENIED"] as const).map((f) => (
+            {(["ALL", TokenRequestStatus.Pending, TokenRequestStatus.Approved, TokenRequestStatus.Denied] as Filter[]).map((f) => (
               <Button
                 key={f}
                 variant={filter === f ? "default" : "outline"}
@@ -244,7 +273,8 @@ export function AdminPanel({ requests: initialRequests, stats, admin }: AdminPan
           ) : (
             <div className="space-y-3">
               {filtered.map((req) => {
-                const style = STATUS_STYLES[req.status] || STATUS_STYLES["PENDING"];
+                const style =
+                  STATUS_STYLES[req.status] || STATUS_STYLES["PENDING"];
                 const StatusIcon = style.icon;
                 const isPending = req.status === "PENDING";
                 return (
@@ -311,7 +341,10 @@ export function AdminPanel({ requests: initialRequests, stats, admin }: AdminPan
                             <Button
                               size="sm"
                               onClick={() =>
-                                handleAction(req.id, TokenRequestStatus.Approved)
+                                handleAction(
+                                  req.id,
+                                  TokenRequestStatus.Approved,
+                                )
                               }
                               disabled={processing === req.id}
                               className="bg-emerald-600 hover:bg-emerald-700"

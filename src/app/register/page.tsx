@@ -4,7 +4,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, Loader2, AlertCircle } from "lucide-react";
+import { LogoIcon } from "@/components/shared/logo";
+import { Shield, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,9 +56,7 @@ export default function RegisterPage() {
       <div className="flex w-full flex-col justify-center bg-slate-950 px-6 py-12 sm:px-12 lg:w-[55%] lg:px-20">
         <div className="mx-auto w-full max-w-sm">
           <Link href="/" className="mb-10 flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600">
-              <ShieldCheck className="h-5 w-5 text-white" />
-            </div>
+            <LogoIcon size="md" />
             <span className="text-xl font-bold text-white">SentinelPrompt</span>
           </Link>
 
@@ -151,9 +150,7 @@ export default function RegisterPage() {
       {/* Right — promotional card (beige) */}
       <div className="hidden items-center justify-center bg-stone-100 px-12 lg:flex lg:w-[45%]">
         <div className="max-w-md text-center">
-          <div className="mx-auto mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm">
-            <ShieldCheck className="h-8 w-8 text-blue-600" />
-          </div>
+          <LogoIcon className="mx-auto mb-8 shadow-sm" size="lg" />
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">
             Proactive Input Defense
           </h2>

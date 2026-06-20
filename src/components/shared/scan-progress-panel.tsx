@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Brain, Target, Gavel, ShieldCheck, Loader2 } from "lucide-react";
+import { Brain, Target, Gavel, Shield, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -19,7 +19,12 @@ interface ScanProgressPanelProps {
 
 const STAGE_INFO: Record<
   Stage,
-  { label: string; icon: React.ComponentType<{ className?: string }>; color: string; bg: string }
+  {
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    color: string;
+    bg: string;
+  }
 > = {
   attacker: {
     label: "Attacker generating attack",
@@ -29,7 +34,7 @@ const STAGE_INFO: Record<
   },
   target: {
     label: "Target responding",
-    icon: ShieldCheck,
+    icon: Shield,
     color: "text-blue-400",
     bg: "bg-blue-500/10",
   },
@@ -41,7 +46,10 @@ const STAGE_INFO: Record<
   },
 };
 
-export function ScanProgressPanel({ totalSteps, onComplete }: ScanProgressPanelProps) {
+export function ScanProgressPanel({
+  totalSteps,
+  onComplete,
+}: ScanProgressPanelProps) {
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
@@ -60,7 +68,7 @@ export function ScanProgressPanel({ totalSteps, onComplete }: ScanProgressPanelP
   const stage: Stage =
     currentStep >= totalSteps
       ? "judge"
-      : ((["attacker", "target", "judge"] as Stage[])[currentStep % 3]);
+      : (["attacker", "target", "judge"] as Stage[])[currentStep % 3];
   const stageInfo = STAGE_INFO[stage];
   const StageIcon = stageInfo.icon;
   const isDone = currentStep >= totalSteps;
@@ -71,7 +79,10 @@ export function ScanProgressPanel({ totalSteps, onComplete }: ScanProgressPanelP
       <div className="flex items-start gap-4">
         <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
           {/* Spinning ring */}
-          <svg className="absolute inset-0 h-full w-full animate-spin" viewBox="0 0 48 48">
+          <svg
+            className="absolute inset-0 h-full w-full animate-spin"
+            viewBox="0 0 48 48"
+          >
             <circle
               cx="24"
               cy="24"
@@ -93,7 +104,9 @@ export function ScanProgressPanel({ totalSteps, onComplete }: ScanProgressPanelP
           <h3 className="text-base font-semibold text-foreground">
             Agent Scan In Progress
           </h3>
-          <p className="text-xs text-muted-foreground">Scanning prompt 1 of 1</p>
+          <p className="text-xs text-muted-foreground">
+            Scanning prompt 1 of 1
+          </p>
         </div>
       </div>
 
@@ -135,18 +148,27 @@ export function ScanProgressPanel({ totalSteps, onComplete }: ScanProgressPanelP
           )}
         >
           {isDone ? (
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+            <Shield className="h-4 w-4 text-emerald-400" />
           ) : (
-            <StageIcon className={cn("h-4 w-4 animate-pulse", stageInfo.color)} />
+            <StageIcon
+              className={cn("h-4 w-4 animate-pulse", stageInfo.color)}
+            />
           )}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-foreground">
             Step {currentStep} / {totalSteps}
           </p>
-          <p className={cn("text-xs", isDone ? "text-emerald-400" : stageInfo.color)}>
+          <p
+            className={cn(
+              "text-xs",
+              isDone ? "text-emerald-400" : stageInfo.color,
+            )}
+          >
             {isDone ? "Scan complete — generating report…" : stageInfo.label}
-            {!isDone && <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />}
+            {!isDone && (
+              <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />
+            )}
           </p>
         </div>
       </div>
@@ -157,7 +179,8 @@ export function ScanProgressPanel({ totalSteps, onComplete }: ScanProgressPanelP
           const info = STAGE_INFO[s];
           const Icon = info.icon;
           const isActive = !isDone && stage === s;
-          const isPast = isDone || i < ["attacker", "target", "judge"].indexOf(stage);
+          const isPast =
+            isDone || i < ["attacker", "target", "judge"].indexOf(stage);
           return (
             <div
               key={s}
