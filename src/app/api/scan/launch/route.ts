@@ -273,7 +273,7 @@ export async function POST(req: Request) {
     const systemInstructions = getHardenedPromptInstructions(
       systemPrompt,
       forbiddenTask,
-      breachedAttacks
+      breachedAttacks,
     );
 
     let hardenedPrompt = "";
@@ -282,7 +282,7 @@ export async function POST(req: Request) {
         hardenerModel,
         [{ role: "user", content: systemInstructions }],
         undefined,
-        tracker
+        tracker,
       );
       hardenedPrompt = hardenResponse.content || "";
       hardenedPrompt = hardenedPrompt
@@ -291,12 +291,18 @@ export async function POST(req: Request) {
         .trim();
     } catch (err) {
       console.error("Error generating hardened prompt during scan:", err);
-      hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt, forbiddenTask);
+      hardenedPrompt = getDeterministicHardenedPrompt(
+        systemPrompt,
+        forbiddenTask,
+      );
     }
 
     const hardeningModelId = hardenerModel;
     const hardeningDbModel = dbModels.find((m) => m.id === hardeningModelId);
-    const hardeningModelName = hardeningDbModel?.name || hardeningModelId.split("/").pop() || hardeningModelId;
+    const hardeningModelName =
+      hardeningDbModel?.name ||
+      hardeningModelId.split("/").pop() ||
+      hardeningModelId;
 
     // Run tool extraction
     let toolRecommendation: string | null = null;
@@ -345,14 +351,14 @@ export async function POST(req: Request) {
         hardenedPrompt,
         forbiddenTask,
         granularity,
-        referenceExamples
+        referenceExamples,
       );
 
       const extractResponse = await callOpenRouter(
         extractorModel,
         [{ role: "user", content: extractionInstructions }],
         undefined,
-        tracker
+        tracker,
       );
 
       const extractContent = (extractResponse.content || "").trim();
@@ -409,7 +415,7 @@ export async function POST(req: Request) {
             compatibilityScore,
             granularity,
             extractorModel,
-          }
+          },
         },
         apiCost: tracker.totalCost,
         status: ScanStatus.Completed,
@@ -590,7 +596,11 @@ export async function generateCohesiveAttack(
   const messages = [
     {
       role: "user",
-      content: ATTACK_GENERATOR_SYSTEM_TEMPLATE(thingName, thingDescription, draft),
+      content: ATTACK_GENERATOR_SYSTEM_TEMPLATE(
+        thingName,
+        thingDescription,
+        draft,
+      ),
     },
     {
       role: "assistant",
@@ -637,6 +647,99 @@ export async function generateCohesiveAttack(
   }
 }
 
+function validateArguments(
+  args: any,
+  parameters: any,
+): { valid: boolean; error?: string } {
+  if (!parameters || typeof parameters !== "object") return { valid: true };
+  if (parameters.type === "object") {
+    if (typeof args !== "object" || args === null) {
+      return { valid: false, error: "Arguments must be an object" };
+    }
+
+    // Check required properties
+    if (Array.isArray(parameters.required)) {
+      for (const reqProp of parameters.required) {
+        if (!(reqProp in args)) {
+          return {
+            valid: false,
+            error: `Missing required property: ${reqProp}`,
+          };
+        }
+      }
+    }
+
+    // Check properties types and enums
+    if (parameters.properties && typeof parameters.properties === "object") {
+      for (const [propName, propSchema] of Object.entries(
+        parameters.properties,
+      )) {
+        if (propName in args) {
+          const val = args[propName];
+          const schema = propSchema as any;
+
+          // Validate enum
+          if (Array.isArray(schema.enum)) {
+            if (!schema.enum.includes(val)) {
+              return {
+                valid: false,
+                error: `Property ${propName} has invalid enum value: ${val}. Expected one of: ${schema.enum.join(", ")}`,
+              };
+            }
+          }
+
+          // Validate basic type
+          if (schema.type) {
+            if (schema.type === "array") {
+              if (!Array.isArray(val)) {
+                return {
+                  valid: false,
+                  error: `Property ${propName} must be an array`,
+                };
+              }
+              if (
+                schema.items &&
+                schema.items.enum &&
+                Array.isArray(schema.items.enum)
+              ) {
+                for (const item of val) {
+                  if (!schema.items.enum.includes(item)) {
+                    return {
+                      valid: false,
+                      error: `Array item ${item} in property ${propName} is invalid. Expected one of: ${schema.items.enum.join(", ")}`,
+                    };
+                  }
+                }
+              }
+            } else if (schema.type === "string" && typeof val !== "string") {
+              return {
+                valid: false,
+                error: `Property ${propName} must be a string`,
+              };
+            } else if (schema.type === "number" && typeof val !== "number") {
+              return {
+                valid: false,
+                error: `Property ${propName} must be a number`,
+              };
+            } else if (schema.type === "integer" && !Number.isInteger(val)) {
+              return {
+                valid: false,
+                error: `Property ${propName} must be an integer`,
+              };
+            } else if (schema.type === "boolean" && typeof val !== "boolean") {
+              return {
+                valid: false,
+                error: `Property ${propName} must be a boolean`,
+              };
+            }
+          }
+        }
+      }
+    }
+  }
+  return { valid: true };
+}
+
 /**
  * Step 3: Target Model Execution & Tool Loop Simulation
  */
@@ -666,14 +769,36 @@ export async function runTargetSimulation(
     if (response.tool_calls && response.tool_calls.length > 0) {
       for (const call of response.tool_calls) {
         const name = call.function.name;
-        let args = {};
+        let args: any = {};
+        let parseFailed = false;
         try {
           args = JSON.parse(call.function.arguments);
         } catch {
-          // ignore parsing failures
+          parseFailed = true;
         }
 
-        const mockResult = mockToolResponses[name] || { status: "ok" };
+        const toolDef = tools.find((t) => t.function.name === name);
+        let mockResult: any;
+
+        if (parseFailed) {
+          mockResult = { error: "invalid arguments" };
+        } else if (toolDef) {
+          const validation = validateArguments(
+            args,
+            toolDef.function.parameters,
+          );
+          if (!validation.valid) {
+            mockResult = {
+              error: "invalid arguments",
+              details: validation.error,
+            };
+          } else {
+            mockResult = mockToolResponses[name] || { status: "ok" };
+          }
+        } else {
+          mockResult = mockToolResponses[name] || { status: "ok" };
+        }
+
         recordedToolCalls.push({
           name,
           arguments: args,
