@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Code,
   Plus,
@@ -12,6 +12,8 @@ import {
   XCircle,
   HelpCircle,
   AlertTriangle,
+  Download,
+  Upload,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,56 @@ interface ToolExamplesClientProps {
 export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps) {
   const [examples, setExamples] = useState<ToolExample[]>(initialExamples);
   const [name, setName] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = () => {
+    window.location.href = "/api/admin/tool-examples/export";
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/admin/tool-examples/import", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to import catalog");
+        return;
+      }
+
+      toast.success(
+        `Import complete! Imported: ${data.imported}, Skipped: ${data.skipped}, Errors: ${data.errors?.length || 0}`
+      );
+
+      // Refetch examples
+      const refetchRes = await fetch("/api/admin/tool-examples");
+      if (refetchRes.ok) {
+        const updatedExamples = await refetchRes.json();
+        setExamples(updatedExamples);
+      }
+    } catch {
+      toast.error("An error occurred during import.");
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
   const [description, setDescription] = useState("");
   const [tagsStr, setTagsStr] = useState(""); // comma-separated
   const [granularity, setGranularity] = useState<"compact" | "detailed">("compact");
@@ -332,10 +384,40 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
 
         {/* Existing Examples List */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className="text-lg font-semibold text-foreground">
               Reference Catalog ({examples.length})
             </h2>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".gz,.jsonl,.jsonl.gz,application/gzip"
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                type="button"
+                size="sm"
+                onClick={handleImportClick}
+                disabled={isImporting}
+                className="text-xs flex items-center gap-1.5 border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                {isImporting ? "Importing..." : "Import Catalog"}
+              </Button>
+              <Button
+                variant="outline"
+                type="button"
+                size="sm"
+                onClick={handleExport}
+                className="text-xs flex items-center gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Export Catalog
+              </Button>
+            </div>
           </div>
 
           {examples.length === 0 ? (
