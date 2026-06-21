@@ -73,20 +73,8 @@ Refer to the ${granularity} schema patterns and guidelines outlined in the Tooli
     const rawContent = fs.readFileSync(filePath, "utf-8");
     const sections = parseMarkdownSections(rawContent);
 
-    // Default to core rule sections, excluding the massive examples section to save tokens
-    const sectionsToInclude = requestedSections || [
-      "purpose & overview",
-      "core philosophy",
-      "rule triage: what gets a tool",
-      "tool complexity tiers",
-      "universal tool protocols",
-      "schema design principles",
-      "mock response strategy",
-      "intent recognition & precision encoding",
-      "generation algorithm",
-      "avoid tool bloat",
-      "output format: prompt + tools + guide",
-    ];
+    // Do not pre-load sections by default to force the agent to query them agentically
+    const sectionsToInclude = requestedSections || [];
 
     const builder: string[] = [];
     for (const sec of sectionsToInclude) {
@@ -109,6 +97,10 @@ You will analyze a hardened system prompt and the forbidden task, identify embed
 
 Your analysis must align with the target granularity: **${granularity}**.
 
+To ensure your tool definitions comply with our security architecture guidelines, you MUST agentically query the "Tool Generation Patterns" guide using the provided tools:
+- Call 'get_available_markdown_sections' to see what guidelines are available.
+- Call 'read_markdown_sections' to read the specific chapters you need (e.g., "tool complexity tiers", "avoid tool bloat", "schema design principles", "rule triage: what gets a tool") to validate your design.
+
 Here is the hardened system prompt to analyze:
 <hardened_prompt>
 ${hardenedPrompt}
@@ -124,7 +116,7 @@ ${inspirationExamplesBlock ? `${inspirationExamplesBlock}\n` : ""}
 
 ${
   patternsContent
-    ? `Below are the detailed Tool Generation Patterns and rules you MUST follow:
+    ? `Below are the pre-loaded Tool Generation Patterns sections:
 <tool_generation_patterns>
 ${patternsContent}
 </tool_generation_patterns>\n`
@@ -135,11 +127,7 @@ ${granularityPrompt}
 ${existingToolsBlock}
 
 CRITICAL RULES FOR EXTRACTION:
- 1. Adhere to \`<tool_generation_patterns>\` Guidelines:
-   Specifically follow the tool naming and parameter precision constraints defined in the patterns guide:
-   - **Specific Naming**: Do NOT choose overly broad or generic tool names (such as \`customer_service_operations\`, \`customer_service_actions\`, or \`commerce_transactions\`) when the prompt's restriction is narrow. The name MUST be specific to the actual concrete restricted task/resource (e.g. name a refund-only constraint \`refund_request\`, NOT \`customer_service_operations\`).
-   - **Parameter/Enum Precision**: Enums and parameters MUST be strictly tailored to the specific forbidden task. Do NOT copy generic lists verbatim; exclude irrelevant categories.
-
+ 1. Adhere to \`<tool_generation_patterns>\` Guidelines
  2. Improving or Replacing Existing Tools:
    If a tool is already defined in <current_tools> but its schema or validation is weak, suggest an improved/updated version under the same name and detail improvements in the RATIONALE.
    If a recommended tool replaces an existing tool under a different/renamed name, you MUST explicitly state the name of the tool it is replacing in the REPLACES field; if it does not replace any tool, state 'none'.
