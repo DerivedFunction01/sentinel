@@ -184,7 +184,12 @@ reframings, hypothetical framings, emotional appeals, and any instruction that c
 
 function loadPromptFile(filename: string): string {
   try {
-    const filePath = path.join(process.cwd(), "uploads", "hardening_prompts", filename);
+    const filePath = path.join(
+      process.cwd(),
+      "uploads",
+      "hardening_prompts",
+      filename,
+    );
     return fs.readFileSync(filePath, "utf-8").trim();
   } catch (err) {
     console.error(`Failed to load ${filename}:`, err);
@@ -192,9 +197,13 @@ function loadPromptFile(filename: string): string {
   }
 }
 
-export function getAttackSummaryInstructions(breachedAttacks: string[]): string {
+export function getAttackSummaryInstructions(
+  breachedAttacks: string[],
+): string {
   const template = loadPromptFile("instructions_template_attack_summary.md");
-  const attacksList = breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n");
+  const attacksList = breachedAttacks
+    .map((a, i) => `${i + 1}. "${a}"`)
+    .join("\n");
   return template.replace("{{SUCCESSFUL_ATTACKS}}", attacksList);
 }
 
@@ -247,15 +256,16 @@ Instead, instruct the LLM to call the appropriate tool when the forbidden task o
 
   let successfulAttacksBlock = "";
   if (breachedAttacks.length > 0) {
-    successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The system prompt must be designed to withstand these attack vectors:
-<successful_attacks>
-${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
-</successful_attacks>`;
     if (summarizedPatterns) {
-      successfulAttacksBlock += `\n\nThreat analysis of successful attack patterns and strategies identified:
+      successfulAttacksBlock = `Threat analysis of successful attack patterns and strategies identified during a pentest:
 <attack_patterns>
 ${summarizedPatterns}
 </attack_patterns>`;
+    } else {
+      successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The system prompt must be designed to withstand these attack vectors:
+<successful_attacks>
+${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
+</successful_attacks>`;
     }
   } else {
     successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies: social engineering, role-play reframings, hypothetical framings, and emotional appeals.`;
@@ -306,15 +316,16 @@ ${JSON.stringify(
 
   let successfulAttacksBlock = "";
   if (breachedAttacks.length > 0) {
-    successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The final hardened version must block these attack vectors:
-<successful_attacks>
-${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
-</successful_attacks>`;
     if (summarizedPatterns) {
-      successfulAttacksBlock += `\n\nThreat analysis of successful attack patterns and strategies identified:
+      successfulAttacksBlock = `Threat analysis of successful attack patterns and strategies identified during a pentest:
 <attack_patterns>
 ${summarizedPatterns}
 </attack_patterns>`;
+    } else {
+      successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The final hardened version must block these attack vectors:
+<successful_attacks>
+${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
+</successful_attacks>`;
     }
   } else {
     successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies.`;
@@ -334,7 +345,7 @@ function extractSystemPrompt(text: string): string {
   const endTag = "</BEGIN_SYSTEM_PROMPT>";
   const startIdx = text.indexOf(startTag);
   const endIdx = text.indexOf(endTag);
-  
+
   let result = text;
   if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
     result = text.substring(startIdx + startTag.length, endIdx).trim();
@@ -352,11 +363,15 @@ function extractSystemPrompt(text: string): string {
   if (result.startsWith("REVISED SYSTEM PROMPT")) {
     result = result.substring("REVISED SYSTEM PROMPT".length).trim();
   }
-  
+
   return result;
 }
 
-function extractTaggedContent(text: string, startTag: string, endTag: string): string {
+function extractTaggedContent(
+  text: string,
+  startTag: string,
+  endTag: string,
+): string {
   const startIdx = text.indexOf(startTag);
   const endIdx = text.indexOf(endTag);
   if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
@@ -381,10 +396,15 @@ export async function executeMultiStepHardening(
   // ── Step 0.5: Attack Summarization (Key Patterns Extraction) ──
   let summarizedPatterns = "";
   if (breachedAttacks.length > 0) {
-    const attackSummaryInstructions = getAttackSummaryInstructions(breachedAttacks);
+    const attackSummaryInstructions =
+      getAttackSummaryInstructions(breachedAttacks);
     try {
       const res = await callModel(attackSummaryInstructions);
-      summarizedPatterns = extractTaggedContent(res, "<BEGIN_ATTACK_PATTERNS>", "</BEGIN_ATTACK_PATTERNS>");
+      summarizedPatterns = extractTaggedContent(
+        res,
+        "<BEGIN_ATTACK_PATTERNS>",
+        "</BEGIN_ATTACK_PATTERNS>",
+      );
       if (trace) {
         trace.attackSummary = {
           promptSent: attackSummaryInstructions,
@@ -411,7 +431,11 @@ export async function executeMultiStepHardening(
   try {
     const res = await callModel(step1Instructions);
     intermediatePrompt = extractSystemPrompt(res || "");
-    changedSentences = extractTaggedContent(res || "", "<CHANGED_SENTENCES>", "</CHANGED_SENTENCES>");
+    changedSentences = extractTaggedContent(
+      res || "",
+      "<CHANGED_SENTENCES>",
+      "</CHANGED_SENTENCES>",
+    );
     if (trace) {
       trace.step1 = {
         promptSent: step1Instructions,
@@ -486,7 +510,12 @@ export function getHardenedPromptInstructions(
   breachedAttacks: string[],
   recommendedTools?: any[],
 ): string {
-  return getHardenedPromptStep1Instructions(systemPrompt, forbiddenTask, breachedAttacks, recommendedTools);
+  return getHardenedPromptStep1Instructions(
+    systemPrompt,
+    forbiddenTask,
+    breachedAttacks,
+    recommendedTools,
+  );
 }
 
 export function getDeterministicHardenedPrompt(
