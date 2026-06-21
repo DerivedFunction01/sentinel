@@ -501,6 +501,21 @@ export async function executeMultiStepHardening(
     finalPrompt = finalPrompt.split("</system_prompt>")[0];
   }
 
+  // Prepend OPTIMIZATION_PROMPT verbatim if not present (English or concept translation check)
+  const finalLower = finalPrompt.toLowerCase();
+  const hasOptimization =
+    finalLower.includes("optimization goal") ||
+    finalLower.includes("maximize that score") ||
+    finalLower.includes("successfully refuse") ||
+    finalLower.includes("refuse or deflect") ||
+    finalLower.includes("adversarial attack") ||
+    finalLower.includes("emotional appeal") ||
+    finalLower.includes("role-play");
+
+  if (!hasOptimization) {
+    finalPrompt = `${OPTIMIZATION_PROMPT.trim()}\n\n${finalPrompt}`;
+  }
+
   return finalPrompt.trim();
 }
 
