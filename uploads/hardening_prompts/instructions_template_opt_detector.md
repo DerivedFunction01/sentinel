@@ -10,9 +10,16 @@ Here is the system prompt to analyze:
 </system_prompt>
 
 STRICT OUTPUT FORMAT RULES:
-Return your analysis in a raw JSON block containing exactly these three keys:
-- "language": The name of the primary language (e.g. "English", "Spanish").
-- "optimizationPrompt": The exact extracted optimization statement/block found in the prompt, or null if not found.
-- "cleanedPrompt": The system prompt with the optimization statement/block completely removed.
+Output your analysis using exactly the following section blocks. Do NOT include any introduction, preambles, or extra text outside these blocks.
 
-Do NOT include any introduction, explanations, preambles, or markdown formatting outside the JSON block. Return ONLY the valid raw JSON object.
+<BEGIN_LANGUAGE>
+The name of the primary language (e.g. English, Spanish, French, Japanese).
+</BEGIN_LANGUAGE>
+
+<BEGIN_OPT_PROMPT>
+The exact extracted optimization statement/block found in the prompt. If none exists, leave this block empty.
+</BEGIN_OPT_PROMPT>
+
+<BEGIN_CLEANED_PROMPT>
+The full system prompt with the optimization statement/block completely removed. If no optimization block was found, copy the original prompt here verbatim.
+</BEGIN_CLEANED_PROMPT>

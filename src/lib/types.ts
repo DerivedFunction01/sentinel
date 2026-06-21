@@ -86,6 +86,18 @@ export interface HardeningTrace {
     promptSent?: string;
     rawOutput?: string;
   };
+  optDetector?: {
+    promptSent?: string;
+    output?: {
+      language: string;
+      optimizationPrompt: string | null;
+      cleanedPrompt: string;
+    };
+  };
+  optTranslator?: {
+    promptSent?: string;
+    output?: string;
+  };
 }
 
 export interface ToolRecommendation {

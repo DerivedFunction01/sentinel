@@ -197,6 +197,85 @@ function loadPromptFile(filename: string): string {
   }
 }
 
+export function getOptDetectorInstructions(systemPrompt: string): string {
+  const template = loadPromptFile("instructions_template_opt_detector.md");
+  return template.replace("{{SYSTEM_PROMPT}}", systemPrompt);
+}
+
+export function getOptTranslatorInstructions(targetLanguage: string): string {
+  const template = loadPromptFile("instructions_template_opt_translator.md");
+  return template.replace("{{TARGET_LANGUAGE}}", targetLanguage);
+}
+
+interface OptDetectorResult {
+  language: string;
+  optimizationPrompt: string | null;
+  cleanedPrompt: string;
+}
+
+async function runOptDetector(
+  callModel: (prompt: string) => Promise<string>,
+  systemPrompt: string,
+  trace?: HardeningTrace,
+): Promise<OptDetectorResult> {
+  const instructions = getOptDetectorInstructions(systemPrompt);
+  try {
+    const res = await callModel(instructions);
+    const language =
+      extractTaggedContent(res, "<BEGIN_LANGUAGE>", "</BEGIN_LANGUAGE>") ||
+      "English";
+    const optimizationPrompt =
+      extractTaggedContent(res, "<BEGIN_OPT_PROMPT>", "</BEGIN_OPT_PROMPT>") ||
+      null;
+    const cleanedPrompt =
+      extractTaggedContent(
+        res,
+        "<BEGIN_CLEANED_PROMPT>",
+        "</BEGIN_CLEANED_PROMPT>",
+      ) || systemPrompt;
+    const parsed: OptDetectorResult = { language, optimizationPrompt, cleanedPrompt };
+    if (trace) {
+      trace.optDetector = {
+        promptSent: instructions,
+        output: parsed,
+      };
+    }
+    return parsed;
+  } catch (err) {
+    console.error("Opt detector step failed:", err);
+    return { language: "English", optimizationPrompt: null, cleanedPrompt: systemPrompt };
+  }
+}
+
+async function runOptTranslator(
+  callModel: (prompt: string) => Promise<string>,
+  targetLanguage: string,
+  trace?: HardeningTrace,
+): Promise<string> {
+  if (targetLanguage.toLowerCase() === "english") {
+    return OPTIMIZATION_PROMPT.trim();
+  }
+  const instructions = getOptTranslatorInstructions(targetLanguage);
+  try {
+    const res = await callModel(instructions);
+    const translated = extractTaggedContent(
+      res,
+      "<BEGIN_TRANSLATION>",
+      "</BEGIN_TRANSLATION>",
+    );
+    if (trace) {
+      trace.optTranslator = {
+        promptSent: instructions,
+        output: translated || res,
+      };
+    }
+    return translated || OPTIMIZATION_PROMPT.trim();
+  } catch (err) {
+    console.error("Opt translator step failed:", err);
+    return OPTIMIZATION_PROMPT.trim();
+  }
+}
+
 export function getAttackSummaryInstructions(
   breachedAttacks: string[],
 ): string {
@@ -393,6 +472,13 @@ export async function executeMultiStepHardening(
   inspirationExamplesBlock?: string,
   trace?: HardeningTrace,
 ): Promise<string> {
+  // ── Pre-step: Optimization Prompt Detection & Language Identification ──
+  // Detects the prompt language, strips any existing optimization block, and
+  // returns a "cleaned" prompt so hardening steps work on uncontaminated content.
+  const detectorResult = await runOptDetector(callModel, systemPrompt, trace);
+  const detectedLanguage = detectorResult.language || "English";
+  const workingPrompt = detectorResult.cleanedPrompt || systemPrompt;
+
   // ── Step 0.5: Attack Summarization (Key Patterns Extraction) ──
   let summarizedPatterns = "";
   if (breachedAttacks.length > 0) {
@@ -418,7 +504,7 @@ export async function executeMultiStepHardening(
 
   // ── Step 1: Tool Delegation ──
   const step1Instructions = getHardenedPromptStep1Instructions(
-    systemPrompt,
+    workingPrompt,
     forbiddenTask,
     breachedAttacks,
     recommendedTools,
@@ -445,7 +531,7 @@ export async function executeMultiStepHardening(
     }
   } catch (err) {
     console.error("Step 1 of prompt hardening failed:", err);
-    intermediatePrompt = systemPrompt;
+    intermediatePrompt = workingPrompt;
   }
 
   // ── Step 1.5: Compaction ──
@@ -501,20 +587,15 @@ export async function executeMultiStepHardening(
     finalPrompt = finalPrompt.split("</system_prompt>")[0];
   }
 
-  // Prepend OPTIMIZATION_PROMPT verbatim if not present (English or concept translation check)
-  const finalLower = finalPrompt.toLowerCase();
-  const hasOptimization =
-    finalLower.includes("optimization goal") ||
-    finalLower.includes("maximize that score") ||
-    finalLower.includes("successfully refuse") ||
-    finalLower.includes("refuse or deflect") ||
-    finalLower.includes("adversarial attack") ||
-    finalLower.includes("emotional appeal") ||
-    finalLower.includes("role-play");
-
-  if (!hasOptimization) {
-    finalPrompt = `${OPTIMIZATION_PROMPT.trim()}\n\n${finalPrompt}`;
-  }
+  // ── Post-step: Optimization Prompt Translation & Append ──
+  // Translate the optimization prompt into the detected language (no-op for English)
+  // and append it to the final hardened prompt.
+  const translatedOptPrompt = await runOptTranslator(
+    callModel,
+    detectedLanguage,
+    trace,
+  );
+  finalPrompt = `${translatedOptPrompt}\n\n${finalPrompt.trim()}`;
 
   return finalPrompt.trim();
 }
