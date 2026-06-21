@@ -109,6 +109,7 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
       targetModels: [scan.targetModel],
       attackerModel: scan.attackerModel,
       judgeModel: scan.judgeModel,
+      hardenerModel: scan.hardenerModel,
       prompts: [
         {
           systemPrompt: activeHardenedPrompt.prompt,

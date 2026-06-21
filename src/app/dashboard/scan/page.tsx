@@ -116,13 +116,11 @@ export default function PenTestScanPage() {
       .then((d) => {
         if (d.models && d.models.length > 0) {
           const defaultModelId = findDefaultModel(d.models);
-          // Only set defaults if there is no preset loaded in localStorage
-          if (!localStorage.getItem("sentinelprompt_scan_preset")) {
-            setTargetModels([defaultModelId]);
-            setAttackerModel(defaultModelId);
-            setJudgeModel(defaultModelId);
-            setHardenerModel(defaultModelId);
-          }
+          // Only set defaults if they are not already set by the preset
+          setTargetModels((prev) => prev.length === 0 ? [defaultModelId] : prev);
+          setAttackerModel((prev) => prev === "" ? defaultModelId : prev);
+          setJudgeModel((prev) => prev === "" ? defaultModelId : prev);
+          setHardenerModel((prev) => prev === "" ? defaultModelId : prev);
         }
       })
       .catch(() => {

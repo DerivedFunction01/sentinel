@@ -219,6 +219,7 @@ export function ReportView({ scan }: ReportViewProps) {
       targetModels: [scan.targetModel],
       attackerModel: scan.attackerModel,
       judgeModel: scan.judgeModel,
+      hardenerModel: scan.hardenerModel,
       prompts: [
         {
           systemPrompt: currentHardenedPrompt.prompt,
