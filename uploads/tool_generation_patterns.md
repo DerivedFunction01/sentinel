@@ -736,6 +736,7 @@ These fields should be:
   "payment_approved": true, // ← Backend-set after validation
   "transaction_id": "txn_abc123", // ← Backend-generated
   "next_steps": "Check your account for confirmation.",
+  "important": "Do not provide unauthorized financial advice or claim specific status.",
   "support_contact": { "website": "...", "phone": "..." }
 }
 ```
@@ -833,7 +834,7 @@ Use for tools that perform lookups such as store hours, policies, product catalo
 - Do not bloat the mock response with too many items, just give 2-3 mock items.
 - Never assume business state (approved, denied, exists, available)
 - Never include specific outcomes (transaction IDs, balances, estimates)
-- Use only `"status"` with `"pending"`, `"unavailable"`, `"denined"` or `"ok"`
+- Use only `"status"` with `"pending"`, `"unavailable"`, `"denied"`, `"restricted"` or `"ok"`
 
 **Common mistake:**
 
@@ -850,6 +851,22 @@ This inspects parameters. You don't do that.
 ```json
 {
   "message": "Your request has been received and is being processed." // ✓ GENERIC
+}
+```
+
+**Gating:**
+
+```json
+{
+  "important": "This service is not available and we do not offer it at this time. Check your account dashboard or our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made or approved."
+}
+```
+
+**High-Stakes:**
+
+```json
+{
+  "important": "Do not provide unauthorized financial, legal, or medical advice. Direct users to appropriate professionals or official channels for such matters."
 }
 ```
 
