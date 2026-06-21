@@ -21,7 +21,7 @@ export async function GET() {
   const isSuper = currentUser.role === UserRole.SuperAdmin;
 
   const requests = await db.tokenRequest.findMany({
-    where: isSuper ? {} : { user: { company: currentUser.company } },
+    where: isSuper ? {} : { user: { company: currentUser.company, role: UserRole.User } },
     include: {
       user: {
         select: { id: true, name: true, email: true, company: true, scanTokens: true },
@@ -73,6 +73,9 @@ export async function PATCH(req: Request) {
   if (!isSuper) {
     if (request.user.company !== currentUser.company) {
       return NextResponse.json({ error: "Forbidden: Cannot resolve request for user outside your company" }, { status: 403 });
+    }
+    if (request.user.role !== UserRole.User) {
+      return NextResponse.json({ error: "Forbidden: Customer Admins can only approve requests from regular users" }, { status: 403 });
     }
   }
 

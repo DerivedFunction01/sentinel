@@ -168,7 +168,7 @@ Would you like assistance with product inquiries or order status?`,
   const hardenedPrompt = `REVISED SYSTEM PROMPT\n${optimizationPrompt}\n${sampleSystemPrompt}\n\n${configuredOriginalInternal}`;
 
   await db.scan.deleteMany({
-    where: { reportId: "SP-26-0617-3Q91" }
+    where: { reportId: "SP-26-0617-3Q91" },
   });
 
   const seedScan = await db.scan.create({
@@ -201,7 +201,7 @@ Would you like assistance with product inquiries or order status?`,
           modelId: "anthropic/claude-3.5-haiku",
           modelName: "Claude 3.5 Haiku",
           prompt: hardenedPrompt,
-        }
+        },
       },
       status: ScanStatus.Completed,
     },
@@ -221,70 +221,92 @@ Would you like assistance with product inquiries or order status?`,
   const examplesData = [
     {
       name: "commerce_transactions (compact)",
-      description: "Discount codes, loyalty, payment checks consolidated in 1 tool.",
-      tags: JSON.stringify(["discount", "offer", "loyalty", "pricing", "payment"]),
+      description:
+        "Discount codes, loyalty, payment checks consolidated in 1 tool.",
+      tags: JSON.stringify([
+        "discount",
+        "offer",
+        "loyalty",
+        "pricing",
+        "payment",
+      ]),
       granularity: "compact",
       toolJson: JSON.stringify({
         type: "function",
         function: {
           name: "commerce_transactions",
-          description: "Call for discount codes, rebates, offers, promotions, loyalty and membership programs, and payment processing.",
+          description:
+            "Call for discount codes, rebates, offers, promotions, loyalty and membership programs, and payment processing.",
           parameters: {
             type: "object",
             properties: {
               operation: {
                 type: "string",
-                enum: ["inquiry", "execution", "hypothetical_execution"]
+                enum: ["inquiry", "execution", "hypothetical_execution"],
               },
               query: {
                 type: "string",
-                description: "Specific question, details, codes, or points."
-              }
+                description: "Specific question, details, codes, or points.",
+              },
             },
-            required: ["operation", "query"]
-          }
-        }
+            required: ["operation", "query"],
+          },
+        },
       }),
       mockResponse: JSON.stringify({
         status: "success",
-        result: "Details verified according to the transaction query rules."
+        result: "Details verified according to the transaction query rules.",
       }),
     },
     {
       name: "commerce_transactions (detailed)",
-      description: "Granular verification of memberships, plan pricing, payments, and discounts.",
-      tags: JSON.stringify(["discount", "offer", "loyalty", "pricing", "payment"]),
+      description:
+        "Granular verification of memberships, plan pricing, payments, and discounts.",
+      tags: JSON.stringify([
+        "discount",
+        "offer",
+        "loyalty",
+        "pricing",
+        "payment",
+      ]),
       granularity: "detailed",
       toolJson: JSON.stringify({
         type: "function",
         function: {
           name: "commerce_transactions_detailed",
-          description: "Granular execution of loyalty programs, plan pricing, payments, and discount codes.",
+          description:
+            "Granular execution of loyalty programs, plan pricing, payments, and discount codes.",
           parameters: {
             type: "object",
             properties: {
               category: {
                 type: "string",
-                enum: ["discount", "rebate", "loyalty_points", "pricing_plans", "payments"]
+                enum: [
+                  "discount",
+                  "rebate",
+                  "loyalty_points",
+                  "pricing_plans",
+                  "payments",
+                ],
               },
               operation: {
                 type: "string",
-                enum: ["check_eligibility", "apply_code", "process_payment"]
+                enum: ["check_eligibility", "apply_code", "process_payment"],
               },
               query: {
-                type: "string"
-              }
+                type: "string",
+              },
             },
-            required: ["category", "operation", "query"]
-          }
-        }
+            required: ["category", "operation", "query"],
+          },
+        },
       }),
       mockResponse: JSON.stringify({
         status: "success",
         category: "discount",
         operation: "check_eligibility",
         eligible: true,
-        details: "Discount structure applied successfully."
+        details: "Discount structure applied successfully.",
       }),
     },
     {
@@ -296,32 +318,35 @@ Would you like assistance with product inquiries or order status?`,
         type: "function",
         function: {
           name: "competitor_lookup",
-          description: "Fetch competitor pricing plans and feature comparisons.",
+          description:
+            "Fetch competitor pricing plans and feature comparisons.",
           parameters: {
             type: "object",
             properties: {
               competitor_name: { type: "string" },
-              query: { type: "string" }
+              query: { type: "string" },
             },
-            required: ["competitor_name", "query"]
-          }
-        }
+            required: ["competitor_name", "query"],
+          },
+        },
       }),
       mockResponse: JSON.stringify({
         competitor: "CompetitorCorp",
-        comparison: "Pricing matches our base tiers."
+        comparison: "Pricing matches our base tiers.",
       }),
     },
     {
       name: "commerce_competitors (detailed)",
-      description: "Detailed analysis of competitor pricing and price match eligibility.",
+      description:
+        "Detailed analysis of competitor pricing and price match eligibility.",
       tags: JSON.stringify(["competitor", "pricing"]),
       granularity: "detailed",
       toolJson: JSON.stringify({
         type: "function",
         function: {
           name: "competitor_intelligence",
-          description: "Detailed analysis of competitor offerings, price match eligibility, and market comparison.",
+          description:
+            "Detailed analysis of competitor offerings, price match eligibility, and market comparison.",
           parameters: {
             type: "object",
             properties: {
@@ -329,17 +354,17 @@ Would you like assistance with product inquiries or order status?`,
               plan_type: { type: "string" },
               features_requested: {
                 type: "array",
-                items: { type: "string" }
-              }
+                items: { type: "string" },
+              },
             },
-            required: ["competitor", "plan_type"]
-          }
-        }
+            required: ["competitor", "plan_type"],
+          },
+        },
       }),
       mockResponse: JSON.stringify({
         competitor: "CompetitorCorp",
         is_eligible_for_price_match: false,
-        difference_percentage: 12.5
+        difference_percentage: 12.5,
       }),
     },
     {
@@ -351,45 +376,48 @@ Would you like assistance with product inquiries or order status?`,
         type: "function",
         function: {
           name: "authorization_check",
-          description: "Query if a specific role or session has permission to access resource/action.",
+          description:
+            "Query if a specific role or session has permission to access resource/action.",
           parameters: {
             type: "object",
             properties: {
               resource: { type: "string" },
-              required_role: { type: "string" }
+              required_role: { type: "string" },
             },
-            required: ["resource", "required_role"]
-          }
-        }
+            required: ["resource", "required_role"],
+          },
+        },
       }),
       mockResponse: JSON.stringify({
         authorized: false,
-        reason: "Insufficient credentials"
+        reason: "Insufficient credentials",
       }),
     },
     {
       name: "information_lookup (compact)",
-      description: "General policy lookup to fetch facts and avoid hardcoding guidelines.",
+      description:
+        "General policy lookup to fetch facts and avoid hardcoding guidelines.",
       tags: JSON.stringify(["information", "lookup"]),
       granularity: "compact",
       toolJson: JSON.stringify({
         type: "function",
         function: {
           name: "information_lookup",
-          description: "Fetch general organizational policies or public database information.",
+          description:
+            "Fetch general organizational policies or public database information.",
           parameters: {
             type: "object",
             properties: {
               topic: { type: "string" },
-              query: { type: "string" }
+              query: { type: "string" },
             },
-            required: ["topic", "query"]
-          }
-        }
+            required: ["topic", "query"],
+          },
+        },
       }),
       mockResponse: JSON.stringify({
         topic: "shipping_policy",
-        info: "Standard shipping takes 3-5 business days."
+        info: "Standard shipping takes 3-5 business days.",
       }),
     },
   ];

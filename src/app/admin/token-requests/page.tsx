@@ -8,7 +8,7 @@ export default async function TokenRequestsPage() {
   const isSuper = currentUser.role === UserRole.SuperAdmin;
 
   const requests = await db.tokenRequest.findMany({
-    where: isSuper ? {} : { user: { company: currentUser.company } },
+    where: isSuper ? {} : { user: { company: currentUser.company, role: UserRole.User } },
     include: {
       user: {
         select: { id: true, name: true, email: true, company: true, scanTokens: true },
