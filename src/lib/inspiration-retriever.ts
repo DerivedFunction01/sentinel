@@ -56,32 +56,42 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
     });
 
     const matchExample = (ex: any) => {
-      let match = true;
-      if (tags.length > 0) {
-        try {
-          const parsedTags = (JSON.parse(ex.tags) as string[]).map((t) =>
-            t.toLowerCase(),
-          );
-          match = tags.some((t) =>
-            parsedTags.some((pt) => pt.includes(t) || t.includes(pt)),
-          );
-        } catch {
-          match = false;
-        }
+      const searchWords: string[] = [];
+      if (query) {
+        searchWords.push(
+          ...query
+            .toLowerCase()
+            .split(/[\s_]+/)
+            .filter(Boolean),
+        );
       }
-      if (match && query) {
-        const nameMatch = ex.name.toLowerCase().includes(query);
-        const descMatch = ex.description.toLowerCase().includes(query);
-        const jsonMatch = ex.toolJson.toLowerCase().includes(query);
-        let tagMatch = false;
-        try {
-          tagMatch = JSON.parse(ex.tags).some((t: string) =>
-            t.toLowerCase().includes(query),
-          );
-        } catch {}
-        match = nameMatch || descMatch || jsonMatch || tagMatch;
-      }
-      return match;
+      tags.forEach((t) => {
+        searchWords.push(
+          ...t
+            .toLowerCase()
+            .split(/[\s_]+/)
+            .filter(Boolean),
+        );
+      });
+
+      if (searchWords.length === 0) return true;
+
+      const nameLower = ex.name.toLowerCase();
+      const descLower = ex.description.toLowerCase();
+      const jsonLower = ex.toolJson.toLowerCase();
+      let tagsLower = "";
+      try {
+        tagsLower = JSON.stringify(JSON.parse(ex.tags)).toLowerCase();
+      } catch {}
+
+      return searchWords.some((word) => {
+        return (
+          nameLower.includes(word) ||
+          descLower.includes(word) ||
+          tagsLower.includes(word) ||
+          jsonLower.includes(word)
+        );
+      });
     };
 
     let filtered = examples.filter(matchExample);

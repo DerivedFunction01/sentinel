@@ -76,12 +76,14 @@ export function ReportView({ scan }: ReportViewProps) {
   const [extracting, setExtracting] = useState(false);
   const [trace, setTrace] = useState<HardeningTrace | null>(null);
   const [traceOpen, setTraceOpen] = useState(false);
+  const [activeToolIdx, setActiveToolIdx] = useState(0);
 
   const handleModelChange = (modelId: string) => {
     setSelectedHardenedModel(modelId);
     const cached = historyModels.find((hm) => hm.modelId === modelId);
     setCurrentHardenedPrompt(cached || null);
     setTrace(null);
+    setActiveToolIdx(0);
   };
 
   const handleExtractTools = async (
@@ -118,6 +120,7 @@ export function ReportView({ scan }: ReportViewProps) {
 
       setCurrentHardenedPrompt(newPrompt);
       setSelectedHardenedModel(data.modelId);
+      setActiveToolIdx(0);
       if (data.trace) {
         setTrace(data.trace);
         setTraceOpen(true);
@@ -288,6 +291,8 @@ export function ReportView({ scan }: ReportViewProps) {
           handleExtractTools,
           trace,
           setTraceOpen,
+          activeToolIdx,
+          setActiveToolIdx,
         )}
 
         <Separator />
@@ -407,6 +412,8 @@ function hardenedPrompt(
   ) => Promise<void>,
   trace: HardeningTrace | null,
   setTraceOpen: (open: boolean) => void,
+  activeToolIdx: number,
+  setActiveToolIdx: React.Dispatch<React.SetStateAction<number>>,
 ) {
   return (
     <section id="hardened-prompt" className="space-y-6">
@@ -505,102 +512,158 @@ function hardenedPrompt(
                   </div>
 
                   <div className="space-y-4">
-                    {currentHardenedPrompt.toolRecommendation.tools?.map(
-                      (recTool: any, idx: number) => {
-                        const score =
-                          recTool.compatibilityScore ??
-                          currentHardenedPrompt.compatibilityScore ??
-                          0;
-                        const color =
-                          score <= 20
-                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
-                            : score <= 60
-                              ? "bg-amber-500/15 text-amber-400 border-amber-500/20"
-                              : "bg-red-500/15 text-red-400 border-red-500/20";
-                        const label =
-                          score <= 20
-                            ? "Low-risk constraint"
-                            : score <= 60
-                              ? "Moderate candidate"
-                              : "High-priority tooling candidate";
-
-                        const toolName =
-                          recTool.name ||
-                          recTool.toolJson?.function?.name ||
-                          `Tool ${idx + 1}`;
-                        const toolGranularity =
-                          recTool.granularity ||
-                          currentHardenedPrompt.granularity ||
-                          "compact";
-                        const toolRationale =
-                          recTool.rationale || "No rationale provided.";
-
-                        const toolJson = recTool.toolJson || recTool;
-                        const mockVal =
-                          recTool.mockResponse ||
-                          currentHardenedPrompt.toolRecommendation
-                            .mockToolResponses?.[toolName] ||
-                          {};
-
-                        return (
-                          <div
-                            key={idx}
-                            className="p-4 rounded-lg bg-slate-950/45 border border-white/5 space-y-3"
+                    {currentHardenedPrompt.toolRecommendation.tools &&
+                      currentHardenedPrompt.toolRecommendation.tools.length >
+                        1 && (
+                        <div className="flex items-center justify-between bg-slate-900/50 p-2.5 rounded-lg border border-white/5 mb-3">
+                          <button
+                            onClick={() =>
+                              setActiveToolIdx(
+                                (prev) =>
+                                  (prev -
+                                    1 +
+                                    currentHardenedPrompt.toolRecommendation
+                                      .tools.length) %
+                                  currentHardenedPrompt.toolRecommendation.tools
+                                    .length,
+                              )
+                            }
+                            className="px-3 py-1 text-xs font-semibold rounded bg-muted hover:bg-muted/80 text-slate-300 transition-colors border border-white/5"
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/5">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-sm font-bold text-blue-400">
-                                  {toolName}
-                                </span>
-                                <Badge
-                                  variant="outline"
-                                  className={`text-[9px] font-medium px-2 py-0.5 ${color}`}
-                                >
-                                  Score: {score} · {label}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-slate-300 border border-white/5 uppercase">
-                                  {toolGranularity}
-                                </span>
-                              </div>
-                            </div>
+                            ← Previous
+                          </button>
+                          <div className="flex items-center gap-1.5">
+                            {currentHardenedPrompt.toolRecommendation.tools.map(
+                              (_: any, idx: number) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => setActiveToolIdx(idx)}
+                                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                                    idx === activeToolIdx
+                                      ? "bg-blue-500 scale-110"
+                                      : "bg-slate-600 hover:bg-slate-500"
+                                  }`}
+                                  title={`Go to Tool ${idx + 1}`}
+                                />
+                              ),
+                            )}
+                          </div>
+                          <button
+                            onClick={() =>
+                              setActiveToolIdx(
+                                (prev) =>
+                                  (prev + 1) %
+                                  currentHardenedPrompt.toolRecommendation.tools
+                                    .length,
+                              )
+                            }
+                            className="px-3 py-1 text-xs font-semibold rounded bg-muted hover:bg-muted/80 text-slate-300 transition-colors border border-white/5"
+                          >
+                            Next →
+                          </button>
+                        </div>
+                      )}
 
-                            <div className="space-y-1">
-                              <span className="text-[11px] font-semibold text-slate-400">
-                                Tool Logic & Rationale
+                    {(() => {
+                      const toolsList =
+                        currentHardenedPrompt.toolRecommendation.tools || [];
+                      if (toolsList.length === 0) return null;
+                      const activeIdx = Math.max(
+                        0,
+                        Math.min(activeToolIdx, toolsList.length - 1),
+                      );
+                      const recTool = toolsList[activeIdx];
+
+                      const score =
+                        recTool.compatibilityScore ??
+                        currentHardenedPrompt.compatibilityScore ??
+                        0;
+                      const color =
+                        score <= 20
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
+                          : score <= 60
+                            ? "bg-amber-500/15 text-amber-400 border-amber-500/20"
+                            : "bg-red-500/15 text-red-400 border-red-500/20";
+                      const label =
+                        score <= 20
+                          ? "Low-risk constraint"
+                          : score <= 60
+                            ? "Moderate candidate"
+                            : "High-priority tooling candidate";
+
+                      const toolName =
+                        recTool.name ||
+                        recTool.toolJson?.function?.name ||
+                        `Tool ${activeIdx + 1}`;
+                      const toolGranularity =
+                        recTool.granularity ||
+                        currentHardenedPrompt.granularity ||
+                        "compact";
+                      const toolRationale =
+                        recTool.rationale || "No rationale provided.";
+
+                      const toolJson = recTool.toolJson || recTool;
+                      const mockVal =
+                        recTool.mockResponse ||
+                        currentHardenedPrompt.toolRecommendation
+                          .mockToolResponses?.[toolName] ||
+                        {};
+
+                      return (
+                        <div className="p-4 rounded-lg bg-slate-950/45 border border-white/5 space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-bold text-blue-400">
+                                {toolName}
                               </span>
-                              <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/30 p-2.5 rounded border border-white/5 whitespace-pre-wrap">
-                                {toolRationale}
-                              </p>
+                              <Badge
+                                variant="outline"
+                                className={`text-[9px] font-medium px-2 py-0.5 ${color}`}
+                              >
+                                Score: {score} · {label}
+                              </Badge>
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                              <div className="space-y-1">
-                                <span className="text-[11px] font-semibold text-slate-400">
-                                  JSON Schema
-                                </span>
-                                <CodeHighlight
-                                  code={JSON.stringify(toolJson, null, 2)}
-                                  language="json"
-                                  className="text-[10px] p-2.5 max-h-[160px] overflow-y-auto border border-white/5 rounded"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <span className="text-[11px] font-semibold text-slate-400">
-                                  Mock Response
-                                </span>
-                                <CodeHighlight
-                                  code={JSON.stringify(mockVal, null, 2)}
-                                  language="json"
-                                  className="text-[10px] p-2.5 max-h-[160px] overflow-y-auto border border-white/5 rounded"
-                                />
-                              </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium text-slate-300 border border-white/5 uppercase">
+                                {toolGranularity}
+                              </span>
                             </div>
                           </div>
-                        );
-                      },
-                    )}
+
+                          <div className="space-y-1">
+                            <span className="text-[11px] font-semibold text-slate-400">
+                              Tool Logic & Rationale
+                            </span>
+                            <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/30 p-2.5 rounded border border-white/5 whitespace-pre-wrap">
+                              {toolRationale}
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                            <div className="space-y-1">
+                              <span className="text-[11px] font-semibold text-slate-400">
+                                JSON Schema
+                              </span>
+                              <CodeHighlight
+                                code={JSON.stringify(toolJson, null, 2)}
+                                language="json"
+                                className="text-[10px] p-2.5 max-h-[160px] overflow-y-auto border border-white/5 rounded"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[11px] font-semibold text-slate-400">
+                                Mock Response
+                              </span>
+                              <CodeHighlight
+                                code={JSON.stringify(mockVal, null, 2)}
+                                language="json"
+                                className="text-[10px] p-2.5 max-h-[160px] overflow-y-auto border border-white/5 rounded"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {currentHardenedPrompt.toolRecommendation.tools?.length >
