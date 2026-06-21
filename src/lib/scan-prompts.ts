@@ -327,5 +327,5 @@ export function getDeterministicHardenedPrompt(
     `"${forbiddenTask}"`,
   ).replace("{expected behavior}", "a polite and firm refusal");
 
-  return `REVISED SYSTEM PROMPT\n${OPTIMIZATION_PROMPT.trim()}\n${systemPrompt}\n\n${configuredOriginalInternal.trim()}`;
+  return `${OPTIMIZATION_PROMPT.trim()}\n${systemPrompt}\n\n${configuredOriginalInternal.trim()}`;
 }

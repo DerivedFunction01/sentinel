@@ -166,6 +166,9 @@ export async function POST(
         .replace(/^```[a-zA-Z]*\n/g, "")
         .replace(/\n```$/g, "")
         .trim();
+      if (promptTextToExtract.startsWith("REVISED SYSTEM PROMPT")) {
+        promptTextToExtract = promptTextToExtract.substring("REVISED SYSTEM PROMPT".length).trim();
+      }
     } catch (err) {
       console.error("Error generating hardened prompt via API:", err);
       promptTextToExtract = getDeterministicHardenedPrompt(scanRow.systemPrompt, scanRow.forbiddenTask);

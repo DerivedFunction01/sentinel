@@ -20,7 +20,10 @@ import {
   getHardenedPromptInstructions,
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
-import { generateToolRecommendation, parseSectionedRecommendation } from "@/lib/tool-extractor";
+import {
+  generateToolRecommendation,
+  parseSectionedRecommendation,
+} from "@/lib/tool-extractor";
 import type { ToolDef, Trial, ToolCall } from "@/lib/types";
 
 export interface UsageTracker {
@@ -126,7 +129,8 @@ export async function POST(req: Request) {
     defaultModel;
   const judgeModel = (body.judgeModel as string) || defaultModel;
   const hardenerModel = (body.hardenerModel as string) || defaultModel;
-  const extractorModel = (body.extractorModel as string) || "google/gemini-2.5-flash";
+  const extractorModel =
+    (body.extractorModel as string) || "google/gemini-2.5-flash";
 
   let tools: ToolDef[] = [];
   let mockToolResponses: Record<string, unknown> = {};
@@ -271,15 +275,16 @@ export async function POST(req: Request) {
     // Run tool extraction
     const granularity = "compact"; // Default is compact on launch
 
-    const { toolRecommendation, compatibilityScore } = await generateToolRecommendation(
-      systemPrompt,
-      forbiddenTask,
-      granularity,
-      extractorModel,
-      tracker,
-      undefined,
-      tools
-    );
+    const { toolRecommendation, compatibilityScore } =
+      await generateToolRecommendation(
+        systemPrompt,
+        forbiddenTask,
+        granularity,
+        extractorModel,
+        tracker,
+        undefined,
+        tools,
+      );
 
     // Parse recommended tools to pass to prompt hardener
     const recommendedToolsList = toolRecommendation
@@ -311,6 +316,11 @@ export async function POST(req: Request) {
         .replace(/^```[a-zA-Z]*\n/g, "")
         .replace(/\n```$/g, "")
         .trim();
+      if (hardenedPrompt.startsWith("REVISED SYSTEM PROMPT")) {
+        hardenedPrompt = hardenedPrompt
+          .substring("REVISED SYSTEM PROMPT".length)
+          .trim();
+      }
     } catch (err) {
       console.error("Error generating hardened prompt during scan:", err);
       hardenedPrompt = getDeterministicHardenedPrompt(
