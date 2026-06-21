@@ -240,6 +240,7 @@ Would you like assistance with product inquiries or order status?`,
     description: string;
     tags: string;
     granularity: string;
+    category?: string;
     toolJson: string;
     mockResponse: string;
     isBuiltIn?: boolean;
@@ -276,8 +277,16 @@ Would you like assistance with product inquiries or order status?`,
     `  Loaded ${examplesData.length} tool example(s) from seed file.`,
   );
 
+  const validCategories = ["standard", "regulatory", "meta"] as const;
+  type ValidCategory = (typeof validCategories)[number];
+
   for (const ex of examplesData) {
     const slugId = `seed-${ex.name.replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase()}`;
+    const resolvedCategory: ValidCategory = validCategories.includes(
+      ex.category as ValidCategory,
+    )
+      ? (ex.category as ValidCategory)
+      : "standard";
     await db.toolSchemaExample.upsert({
       where: { id: slugId },
       update: {
@@ -285,6 +294,7 @@ Would you like assistance with product inquiries or order status?`,
         description: ex.description,
         tags: ex.tags,
         granularity: ex.granularity,
+        category: resolvedCategory,
         toolJson: ex.toolJson,
         mockResponse: ex.mockResponse,
       },
@@ -294,6 +304,7 @@ Would you like assistance with product inquiries or order status?`,
         description: ex.description,
         tags: ex.tags,
         granularity: ex.granularity,
+        category: resolvedCategory,
         toolJson: ex.toolJson,
         mockResponse: ex.mockResponse,
         isBuiltIn: ex.isBuiltIn ?? true,

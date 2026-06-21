@@ -31,6 +31,7 @@ interface ToolExample {
   description: string;
   tags: string; // JSON string representing array of tags
   granularity: string;
+  category: string;
   toolJson: string;
   mockResponse: string;
   isBuiltIn: boolean;
@@ -97,6 +98,7 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
   const [description, setDescription] = useState("");
   const [tagsStr, setTagsStr] = useState(""); // comma-separated
   const [granularity, setGranularity] = useState<"compact" | "detailed">("compact");
+  const [category, setCategory] = useState<"standard" | "regulatory" | "meta">("standard");
   const [toolJson, setToolJson] = useState("");
   const [mockResponse, setMockResponse] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -113,6 +115,7 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
     } catch {}
     setTagsStr(tagsList.join(", "));
     setGranularity(ex.granularity as any);
+    setCategory((ex.category as any) || "standard");
     setToolJson(JSON.stringify(JSON.parse(ex.toolJson), null, 2));
     setMockResponse(JSON.stringify(JSON.parse(ex.mockResponse), null, 2));
     setToolJsonError(null);
@@ -125,6 +128,8 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
     setName("");
     setDescription("");
     setTagsStr("");
+    setGranularity("compact");
+    setCategory("standard");
     setToolJson("");
     setMockResponse("");
     setToolJsonError(null);
@@ -181,6 +186,7 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
         description,
         tags: parsedTags,
         granularity,
+        category,
         toolJson,
         mockResponse,
       };
@@ -210,6 +216,8 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
       setName("");
       setDescription("");
       setTagsStr("");
+      setGranularity("compact");
+      setCategory("standard");
       setToolJson("");
       setMockResponse("");
       setToolJsonError(null);
@@ -331,6 +339,23 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                     <SelectContent>
                       <SelectItem value="compact">Compact</SelectItem>
                       <SelectItem value="detailed">Detailed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select
+                    value={category}
+                    onValueChange={(val: any) => setCategory(val)}
+                  >
+                    <SelectTrigger className="bg-black/60 border-muted">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">Standard</SelectItem>
+                      <SelectItem value="regulatory">Regulatory (High-Stakes)</SelectItem>
+                      <SelectItem value="meta">Meta</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -522,6 +547,18 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                               }
                             >
                               {ex.granularity}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={
+                                ex.category === "regulatory"
+                                  ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                                  : ex.category === "meta"
+                                  ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
+                                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                              }
+                            >
+                              {ex.category === "regulatory" ? "regulatory ⚠" : ex.category ?? "standard"}
                             </Badge>
                             {ex.isBuiltIn && (
                               <Badge variant="secondary" className="text-[10px] bg-muted/65 text-muted-foreground">

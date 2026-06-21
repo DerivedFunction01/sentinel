@@ -89,19 +89,27 @@ model HardenedPrompt {
   @@index([scanId])
 }
 
+enum ToolExampleCategory {
+  standard
+  regulatory
+  meta
+}
+
 model ToolSchemaExample {
-  id           String   @id @default(cuid())
+  id           String               @id @default(cuid())
   name         String
   description  String
-  tags         String   // JSON array of strings
-  granularity  String   // "compact" | "detailed"
-  toolJson     String   // JSON string
-  mockResponse String   // JSON string
-  isBuiltIn    Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  tags         String               // JSON array of strings
+  granularity  String               // "compact" | "detailed"
+  category     ToolExampleCategory  @default(standard)
+  toolJson     String               // JSON string
+  mockResponse String               // JSON string
+  isBuiltIn    Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 
   @@index([granularity])
+  @@index([category])
 }
 
 // Models fetched from OpenRouter's /api/v1/models endpoint.

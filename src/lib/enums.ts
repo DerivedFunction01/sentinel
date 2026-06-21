@@ -112,6 +112,18 @@ export enum TokenRequestStatus {
   Denied = "DENIED",
 }
 
+/**
+ * Tool example category — determines the primary use-case context.
+ *   standard    — general-purpose tools for everyday operations
+ *   regulatory  — high-stakes tools with compliance or legal implications
+ *   meta        — tools that govern agent behaviour itself (clarify, connect_agent, etc.)
+ */
+export enum ToolExampleCategory {
+  Standard = "standard",
+  Regulatory = "regulatory",
+  Meta = "meta",
+}
+
 /** Format OpenRouter model id to a friendly name dynamically */
 export function formatModelName(modelId: string): string {
   if (!modelId) return "";

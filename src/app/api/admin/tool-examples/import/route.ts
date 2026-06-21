@@ -88,12 +88,18 @@ export async function POST(req: Request) {
           }
         }
 
+        const validCategories = ["standard", "regulatory", "meta"];
+        const resolvedCategory = validCategories.includes(data.category)
+          ? data.category
+          : "standard";
+
         await db.toolSchemaExample.create({
           data: {
             name: data.name,
             description: data.description,
             tags: tagsStr,
             granularity: data.granularity,
+            category: resolvedCategory,
             toolJson: data.toolJson,
             mockResponse: data.mockResponse,
             isBuiltIn: data.isBuiltIn ?? false,

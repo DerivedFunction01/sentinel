@@ -32,11 +32,14 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { name, description, tags, granularity, toolJson, mockResponse } = await req.json();
+    const { name, description, tags, granularity, category, toolJson, mockResponse } = await req.json();
 
     if (!name || !description || !granularity || !toolJson || !mockResponse) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const validCategories = ["standard", "regulatory", "meta"];
+    const resolvedCategory = validCategories.includes(category) ? category : "standard";
 
     // Validate JSON formatting
     try {
@@ -70,6 +73,7 @@ export async function POST(req: Request) {
         description,
         tags: tagsStr,
         granularity,
+        category: resolvedCategory,
         toolJson,
         mockResponse,
         isBuiltIn: false,
@@ -122,11 +126,14 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const { id, name, description, tags, granularity, toolJson, mockResponse } = await req.json();
+    const { id, name, description, tags, granularity, category, toolJson, mockResponse } = await req.json();
 
     if (!id || !name || !description || !granularity || !toolJson || !mockResponse) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const validCategories = ["standard", "regulatory", "meta"];
+    const resolvedCategory = validCategories.includes(category) ? category : "standard";
 
     // Validate JSON formatting
     try {
@@ -161,6 +168,7 @@ export async function PATCH(req: Request) {
         description,
         tags: tagsStr,
         granularity,
+        category: resolvedCategory,
         toolJson,
         mockResponse,
       },
