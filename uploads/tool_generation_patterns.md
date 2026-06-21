@@ -315,6 +315,7 @@ These live in the new system prompt as guidance, not enforcement.
     "location": "Online only",
     "refunds_and_disputes": "https://www.example-retail.com/refunds_and_disputes",
     "offers_and_discounts": "No discounts, promotions, or special offers are available at this time.",
+    "important": "Check our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
     "membership_and_loyalty": "Customers can enroll in our membership program to earn points on purchases.",
     "website_for_more_information": "https://www.example-retail.com/offers_and_membership"
   }
