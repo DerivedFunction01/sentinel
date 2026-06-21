@@ -1683,7 +1683,6 @@ Call: `finance_transfer` with:
 
 This tool is designed as a universal, timeless protocol for financial transfers.
 It handles minimal scenarios (3 fields) and maximal scenarios (all fields with portfolio context).
-A simple business uses only required fields; a complex one adds rebalance_enabled and tax_aware.
 The enforcement model doesn't change; only scope.
 
 ### Intent Recognition
