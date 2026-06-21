@@ -51,56 +51,74 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
       query = forbiddenTask.split(/\s+/)[0]?.toLowerCase() || "";
     }
 
-    const examples = await db.toolSchemaExample.findMany({
-      where: { granularity },
+    const allExamples = await db.toolSchemaExample.findMany();
+
+    const searchWords: string[] = [];
+    if (query) {
+      searchWords.push(
+        ...query
+          .toLowerCase()
+          .split(/[\s_]+/)
+          .filter(Boolean),
+      );
+    }
+    tags.forEach((t) => {
+      searchWords.push(
+        ...t
+          .toLowerCase()
+          .split(/[\s_]+/)
+          .filter(Boolean),
+      );
     });
 
-    const matchExample = (ex: any) => {
-      const searchWords: string[] = [];
-      if (query) {
-        searchWords.push(
-          ...query
-            .toLowerCase()
-            .split(/[\s_]+/)
-            .filter(Boolean),
-        );
-      }
-      tags.forEach((t) => {
-        searchWords.push(
-          ...t
-            .toLowerCase()
-            .split(/[\s_]+/)
-            .filter(Boolean),
-        );
+    const scoredExamples = allExamples
+      .map((ex) => {
+        let matchingWordsCount = 0;
+        if (searchWords.length > 0) {
+          const nameLower = ex.name.toLowerCase();
+          const descLower = ex.description.toLowerCase();
+          const jsonLower = ex.toolJson.toLowerCase();
+          let tagsLower = "";
+          try {
+            tagsLower = JSON.stringify(JSON.parse(ex.tags)).toLowerCase();
+          } catch {}
+
+          searchWords.forEach((word) => {
+            if (
+              nameLower.includes(word) ||
+              descLower.includes(word) ||
+              tagsLower.includes(word) ||
+              jsonLower.includes(word)
+            ) {
+              matchingWordsCount++;
+            }
+          });
+        }
+
+        const granularityBonus = ex.granularity === granularity ? 1 : 0;
+        return {
+          ex,
+          matchingWordsCount,
+          granularityBonus,
+        };
+      })
+      .filter((item) => {
+        // If there are search words, only keep examples that match at least one search word
+        if (searchWords.length > 0) {
+          return item.matchingWordsCount > 0;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        // Sort by match count first (descending)
+        if (b.matchingWordsCount !== a.matchingWordsCount) {
+          return b.matchingWordsCount - a.matchingWordsCount;
+        }
+        // Then sort by granularity match bonus (descending)
+        return b.granularityBonus - a.granularityBonus;
       });
 
-      if (searchWords.length === 0) return true;
-
-      const nameLower = ex.name.toLowerCase();
-      const descLower = ex.description.toLowerCase();
-      const jsonLower = ex.toolJson.toLowerCase();
-      let tagsLower = "";
-      try {
-        tagsLower = JSON.stringify(JSON.parse(ex.tags)).toLowerCase();
-      } catch {}
-
-      return searchWords.some((word) => {
-        return (
-          nameLower.includes(word) ||
-          descLower.includes(word) ||
-          tagsLower.includes(word) ||
-          jsonLower.includes(word)
-        );
-      });
-    };
-
-    let filtered = examples.filter(matchExample);
-
-    // If no results, loosen the detail vs compact check (granularity filter)
-    if (filtered.length === 0) {
-      const allExamples = await db.toolSchemaExample.findMany();
-      filtered = allExamples.filter(matchExample);
-    }
+    const filtered = scoredExamples.map((item) => item.ex);
 
     // Return the top 2 examples
     const result: InspirationExample[] = [];
