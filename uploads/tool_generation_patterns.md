@@ -253,6 +253,8 @@ These live in the new system prompt as guidance, not enforcement.
 ### Tier 2: Categorical + Conditional
 
 **Use when:** Related business operations with conditions, boundaries, or role-based access.
+**Exclusion:** Binary gating whose condition depends on calling the tool and following its result (a result from already following this guideline). This is Tier 1 not Tier 2.
+Example: Never do or agree to do X **without calling the X-handling tool and following its output**
 
 **Characteristics:**
 
