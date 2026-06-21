@@ -30,7 +30,7 @@ import { TrialVerdict, RiskLevel } from "@/lib/enums";
 export async function generateScanReport(
   scan: Scan,
   outputPath?: string,
-  selectedPromptIds?: string[]
+  selectedPromptIds?: string[],
 ): Promise<Buffer> {
   const doc = new Document({
     styles: {
@@ -279,13 +279,16 @@ export async function generateScanReport(
           ];
 
           const filteredPrompts = scan.hardenedPrompts.filter((hp) => {
-            if (!selectedPromptIds || selectedPromptIds.length === 0) return true;
+            if (!selectedPromptIds || selectedPromptIds.length === 0)
+              return true;
             return selectedPromptIds.includes(hp.modelId);
           });
 
           if (filteredPrompts.length > 0) {
             children.push(new Paragraph({ children: [new PageBreak()] }));
-            children.push(...createHardenedPromptsSection(scan, selectedPromptIds));
+            children.push(
+              ...createHardenedPromptsSection(scan, selectedPromptIds),
+            );
           }
           return children;
         })(),
@@ -306,7 +309,7 @@ export async function generateScanReport(
  */
 function createTitlePage(scan: Scan): any[] {
   const breachedCount = scan.trials.filter(
-    (t) => t.verdict === TrialVerdict.Breached
+    (t) => t.verdict === TrialVerdict.Breached,
   ).length;
 
   return [
@@ -391,7 +394,10 @@ function createTitlePage(scan: Scan): any[] {
       spacing: { before: 300, after: 100 },
       children: [
         new TextRun({
-          text: scan.riskLevel === RiskLevel.Critical ? "⚠ CRITICAL RISK" : scan.riskLevel,
+          text:
+            scan.riskLevel === RiskLevel.Critical
+              ? "⚠ CRITICAL RISK"
+              : scan.riskLevel,
           bold: true,
           size: 22,
           color: scan.riskLevel === RiskLevel.Critical ? "E74C3C" : "F39C12",
@@ -490,7 +496,13 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
   return [
     new Table({
       width: { size: tableWidth, type: WidthType.DXA },
-      columnWidths: [metricCellWidth, metricCellWidth, metricCellWidth, metricCellWidth, metricCellWidth],
+      columnWidths: [
+        metricCellWidth,
+        metricCellWidth,
+        metricCellWidth,
+        metricCellWidth,
+        metricCellWidth,
+      ],
       rows: [
         new TableRow({
           children: metrics.map((metric) => {
@@ -531,8 +543,6 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
   ];
 }
 
-
-
 /**
  * Configuration section with all scan parameters
  */
@@ -550,7 +560,10 @@ const SyntaxColors = {
   TEXT: "1A1A1A", // Black
 };
 
-function tokenizeWhitespace(json: string, i: number): { run: TextRun; nextIndex: number } | null {
+function tokenizeWhitespace(
+  json: string,
+  i: number,
+): { run: TextRun; nextIndex: number } | null {
   if (/\s/.test(json[i])) {
     let whitespace = "";
     let idx = i;
@@ -566,7 +579,10 @@ function tokenizeWhitespace(json: string, i: number): { run: TextRun; nextIndex:
   return null;
 }
 
-function tokenizeBrackets(json: string, i: number): { run: TextRun; nextIndex: number } | null {
+function tokenizeBrackets(
+  json: string,
+  i: number,
+): { run: TextRun; nextIndex: number } | null {
   const char = json[i];
   if (/[{}\[\]]/.test(char)) {
     return {
@@ -583,7 +599,10 @@ function tokenizeBrackets(json: string, i: number): { run: TextRun; nextIndex: n
   return null;
 }
 
-function tokenizeColonsAndCommas(json: string, i: number): { run: TextRun; nextIndex: number } | null {
+function tokenizeColonsAndCommas(
+  json: string,
+  i: number,
+): { run: TextRun; nextIndex: number } | null {
   const char = json[i];
   if (/[:,]/.test(char)) {
     return {
@@ -599,7 +618,10 @@ function tokenizeColonsAndCommas(json: string, i: number): { run: TextRun; nextI
   return null;
 }
 
-function tokenizeString(json: string, i: number): { run: TextRun; nextIndex: number } | null {
+function tokenizeString(
+  json: string,
+  i: number,
+): { run: TextRun; nextIndex: number } | null {
   if (json[i] !== '"') return null;
   let str = '"';
   let idx = i + 1;
@@ -635,7 +657,10 @@ function tokenizeString(json: string, i: number): { run: TextRun; nextIndex: num
   };
 }
 
-function tokenizeNumber(json: string, i: number): { run: TextRun; nextIndex: number } | null {
+function tokenizeNumber(
+  json: string,
+  i: number,
+): { run: TextRun; nextIndex: number } | null {
   const char = json[i];
   if (/\d/.test(char) || char === "-") {
     let num = "";
@@ -658,7 +683,10 @@ function tokenizeNumber(json: string, i: number): { run: TextRun; nextIndex: num
   return null;
 }
 
-function tokenizeKeywords(json: string, i: number): { run: TextRun; nextIndex: number } | null {
+function tokenizeKeywords(
+  json: string,
+  i: number,
+): { run: TextRun; nextIndex: number } | null {
   if (json.substring(i, i + 4) === "true") {
     return {
       run: new TextRun({
@@ -719,7 +747,14 @@ function createSyntaxHighlightedJSON(json: string): TextRun[] {
       i = token.nextIndex;
     } else {
       // Fallback for unknown characters
-      runs.push(new TextRun({ text: json[i], size: 18, color: SyntaxColors.TEXT, font: "Courier New" }));
+      runs.push(
+        new TextRun({
+          text: json[i],
+          size: 18,
+          color: SyntaxColors.TEXT,
+          font: "Courier New",
+        }),
+      );
       i++;
     }
   }
@@ -730,10 +765,7 @@ function createSyntaxHighlightedJSON(json: string): TextRun[] {
 /**
  * Create a formatted code block with syntax highlighting
  */
-function createHighlightedCodeBlock(
-  code: string,
-  label?: string
-): Paragraph[] {
+function createHighlightedCodeBlock(code: string, label?: string): Paragraph[] {
   const result: Paragraph[] = [];
 
   if (label) {
@@ -748,7 +780,7 @@ function createHighlightedCodeBlock(
             color: "7F8C8D",
           }),
         ],
-      })
+      }),
     );
   }
 
@@ -767,8 +799,11 @@ function createHighlightedCodeBlock(
     result.push(
       new Paragraph({
         spacing: { before: 0, after: 0 },
-        children: runs.length > 0 ? runs : [new TextRun({ text: " ", size: 18, font: "Courier New" })],
-      })
+        children:
+          runs.length > 0
+            ? runs
+            : [new TextRun({ text: " ", size: 18, font: "Courier New" })],
+      }),
     );
   }
 
@@ -1038,7 +1073,8 @@ function createAgentModelsTable(scan: Scan): Table {
       role: "Attacker",
       color: "E74C3C",
       id: scan.attackerModel || "—",
-      name: scan.attackerModelName || scan.attackerModel || "Anonymous Attacker",
+      name:
+        scan.attackerModelName || scan.attackerModel || "Anonymous Attacker",
     },
     {
       role: "Judge",
@@ -1066,45 +1102,116 @@ function createAgentModelsTable(scan: Scan): Table {
             borders,
             shading: { fill: "1F4788", type: ShadingType.CLEAR },
             margins: { top: 80, bottom: 80, left: 120, right: 120 },
-            children: [new Paragraph({ children: [new TextRun({ text: "ROLE", bold: true, size: 16, color: "FFFFFF" })] })],
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "ROLE",
+                    bold: true,
+                    size: 16,
+                    color: "FFFFFF",
+                  }),
+                ],
+              }),
+            ],
           }),
           new TableCell({
             borders,
             shading: { fill: "1F4788", type: ShadingType.CLEAR },
             margins: { top: 80, bottom: 80, left: 120, right: 120 },
-            children: [new Paragraph({ children: [new TextRun({ text: "DISPLAY NAME", bold: true, size: 16, color: "FFFFFF" })] })],
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "DISPLAY NAME",
+                    bold: true,
+                    size: 16,
+                    color: "FFFFFF",
+                  }),
+                ],
+              }),
+            ],
           }),
           new TableCell({
             borders,
             shading: { fill: "1F4788", type: ShadingType.CLEAR },
             margins: { top: 80, bottom: 80, left: 120, right: 120 },
-            children: [new Paragraph({ children: [new TextRun({ text: "MODEL ID", bold: true, size: 16, color: "FFFFFF" })] })],
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "MODEL ID",
+                    bold: true,
+                    size: 16,
+                    color: "FFFFFF",
+                  }),
+                ],
+              }),
+            ],
           }),
         ],
       }),
-      ...rows.map((r, idx) =>
-        new TableRow({
-          children: [
-            new TableCell({
-              borders,
-              shading: { fill: idx % 2 === 0 ? "F8F8F8" : "FFFFFF", type: ShadingType.CLEAR },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [new Paragraph({ children: [new TextRun({ text: r.role, bold: true, size: 18, color: r.color })] })],
-            }),
-            new TableCell({
-              borders,
-              shading: { fill: idx % 2 === 0 ? "F8F8F8" : "FFFFFF", type: ShadingType.CLEAR },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 18, color: "1A1A1A" })] })],
-            }),
-            new TableCell({
-              borders,
-              shading: { fill: idx % 2 === 0 ? "F8F8F8" : "FFFFFF", type: ShadingType.CLEAR },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [new Paragraph({ children: [new TextRun({ text: r.id, size: 16, font: "Courier New", color: "555555" })] })],
-            }),
-          ],
-        })
+      ...rows.map(
+        (r, idx) =>
+          new TableRow({
+            children: [
+              new TableCell({
+                borders,
+                shading: {
+                  fill: idx % 2 === 0 ? "F8F8F8" : "FFFFFF",
+                  type: ShadingType.CLEAR,
+                },
+                margins: { top: 80, bottom: 80, left: 120, right: 120 },
+                children: [
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: r.role,
+                        bold: true,
+                        size: 18,
+                        color: r.color,
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+              new TableCell({
+                borders,
+                shading: {
+                  fill: idx % 2 === 0 ? "F8F8F8" : "FFFFFF",
+                  type: ShadingType.CLEAR,
+                },
+                margins: { top: 80, bottom: 80, left: 120, right: 120 },
+                children: [
+                  new Paragraph({
+                    children: [
+                      new TextRun({ text: r.name, size: 18, color: "1A1A1A" }),
+                    ],
+                  }),
+                ],
+              }),
+              new TableCell({
+                borders,
+                shading: {
+                  fill: idx % 2 === 0 ? "F8F8F8" : "FFFFFF",
+                  type: ShadingType.CLEAR,
+                },
+                margins: { top: 80, bottom: 80, left: 120, right: 120 },
+                children: [
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: r.id,
+                        size: 16,
+                        font: "Courier New",
+                        color: "555555",
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
       ),
     ],
   });
@@ -1115,7 +1222,7 @@ function createAgentModelsTable(scan: Scan): Table {
  */
 function createTrialSection(scan: Scan): any[] {
   const breachedCount = scan.trials.filter(
-    (t) => t.verdict === TrialVerdict.Breached
+    (t) => t.verdict === TrialVerdict.Breached,
   ).length;
 
   const headerTable = new Table({
@@ -1327,16 +1434,7 @@ function createTrialSection(scan: Scan): any[] {
                   ],
                 }),
                 // Attack Text
-                new Paragraph({
-                  spacing: { after: 150 },
-                  children: [
-                    new TextRun({
-                      text: trial.attack,
-                      size: 20,
-                      color: "1A1A1A",
-                    }),
-                  ],
-                }),
+                ...renderMarkdown(trial.attack, 20, "1A1A1A"),
 
                 // Separator
                 new Paragraph({
@@ -1465,16 +1563,7 @@ function createTrialSection(scan: Scan): any[] {
                   ],
                 }),
                 // Response Text
-                new Paragraph({
-                  spacing: { after: 150 },
-                  children: [
-                    new TextRun({
-                      text: trial.response,
-                      size: 20,
-                      color: "1A1A1A",
-                    }),
-                  ],
-                }),
+                ...renderMarkdown(trial.response, 20, "1A1A1A"),
 
                 // Separator
                 new Paragraph({
@@ -1550,7 +1639,10 @@ function createTrialSection(scan: Scan): any[] {
   ];
 }
 
-function createHardenedPromptsSection(scan: Scan, selectedPromptIds?: string[]): any[] {
+function createHardenedPromptsSection(
+  scan: Scan,
+  selectedPromptIds?: string[],
+): any[] {
   const filteredPrompts = scan.hardenedPrompts.filter((hp) => {
     if (!selectedPromptIds || selectedPromptIds.length === 0) return true;
     return selectedPromptIds.includes(hp.modelId);
@@ -1594,16 +1686,18 @@ function createHardenedPromptsSection(scan: Scan, selectedPromptIds?: string[]):
             color: "1F4788",
           }),
         ],
-      })
+      }),
     );
 
     // Metadata details
     const metadataParts = [
       `Granularity: ${hp.granularity || "N/A"}`,
-      `Extractor: ${hp.extractorModel?.split("/").pop() || "N/A"}`
+      `Extractor: ${hp.extractorModel?.split("/").pop() || "N/A"}`,
     ];
     if (hp.compatibilityScore !== null && hp.compatibilityScore !== undefined) {
-      metadataParts.unshift(`Compatibility Score: ${hp.compatibilityScore}/100`);
+      metadataParts.unshift(
+        `Compatibility Score: ${hp.compatibilityScore}/100`,
+      );
     }
 
     elements.push(
@@ -1614,17 +1708,20 @@ function createHardenedPromptsSection(scan: Scan, selectedPromptIds?: string[]):
             text: metadataParts.join("   |   "),
             size: 18,
             color: "555555",
-            bold: true
-          })
-        ]
-      })
+            bold: true,
+          }),
+        ],
+      }),
     );
 
     // Rationale if available
     let rationaleText = "No rationale provided.";
     if (hp.toolRecommendation) {
       try {
-        const rec = typeof hp.toolRecommendation === "string" ? JSON.parse(hp.toolRecommendation) : hp.toolRecommendation;
+        const rec =
+          typeof hp.toolRecommendation === "string"
+            ? JSON.parse(hp.toolRecommendation)
+            : hp.toolRecommendation;
         if (rec && rec.rationale) {
           rationaleText = rec.rationale;
         }
@@ -1653,7 +1750,7 @@ function createHardenedPromptsSection(scan: Scan, selectedPromptIds?: string[]):
             color: "444444",
           }),
         ],
-      })
+      }),
     );
 
     // Hardened Prompt Text
@@ -1669,13 +1766,16 @@ function createHardenedPromptsSection(scan: Scan, selectedPromptIds?: string[]):
           }),
         ],
       }),
-      createCodeBlock(hp.prompt)
+      createCodeBlock(hp.prompt),
     );
 
     // Recommended Tools if available
     if (hp.toolRecommendation) {
       try {
-        const rec = typeof hp.toolRecommendation === "string" ? JSON.parse(hp.toolRecommendation) : hp.toolRecommendation;
+        const rec =
+          typeof hp.toolRecommendation === "string"
+            ? JSON.parse(hp.toolRecommendation)
+            : hp.toolRecommendation;
         if (rec && rec.tools && rec.tools.length > 0) {
           elements.push(
             new Paragraph({
@@ -1689,10 +1789,94 @@ function createHardenedPromptsSection(scan: Scan, selectedPromptIds?: string[]):
                 }),
               ],
             }),
-            createCodeBlock(JSON.stringify(rec.tools, null, 2))
           );
-        }
-        if (rec && rec.mockToolResponses && Object.keys(rec.mockToolResponses).length > 0) {
+
+          rec.tools.forEach((tool: any, tIdx: number) => {
+            const toolName =
+              tool.name || tool.toolJson?.function?.name || `Tool ${tIdx + 1}`;
+            elements.push(
+              new Paragraph({
+                spacing: { before: 150, after: 80 },
+                children: [
+                  new TextRun({
+                    text: `TOOL: ${toolName}`,
+                    bold: true,
+                    size: 18,
+                    color: "2E75B6",
+                  }),
+                ],
+              }),
+              new Paragraph({
+                spacing: { after: 100 },
+                children: [
+                  new TextRun({
+                    text: `Granularity: ${tool.granularity || "N/A"}   |   Compatibility Score: ${tool.compatibilityScore || 100}/100`,
+                    bold: true,
+                    size: 16,
+                    color: "555555",
+                  }),
+                ],
+              }),
+            );
+
+            if (tool.rationale) {
+              elements.push(
+                new Paragraph({
+                  spacing: { before: 80, after: 40 },
+                  children: [
+                    new TextRun({
+                      text: "Tool Rationale:",
+                      bold: true,
+                      size: 16,
+                      color: "7F8C8D",
+                    }),
+                  ],
+                }),
+                ...renderMarkdown(tool.rationale, 18, "444444"),
+              );
+            }
+
+            if (tool.toolJson) {
+              elements.push(
+                new Paragraph({
+                  spacing: { before: 80, after: 40 },
+                  children: [
+                    new TextRun({
+                      text: "JSON Schema:",
+                      bold: true,
+                      size: 16,
+                      color: "7F8C8D",
+                    }),
+                  ],
+                }),
+                createCodeBlock(JSON.stringify(tool.toolJson, null, 2)),
+              );
+            }
+
+            const mockVal =
+              tool.mockResponse || rec.mockToolResponses?.[toolName];
+            if (mockVal) {
+              elements.push(
+                new Paragraph({
+                  spacing: { before: 80, after: 40 },
+                  children: [
+                    new TextRun({
+                      text: "Mock Response:",
+                      bold: true,
+                      size: 16,
+                      color: "7F8C8D",
+                    }),
+                  ],
+                }),
+                createCodeBlock(JSON.stringify(mockVal, null, 2)),
+              );
+            }
+          });
+        } else if (
+          rec &&
+          rec.mockToolResponses &&
+          Object.keys(rec.mockToolResponses).length > 0
+        ) {
           elements.push(
             new Paragraph({
               spacing: { before: 200, after: 60 },
@@ -1705,7 +1889,7 @@ function createHardenedPromptsSection(scan: Scan, selectedPromptIds?: string[]):
                 }),
               ],
             }),
-            createCodeBlock(JSON.stringify(rec.mockToolResponses, null, 2))
+            createCodeBlock(JSON.stringify(rec.mockToolResponses, null, 2)),
           );
         }
       } catch {}
@@ -1718,4 +1902,156 @@ function createHardenedPromptsSection(scan: Scan, selectedPromptIds?: string[]):
   });
 
   return elements;
+}
+
+function parseInlineMarkdown(
+  text: string,
+  size: number,
+  color: string,
+  forceItalics = false,
+): TextRun[] {
+  const runs: TextRun[] = [];
+  const regex = /(\*\*.*?\*\*|\*.*?\*|`.*?`)/g;
+  const parts = text.split(regex);
+
+  for (const part of parts) {
+    if (!part) continue;
+    if (part.startsWith("**") && part.endsWith("**")) {
+      runs.push(
+        new TextRun({
+          text: part.slice(2, -2),
+          bold: true,
+          size,
+          color,
+          italics: forceItalics,
+        }),
+      );
+    } else if (part.startsWith("*") && part.endsWith("*")) {
+      runs.push(
+        new TextRun({
+          text: part.slice(1, -1),
+          italics: true,
+          size,
+          color,
+        }),
+      );
+    } else if (part.startsWith("`") && part.endsWith("`")) {
+      runs.push(
+        new TextRun({
+          text: part.slice(1, -1),
+          font: "Courier New",
+          size: size - 2,
+          color: "C7254E",
+          shading: { fill: "F9F2F4", type: ShadingType.CLEAR },
+          italics: forceItalics,
+        }),
+      );
+    } else {
+      runs.push(
+        new TextRun({
+          text: part,
+          size,
+          color,
+          italics: forceItalics,
+        }),
+      );
+    }
+  }
+
+  return runs.length > 0 ? runs : [new TextRun("")];
+}
+
+function renderMarkdown(
+  text: string,
+  defaultSize = 20,
+  defaultColor = "1A1A1A",
+): Paragraph[] {
+  if (!text) {
+    return [new Paragraph({ children: [new TextRun("")] })];
+  }
+
+  const lines = text.split("\n");
+  const paragraphs: Paragraph[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      paragraphs.push(
+        new Paragraph({ spacing: { after: 100 }, children: [new TextRun("")] }),
+      );
+      continue;
+    }
+
+    if (trimmed.startsWith("# ")) {
+      paragraphs.push(
+        new Paragraph({
+          spacing: { before: 180, after: 80 },
+          children: parseInlineMarkdown(trimmed.substring(2), 28, "1F4788"),
+        }),
+      );
+    } else if (trimmed.startsWith("## ")) {
+      paragraphs.push(
+        new Paragraph({
+          spacing: { before: 140, after: 60 },
+          children: parseInlineMarkdown(trimmed.substring(3), 24, "2E75B6"),
+        }),
+      );
+    } else if (trimmed.startsWith("### ")) {
+      paragraphs.push(
+        new Paragraph({
+          spacing: { before: 120, after: 60 },
+          children: parseInlineMarkdown(trimmed.substring(4), 20, "333333"),
+        }),
+      );
+    } else if (trimmed.startsWith("#### ")) {
+      paragraphs.push(
+        new Paragraph({
+          spacing: { before: 100, after: 40 },
+          children: parseInlineMarkdown(
+            trimmed.substring(5),
+            20,
+            "555555",
+            true,
+          ),
+        }),
+      );
+    } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      paragraphs.push(
+        new Paragraph({
+          spacing: { after: 80 },
+          indent: { left: 360 },
+          children: [
+            new TextRun({
+              text: "•  ",
+              bold: true,
+              size: defaultSize,
+              color: defaultColor,
+            }),
+            ...parseInlineMarkdown(
+              trimmed.substring(2),
+              defaultSize,
+              defaultColor,
+            ),
+          ],
+        }),
+      );
+    } else if (/^\d+\.\s/.test(trimmed)) {
+      paragraphs.push(
+        new Paragraph({
+          spacing: { after: 80 },
+          indent: { left: 360 },
+          children: parseInlineMarkdown(trimmed, defaultSize, defaultColor),
+        }),
+      );
+    } else {
+      paragraphs.push(
+        new Paragraph({
+          spacing: { after: 120 },
+          children: parseInlineMarkdown(line, defaultSize, defaultColor),
+        }),
+      );
+    }
+  }
+
+  return paragraphs;
 }
