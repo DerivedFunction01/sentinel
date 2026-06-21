@@ -1539,7 +1539,15 @@ This rule moved from system prompt guidance to a tool because [reason].
 ```json
 {
   "status": "unavailable",
-  "message": "Pricing inquiries are handled by our sales team. Check your account dashboard or our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
+  "message": "Pricing inquiries are handled by our sales team. View support contacts for up-to-date-information.",
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "require_explicit_human_approval": true,
+    "escalate_to_support": true
+  },
   "support_contact": {
     "website": "https://example.com/pricing",
     "phone": "1-800-SALES-01"
@@ -1642,7 +1650,14 @@ Refunds only within 30 days of purchase."
 {
   "status": "pending",
   "message": "Your refund request or inquiry has been received and is awaiting review. Information regarding specific policy or status is in the support page.",
-  "important": "Check your account dashboard or our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "require_explicit_human_approval": true,
+    "escalate_to_support": true
+  },
   "support_contact": {
     "website": "https://example.com/account/returns",
     "phone": "1-800-RET-URNS"
