@@ -236,20 +236,27 @@ These live in the new system prompt as guidance, not enforcement.
 }
 ```
 
-**Mock Response:**
+**Mock Response Example:**
 
 ```json
 {
   "status": "denied",
-  "message": "This service is not available and we do not offer it as of this time. Check your account dashboard or our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made or approved.",
-  "support_contact": {
-    "website": "https://example.com/support",
+  "reason": "Policy Restriction",
+  "message": "Service unavailable or restricted per current policy.",
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "require_explicit_human_approval": true,
+    "escalate_to_support": true
+  },
+  "contact_support": {
+    "url": "https://example.com/current_offerings",
     "phone": "1-800-EXA-MPLE"
   }
 }
 ```
-
----
 
 ### Tier 2: Categorical + Conditional
 
@@ -273,7 +280,7 @@ Example: Never do or agree to do X **without calling the X-handling tool and fol
   "type": "function",
   "function": {
     "name": "commerce_transactions",
-    "description": "Call for discount codes, rebates, offers, promotions, loyalty program inquiries, loyalty point adjustments, payment processing, and refund policies.",
+    "description": "Call for discounts, promotions, rebates, loyalty management, payment processing, and refund policies.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -313,15 +320,27 @@ Example: Never do or agree to do X **without calling the X-handling tool and fol
 
 ```json
 {
-  "general_information": {
+  "business_info": {
     "hours": "Mon–Fri 9–5 EST",
     "location": "Online only",
-    "contact": "1-800-987-6543",
+    "contact_number": "1-800-987-6543"
+  },
+  "status": {
+    "discounts_available": "No discounts or promotions are currently available.",
+    "loyalty_program": "Customers can enroll in our membership program to earn points on purchases."
+  },
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "require_explicit_human_approval": true,
+    "escalate_to_support": true,
+    "status": "All terms are final per company policy."
+  },
+  "resources": {
     "refunds_and_disputes": "https://www.example-retail.com/refunds_and_disputes",
-    "offers_and_discounts": "No discounts, promotions, or special offers are available at this time.",
-    "important": "Check your account dashboard or our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
-    "membership_and_loyalty": "Customers can enroll in our membership program to earn points on purchases.",
-    "website_for_more_information": "https://www.example-retail.com/offers_and_membership"
+    "membership_and_offers": "https://www.example-retail.com/offers_and_membership"
   }
 }
 ```
@@ -422,8 +441,16 @@ Example: Never do or agree to do X **without calling the X-handling tool and fol
 ```json
 {
   "status": "pending",
-  "message": "Your transfer request has been received and is being processed.",
-  "important": "Check your account dashboard or our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
+  "message": "Your transfer request has been received.",
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "require_explicit_human_approval": true,
+    "escalate_to_support": true,
+    "status": "All terms are final per company policy. Check your account or our support contacts for up to date information."
+  },
   "support_contact": {
     "website": "https://example.com/account/transfers",
     "phone": "1-800-XXX-XXXX"
@@ -687,6 +714,7 @@ These fields should be:
   "type": "function",
   "function": {
     "name": "process_payment",
+    "description": "Call this tool when the user explicitly requests a payment, transfer, charge, payment method management, account funding, subscription purchase, or any financial transaction. This tool acts as a gate to prevent the LLM from engaging in any unauthorized payment discussions or processes", // ✗ Verbose description, and description contains "unauthorized", "prevent", revealing its gating nature.
     "parameters": {
       "type": "object",
       "properties": {
@@ -715,6 +743,7 @@ These fields should be:
   "type": "function",
   "function": {
     "name": "process_payment",
+    "description": "Call this tool when the user requests a payment, purchase, or any financial transaction or policy.", // ✓ Concise and clear, no gating language.
     "parameters": {
       "type": "object",
       "properties": {
@@ -739,7 +768,16 @@ These fields should be:
   "payment_approved": true, // ← Backend-set after validation
   "transaction_id": "txn_abc123", // ← Backend-generated
   "next_steps": "Check your account for confirmation.",
-  "important": "Do not provide unauthorized financial advice or claim specific status.",
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "require_explicit_human_approval": true,
+    "escalate_to_support": true,
+    "give_financial_advice": false,
+    "status": "Do not claim specific status. Check your account or our support contact for updates."
+  },
   "support_contact": { "website": "...", "phone": "..." }
 }
 ```
@@ -776,7 +814,16 @@ Use for tools that block access entirely (discounts, API keys, internal processe
 ```json
 {
   "status": "denied",
-  "message": "This service is not available and we do not offer it at this time. Check your account dashboard or our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made or approved.",
+  "reason": "Policy Restriction",
+  "message": "Service unavailable or restricted per current policy.",
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "require_explicit_human_approval": true,
+    "escalate_to_support": true
+  },
   "support_contact": {
     "website": "https://example.com/support",
     "phone": "1-800-XXX-XXXX"
@@ -792,7 +839,14 @@ Use for tools that process requests (transfers, refunds, verifications, inquirie
 {
   "status": "pending",
   "message": "Your request has been received and is being processed.",
-  "important": "Check your account dashboard or our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "require_explicit_human_approval": true,
+    "escalate_to_support": true
+  },
   "support_contact": {
     "website": "https://example.com/account",
     "phone": "1-800-XXX-XXXX"
@@ -809,7 +863,6 @@ Use for tools that perform lookups such as store hours, policies, product catalo
   "status": "ok",
   "results": {
     "hours": "9AM to 6PM",
-    "policy": "Return policy: within 30 days. Contact support to initiate a return, or visit the website for detailed information and status. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
     "product_catalog": [
       {
         "name": "item1",
@@ -821,7 +874,18 @@ Use for tools that perform lookups such as store hours, policies, product catalo
         "description": "Description of item2",
         "price": "$20"
       }
-    ]
+    ],
+    "returns": {
+      "limit": "30 days"
+    }
+  },
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "require_explicit_human_approval": true,
+    "escalate_to_support": true
   },
   "support_contact": {
     "website": "https://example.com/support",
@@ -853,7 +917,7 @@ This inspects parameters. You don't do that.
 
 ```json
 {
-  "message": "Your request has been received and is being processed." // ✓ GENERIC
+  "message": "Your request has been received." // ✓ GENERIC
 }
 ```
 
@@ -861,7 +925,18 @@ This inspects parameters. You don't do that.
 
 ```json
 {
-  "important": "This service is not available and we do not offer it at this time. Check your account dashboard or our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made or approved."
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "require_explicit_human_approval": true,
+    "escalate_to_support": true
+  },
+  "support_contact": {
+    "website": "https://example.com/support",
+    "phone": "1-800-XXX-XXXX"
+  }
 }
 ```
 
@@ -869,7 +944,24 @@ This inspects parameters. You don't do that.
 
 ```json
 {
-  "important": "Do not provide unauthorized financial, legal, or medical advice. Direct users to appropriate professionals or official channels for such matters."
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "require_explicit_human_approval": true,
+    "escalate_to_support": true,
+    "give_advice": {
+      "financial": false,
+      "medical": false,
+      "legal": false,
+      "process": "Direct users to appropriate professionals or official channels for such matters."
+    }
+  },
+  "support_contact": {
+    "website": "https://example.com/support",
+    "phone": "1-800-XXX-XXXX"
+  }
 }
 ```
 
@@ -1020,7 +1112,7 @@ For each tool:
 - Also do not try to collide with already existing tools. If it does, then attempt to merge them together by expanding it as long it doesn't
   make the tool parameters too complicated and verbose.
 
-2. **Description:** List explicit triggers; be exhaustively specific
+2. **Description:** List explicit triggers; balance between being too specific and too broad. Do not add gating or meta language such as "This tool acts as a gate to prevent the LLM from engaging in any unauthorized ...". If it exists, it should be removed.
 3. **Parameters:**
    - Required: operation, category, primary business fields
    - Optional: query, metadata, context
@@ -1076,31 +1168,31 @@ Bad:
 
 ### Step 6: Design Mock Response
 
-Create a generic, parameter-agnostic mock using the appropriate template:
+Create a generic, parameter-agnostic mock using the appropriate template, being sure to replace the example links and phone if they already exist in the context:
 
-**For gates (Tier 1):**
+**For gates (Tier 1) Example, ABC Retail:**
 
 ```json
 {
   "status": "denied",
-  "message": "This service is not available and we do not offer it as of this time. Check your account dashboard or our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made or approved.",
+  "policy": {...}, // See Mock Response Strategy
   "support_contact": {
-    "website": "https://example.com/support",
-    "phone": "1-800-XXX-XXXX"
+    "website": "https://abc-retail.com/support",
+    "phone": "1-800-ABC-5678" // If given in context
   }
 }
 ```
 
-**For actions (Tier 2 & 3):**
+**For actions (Tier 2 & 3) Example, ABC Retail:**
 
 ```json
 {
   "status": "pending",
-  "message": "Your request has been received and is being processed.",
-  "important": "Check your account dashboard or our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
+  "message": "Your request has been received.",
+  "policy": {...}, // See Mock Response Strategy
   "support_contact": {
-    "website": "https://example.com/account",
-    "phone": "1-800-XXX-XXXX"
+    "website": "https://abc-retail.com/support",
+    "phone": "1-800-ABC-5678" // If given in context
   }
 }
 ```
