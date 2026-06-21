@@ -7,14 +7,16 @@ import {
   generateAttacks,
   patterns,
   renderAttack,
+  renderAttackV2,
 } from "@/lib/attack-templates";
 import {
   findDefaultModel,
   SEED_EXTRACTOR_SYSTEM,
   SEED_EXTRACTOR_USER_TEMPLATE,
-  ATTACK_GENERATOR_SYSTEM_TEMPLATE,
+  ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2,
   JUDGE_EVALUATION_TEMPLATE,
   REWRITE_ASSISTANT_PREFILL,
+  REWRITE_ASSISTANT_PREFILL_V2,
   getHardenedPromptInstructions,
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
@@ -530,20 +532,21 @@ export async function generateCohesiveAttack(
   thingDescription: string,
   tracker?: UsageTracker,
 ): Promise<string> {
-  const draft = renderAttack(pattern);
+  const draftParts = renderAttackV2(pattern, thingName, thingDescription);
+  const draftJoined = draftParts.join(" ");
 
   const messages = [
     {
       role: "user",
-      content: ATTACK_GENERATOR_SYSTEM_TEMPLATE(
+      content: ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2(
         thingName,
         thingDescription,
-        draft,
+        draftParts,
       ),
     },
     {
       role: "assistant",
-      content: REWRITE_ASSISTANT_PREFILL,
+      content: REWRITE_ASSISTANT_PREFILL_V2,
     },
   ];
 
@@ -579,10 +582,10 @@ export async function generateCohesiveAttack(
       text = text.substring(1, text.length - 1).trim();
     }
 
-    return text || draft;
+    return text || draftJoined;
   } catch (error) {
-    console.error("Error generating cohesive attack:", error);
-    return draft;
+    console.error("Error generating cohesive attack V2:", error);
+    return draftJoined;
   }
 }
 

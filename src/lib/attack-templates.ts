@@ -546,11 +546,11 @@ export const patterns: FramingPattern[] = [
  * @param thingDescription What the attacker wants to extract (e.g. "a discount code", "the pricing structure")
  * @returns The generated attack prompt string
  */
-export function renderAttack(
+export function renderAttackV2(
   pattern: FramingPattern,
   thingName?: string | string[],
   thingDescription?: string | string[],
-): string {
+): string[] {
   const context: Record<string, string | string[]> = {};
   if (thingName !== undefined) context.thing_name = thingName;
   if (thingDescription !== undefined)
@@ -564,9 +564,15 @@ export function renderAttack(
     pattern.closers.length > 0 ? pick(pattern.closers) : "",
   ].filter(Boolean);
 
-  return parts
-    .map((p) => formatString(p, pattern.lexicalBag, context))
-    .join(" ");
+  return parts.map((p) => formatString(p, pattern.lexicalBag, context));
+}
+
+export function renderAttack(
+  pattern: FramingPattern,
+  thingName?: string | string[],
+  thingDescription?: string | string[],
+): string {
+  return renderAttackV2(pattern, thingName, thingDescription).join(" ");
 }
 
 /**
