@@ -50,6 +50,7 @@ export function getToolExtractionInstructions(
   requestedSections?: string[],
   existingTools?: ToolDef[],
   inspirationExamplesBlock?: string,
+  breachedTrials?: any[],
 ): string {
   let existingToolsBlock = "";
   if (existingTools && existingTools.length > 0) {
@@ -57,6 +58,20 @@ export function getToolExtractionInstructions(
 <current_tools>
 ${JSON.stringify(existingTools, null, 2)}
 </current_tools>\n`;
+  }
+
+  let breachedTrialsBlock = "";
+  if (breachedTrials && breachedTrials.length > 0) {
+    breachedTrialsBlock = `\nAdversarial attack prompts that SUCCESSFULLY bypassed the system prompt, including the model's response and the judge's verdict detailing why it leaked:
+<breached_attack_trials>
+${breachedTrials
+  .map(
+    (t, i) => `${i + 1}. ATTACK PROMPT: "${t.attack}"
+   ASSISTANT RESPONSE: "${t.response}"
+   JUDGE'S VERDICT REASONING: ${t.judgeVerdict || "None provided"}`,
+  )
+  .join("\n\n")}
+</breached_attack_trials>\n`;
   }
 
   const granularityPrompt = `Target Granularity: ${granularity}.
@@ -112,7 +127,7 @@ ${forbiddenTask}
 </forbidden_task>
 
 ${inspirationExamplesBlock ? `${inspirationExamplesBlock}\n` : ""}
-
+${breachedTrialsBlock}
 
 ${
   patternsContent
@@ -130,7 +145,7 @@ CRITICAL RULES FOR EXTRACTION:
  1. Adhere to \`<tool_generation_patterns>\` Guidelines
   2. Improving or Replacing Existing Tools:
     - If a tool is already defined in <current_tools> but its schema or validation is weak, suggest an improved/updated version under the same name and detail improvements in the RATIONALE.
-    - If a tool's schema in <current_tools> is already strong and fully covers the forbidden task parameter needs, do NOT propose modifications to the tool schema itself. Instead, focus on hardening the MOCK response to explicitly define and handle prohibited inputs, block scenarios, or security boundary responses. If the mock response is hardened correctly (e.g. returning rejection status or block flags), note in the RATIONALE that a system prompt change may not be required because the tool/backend natively handles the security restriction.
+    - If a tool's schema in <current_tools> is already strong and fully covers the forbidden task parameter needs, do NOT propose modifications to the tool schema itself. Instead, analyze \`<breached_attack_trials>\` (specifically the assistant responses and judge reasoning) and focus on hardening the MOCK response (under MOCK:) to explicitly define and handle prohibited inputs, block scenarios, or security boundary responses. If the mock response is hardened correctly (e.g. returning rejection status or block flags), note in the RATIONALE that a system prompt change may not be required because the tool/backend natively handles the security restriction.
     - If a recommended tool replaces an existing tool under a different/renamed name, you MUST explicitly state the name of the tool it is replacing in the REPLACES field; if it does not replace any tool, state 'none'.
 
  3. Output Format:
@@ -295,6 +310,7 @@ export async function generateToolRecommendation(
   requestedSections?: string[],
   existingTools?: ToolDef[],
   trace?: HardeningTrace,
+  trials?: any[],
 ): Promise<{
   toolRecommendation: string | null;
   compatibilityScore: number | null;
@@ -311,6 +327,15 @@ export async function generateToolRecommendation(
     const inspirationExamplesBlock =
       formatInspirationExamplesBlock(inspirationExamples);
 
+    const breachedTrials = trials
+      ? trials.filter(
+          (t) =>
+            t.verdict === "breached" ||
+            t.verdict === "Breached" ||
+            t.judgeLabel === "LEAKED",
+        )
+      : [];
+
     const extractionInstructions = getToolExtractionInstructions(
       hardenedPrompt,
       forbiddenTask,
@@ -318,6 +343,7 @@ export async function generateToolRecommendation(
       requestedSections,
       existingTools,
       inspirationExamplesBlock,
+      breachedTrials,
     );
 
     const messages: any[] = [{ role: "user", content: extractionInstructions }];

@@ -288,6 +288,8 @@ export async function POST(req: Request) {
         tracker,
         undefined,
         tools,
+        undefined,
+        trials,
       );
 
     // Parse recommended tools to pass to prompt hardener

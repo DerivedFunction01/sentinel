@@ -133,6 +133,11 @@ export async function POST(
 
     const trace: HardeningTrace = {};
 
+    const trials = scanRow.trials ? JSON.parse(scanRow.trials) : [];
+    const breachedAttacks = trials
+      .filter((t: any) => t.verdict === TrialVerdict.Breached)
+      .map((t: any) => t.attack);
+
     // Run tool extraction first on the original system prompt
     const existingTools = scanRow.tools ? (JSON.parse(scanRow.tools) as ToolDef[]) : [];
     const { toolRecommendation, compatibilityScore } = await generateToolRecommendation(
@@ -144,17 +149,13 @@ export async function POST(
       undefined,
       existingTools,
       trace,
+      trials,
     );
 
     // Parse recommended tools to pass to prompt hardener
     const recommendedToolsList = toolRecommendation
       ? parseSectionedRecommendation(toolRecommendation)
       : [];
-
-    const trials = JSON.parse(scanRow.trials);
-    const breachedAttacks = trials
-      .filter((t: any) => t.verdict === TrialVerdict.Breached)
-      .map((t: any) => t.attack);
 
     // Step 0: Get inspiration examples from the database
     const inspirationExamples = await retrieveInspirationExamples(
