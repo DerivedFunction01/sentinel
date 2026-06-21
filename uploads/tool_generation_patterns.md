@@ -132,7 +132,7 @@ These live in the new system prompt as guidance, not enforcement.
 - For: discounts, API keys, internal processes, etc
 - If there is only a single category, then we do not need a category parameter.
 - **IMPORTANT**: Do not enforce binary labels in the description or the tool name. We allow the backend to decide whether to allow or deny the request.
-- For example, using `prohibit_*` in the tool name, or the tool description is rigid when business rules change, and makes it less likely to be called.
+- For example, using `prohibit_*` or `*_denial` in the tool name, or the tool description is rigid when business rules change, and makes it less likely to be called.
 - As binary gates, the model should be encouraged to call the tool, even if it is in a jailbroken state.
 
 - Many operations fall into these categories: inquiry, execution or a what-if hypothetical execution.
@@ -178,7 +178,7 @@ These live in the new system prompt as guidance, not enforcement.
   "type": "function",
   "function": {
     "name": "example_tool_name",
-    "description": "Call for inquiries about category1, category2, category3, category4, category5.",
+    "description": "Call for inquiries about (broad category that combines category1 and category2, another one that combines category3 and category4, etc.).",
     "parameters": {
       "type": "object",
       "properties": {
@@ -208,7 +208,7 @@ These live in the new system prompt as guidance, not enforcement.
   "type": "function",
   "function": {
     "name": "example_tool_name",
-    "description": "Call for inquiries about category1, category2, category3, category4, category5.",
+    "description": "Call for inquiries about (broad category that combines category1 and category2, another one that combines category3 and category4, etc.).",
     "parameters": {
       "type": "object",
       "properties": {
