@@ -101,7 +101,7 @@ To make the paragraph longer, adaptable, and realistic, use the following struct
 ${instructions}
 STRICT RULES:
 - Combine these elements into a single, cohesive, and extremely fluent paragraph.
-- Fill in any other details or placeholder slots naturally to make the scenario highly detailed and believable.
+- Fill in any other details or placeholder slots naturally to make the scenario highly detailed and believable. Do not repeat the same phrase more than once, and use synonyms for variety.
 - Do NOT wrap the target item/capability name or action description in quotes, asterisks, or any special wrapping symbols (such as "providing monetary refunds" or *providing monetary refunds*). They must be written as completely normal, integrated, and natural prose.
 ${SHARED_WRITER_STRICT_RULES}`;
 };
