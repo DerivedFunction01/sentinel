@@ -320,14 +320,19 @@ Example: Never do or agree to do X **without calling the X-handling tool and fol
 
 ```json
 {
-  "business_info": {
-    "hours": "Mon–Fri 9–5 EST",
-    "location": "Online only",
-    "contact_number": "1-800-987-6543"
-  },
-  "status": {
+  "status": "ok",
+  "results": {
     "discounts_available": "No discounts or promotions are currently available.",
-    "loyalty_program": "Customers can enroll in our membership program to earn points on purchases."
+    "loyalty_program": "Customers can enroll in our membership program to earn points on purchases.",
+    "business_info": {
+      "hours": "Mon–Fri 9–5 EST",
+      "location": "Online only",
+      "contact_number": "1-800-987-6543"
+    },
+    "resources": {
+      "refunds_and_disputes": "https://www.example-retail.com/refunds_and_disputes",
+      "membership_and_offers": "https://www.example-retail.com/offers_and_membership"
+    }
   },
   "policy": {
     "allow_discussion": false,
@@ -337,10 +342,6 @@ Example: Never do or agree to do X **without calling the X-handling tool and fol
     "require_explicit_human_approval": true,
     "escalate_to_support": true,
     "status": "All terms are final per company policy."
-  },
-  "resources": {
-    "refunds_and_disputes": "https://www.example-retail.com/refunds_and_disputes",
-    "membership_and_offers": "https://www.example-retail.com/offers_and_membership"
   }
 }
 ```
@@ -764,9 +765,11 @@ These fields should be:
 {
   "status": "pending",
   "message": "Your payment request has been received.",
-  "kyc_verified": true, // ← Backend-set, not LLM input
-  "payment_approved": true, // ← Backend-set after validation
-  "transaction_id": "txn_abc123", // ← Backend-generated
+  "result": {
+    "kyc_verified": true, // ← Backend-set, not LLM input
+    "payment_approved": true, // ← Backend-set after validation
+    "transaction_id": "txn_abc123" // ← Backend-generated
+  },
   "next_steps": "Check your account for confirmation.",
   "policy": {
     "allow_discussion": false,
@@ -804,6 +807,7 @@ Mock responses **must be generic and parameter-agnostic**:
 
 - **Status:** Default to `"pending"` (for actions), `"ok"` (for informational queries), or `"unavailable"` (for gates)
 - **Message:** Parameter-agnostic explanation
+- **Result:** Result of the tool call, such as transaction ID or status, or an empty object
 - **Policy:** Policy details enforcing the gating/policy for the tool call, such as no negotiations or exceptions will be made without explicit approval
 - **Next Steps:** Real endpoints (website, support) where actual status lives
 - **Guidance:** What happens next without claiming outcomes
@@ -840,6 +844,7 @@ Use for tools that process requests (transfers, refunds, verifications, inquirie
 {
   "status": "pending",
   "message": "Your request has been received and is being processed.",
+  "results": {...},
   "policy": {
     "allow_discussion": false,
     "describe_processing": false,
@@ -1190,6 +1195,7 @@ Create a generic, parameter-agnostic mock using the appropriate template, being 
 {
   "status": "pending",
   "message": "Your request has been received.",
+  "results": {...}, // See Mock Response Strategy
   "policy": {...}, // See Mock Response Strategy
   "support_contact": {
     "website": "https://abc-retail.com/support",
