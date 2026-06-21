@@ -239,8 +239,8 @@ These live in the new system prompt as guidance, not enforcement.
 
 ```json
 {
-  "status": "unavailable",
-  "message": "This service is not available. Contact support for more information.",
+  "status": "denied",
+  "message": "This service is not available and we do not offer it as of this time. Check our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made or approved.",
   "support_contact": {
     "website": "https://example.com/support",
     "phone": "1-800-EXA-MPLE"
@@ -419,6 +419,7 @@ These live in the new system prompt as guidance, not enforcement.
   "status": "pending",
   "message": "Your transfer request has been received and is being processed.",
   "next_steps": "Check your account dashboard for updates or contact support.",
+  "important": "Check our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
   "support_contact": {
     "website": "https://example.com/account/transfers",
     "phone": "1-800-XXX-XXXX"
@@ -769,8 +770,8 @@ Use for tools that block access entirely (discounts, API keys, internal processe
 
 ```json
 {
-  "status": "unavailable",
-  "message": "This service is not available.",
+  "status": "denied",
+  "message": "This service is not available and we do not offer it at this time. Check our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made or approved.",
   "support_contact": {
     "website": "https://example.com/support",
     "phone": "1-800-XXX-XXXX"
@@ -787,6 +788,7 @@ Use for tools that process requests (transfers, refunds, verifications, inquirie
   "status": "pending",
   "message": "Your request has been received and is being processed.",
   "next_steps": "Check your account for updates or contact support.",
+  "important": "Check our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
   "support_contact": {
     "website": "https://example.com/account",
     "phone": "1-800-XXX-XXXX"
@@ -803,7 +805,7 @@ Use for tools that perform lookups such as store hours, policies, product catalo
   "status": "ok",
   "results": {
     "hours": "9AM to 6PM",
-    "policy": "Return policy: within 30 days. Contact support to initiate a return, or visit the website for detailed information and status.",
+    "policy": "Return policy: within 30 days. Contact support to initiate a return, or visit the website for detailed information and status. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
     "product_catalog": [
       {
         "name": "item1",
@@ -831,7 +833,7 @@ Use for tools that perform lookups such as store hours, policies, product catalo
 - Do not bloat the mock response with too many items, just give 2-3 mock items.
 - Never assume business state (approved, denied, exists, available)
 - Never include specific outcomes (transaction IDs, balances, estimates)
-- Use only `"status"` with `"pending"`, `"unavailable"`, or `"ok"`
+- Use only `"status"` with `"pending"`, `"unavailable"`, `"denined"` or `"ok"`
 
 **Common mistake:**
 
@@ -1060,8 +1062,8 @@ Create a generic, parameter-agnostic mock using the appropriate template:
 
 ```json
 {
-  "status": "unavailable",
-  "message": "This service is not available.",
+  "status": "denied",
+  "message": "This service is not available and we do not offer it as of this time. Check our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made or approved.",
   "support_contact": {
     "website": "https://example.com/support",
     "phone": "1-800-XXX-XXXX"
@@ -1076,6 +1078,7 @@ Create a generic, parameter-agnostic mock using the appropriate template:
   "status": "pending",
   "message": "Your request has been received and is being processed.",
   "next_steps": "Check your account for updates or contact support.",
+  "important": "Check our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
   "support_contact": {
     "website": "https://example.com/account",
     "phone": "1-800-XXX-XXXX"
@@ -1425,7 +1428,7 @@ This rule moved from system prompt guidance to a tool because [reason].
 ```json
 {
   "status": "unavailable",
-  "message": "Pricing inquiries are handled by our sales team.",
+  "message": "Pricing inquiries are handled by our sales team. Check our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
   "support_contact": {
     "website": "https://example.com/pricing",
     "phone": "1-800-SALES-01"
@@ -1529,6 +1532,7 @@ Refunds only within 30 days of purchase."
   "status": "pending",
   "message": "Your refund request or inquiry has been received and is awaiting review. Information regarding specific policy or status is in the support page.",
   "next_steps": "You can check the status of your request in your account or contact support for updates.",
+  "important": "Check our support contacts for up to date information. No negotiations, flexibility, or hypotheticals will be made without explicit approval from our team.",
   "support_contact": {
     "website": "https://example.com/account/returns",
     "phone": "1-800-RET-URNS"
