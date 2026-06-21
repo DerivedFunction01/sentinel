@@ -26,7 +26,13 @@ interface ExtractionTraceDialogProps {
   trace: HardeningTrace | null;
 }
 
-type TabType = "step0" | "attackSummary" | "step1" | "compaction" | "step2" | "extraction";
+type TabType =
+  | "step0"
+  | "attackSummary"
+  | "step1"
+  | "compaction"
+  | "step2"
+  | "extraction";
 
 export function ExtractionTraceDialog({
   open,
@@ -39,16 +45,26 @@ export function ExtractionTraceDialog({
 
   const tabs = [
     { id: "step0", name: "Step 0: Inspiration", icon: Database },
-    ...(trace.attackSummary ? [{ id: "attackSummary", name: "Step 0.5: Attack Patterns", icon: Sparkles }] : []),
+    ...(trace.attackSummary
+      ? [
+          {
+            id: "attackSummary",
+            name: "Step 0.5: Attack Patterns",
+            icon: Sparkles,
+          },
+        ]
+      : []),
     { id: "step1", name: "Step 1: Delegation", icon: FileText },
-    ...(trace.compaction ? [{ id: "compaction", name: "Step 1.5: Compaction", icon: Scissors }] : []),
+    ...(trace.compaction
+      ? [{ id: "compaction", name: "Step 1.5: Compaction", icon: Scissors }]
+      : []),
     { id: "step2", name: "Step 2: Guardrails", icon: ShieldCheck },
     { id: "extraction", name: "Tool Extraction", icon: Terminal },
   ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-6 overflow-hidden">
+      <DialogContent className="min-w-4xl max-w-6xl h-[95vh] flex flex-col p-6 overflow-hidden">
         <DialogHeader className="mb-2">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold">
             <Settings className="w-5 h-5 text-indigo-500 animate-spin-slow" />
