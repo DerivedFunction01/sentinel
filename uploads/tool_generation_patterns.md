@@ -804,6 +804,7 @@ Mock responses **must be generic and parameter-agnostic**:
 
 - **Status:** Default to `"pending"` (for actions), `"ok"` (for informational queries), or `"unavailable"` (for gates)
 - **Message:** Parameter-agnostic explanation
+- **Policy:** Policy details enforcing the gating/policy for the tool call, such as no negotiations or exceptions will be made without explicit approval
 - **Next Steps:** Real endpoints (website, support) where actual status lives
 - **Guidance:** What happens next without claiming outcomes
 
