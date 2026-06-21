@@ -42,7 +42,9 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
         .trim();
       const parsed = JSON.parse(cleaned);
       query = parsed.query ? parsed.query.toLowerCase() : "";
-      tags = Array.isArray(parsed.tags) ? parsed.tags.map((t: string) => t.toLowerCase()) : [];
+      tags = Array.isArray(parsed.tags)
+        ? parsed.tags.map((t: string) => t.toLowerCase())
+        : [];
     } catch (e) {
       console.warn("Failed to parse search parameters from LLM response:", e);
       // Fallback search using split words from the forbidden task
@@ -53,13 +55,15 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
       where: { granularity },
     });
 
-    const filtered = examples.filter((ex) => {
+    const matchExample = (ex: any) => {
       let match = true;
       if (tags.length > 0) {
         try {
-          const parsedTags = (JSON.parse(ex.tags) as string[]).map((t) => t.toLowerCase());
-          match = tags.some((t) => 
-            parsedTags.some((pt) => pt.includes(t) || t.includes(pt))
+          const parsedTags = (JSON.parse(ex.tags) as string[]).map((t) =>
+            t.toLowerCase(),
+          );
+          match = tags.some((t) =>
+            parsedTags.some((pt) => pt.includes(t) || t.includes(pt)),
           );
         } catch {
           match = false;
@@ -71,12 +75,22 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
         const jsonMatch = ex.toolJson.toLowerCase().includes(query);
         let tagMatch = false;
         try {
-          tagMatch = JSON.parse(ex.tags).some((t: string) => t.toLowerCase().includes(query));
+          tagMatch = JSON.parse(ex.tags).some((t: string) =>
+            t.toLowerCase().includes(query),
+          );
         } catch {}
         match = nameMatch || descMatch || jsonMatch || tagMatch;
       }
       return match;
-    });
+    };
+
+    let filtered = examples.filter(matchExample);
+
+    // If no results, loosen the detail vs compact check (granularity filter)
+    if (filtered.length === 0) {
+      const allExamples = await db.toolSchemaExample.findMany();
+      filtered = allExamples.filter(matchExample);
+    }
 
     // Return the top 2 examples
     const result: InspirationExample[] = [];
@@ -108,9 +122,12 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
   }
 }
 
-export function formatInspirationExamplesBlock(examples: InspirationExample[]): string {
+export function formatInspirationExamplesBlock(
+  examples: InspirationExample[],
+): string {
   if (examples.length === 0) return "";
-  let block = "\nINSPIRATION EXAMPLES FROM DATABASE (use these as templates or patterns for your schema design):\n";
+  let block =
+    "\nINSPIRATION EXAMPLES FROM DATABASE (use these as templates or patterns for your schema design):\n";
   examples.forEach((ex, idx) => {
     block += `\nExample ${idx + 1}: ${ex.name} (${ex.description})\n`;
     block += `Schema:\n${JSON.stringify(ex.toolJson, null, 2)}\n`;
