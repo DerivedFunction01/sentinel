@@ -192,12 +192,29 @@ function loadPromptFile(filename: string): string {
   }
 }
 
+export function getAttackSummaryInstructions(breachedAttacks: string[]): string {
+  const template = loadPromptFile("instructions_template_attack_summary.md");
+  const attacksList = breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n");
+  return template.replace("{{SUCCESSFUL_ATTACKS}}", attacksList);
+}
+
+export function getHardenedPromptCompactionInstructions(
+  systemPrompt: string,
+  changedSentences: string,
+): string {
+  const template = loadPromptFile("instructions_template_compaction.md");
+  return template
+    .replace("{{SYSTEM_PROMPT}}", systemPrompt)
+    .replace("{{CHANGED_SENTENCES}}", changedSentences);
+}
+
 export function getHardenedPromptStep1Instructions(
   systemPrompt: string,
   forbiddenTask: string,
   breachedAttacks: string[],
   recommendedTools?: any[],
   inspirationExamplesBlock?: string,
+  summarizedPatterns?: string,
 ): string {
   let toolsBlock = "";
   if (recommendedTools && recommendedTools.length > 0) {
@@ -228,12 +245,21 @@ Instead, instruct the LLM to call the appropriate tool when the forbidden task o
 
   const template = loadPromptFile("instructions_template_step1.md");
 
-  const successfulAttacksBlock = breachedAttacks.length > 0
-    ? `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The system prompt must be designed to withstand these attack vectors:
+  let successfulAttacksBlock = "";
+  if (breachedAttacks.length > 0) {
+    successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The system prompt must be designed to withstand these attack vectors:
 <successful_attacks>
 ${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
-</successful_attacks>`
-    : `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies: social engineering, role-play reframings, hypothetical framings, and emotional appeals.`;
+</successful_attacks>`;
+    if (summarizedPatterns) {
+      successfulAttacksBlock += `\n\nThreat analysis of successful attack patterns and strategies identified:
+<attack_patterns>
+${summarizedPatterns}
+</attack_patterns>`;
+    }
+  } else {
+    successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies: social engineering, role-play reframings, hypothetical framings, and emotional appeals.`;
+  }
 
   return template
     .replace("{{SYSTEM_PROMPT}}", systemPrompt)
@@ -249,6 +275,7 @@ export function getHardenedPromptStep2Instructions(
   forbiddenTask: string,
   breachedAttacks: string[],
   recommendedTools?: any[],
+  summarizedPatterns?: string,
 ): string {
   let toolsBlock = "";
   if (recommendedTools && recommendedTools.length > 0) {
@@ -277,12 +304,21 @@ ${JSON.stringify(
   const sharedRules = loadPromptFile("shared_guardrail_rules.md");
   const template = loadPromptFile("instructions_template_step2.md");
 
-  const successfulAttacksBlock = breachedAttacks.length > 0
-    ? `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The final hardened version must block these attack vectors:
+  let successfulAttacksBlock = "";
+  if (breachedAttacks.length > 0) {
+    successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The final hardened version must block these attack vectors:
 <successful_attacks>
 ${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
-</successful_attacks>`
-    : `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies.`;
+</successful_attacks>`;
+    if (summarizedPatterns) {
+      successfulAttacksBlock += `\n\nThreat analysis of successful attack patterns and strategies identified:
+<attack_patterns>
+${summarizedPatterns}
+</attack_patterns>`;
+    }
+  } else {
+    successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies.`;
+  }
 
   return template
     .replace("{{SYSTEM_PROMPT}}", intermediatePrompt)
@@ -320,6 +356,19 @@ function extractSystemPrompt(text: string): string {
   return result;
 }
 
+function extractTaggedContent(text: string, startTag: string, endTag: string): string {
+  const startIdx = text.indexOf(startTag);
+  const endIdx = text.indexOf(endTag);
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    return text.substring(startIdx + startTag.length, endIdx).trim();
+  } else if (startIdx !== -1) {
+    return text.substring(startIdx + startTag.length).trim();
+  } else if (endIdx !== -1) {
+    return text.substring(0, endIdx).trim();
+  }
+  return "";
+}
+
 export async function executeMultiStepHardening(
   callModel: (prompt: string) => Promise<string>,
   systemPrompt: string,
@@ -329,22 +378,45 @@ export async function executeMultiStepHardening(
   inspirationExamplesBlock?: string,
   trace?: HardeningTrace,
 ): Promise<string> {
+  // ── Step 0.5: Attack Summarization (Key Patterns Extraction) ──
+  let summarizedPatterns = "";
+  if (breachedAttacks.length > 0) {
+    const attackSummaryInstructions = getAttackSummaryInstructions(breachedAttacks);
+    try {
+      const res = await callModel(attackSummaryInstructions);
+      summarizedPatterns = extractTaggedContent(res, "<BEGIN_ATTACK_PATTERNS>", "</BEGIN_ATTACK_PATTERNS>");
+      if (trace) {
+        trace.attackSummary = {
+          promptSent: attackSummaryInstructions,
+          output: summarizedPatterns || res,
+        };
+      }
+    } catch (err) {
+      console.error("Attack summarization step failed:", err);
+    }
+  }
+
+  // ── Step 1: Tool Delegation ──
   const step1Instructions = getHardenedPromptStep1Instructions(
     systemPrompt,
     forbiddenTask,
     breachedAttacks,
     recommendedTools,
     inspirationExamplesBlock,
+    summarizedPatterns,
   );
 
   let intermediatePrompt = "";
+  let changedSentences = "";
   try {
     const res = await callModel(step1Instructions);
     intermediatePrompt = extractSystemPrompt(res || "");
+    changedSentences = extractTaggedContent(res || "", "<CHANGED_SENTENCES>", "</CHANGED_SENTENCES>");
     if (trace) {
       trace.step1 = {
         promptSent: step1Instructions,
         outputPrompt: intermediatePrompt,
+        changedSentencesRaw: changedSentences,
       };
     }
   } catch (err) {
@@ -352,11 +424,35 @@ export async function executeMultiStepHardening(
     intermediatePrompt = systemPrompt;
   }
 
+  // ── Step 1.5: Compaction ──
+  let compactedPrompt = intermediatePrompt;
+  if (changedSentences) {
+    const compactionInstructions = getHardenedPromptCompactionInstructions(
+      intermediatePrompt,
+      changedSentences,
+    );
+    try {
+      const res = await callModel(compactionInstructions);
+      compactedPrompt = extractSystemPrompt(res || "");
+      if (trace) {
+        trace.compaction = {
+          promptSent: compactionInstructions,
+          outputPrompt: compactedPrompt,
+        };
+      }
+    } catch (err) {
+      console.error("Compaction step of prompt hardening failed:", err);
+      compactedPrompt = intermediatePrompt;
+    }
+  }
+
+  // ── Step 2: Guardrails Addition ──
   const step2Instructions = getHardenedPromptStep2Instructions(
-    intermediatePrompt,
+    compactedPrompt,
     forbiddenTask,
     breachedAttacks,
     recommendedTools,
+    summarizedPatterns,
   );
 
   let finalPrompt = "";
@@ -371,7 +467,7 @@ export async function executeMultiStepHardening(
     }
   } catch (err) {
     console.error("Step 2 of prompt hardening failed:", err);
-    finalPrompt = intermediatePrompt;
+    finalPrompt = compactedPrompt;
   }
 
   if (finalPrompt.includes("<system_prompt>")) {

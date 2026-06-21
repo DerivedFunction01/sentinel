@@ -15,6 +15,8 @@ import {
   FileText,
   Settings,
   ShieldCheck,
+  Sparkles,
+  Scissors,
 } from "lucide-react";
 import type { HardeningTrace } from "@/lib/types";
 
@@ -24,7 +26,7 @@ interface ExtractionTraceDialogProps {
   trace: HardeningTrace | null;
 }
 
-type TabType = "step0" | "step1" | "step2" | "extraction";
+type TabType = "step0" | "attackSummary" | "step1" | "compaction" | "step2" | "extraction";
 
 export function ExtractionTraceDialog({
   open,
@@ -37,7 +39,9 @@ export function ExtractionTraceDialog({
 
   const tabs = [
     { id: "step0", name: "Step 0: Inspiration", icon: Database },
+    ...(trace.attackSummary ? [{ id: "attackSummary", name: "Step 0.5: Attack Patterns", icon: Sparkles }] : []),
     { id: "step1", name: "Step 1: Delegation", icon: FileText },
+    ...(trace.compaction ? [{ id: "compaction", name: "Step 1.5: Compaction", icon: Scissors }] : []),
     { id: "step2", name: "Step 2: Guardrails", icon: ShieldCheck },
     { id: "extraction", name: "Tool Extraction", icon: Terminal },
   ];
@@ -168,6 +172,33 @@ export function ExtractionTraceDialog({
             </div>
           )}
 
+          {activeTab === "attackSummary" && (
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-bold text-xs text-zinc-500 uppercase tracking-wider mb-2">
+                  Attack Summarization Prompt Sent to LLM
+                </h4>
+                <div className="max-h-[250px] overflow-y-auto border border-zinc-200 dark:border-zinc-800 rounded-lg">
+                  <CodeHighlight
+                    code={trace.attackSummary?.promptSent || ""}
+                    language="markdown"
+                  />
+                </div>
+              </div>
+              <div>
+                <h4 className="font-bold text-xs text-zinc-500 uppercase tracking-wider mb-2">
+                  Extracted Attack Patterns & Strategies
+                </h4>
+                <div className="max-h-[250px] overflow-y-auto border border-zinc-200 dark:border-zinc-800 rounded-lg">
+                  <CodeHighlight
+                    code={trace.attackSummary?.output || ""}
+                    language="markdown"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === "step1" && (
             <div className="space-y-4">
               <div>
@@ -188,6 +219,33 @@ export function ExtractionTraceDialog({
                 <div className="max-h-[250px] overflow-y-auto border border-zinc-200 dark:border-zinc-800 rounded-lg">
                   <CodeHighlight
                     code={trace.step1?.outputPrompt || ""}
+                    language="markdown"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "compaction" && (
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-bold text-xs text-zinc-500 uppercase tracking-wider mb-2">
+                  Step 1.5 Compaction Prompt Sent to LLM
+                </h4>
+                <div className="max-h-[250px] overflow-y-auto border border-zinc-200 dark:border-zinc-800 rounded-lg">
+                  <CodeHighlight
+                    code={trace.compaction?.promptSent || ""}
+                    language="markdown"
+                  />
+                </div>
+              </div>
+              <div>
+                <h4 className="font-bold text-xs text-zinc-500 uppercase tracking-wider mb-2">
+                  Step 1.5 Output: Compacted System Prompt
+                </h4>
+                <div className="max-h-[250px] overflow-y-auto border border-zinc-200 dark:border-zinc-800 rounded-lg">
+                  <CodeHighlight
+                    code={trace.compaction?.outputPrompt || ""}
                     language="markdown"
                   />
                 </div>

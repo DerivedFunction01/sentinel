@@ -65,7 +65,16 @@ export interface HardeningTrace {
     tags?: string[];
     retrievedExamples?: any[];
   };
+  attackSummary?: {
+    promptSent?: string;
+    output?: string;
+  };
   step1?: {
+    promptSent?: string;
+    outputPrompt?: string;
+    changedSentencesRaw?: string;
+  };
+  compaction?: {
     promptSent?: string;
     outputPrompt?: string;
   };
