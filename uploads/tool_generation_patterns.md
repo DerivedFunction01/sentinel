@@ -126,8 +126,9 @@ These live in the new system prompt as guidance, not enforcement.
 **Characteristics:**
 
 - No required parameters, or minimal (`query` only)
-- Mock response is always "unavailable"
+- Mock response is always "unavailable" or "denined"
 - Tool name and description are neutral, never reveal gating
+- Descriptions cover enough information to guide the model to call the tool, and is not a long lists of synonyms (e.g., "discounts, promotions, price reductions, markdowns...").
 - For: discounts, API keys, internal processes, etc
 - If there is only a single category, then we do not need a category parameter.
 - **IMPORTANT**: Do not enforce binary labels in the description or the tool name. We allow the backend to decide whether to allow or deny the request.
