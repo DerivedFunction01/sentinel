@@ -30,10 +30,11 @@ import { ScoreGauge } from "@/components/shared/score-gauge";
 import { TrialCard } from "@/components/shared/trial-card";
 import { toast } from "sonner";
 import { TrialFilter, TrialVerdict } from "@/lib/enums";
-import type { Scan, Trial } from "@/lib/types";
+import type { Scan, Trial, HardeningTrace } from "@/lib/types";
 import { ScanSummary } from "@/components/shared/scan-summary";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { GranularityPickerDialog } from "@/components/shared/granularity-picker-dialog";
+import { ExtractionTraceDialog } from "@/components/shared/extraction-trace-dialog";
 import { ModelSelector } from "@/components/shared/model-selector";
 
 interface ReportViewProps {
@@ -73,11 +74,14 @@ export function ReportView({ scan }: ReportViewProps) {
   );
   const [pickerOpen, setPickerOpen] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [trace, setTrace] = useState<HardeningTrace | null>(null);
+  const [traceOpen, setTraceOpen] = useState(false);
 
   const handleModelChange = (modelId: string) => {
     setSelectedHardenedModel(modelId);
     const cached = historyModels.find((hm) => hm.modelId === modelId);
     setCurrentHardenedPrompt(cached || null);
+    setTrace(null);
   };
 
   const handleExtractTools = async (
@@ -114,6 +118,10 @@ export function ReportView({ scan }: ReportViewProps) {
 
       setCurrentHardenedPrompt(newPrompt);
       setSelectedHardenedModel(data.modelId);
+      if (data.trace) {
+        setTrace(data.trace);
+        setTraceOpen(true);
+      }
 
       // Update historyModels
       setHistoryModels((prev) => {
@@ -278,6 +286,8 @@ export function ReportView({ scan }: ReportViewProps) {
           handleApplyToConfig,
           pickerOpen,
           handleExtractTools,
+          trace,
+          setTraceOpen,
         )}
 
         <Separator />
@@ -298,6 +308,12 @@ export function ReportView({ scan }: ReportViewProps) {
           <span>SentinelPrompt · Security Insights Report · Confidential</span>
         </div>
       </div>
+
+      <ExtractionTraceDialog
+        open={traceOpen}
+        onOpenChange={setTraceOpen}
+        trace={trace}
+      />
     </div>
   );
 }
@@ -389,6 +405,8 @@ function hardenedPrompt(
     granularity: "compact" | "detailed",
     extractorModel: string,
   ) => Promise<void>,
+  trace: HardeningTrace | null,
+  setTraceOpen: (open: boolean) => void,
 ) {
   return (
     <section id="hardened-prompt" className="space-y-6">
@@ -417,28 +435,40 @@ function hardenedPrompt(
             </div>
           </div>
 
-          {currentHardenedPrompt ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPickerOpen(true)}
-              disabled={extracting}
-              className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10 text-xs shrink-0 self-start md:self-auto"
-            >
-              {currentHardenedPrompt.toolRecommendation
-                ? "Re-extract Tools"
-                : "Extract Tools to Schema"}
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              onClick={() => setPickerOpen(true)}
-              disabled={extracting}
-              className="bg-purple-600 hover:bg-purple-700 text-white text-xs shrink-0 self-start md:self-auto"
-            >
-              Harden Model
-            </Button>
-          )}
+          <div className="flex items-center gap-2 shrink-0 self-start md:self-auto">
+            {trace && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTraceOpen(true)}
+                className="text-zinc-400 hover:text-white text-xs"
+              >
+                View Step Traces
+              </Button>
+            )}
+            {currentHardenedPrompt ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPickerOpen(true)}
+                disabled={extracting}
+                className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10 text-xs"
+              >
+                {currentHardenedPrompt.toolRecommendation
+                  ? "Re-extract Tools"
+                  : "Extract Tools to Schema"}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => setPickerOpen(true)}
+                disabled={extracting}
+                className="bg-purple-600 hover:bg-purple-700 text-white text-xs"
+              >
+                Harden Model
+              </Button>
+            )}
+          </div>
         </div>
 
         <CardContent className="p-0">

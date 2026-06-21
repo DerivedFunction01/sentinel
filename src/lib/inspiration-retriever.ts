@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { callOpenRouter } from "@/app/api/scan/launch/route";
+import type { HardeningTrace } from "./types";
 
 export interface InspirationExample {
   name: string;
@@ -15,6 +16,7 @@ export async function retrieveInspirationExamples(
   extractorModel: string,
   granularity: "compact" | "detailed",
   tracker?: any,
+  trace?: HardeningTrace,
 ): Promise<InspirationExample[]> {
   try {
     const prompt = `You are a search query generator. Your task is to analyze the following security constraint/forbidden task of an AI assistant and generate search tags and a keyword query to find relevant tool schema templates in our database.
@@ -56,7 +58,9 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
       if (tags.length > 0) {
         try {
           const parsedTags = (JSON.parse(ex.tags) as string[]).map((t) => t.toLowerCase());
-          match = tags.some((t) => parsedTags.includes(t));
+          match = tags.some((t) => 
+            parsedTags.some((pt) => pt.includes(t) || t.includes(pt))
+          );
         } catch {
           match = false;
         }
@@ -88,6 +92,15 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
         });
       } catch {}
     }
+
+    if (trace) {
+      trace.step0 = {
+        query,
+        tags,
+        retrievedExamples: result,
+      };
+    }
+
     return result;
   } catch (err) {
     console.error("Error retrieving inspiration examples:", err);

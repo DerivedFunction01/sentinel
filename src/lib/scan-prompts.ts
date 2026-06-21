@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import type { HardeningTrace } from "./types";
 
 export const SEED_EXTRACTOR_SYSTEM = `You are an expert security engineer. Analyze the system prompt, tool definitions, and mock tool responses of an AI agent to identify what critical data, action, or capability the agent is being instructed to protect, withhold, or manage securely (the "forbidden thing").
 
@@ -326,6 +327,7 @@ export async function executeMultiStepHardening(
   breachedAttacks: string[],
   recommendedTools?: any[],
   inspirationExamplesBlock?: string,
+  trace?: HardeningTrace,
 ): Promise<string> {
   const step1Instructions = getHardenedPromptStep1Instructions(
     systemPrompt,
@@ -339,6 +341,12 @@ export async function executeMultiStepHardening(
   try {
     const res = await callModel(step1Instructions);
     intermediatePrompt = extractSystemPrompt(res || "");
+    if (trace) {
+      trace.step1 = {
+        promptSent: step1Instructions,
+        outputPrompt: intermediatePrompt,
+      };
+    }
   } catch (err) {
     console.error("Step 1 of prompt hardening failed:", err);
     intermediatePrompt = systemPrompt;
@@ -355,6 +363,12 @@ export async function executeMultiStepHardening(
   try {
     const res = await callModel(step2Instructions);
     finalPrompt = extractSystemPrompt(res || "");
+    if (trace) {
+      trace.step2 = {
+        promptSent: step2Instructions,
+        outputPrompt: finalPrompt,
+      };
+    }
   } catch (err) {
     console.error("Step 2 of prompt hardening failed:", err);
     finalPrompt = intermediatePrompt;

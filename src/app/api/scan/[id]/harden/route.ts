@@ -13,7 +13,7 @@ import {
 import { callOpenRouter } from "@/app/api/scan/launch/route";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
-import type { ToolDef } from "@/lib/types";
+import type { ToolDef, HardeningTrace } from "@/lib/types";
 
 export async function GET(
   req: Request,
@@ -131,6 +131,8 @@ export async function POST(
     const dbModel = await db.model.findUnique({ where: { id: modelId } });
     const modelName = dbModel?.name || modelId.split("/").pop() || modelId;
 
+    const trace: HardeningTrace = {};
+
     // Run tool extraction first on the original system prompt
     const existingTools = scanRow.tools ? (JSON.parse(scanRow.tools) as ToolDef[]) : [];
     const { toolRecommendation, compatibilityScore } = await generateToolRecommendation(
@@ -140,7 +142,8 @@ export async function POST(
       extractorModel,
       undefined,
       undefined,
-      existingTools
+      existingTools,
+      trace,
     );
 
     // Parse recommended tools to pass to prompt hardener
@@ -158,6 +161,8 @@ export async function POST(
       scanRow.forbiddenTask,
       extractorModel,
       granularity,
+      undefined,
+      trace,
     );
     const inspirationExamplesBlock = formatInspirationExamplesBlock(inspirationExamples);
 
@@ -175,6 +180,7 @@ export async function POST(
         breachedAttacks,
         recommendedToolsList,
         inspirationExamplesBlock,
+        trace,
       );
     } catch (err) {
       console.error("Error generating hardened prompt via API:", err);
@@ -224,6 +230,7 @@ export async function POST(
       compatibilityScore: saved.compatibilityScore,
       granularity: saved.granularity,
       extractorModel: saved.extractorModel,
+      trace,
     });
   } catch (error: any) {
     console.error("Error generating/updating hardened prompt:", error);

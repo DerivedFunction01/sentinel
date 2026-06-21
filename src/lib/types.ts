@@ -59,6 +59,26 @@ export interface ToolRecommendationItem {
   replaces?: string;
 }
 
+export interface HardeningTrace {
+  step0?: {
+    query?: string;
+    tags?: string[];
+    retrievedExamples?: any[];
+  };
+  step1?: {
+    promptSent?: string;
+    outputPrompt?: string;
+  };
+  step2?: {
+    promptSent?: string;
+    outputPrompt?: string;
+  };
+  toolExtraction?: {
+    promptSent?: string;
+    rawOutput?: string;
+  };
+}
+
 export interface ToolRecommendation {
   compatibilityScore?: number;
   rationale?: string;
