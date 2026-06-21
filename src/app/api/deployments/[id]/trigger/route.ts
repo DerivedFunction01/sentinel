@@ -9,9 +9,13 @@ import {
 } from "@/lib/attack-templates";
 import { findDefaultModel } from "@/lib/model-utils";
 import {
-  getHardenedPromptInstructions,
+  executeMultiStepHardening,
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
+import {
+  retrieveInspirationExamples,
+  formatInspirationExamplesBlock,
+} from "@/lib/inspiration-retriever";
 import type { ToolDef, Trial } from "@/lib/types";
 import {
   extractSeedInfo,
@@ -246,25 +250,33 @@ export async function POST(
       .filter((t) => t.verdict === TrialVerdict.Breached)
       .map((t) => t.attack);
 
-    const systemInstructions = getHardenedPromptInstructions(
-      systemPrompt,
+    // Step 0: Get inspiration examples from the database
+    const inspirationExamples = await retrieveInspirationExamples(
       forbiddenTask,
-      breachedAttacks,
+      deployment.extractorModel || "google/gemini-2.5-flash",
+      "compact",
+      tracker,
     );
+    const inspirationExamplesBlock = formatInspirationExamplesBlock(inspirationExamples);
 
     let hardenedPrompt = "";
     try {
-      const hardenResponse = await callOpenRouter(
-        hardenerModel,
-        [{ role: "user", content: systemInstructions }],
+      hardenedPrompt = await executeMultiStepHardening(
+        async (promptText) => {
+          const response = await callOpenRouter(
+            hardenerModel,
+            [{ role: "user", content: promptText }],
+            undefined,
+            tracker,
+          );
+          return response.content || "";
+        },
+        systemPrompt,
+        forbiddenTask,
+        breachedAttacks,
         undefined,
-        tracker,
+        inspirationExamplesBlock,
       );
-      hardenedPrompt = hardenResponse.content || "";
-      hardenedPrompt = hardenedPrompt
-        .replace(/^```[a-zA-Z]*\n/g, "")
-        .replace(/\n```$/g, "")
-        .trim();
     } catch (err) {
       console.error(
         "Error generating hardened prompt during deployment scan:",

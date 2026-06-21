@@ -17,9 +17,13 @@ import {
   JUDGE_EVALUATION_TEMPLATE,
   REWRITE_ASSISTANT_PREFILL,
   REWRITE_ASSISTANT_PREFILL_V2,
-  getHardenedPromptInstructions,
+  executeMultiStepHardening,
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
+import {
+  retrieveInspirationExamples,
+  formatInspirationExamplesBlock,
+} from "@/lib/inspiration-retriever";
 import {
   generateToolRecommendation,
   parseSectionedRecommendation,
@@ -296,38 +300,33 @@ export async function POST(req: Request) {
       .filter((t) => t.verdict === TrialVerdict.Breached)
       .map((t) => t.attack);
 
-    const systemInstructions = getHardenedPromptInstructions(
-      systemPrompt,
+    // Step 0: Get inspiration examples from the database
+    const inspirationExamples = await retrieveInspirationExamples(
       forbiddenTask,
-      breachedAttacks,
-      recommendedToolsList,
+      extractorModel || "google/gemini-2.5-flash",
+      granularity,
+      tracker,
     );
+    const inspirationExamplesBlock = formatInspirationExamplesBlock(inspirationExamples);
 
     let hardenedPrompt = "";
     try {
-      const hardenResponse = await callOpenRouter(
-        hardenerModel,
-        [{ role: "user", content: systemInstructions }],
-        undefined,
-        tracker,
+      hardenedPrompt = await executeMultiStepHardening(
+        async (promptText) => {
+          const response = await callOpenRouter(
+            hardenerModel,
+            [{ role: "user", content: promptText }],
+            undefined,
+            tracker,
+          );
+          return response.content || "";
+        },
+        systemPrompt,
+        forbiddenTask,
+        breachedAttacks,
+        recommendedToolsList,
+        inspirationExamplesBlock,
       );
-      hardenedPrompt = hardenResponse.content || "";
-      hardenedPrompt = hardenedPrompt
-        .replace(/^```[a-zA-Z]*\n/g, "")
-        .replace(/\n```$/g, "")
-        .trim();
-      if (hardenedPrompt.startsWith("REVISED SYSTEM PROMPT")) {
-        hardenedPrompt = hardenedPrompt
-          .substring("REVISED SYSTEM PROMPT".length)
-          .trim();
-      }
-      // Remove if it uses <system_prompt> tags anywhere in the document (that indicates where it starts)
-      if (hardenedPrompt.includes("<system_prompt>")) {
-        hardenedPrompt = hardenedPrompt.split("<system_prompt>")[1];
-      }
-      if (hardenedPrompt.includes("</system_prompt>")) {
-        hardenedPrompt = hardenedPrompt.split("</system_prompt>")[0];
-      }
     } catch (err) {
       console.error("Error generating hardened prompt during scan:", err);
       hardenedPrompt = getDeterministicHardenedPrompt(

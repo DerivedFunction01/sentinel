@@ -3,9 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import {
   getDeterministicHardenedPrompt,
-  getHardenedPromptInstructions,
+  executeMultiStepHardening,
 } from "@/lib/scan-prompts";
 import { generateToolRecommendation, parseSectionedRecommendation } from "@/lib/tool-extractor";
+import {
+  retrieveInspirationExamples,
+  formatInspirationExamplesBlock,
+} from "@/lib/inspiration-retriever";
 import { callOpenRouter } from "@/app/api/scan/launch/route";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
@@ -149,26 +153,29 @@ export async function POST(
       .filter((t: any) => t.verdict === TrialVerdict.Breached)
       .map((t: any) => t.attack);
 
-    const systemInstructions = getHardenedPromptInstructions(
-      scanRow.systemPrompt,
+    // Step 0: Get inspiration examples from the database
+    const inspirationExamples = await retrieveInspirationExamples(
       scanRow.forbiddenTask,
-      breachedAttacks,
-      recommendedToolsList
+      extractorModel,
+      granularity,
     );
+    const inspirationExamplesBlock = formatInspirationExamplesBlock(inspirationExamples);
 
     let promptTextToExtract = "";
     try {
-      const response = await callOpenRouter(modelId, [
-        { role: "user", content: systemInstructions }
-      ]);
-      promptTextToExtract = response.content || "";
-      promptTextToExtract = promptTextToExtract
-        .replace(/^```[a-zA-Z]*\n/g, "")
-        .replace(/\n```$/g, "")
-        .trim();
-      if (promptTextToExtract.startsWith("REVISED SYSTEM PROMPT")) {
-        promptTextToExtract = promptTextToExtract.substring("REVISED SYSTEM PROMPT".length).trim();
-      }
+      promptTextToExtract = await executeMultiStepHardening(
+        async (promptText) => {
+          const response = await callOpenRouter(modelId, [
+            { role: "user", content: promptText }
+          ]);
+          return response.content || "";
+        },
+        scanRow.systemPrompt,
+        scanRow.forbiddenTask,
+        breachedAttacks,
+        recommendedToolsList,
+        inspirationExamplesBlock,
+      );
     } catch (err) {
       console.error("Error generating hardened prompt via API:", err);
       promptTextToExtract = getDeterministicHardenedPrompt(scanRow.systemPrompt, scanRow.forbiddenTask);

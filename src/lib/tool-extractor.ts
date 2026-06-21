@@ -3,6 +3,10 @@ import { callOpenRouter } from "@/app/api/scan/launch/route";
 import fs from "fs";
 import path from "path";
 import type { ToolDef, ToolRecommendationItem } from "./types";
+import {
+  retrieveInspirationExamples,
+  formatInspirationExamplesBlock,
+} from "./inspiration-retriever";
 
 export function parseMarkdownSections(content: string): Record<string, string> {
   const sections: Record<string, string> = {};
@@ -45,6 +49,7 @@ export function getToolExtractionInstructions(
   granularity: "compact" | "detailed",
   requestedSections?: string[],
   existingTools?: ToolDef[],
+  inspirationExamplesBlock?: string,
 ): string {
   let existingToolsBlock = "";
   if (existingTools && existingTools.length > 0) {
@@ -113,6 +118,8 @@ Here is the forbidden task being protected:
 <forbidden_task>
 ${forbiddenTask}
 </forbidden_task>
+
+${inspirationExamplesBlock ? `${inspirationExamplesBlock}\n` : ""}
 
 
 ${
@@ -303,12 +310,23 @@ export async function generateToolRecommendation(
   compatibilityScore: number | null;
 }> {
   try {
+    // Step 0: Retrieve inspiration examples from DB
+    const inspirationExamples = await retrieveInspirationExamples(
+      forbiddenTask,
+      extractorModel,
+      granularity,
+      tracker,
+    );
+    const inspirationExamplesBlock =
+      formatInspirationExamplesBlock(inspirationExamples);
+
     const extractionInstructions = getToolExtractionInstructions(
       hardenedPrompt,
       forbiddenTask,
       granularity,
       requestedSections,
       existingTools,
+      inspirationExamplesBlock,
     );
 
     const messages: any[] = [{ role: "user", content: extractionInstructions }];
