@@ -471,9 +471,9 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                           {tags.length > 0 && (
                             <div className="flex flex-wrap items-center gap-1.5 pt-1">
                               <Tag className="h-3 w-3 text-muted-foreground mr-1" />
-                              {tags.map((tag) => (
+                              {tags.map((tag, idx) => (
                                 <Badge
-                                  key={tag}
+                                  key={`${tag}-${idx}`}
                                   variant="secondary"
                                   className="text-[11px] bg-muted/30 text-muted-foreground font-normal hover:bg-muted/40"
                                 >
