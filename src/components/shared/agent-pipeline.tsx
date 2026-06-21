@@ -1,6 +1,6 @@
 "use client";
 
-import { Target, Shield, Gavel, ArrowRight } from "lucide-react";
+import { Target, Shield, Gavel, Sparkles } from "lucide-react";
 
 export function AgentPipeline() {
   const agents = [
@@ -28,28 +28,32 @@ export function AgentPipeline() {
       bg: "bg-emerald-500/10",
       border: "border-emerald-500/20",
     },
+    {
+      icon: Sparkles,
+      title: "Hardener LLM",
+      desc: "Optimizes system prompts and extracts tool recommendations",
+      color: "text-purple-400",
+      bg: "bg-purple-500/10",
+      border: "border-purple-500/20",
+    },
   ];
 
   return (
-    <div className="flex flex-col items-stretch gap-3 lg:flex-row lg:items-stretch">
-      {agents.map((agent, i) => (
-        <div key={agent.title} className="flex flex-1 items-stretch gap-3">
-          <div
-            className={`flex-1 rounded-xl border ${agent.border} ${agent.bg} p-4 flex flex-col`}
-          >
-            <div className="mb-2 flex items-center gap-2">
-              <agent.icon className={`h-5 w-5 ${agent.color}`} />
-              <h4 className="text-sm font-semibold text-foreground">
-                {agent.title}
-              </h4>
-            </div>
-            <p className="text-xs leading-relaxed text-muted-foreground flex-1">
-              {agent.desc}
-            </p>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {agents.map((agent) => (
+        <div
+          key={agent.title}
+          className={`rounded-xl border ${agent.border} ${agent.bg} p-4 flex flex-col`}
+        >
+          <div className="mb-2 flex items-center gap-2">
+            <agent.icon className={`h-5 w-5 ${agent.color}`} />
+            <h4 className="text-sm font-semibold text-foreground">
+              {agent.title}
+            </h4>
           </div>
-          {i < agents.length - 1 && (
-            <ArrowRight className="hidden h-5 w-5 shrink-0 text-muted-foreground lg:block self-center" />
-          )}
+          <p className="text-xs leading-relaxed text-muted-foreground flex-1">
+            {agent.desc}
+          </p>
         </div>
       ))}
     </div>
