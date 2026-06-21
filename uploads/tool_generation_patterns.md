@@ -639,6 +639,109 @@ Include only fields needed to **route** the call. Optional fields add context bu
 
 ---
 
+### 6. High-Stakes Domains: Fields That Must Never Be LLM-Authored
+
+In domains where authorization, consent, and legal liability are critical (financial transactions, medical decisions, legal contracts, payments, identity verification), certain fields **must never be parameters that the LLM can populate or author**.
+
+**Never allow the LLM to author:**
+
+1. **PII (Personally Identifiable Information)**
+   - Customer names, addresses, phone numbers, emails, SSNs, medical IDs, passport numbers
+   - Bank account numbers, credit card numbers, insurance policy numbers
+   - Biometric data, genetic information, health records
+
+2. **Consent & Authorization Flags**
+   - `user_consented`, `terms_accepted`, `privacy_policy_agreed`
+   - `authorized_by_user`, `user_approved`, `user_confirmed`
+   - Any flag indicating human agreement or intent
+
+3. **Compliance & Verification Fields**
+   - `is_verified`, `identity_confirmed`, `kyc_passed`, `aml_checked`
+   - `payment_approved`, `transaction_verified`, `regulatory_compliant`
+   - `audit_approved`, `legal_reviewed`, `compliance_signed_off`
+
+4. **Proof & Evidence Fields**
+   - Digital signatures, cryptographic hashes, proof records
+   - Timestamps (use backend-generated only)
+   - Document IDs, receipt numbers, transaction IDs (backend-generated)
+   - Audit logs, compliance documentation
+
+**Design pattern instead:**
+
+These fields should be:
+
+- **Output-only** (appear in mock responses and backend responses, never as input parameters)
+- **Backend-generated** (filled by trusted systems after validation)
+- **Immutable** (once set by backend, never updated by LLM)
+- **Auditable** (logged and traceable to the backend validator, not the LLM)
+
+**Example: Payment tool (WRONG):**
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "process_payment",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "customer_name": { "type": "string" }, // ✗ PII - LLM should not author
+        "card_number": { "type": "string" }, // ✗ PII - LLM should not author
+        "amount": { "type": "number" },
+        "kyc_verified": { "type": "boolean" }, // ✗ Verification - LLM should not set
+        "payment_approved": { "type": "boolean" } // ✗ Compliance - LLM should not set
+      },
+      "required": [
+        "customer_name",
+        "card_number",
+        "amount",
+        "kyc_verified",
+        "payment_approved"
+      ]
+    }
+  }
+}
+```
+
+**Example: Payment tool (RIGHT):**
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "process_payment",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "customer_id": { "type": "string" }, // ✓ Identifier, not PII. Backend validates if the id matches.
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "operation": { "type": "string", "enum": ["inquiry", "execute"] }
+      },
+      "required": ["customer_id", "amount", "operation"]
+    }
+  }
+}
+```
+
+**Backend response (includes verification, never from LLM):**
+
+```json
+{
+  "status": "pending",
+  "message": "Your payment request has been received.",
+  "kyc_verified": true, // ← Backend-set, not LLM input
+  "payment_approved": true, // ← Backend-set after validation
+  "transaction_id": "txn_abc123", // ← Backend-generated
+  "next_steps": "Check your account for confirmation.",
+  "support_contact": { "website": "...", "phone": "..." }
+}
+```
+
+**Key principle:**
+
+The LLM **references** PII and compliance status ("the customer on file", "their KYC status"), but **never authors or populates** these fields. The backend holds the truth; the LLM routes requests to backend validators.
+
 ## Mock Response Strategy
 
 ### The Pipeline Constraint
