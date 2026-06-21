@@ -7,8 +7,8 @@ import {
   patterns,
   renderAttack,
 } from "@/lib/attack-templates";
+import { findDefaultModel } from "@/lib/model-utils";
 import {
-  findDefaultModel,
   getHardenedPromptInstructions,
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";

@@ -38,7 +38,7 @@ import { MultiModelSelector } from "@/components/shared/multi-model-selector";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { FieldBlock } from "@/components/shared/field-block";
 import { toast } from "sonner";
-import { findDefaultModel } from "@/lib/scan-prompts";
+import { findDefaultModel } from "@/lib/model-utils";
 import {
   sampleForbiddenTask,
   sampleJudgeInstructions,

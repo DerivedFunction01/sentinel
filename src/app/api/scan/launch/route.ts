@@ -9,8 +9,8 @@ import {
   renderAttack,
   renderAttackV2,
 } from "@/lib/attack-templates";
+import { findDefaultModel } from "@/lib/model-utils";
 import {
-  findDefaultModel,
   SEED_EXTRACTOR_SYSTEM,
   SEED_EXTRACTOR_USER_TEMPLATE,
   ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2,

@@ -37,7 +37,7 @@ import { FieldBlock } from "@/components/shared/field-block";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { SdkDocs } from "@/components/shared/sdk-docs";
 import { toast } from "sonner";
-import { findDefaultModel } from "@/lib/scan-prompts";
+import { findDefaultModel } from "@/lib/model-utils";
 import {
   sampleForbiddenTask,
   sampleJudgeInstructions,
