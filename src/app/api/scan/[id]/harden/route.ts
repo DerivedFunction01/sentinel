@@ -137,6 +137,7 @@ export async function POST(
     const breachedAttacks = trials
       .filter((t: any) => t.verdict === TrialVerdict.Breached)
       .map((t: any) => t.attack);
+    const mockToolResponses = scanRow.mockToolResponses ? JSON.parse(scanRow.mockToolResponses) : {};
 
     // Run tool extraction first on the original system prompt
     const existingTools = scanRow.tools ? (JSON.parse(scanRow.tools) as ToolDef[]) : [];
@@ -150,6 +151,7 @@ export async function POST(
       existingTools,
       trace,
       trials,
+      mockToolResponses,
     );
 
     // Parse recommended tools to pass to prompt hardener

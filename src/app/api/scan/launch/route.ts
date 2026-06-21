@@ -290,6 +290,7 @@ export async function POST(req: Request) {
         tools,
         undefined,
         trials,
+        mockToolResponses,
       );
 
     // Parse recommended tools to pass to prompt hardener

@@ -51,12 +51,27 @@ export function getToolExtractionInstructions(
   existingTools?: ToolDef[],
   inspirationExamplesBlock?: string,
   breachedTrials?: any[],
+  mockToolResponses?: Record<string, any>,
 ): string {
   let existingToolsBlock = "";
   if (existingTools && existingTools.length > 0) {
     existingToolsBlock = `\nCURRENT CONFIGURED TOOLS (to avoid redundancy, do NOT recreate these or suggest overlapping functionality):
 <current_tools>
-${JSON.stringify(existingTools, null, 2)}
+${JSON.stringify(
+  existingTools.map((t) => {
+    const fn = t.function || {};
+    const tName = fn.name || "";
+    const mockVal = mockToolResponses?.[tName] || {};
+    return {
+      name: tName,
+      description: fn.description || "",
+      parameters: fn.parameters || {},
+      current_mock_response: mockVal,
+    };
+  }),
+  null,
+  2,
+)}
 </current_tools>\n`;
   }
 
@@ -311,6 +326,7 @@ export async function generateToolRecommendation(
   existingTools?: ToolDef[],
   trace?: HardeningTrace,
   trials?: any[],
+  mockToolResponses?: Record<string, any>,
 ): Promise<{
   toolRecommendation: string | null;
   compatibilityScore: number | null;
@@ -344,6 +360,7 @@ export async function generateToolRecommendation(
       existingTools,
       inspirationExamplesBlock,
       breachedTrials,
+      mockToolResponses,
     );
 
     const messages: any[] = [{ role: "user", content: extractionInstructions }];
