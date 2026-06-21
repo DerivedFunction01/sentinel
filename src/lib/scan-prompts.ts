@@ -254,8 +254,8 @@ Instead, instruct the LLM to call the appropriate tool when the forbidden task o
       ? sections["step 1 with tools"] || ""
       : sections["step 1 without tools"] || "";
     step3Text = hasTools
-      ? sections["step 3 with tools"] || ""
-      : sections["step 3 without tools"] || "";
+      ? sections["step 2 with tools"] || ""
+      : sections["step 2 without tools"] || "";
     const sharedRules = sections["shared guardrail rules"] || "";
     template = sections["instructions template"] || "";
 
@@ -284,7 +284,7 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
       .replace("{{FORBIDDEN_TASK}}", forbiddenTask)
       .replace("{{SUCCESSFUL_ATTACKS_BLOCK}}", successfulAttacksBlock)
       .replace("{{STEP_1_TEXT}}", step1Text)
-      .replace("{{STEP_3_TEXT}}", step3Text)
+      .replace("{{STEP_2_TEXT}}", step3Text)
       .replace("{{OPTIMIZATION_PROMPT}}", OPTIMIZATION_PROMPT.trim());
   } else {
     throw new Error(

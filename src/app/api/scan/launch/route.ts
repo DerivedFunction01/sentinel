@@ -321,6 +321,13 @@ export async function POST(req: Request) {
           .substring("REVISED SYSTEM PROMPT".length)
           .trim();
       }
+      // Remove if it uses <system_prompt> tags anywhere in the document (that indicates where it starts)
+      if (hardenedPrompt.includes("<system_prompt>")) {
+        hardenedPrompt = hardenedPrompt.split("<system_prompt>")[1];
+      }
+      if (hardenedPrompt.includes("</system_prompt>")) {
+        hardenedPrompt = hardenedPrompt.split("</system_prompt>")[0];
+      }
     } catch (err) {
       console.error("Error generating hardened prompt during scan:", err);
       hardenedPrompt = getDeterministicHardenedPrompt(
