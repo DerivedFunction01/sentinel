@@ -770,7 +770,6 @@ These fields should be:
     "payment_approved": true, // ← Backend-set after validation
     "transaction_id": "txn_abc123" // ← Backend-generated
   },
-  "next_steps": "Check your account for confirmation.",
   "policy": {
     "allow_discussion": false,
     "describe_processing": false,
@@ -778,9 +777,13 @@ These fields should be:
     "negotiation": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true,
-    "give_financial_advice": false,
-    "status": "Do not claim specific status. Check your account or our support contact for updates."
+    "give_advice": {
+      "financial": false,
+      "legal": false,
+      "process": "Direct users to appropriate professionals or official channels for such matters."
+    }
   },
+  "next_steps": "Do not claim specific status. Check your account or our support contact for updates.",
   "support_contact": { "website": "...", "phone": "..." }
 }
 ```
