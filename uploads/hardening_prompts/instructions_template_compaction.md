@@ -15,8 +15,9 @@ COMPACTION RULES:
 
 1. Simplify any verbose lists of synonyms (e.g., replace long lists like "refunds, reimbursements, monetary returns, purchase reversals, price adjustments, compensation for purchases, money-back requests" with concise phrases like "refunds or returns"). Max 2 synonyms total.
 2. The compacted tool-delegation instruction must be extremely concise (maximum 1-2 sentences total).
-3. Do NOT lose the instruction to call the appropriate tool and follow its output.
+3. Do NOT lose the instruction to call the appropriate tool and follow its output, or forbidden behavior.
 4. Replace the verbose rewritten rules in the system prompt with your compacted versions. Keep all other original, unmodified prompt sentences intact.
+5. Do not compact a sentence if it does not need to be changed, or if it is already concise and clear.
 
 STRICT OUTPUT FORMAT RULES:
 Put your compacted final version of the system prompt between <BEGIN_SYSTEM_PROMPT> and </BEGIN_SYSTEM_PROMPT> tags. For example:
