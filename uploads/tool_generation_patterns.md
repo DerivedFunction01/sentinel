@@ -17,6 +17,8 @@
 
 ---
 
+<!-- PAGE_BREAK: 01_purpose_overview -->
+
 ## Purpose & Overview
 
 This guide teaches the **generator** (an LLM tasked with converting weak system prompts) how to:
@@ -32,6 +34,8 @@ This guide teaches the **generator** (an LLM tasked with converting weak system 
 The generator outputs these three components so a human can understand, validate, and implement the transformation.
 
 ---
+
+<!-- PAGE_BREAK: 02_core_philosophy -->
 
 ## Core Philosophy
 
@@ -69,6 +73,8 @@ Instead of embedding business rules in the system prompt as natural language ins
 - "Require identity verification before transfers" (tool captures identity; backend verifies)
 
 ---
+
+<!-- PAGE_BREAK: 03_rule_triage -->
 
 ## Rule Triage: What Gets a Tool
 
@@ -116,6 +122,8 @@ These live in the new system prompt as guidance, not enforcement.
 **When unclear:** Ask—Does the backend handle them identically, or do they require different validation paths? If identical, combine. If different, split.
 
 ---
+
+<!-- PAGE_BREAK: 04_tool_complexity_tiers -->
 
 ## Tool Complexity Tiers
 
@@ -461,6 +469,8 @@ Example: Never do or agree to do X **without calling the X-handling tool and fol
 
 ---
 
+<!-- PAGE_BREAK: 05_universal_tool_protocols -->
+
 ## Universal Tool Protocols
 
 Some tool examples (like `finance_transfer`) are marked as **[UNIVERSAL PROTOCOL]** and represent **maximal-yet-minimal** design patterns.
@@ -504,6 +514,8 @@ If it's too simple:
 3. Update mock response to reflect your enforcement model
 
 ---
+
+<!-- PAGE_BREAK: 06_schema_design_principles -->
 
 ## Schema Design Principles
 
@@ -792,6 +804,10 @@ These fields should be:
 
 The LLM **references** PII and compliance status ("the customer on file", "their KYC status"), but **never authors or populates** these fields. The backend holds the truth; the LLM routes requests to backend validators.
 
+---
+
+<!-- PAGE_BREAK: 07_mock_response_strategy -->
+
 ## Mock Response Strategy
 
 ### The Pipeline Constraint
@@ -976,6 +992,8 @@ This inspects parameters. You don't do that.
 
 ---
 
+<!-- PAGE_BREAK: 08_intent_recognition -->
+
 ## Intent Recognition & Precision Encoding
 
 ### Why Intent Matters
@@ -1049,6 +1067,8 @@ WHEN NOT TO CALL:
 ```
 
 ---
+
+<!-- PAGE_BREAK: 09_generation_algorithm -->
 
 ## Generation Algorithm
 
@@ -1317,6 +1337,8 @@ If any check fails, revise the tool definitions.
 
 ---
 
+<!-- PAGE_BREAK: 10_avoid_tool_bloat -->
+
 ## Avoid Tool Bloat
 
 To prevent excessive token usage, cognitive overload, and interface latency, keep the number of active tools minimal. If the total number of tools exceeds 15 (or is trending towards it), apply consolidation and scope compression. At a critical threshold, consider whether you need an **orchestrator-like tool definition** instead of creating many granular enforcement tools.
@@ -1397,6 +1419,8 @@ Tool 3: refund_management
 - If you're approaching 15 tools and they're mostly variants of the same enforcement logic: **Consolidate into an orchestrator**
 
 ---
+
+<!-- PAGE_BREAK: 11_output_format -->
 
 ## Output Format: Prompt + Tools + Guide
 
@@ -1501,6 +1525,8 @@ This rule moved from system prompt guidance to a tool because [reason].
 ```
 
 ---
+
+<!-- PAGE_BREAK: 12_examples -->
 
 ## Examples: Simple to Complex
 
@@ -1815,6 +1841,8 @@ The enforcement model doesn't change; only scope.
 
 ---
 
+<!-- PAGE_BREAK: 13_summary -->
+
 ## Summary: Key Principles
 
 1. **Rules as Code:** Encode enforcement in tools; keep guidance in prompt
@@ -1833,6 +1861,8 @@ The enforcement model doesn't change; only scope.
 14. **Avoid Tool Bloat:** Consolidate related tools; use orchestrator patterns when appropriate
 
 ---
+
+<!-- PAGE_BREAK: 14_generator_workflow -->
 
 ## Generator Workflow (Quick Reference)
 

@@ -43,6 +43,87 @@ export function parseMarkdownSections(content: string): Record<string, string> {
   return sections;
 }
 
+// ── Page-based pattern loader ─────────────────────────────────────────────────
+
+const PAGES_DIR = path.join(
+  process.cwd(),
+  "uploads",
+  "tool_generation_pattern",
+  "pages",
+);
+
+export interface PatternPage {
+  slug: string;
+  title: string;
+  description: string;
+  body: string;
+}
+
+/**
+ * Parse YAML-style frontmatter from a markdown file.
+ * Returns { title, description, body }.
+ *
+ * This is intentionally a standalone function so it can be swapped out
+ * for a library (e.g. gray-matter) without touching call sites.
+ */
+export function parseFrontmatter(content: string): {
+  title: string;
+  description: string;
+  body: string;
+} {
+  const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/m);
+  if (!match) return { title: "", description: "", body: content.trim() };
+
+  const meta = match[1];
+  const body = match[2].trim();
+
+  const get = (key: string): string => {
+    const line = meta.match(new RegExp(`^${key}:\\s*(.+)$`, "m"));
+    return line ? line[1].trim() : "";
+  };
+
+  return { title: get("title"), description: get("description"), body };
+}
+
+/**
+ * Read _index.md for the canonical page order, then load each page file.
+ * Returns an ordered array of PatternPage objects.
+ *
+ * Also builds normalizedTitle → body and slug → body maps for O(1) lookup.
+ */
+export function loadPatternPages(): {
+  pages: PatternPage[];
+  byTitle: Record<string, PatternPage>;
+  bySlug: Record<string, PatternPage>;
+} {
+  const indexPath = path.join(PAGES_DIR, "_index.md");
+  const rawIndex = fs.readFileSync(indexPath, "utf-8");
+  const slugs = [...rawIndex.matchAll(/^- (.+)$/gm)].map((m) => m[1].trim());
+
+  const pages: PatternPage[] = [];
+  const byTitle: Record<string, PatternPage> = {};
+  const bySlug: Record<string, PatternPage> = {};
+
+  for (const slug of slugs) {
+    const filePath = path.join(PAGES_DIR, `${slug}.md`);
+    if (!fs.existsSync(filePath)) {
+      console.warn(`loadPatternPages: page not found: ${slug}.md`);
+      continue;
+    }
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const { title, description, body } = parseFrontmatter(raw);
+    const page: PatternPage = { slug, title, description, body };
+
+    pages.push(page);
+    bySlug[slug] = page;
+    // Index by normalized title for flexible lookup    const normTitle = title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim();
+    byTitle[normTitle] = page;
+    byTitle[title.toLowerCase()] = page;
+  }
+
+  return { pages, byTitle, bySlug };
+}
+
 function loadPromptFile(filename: string): string {
   try {
     const filePath = path.join(
@@ -107,16 +188,10 @@ ${breachedTrials
   const granularityPrompt = `Target Granularity: ${granularity}.
 Refer to the ${granularity} schema patterns and guidelines outlined in the Tooling Practices and Tool Generation Patterns above.`;
 
-  // Dynamically load the patterns markdown to prevent duplication of logic
+  // Dynamically load the patterns pages to prevent duplication of logic
   let patternsContent = "";
   try {
-    const filePath = path.join(
-      process.cwd(),
-      "uploads",
-      "tool_generation_patterns.md",
-    );
-    const rawContent = fs.readFileSync(filePath, "utf-8");
-    const sections = parseMarkdownSections(rawContent);
+    const { byTitle } = loadPatternPages();
 
     // Do not pre-load sections by default to force the agent to query them agentically
     const sectionsToInclude = requestedSections || [];
@@ -127,14 +202,17 @@ Refer to the ${granularity} schema patterns and guidelines outlined in the Tooli
         .toLowerCase()
         .replace(/[^a-z0-9\s-]/g, "")
         .trim();
-      const body = sections[normalizedSec] || sections[sec.toLowerCase()];
-      if (body) {
-        builder.push(`## ${sec}\n${body}`);
+      const page = byTitle[normalizedSec] || byTitle[sec.toLowerCase()];
+      if (page) {
+        builder.push(`## ${page.title}\n${page.body}`);
       }
     }
     patternsContent = builder.join("\n\n");
   } catch (e) {
-    console.error("Could not read tool_generation_patterns.md at runtime:", e);
+    console.error(
+      "Could not load tool generation pattern pages at runtime:",
+      e,
+    );
   }
 
   const template = loadPromptFile("tool_extractor_instructions.md");
@@ -427,28 +505,14 @@ export async function generateToolRecommendation(
 
           if (name === "get_available_markdown_sections") {
             try {
-              const filePath = path.join(
-                process.cwd(),
-                "uploads",
-                "tool_generation_patterns.md",
-              );
-              const rawContent = fs.readFileSync(filePath, "utf-8");
-              const sectionsMap = parseMarkdownSections(rawContent);
-              result = JSON.stringify(
-                Object.keys(sectionsMap).filter((k) => k !== "intro"),
-              );
+              const { pages } = loadPatternPages();
+              result = JSON.stringify(pages.map((p) => p.title));
             } catch (err: any) {
               result = JSON.stringify({ error: err.message });
             }
           } else if (name === "read_markdown_sections") {
             try {
-              const filePath = path.join(
-                process.cwd(),
-                "uploads",
-                "tool_generation_patterns.md",
-              );
-              const rawContent = fs.readFileSync(filePath, "utf-8");
-              const sectionsMap = parseMarkdownSections(rawContent);
+              const { byTitle } = loadPatternPages();
               const requested: string[] = args.sections || [];
               const output: Record<string, string> = {};
               for (const r of requested) {
@@ -456,10 +520,8 @@ export async function generateToolRecommendation(
                   .toLowerCase()
                   .replace(/[^a-z0-9\s-]/g, "")
                   .trim();
-                output[r] =
-                  sectionsMap[norm] ||
-                  sectionsMap[r.toLowerCase()] ||
-                  "Section not found.";
+                const page = byTitle[norm] || byTitle[r.toLowerCase()];
+                output[r] = page ? page.body : "Section not found.";
               }
               result = JSON.stringify(output);
             } catch (err: any) {
