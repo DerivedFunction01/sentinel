@@ -128,9 +128,10 @@ ${existingToolsBlock}
 
 CRITICAL RULES FOR EXTRACTION:
  1. Adhere to \`<tool_generation_patterns>\` Guidelines
- 2. Improving or Replacing Existing Tools:
-   If a tool is already defined in <current_tools> but its schema or validation is weak, suggest an improved/updated version under the same name and detail improvements in the RATIONALE.
-   If a recommended tool replaces an existing tool under a different/renamed name, you MUST explicitly state the name of the tool it is replacing in the REPLACES field; if it does not replace any tool, state 'none'.
+  2. Improving or Replacing Existing Tools:
+    - If a tool is already defined in <current_tools> but its schema or validation is weak, suggest an improved/updated version under the same name and detail improvements in the RATIONALE.
+    - If a tool's schema in <current_tools> is already strong and fully covers the forbidden task parameter needs, do NOT propose modifications to the tool schema itself. Instead, focus on hardening the MOCK response to explicitly define and handle prohibited inputs, block scenarios, or security boundary responses. If the mock response is hardened correctly (e.g. returning rejection status or block flags), note in the RATIONALE that a system prompt change may not be required because the tool/backend natively handles the security restriction.
+    - If a recommended tool replaces an existing tool under a different/renamed name, you MUST explicitly state the name of the tool it is replacing in the REPLACES field; if it does not replace any tool, state 'none'.
 
  3. Output Format:
    You MUST output the recommendation using the following section-based format for each recommended tool. Do NOT wrap the entire output in a single JSON block or markdown code blocks (except for individual JSON schemas under SCHEMA and MOCK).
