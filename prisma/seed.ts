@@ -61,9 +61,14 @@ async function main() {
       name: "Customer Admin",
       password: customerAdminPassword,
       role: UserRole.CustomerAdmin,
-      company: "SentinelPrompt",
+      company: "cadmin-company-id",
       scanTokens: 500,
     },
+  });
+
+  await db.user.update({
+    where: { email: "cadmin@sentinelprompt.app" },
+    data: { company: "cadmin-company-id" },
   });
 
   const user = await db.user.upsert({
@@ -74,9 +79,14 @@ async function main() {
       name: "Denny Li",
       password: userPassword,
       role: UserRole.User,
-      company: "Lehigh University",
+      company: "cadmin-company-id",
       scanTokens: 28,
     },
+  });
+
+  await db.user.update({
+    where: { email: "denny@sentinelprompt.app" },
+    data: { company: "cadmin-company-id" },
   });
 
   // ── Seed scan (minimal: 1 tool, 1 mock response, 3 trials) ──

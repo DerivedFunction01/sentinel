@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { TokenRequestStatus } from "@/lib/enums";
+import { TokenRequestStatus, UserRole } from "@/lib/enums";
 
 interface AdminRequest {
   id: string;
@@ -36,6 +36,14 @@ interface AdminRequest {
 
 interface TokenRequestsClientProps {
   requests: AdminRequest[];
+  currentUser: {
+    id: string;
+    email: string;
+    name: string | null;
+    role: string;
+    company: string | null;
+    scanTokens: number;
+  };
 }
 
 const STATUS_STYLES: Record<string, { label: string; cls: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -58,8 +66,9 @@ const STATUS_STYLES: Record<string, { label: string; cls: string; icon: React.Co
 
 type Filter = "ALL" | "PENDING" | "APPROVED" | "DENIED";
 
-export function TokenRequestsClient({ requests: initialRequests }: TokenRequestsClientProps) {
+export function TokenRequestsClient({ requests: initialRequests, currentUser }: TokenRequestsClientProps) {
   const [requests, setRequests] = useState(initialRequests);
+  const [adminBalance, setAdminBalance] = useState(currentUser.scanTokens);
   const [filter, setFilter] = useState<Filter>("ALL");
   const [processing, setProcessing] = useState<string | null>(null);
 
@@ -85,6 +94,12 @@ export function TokenRequestsClient({ requests: initialRequests }: TokenRequests
         return;
       }
       setRequests((prev) => prev.map((r) => (r.id === id ? data.request : r)));
+      
+      // If approved and customer admin, deduct from local admin balance
+      if (action === TokenRequestStatus.Approved && currentUser.role === UserRole.CustomerAdmin) {
+        setAdminBalance((prev) => Math.max(0, prev - data.request.amount));
+      }
+      
       toast.success(action === TokenRequestStatus.Approved ? "Approved — tokens credited" : "Denied");
     } catch {
       toast.error("Something went wrong");
@@ -98,7 +113,9 @@ export function TokenRequestsClient({ requests: initialRequests }: TokenRequests
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Token Requests</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Review and fulfill scan token requests from all users.
+          {currentUser.role === UserRole.SuperAdmin 
+            ? "Review and fulfill scan token requests from all users."
+            : `Review and fulfill scan token requests from users in ${currentUser.company || "your company"}. Approved tokens are deducted from your pool (Balance: ${adminBalance} tokens).`}
         </p>
       </div>
 
@@ -107,7 +124,11 @@ export function TokenRequestsClient({ requests: initialRequests }: TokenRequests
         <StatBox label="Total" value={requests.length} icon={Clock} />
         <StatBox label="Pending" value={pending} icon={Clock} accent="amber" />
         <StatBox label="Approved" value={approved} icon={CheckCircle2} accent="emerald" />
-        <StatBox label="Tokens Granted" value={tokensApproved} icon={Coins} accent="blue" />
+        {currentUser.role === UserRole.CustomerAdmin ? (
+          <StatBox label="Your Admin Pool" value={adminBalance} icon={Coins} accent="blue" />
+        ) : (
+          <StatBox label="Tokens Granted" value={tokensApproved} icon={Coins} accent="blue" />
+        )}
       </div>
 
       {/* Filter */}
