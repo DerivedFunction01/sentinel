@@ -43,6 +43,21 @@ export function parseMarkdownSections(content: string): Record<string, string> {
   return sections;
 }
 
+function loadPromptFile(filename: string): string {
+  try {
+    const filePath = path.join(
+      process.cwd(),
+      "uploads",
+      "hardening_prompts",
+      filename,
+    );
+    return fs.readFileSync(filePath, "utf-8").trim();
+  } catch (err) {
+    console.error(`Failed to load ${filename}:`, err);
+    return "";
+  }
+}
+
 export function getToolExtractionInstructions(
   hardenedPrompt: string,
   forbiddenTask: string,
@@ -122,77 +137,24 @@ Refer to the ${granularity} schema patterns and guidelines outlined in the Tooli
     console.error("Could not read tool_generation_patterns.md at runtime:", e);
   }
 
-  return `You are a security and systems architect specializing in migrating LLM prompt constraints into structured tool-calling APIs.
-You will analyze a hardened system prompt and the forbidden task, identify embedded business logic acting as a gatekeeper (such as pricing checks, discount rules, role-based approvals, auth gates, conditional access rules, or policy constraints), and suggest extracting these checks into OpenRouter-compatible tool JSON definitions + mock response payloads.
+  const template = loadPromptFile("tool_extractor_instructions.md");
 
-Your analysis must align with the target granularity: **${granularity}**.
-
-To ensure your tool definitions comply with our security architecture guidelines, you MUST agentically query the "Tool Generation Patterns" guide using the provided tools:
-- Call 'get_available_markdown_sections' to see what guidelines are available.
-- Call 'read_markdown_sections' to read the specific chapters you need (e.g., "tool complexity tiers", "avoid tool bloat", "schema design principles", "rule triage: what gets a tool") to validate your design.
-
-Here is the hardened system prompt to analyze:
-<hardened_prompt>
-${hardenedPrompt}
-</hardened_prompt>
-
-Here is the forbidden task being protected:
-<forbidden_task>
-${forbiddenTask}
-</forbidden_task>
-
-${inspirationExamplesBlock ? `${inspirationExamplesBlock}\n` : ""}
-${breachedTrialsBlock}
-
-${
-  patternsContent
+  const formattedPatterns = patternsContent
     ? `Below are the pre-loaded Tool Generation Patterns sections:
 <tool_generation_patterns>
 ${patternsContent}
 </tool_generation_patterns>\n`
-    : ""
-}
+    : "";
 
-${granularityPrompt}
-${existingToolsBlock}
-
-CRITICAL RULES FOR EXTRACTION:
- 1. Adhere to \`<tool_generation_patterns>\` Guidelines
-  2. Improving or Replacing Existing Tools:
-    - If a tool is already defined in <current_tools> but its schema or validation is weak, suggest an improved/updated version under the same name and detail improvements in the RATIONALE.
-    - If a tool's schema in <current_tools> is already strong and fully covers the forbidden task parameter needs, do NOT propose modifications to the tool schema itself. Instead, analyze \`<breached_attack_trials>\` (specifically the assistant responses and judge reasoning) and focus on hardening the MOCK response (under MOCK:) to explicitly define and handle prohibited inputs, block scenarios, or security boundary responses. If the mock response is hardened correctly (e.g. returning rejection status or block flags), note in the RATIONALE that a system prompt change may not be required because the tool/backend natively handles the security restriction.
-    - If a recommended tool replaces an existing tool under a different/renamed name, you MUST explicitly state the name of the tool it is replacing in the REPLACES field; if it does not replace any tool, state 'none'.
-
- 3. Output Format:
-   You MUST output the recommendation using the following section-based format for each recommended tool. Do NOT wrap the entire output in a single JSON block or markdown code blocks (except for individual JSON schemas under SCHEMA and MOCK).
-
-   For each recommended tool, output exactly this structure:
-   
-   [TOOL: tool_name]
-   REPLACES: <existing_tool_name_or_none>
-   GRANULARITY: ${granularity}
-   SCORE: <compatibility score from 0-100 for this specific tool constraint>
-   RATIONALE:
-   <Provide a detailed, thorough explanation of why this specific tool is created, the business/security logic it handles, and how it aligns with the markdown instructions. Write as much explanation/markdown as needed here.>
-   SCHEMA:
-   {
-     "type": "function",
-     "function": {
-       "name": "tool_name",
-       "description": "...",
-       "parameters": {
-         "type": "object",
-         ...
-       }
-     }
-   }
-   MOCK:
-   {
-     "status": "pending",
-     ...
-   }
-
-   If there are multiple tools, output each tool's block one after another. Do not add any conversational preambles or postambles outside of this structured text.`;
+  return template
+    .replace(/\{\{GRANULARITY\}\}/g, granularity)
+    .replace("{{HARDENED_PROMPT}}", hardenedPrompt)
+    .replace("{{FORBIDDEN_TASK}}", forbiddenTask)
+    .replace("{{INSPIRATION_EXAMPLES}}", inspirationExamplesBlock || "")
+    .replace("{{BREACHED_ATTACK_TRIALS}}", breachedTrialsBlock)
+    .replace("{{PATTERNS_CONTENT}}", formattedPatterns)
+    .replace("{{GRANULARITY_PROMPT}}", granularityPrompt)
+    .replace("{{EXISTING_TOOLS_BLOCK}}", existingToolsBlock);
 }
 
 export function parseSectionedRecommendation(
