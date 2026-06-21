@@ -6,7 +6,7 @@
  * A curated subset is marked isRecommended=true so they appear under the
  * "RECOMMENDED" header in the ModelSelector dropdown.
  */
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "./generated/client.js";
 
 /** Known providers whose top models we want to highlight. */
 const KNOWN_PROVIDERS = [
@@ -107,9 +107,13 @@ export async function syncModels(db: PrismaClient): Promise<void> {
 // CLI entry point — run with: bun run prisma/sync-models-impl.ts
 // Using dynamic import to avoid require() which is forbidden by ESLint.
 if (import.meta.url === `file://${process.argv[1]}`) {
-  import("@prisma/client")
-    .then(({ PrismaClient }) => {
-      const db = new PrismaClient();
+  Promise.all([
+    import("./generated/client.js"),
+    import("@prisma/adapter-better-sqlite3"),
+  ])
+    .then(([{ PrismaClient }, { PrismaBetterSqlite3 }]) => {
+      const adapter = new PrismaBetterSqlite3({ url: "db/custom.db" });
+      const db = new PrismaClient({ adapter });
       return syncModels(db).finally(() => db.$disconnect());
     })
     .catch((e) => {

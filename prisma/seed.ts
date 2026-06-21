@@ -8,7 +8,8 @@
  * Run with: bun run db:seed
  */
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "./generated/client.js";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import {
   JudgeLabel,
   RiskLevel,
@@ -26,7 +27,8 @@ import {
 import type { Trial } from "../src/lib/types";
 import { syncModels } from "./sync-models-impl";
 
-const db = new PrismaClient();
+const adapter = new PrismaBetterSqlite3({ url: "db/custom.db" });
+const db = new PrismaClient({ adapter });
 
 async function main() {
   // ── Sync models from OpenRouter first ──
