@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Download,
   Upload,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,6 +101,35 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
   const [mockResponse, setMockResponse] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const handleStartEdit = (ex: ToolExample) => {
+    setEditingId(ex.id);
+    setName(ex.name);
+    setDescription(ex.description);
+    let tagsList: string[] = [];
+    try {
+      tagsList = JSON.parse(ex.tags);
+    } catch {}
+    setTagsStr(tagsList.join(", "));
+    setGranularity(ex.granularity as any);
+    setToolJson(JSON.stringify(JSON.parse(ex.toolJson), null, 2));
+    setMockResponse(JSON.stringify(JSON.parse(ex.mockResponse), null, 2));
+    setToolJsonError(null);
+    setMockResponseError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setName("");
+    setDescription("");
+    setTagsStr("");
+    setToolJson("");
+    setMockResponse("");
+    setToolJsonError(null);
+    setMockResponseError(null);
+  };
 
   // JSON Validation States
   const [toolJsonError, setToolJsonError] = useState<string | null>(null);
@@ -120,7 +150,7 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const isToolJsonValid = validateJson(toolJson, setToolJsonError);
@@ -143,27 +173,38 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
       .filter((t) => t.length > 0);
 
     try {
-      const res = await fetch("/api/admin/tool-examples", {
-        method: "POST",
+      const url = "/api/admin/tool-examples";
+      const method = editingId ? "PATCH" : "POST";
+      const bodyPayload = {
+        id: editingId || undefined,
+        name,
+        description,
+        tags: parsedTags,
+        granularity,
+        toolJson,
+        mockResponse,
+      };
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description,
-          tags: parsedTags,
-          granularity,
-          toolJson,
-          mockResponse,
-        }),
+        body: JSON.stringify(bodyPayload),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || "Failed to create example schema");
+        toast.error(data.error || `Failed to ${editingId ? "update" : "create"} example schema`);
         return;
       }
 
-      setExamples((prev) => [data, ...prev]);
-      toast.success("Example schema successfully created!");
+      if (editingId) {
+        setExamples((prev) => prev.map((ex) => (ex.id === editingId ? data : ex)));
+        toast.success("Example schema successfully updated!");
+        setEditingId(null);
+      } else {
+        setExamples((prev) => [data, ...prev]);
+        toast.success("Example schema successfully created!");
+      }
       
       // Reset form
       setName("");
@@ -174,7 +215,7 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
       setToolJsonError(null);
       setMockResponseError(null);
     } catch {
-      toast.error("An error occurred while creating example schema.");
+      toast.error(`An error occurred while ${editingId ? "updating" : "creating"} example schema.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -227,15 +268,21 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
           <Card className="border-blue-500/10 bg-black/40 backdrop-blur-md">
             <CardHeader>
               <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <Plus className="h-4 w-4 text-blue-400" />
-                Add Reference Schema
+                {editingId ? (
+                  <Pencil className="h-4 w-4 text-blue-400" />
+                ) : (
+                  <Plus className="h-4 w-4 text-blue-400" />
+                )}
+                {editingId ? "Edit Reference Schema" : "Add Reference Schema"}
               </CardTitle>
               <CardDescription>
-                Create a reference schema that the model can draw inspiration from when running extraction scans.
+                {editingId
+                  ? "Update the details of the reference schema dynamically."
+                  : "Create a reference schema that the model can draw inspiration from when running extraction scans."}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleCreate} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Tool / Function Name *</Label>
                   <Input
@@ -370,13 +417,31 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                   )}
                 </div>
 
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
-                >
-                  {isSubmitting ? "Creating..." : "Save Example Schema"}
-                </Button>
+                <div className="flex gap-2">
+                  {editingId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCancelEdit}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                  >
+                    {isSubmitting
+                      ? editingId
+                        ? "Updating..."
+                        : "Creating..."
+                      : editingId
+                      ? "Update Example"
+                      : "Save Example Schema"}
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
@@ -492,6 +557,14 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                             onClick={() => setExpandedId(isExpanded ? null : ex.id)}
                           >
                             {isExpanded ? "Hide Details" : "View Details"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 h-8 w-8"
+                            onClick={() => handleStartEdit(ex)}
+                          >
+                            <Pencil className="h-4 w-4" />
                           </Button>
                           {!ex.isBuiltIn && (
                             <Button
