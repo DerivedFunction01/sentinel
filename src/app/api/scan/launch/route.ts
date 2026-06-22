@@ -599,27 +599,26 @@ export async function generateCohesiveAttack(
     );
     let text = response.content || "";
 
-    // Since the assistant prompt was pre-filled with "<BEGIN>", the response
-    // is normally the text after "<BEGIN>". We check if the model repeated
-    // the "<BEGIN>" tag; if not, we extract everything before the "<END>" tag.
-    const beginIndex = text.indexOf("<BEGIN>");
-    const endIndex = text.indexOf("<END>");
-
-    if (beginIndex !== -1) {
-      if (endIndex !== -1 && endIndex > beginIndex) {
-        text = text.substring(beginIndex + 7, endIndex).trim();
-      } else {
-        text = text.substring(beginIndex + 7).trim();
-      }
+    // Find the <PARAGRAPH> (use regex)
+    const TAG = "PARAGRAPH";
+    const tagRegex = new RegExp(`\\<${TAG}>([\\s\\S]*)\\<\\/${TAG}>`);
+    const tagMatch = text.match(tagRegex);
+    if (tagMatch && tagMatch[1]) {
+      text = tagMatch[1].trim();
+    }
+    // If it fails, see if it at least have a begin and end <TAG> tags (case insensitive)
+    const beginTag = `<${TAG}>`;
+    const endTag = `</${TAG}>`;
+    const beginIndex = text.indexOf(beginTag);
+    const endIndex = text.indexOf(endTag);
+    if (beginIndex !== -1 && endIndex !== -1) {
+      text = text.substring(beginIndex + beginTag.length, endIndex).trim();
+    } else if (beginIndex !== -1) {
+      text = text.substring(beginIndex + beginTag.length).trim();
     } else if (endIndex !== -1) {
       text = text.substring(0, endIndex).trim();
     } else {
       text = text.trim();
-    }
-
-    // Clean up any residual formatting (like wrapping double quotes if the model outputted them)
-    if (text.startsWith('"') && text.endsWith('"')) {
-      text = text.substring(1, text.length - 1).trim();
     }
 
     return text || draftJoined;
