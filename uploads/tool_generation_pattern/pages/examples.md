@@ -1,7 +1,256 @@
 ---
 title: Examples
-description: "Examples of the rule-to-tool conversion process"
+description: "Examples (and Bad Examples) of the rule-to-tool conversion process"
 ---
+
+## Bad Examples
+
+### Example 1: Tool Name reveals restriction or gating nature
+
+Original weak rule:
+"Never disclose restricted financial information"
+
+Bad naming conventions (reason: indicates the LLM must decide if it should gate it or not):
+`gate_*`, `deny_*`, `*_denial`, `prohibit_*`, `restrict_*`
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "gate_financial_information",
+    "description": "Call when the user wants financial information.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "info_type": {
+          "type": "string",
+          "enum": [
+            "revenue",
+            "profit",
+            "margins",
+            "costs",
+            "forecasts",
+            "projections",
+            "projections"
+          ]
+        }
+      },
+      "required": ["info_type"]
+    }
+  }
+}
+```
+
+Better:
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "financial_disclosure",
+    "description": "Call when user requests for financial information.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "revenue",
+            "profit",
+            "margins",
+            "costs",
+            "forecasts",
+            "projections"
+          ]
+        }
+      },
+      "required": ["category"]
+    }
+  }
+}
+```
+
+### Example 2: Tool Description reveals restriction or gating nature
+
+Bad tool description (reason: indicates the LLM must decide it should call it.):
+"This tool act as a gate." (LLM gets jailbroken, it does not think of itself as gatekeeper, so it skips the tool)
+"Prevents unauthorized ..." (LLM gets jailbroken and this it is not unauthorized, so it skips the tool)
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "financial_disclosure",
+    "description": "Call when user requests for financial information. This tool act as a gate for unauthorized disclosure of financial information by the LLM.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "revenue",
+            "profit",
+            "margins",
+            "costs",
+            "forecasts",
+            "projections"
+          ]
+        }
+      },
+      "required": ["category"]
+    }
+  }
+}
+```
+
+Better:
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "financial_disclosure",
+    "description": "Call when user requests for financial information",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "revenue",
+            "profit",
+            "margins",
+            "costs",
+            "forecasts",
+            "projections"
+          ]
+        }
+      },
+      "required": ["category"]
+    }
+  }
+}
+```
+
+### Example 3: Tool name is Verbose
+
+Bad tool name (reason: the description or the parameters reveal what it does, so the tool name doesn't need to be verbose):
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "get_revenue_profit_forecast_cost",
+    "description": "Call when user wants to request for financial information.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "revenue",
+            "profit",
+            "margins",
+            "costs",
+            "forecasts",
+            "projections"
+          ]
+        }
+      },
+      "required": ["category"]
+    }
+  }
+}
+```
+
+Better:
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "financial_disclosure",
+    "description": "Call when user requests for financial information.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "revenue",
+            "profit",
+            "margins",
+            "costs",
+            "forecasts",
+            "projections"
+          ]
+        }
+      },
+      "required": ["category"]
+    }
+  }
+}
+```
+
+### Example 4: Tool Description is Verbose
+
+Bad tool description (reason: the tool name or the parameters reveal what it does, so the tool description doesn't need to be verbose):
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "financial_disclosure",
+    "description": "Call when user wants financial information on sales revenue, income, profits, margings, costs, expenses, forecasts, projections.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "revenue",
+            "profit",
+            "margins",
+            "costs",
+            "forecasts",
+            "projections"
+          ]
+        }
+      },
+      "required": ["category"]
+    }
+  }
+}
+```
+
+Better:
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "financial_disclosure",
+    "description": "Call when user requests for financial information.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "revenue",
+            "profit",
+            "margins",
+            "costs",
+            "forecasts",
+            "projections"
+          ]
+        }
+      },
+      "required": ["category"]
+    }
+  }
+}
+```
 
 ## Examples: Simple to Complex
 
@@ -9,9 +258,7 @@ description: "Examples of the rule-to-tool conversion process"
 
 **Original weak rule:**
 
-```
 "Never discuss pricing discounts, promotional codes, or special offers."
-```
 
 **Tool Definition:**
 
