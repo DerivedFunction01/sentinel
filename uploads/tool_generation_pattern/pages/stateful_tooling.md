@@ -579,7 +579,7 @@ filter.modifier_add("mod_v1_xyz789", 
 - Modifier can be reused across multiple filters
 - Enables composition: one filter + multiple modifiers
 
-#### filter.init_view(filter_id, mod_id, limit, offset, sort)
+#### filter.init_view(filter_id, mod_id, having_id, limit, offset)
 
 Materialize a view: combine filter + modifier + pagination + sorting.
 
@@ -587,9 +587,9 @@ Materialize a view: combine filter + modifier + pagination + sorting.
 
 - `filter_id`: (required) Which data to operate on
 - `mod_id`: (optional) How to aggregate/project
+- `having_id`: (optional) Which having clause to apply
 - `limit`: Result limit
 - `offset`: Pagination offset
-- `sort`: Column(s) to sort by
 
 **Returns:** `view_id` (reference to materialized query result)
 
@@ -599,9 +599,9 @@ Materialize a view: combine filter + modifier + pagination + sorting.
 filter.init_view(
   filter_id="filter_v2_def456",
   mod_id="mod_v2_pqr012",
+  having_id="having_v1_xyz123",
   limit=50,
   offset=0,
-  sort="category asc"
 )
 → "view_v1_jkl345"
 ```
