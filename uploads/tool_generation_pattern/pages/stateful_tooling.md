@@ -15,11 +15,15 @@ For complex domains with evolving queries, domain-specific terminology, and mult
 - Each tool repeats GROUP BY/aggregation logic
 - Each tool duplicates alias resolution (HTN vs. HTN_HIGH_BP)
 - Tools become "fat" with conditional logic
+- Most retail APIs are built for stateless web apps, not agentic workflows. When the agent queries a catalog API, that API is designed to return a result and "forget" the user ever asked.
+- Because the previous API call didn't return a reference to a saved state, the agent throws away the previous results.
+- Re-Contracting: The agent must re-issue a request that includes all the original constraints plus the new one. If a user wanted "Waterproof" + "Running" + "Blue" + "Under $150," the new call must include all four again.
+- They are effectively forcing the agent to rebuild the entire context of the shopping intent every time the user changes their mind on a single parameter.
 
 **Example (bloated):**
 
 ```
-browse_catalog(filters=[...], group_by=[...], limit=10)
+browse_catalog(category="shoes", max_price=150, min_price=0, attributes=["waterproof"], color=["blue"], sku="", limit=10)
 medical_diagnosis(filters=[...], group_by=[...], limit=10)
 inventory_rebalance(filters=[...], group_by=[...], limit=10)
 ```
@@ -60,6 +64,58 @@ Each tool owns the same filtering problem.
 ### Filter Server (MCP-Style Interface)
 
 **Purpose:** Composable, versionable query builder that generates references to filtered datasets.
+
+**Design Principle: Constrain at the Tool Schema Level**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "filter_delta": {
+      "type": "object",
+      "properties": {
+        "add_filters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "property": {
+                "type": "string",
+                "description": "The property to filter on."
+              },
+              "operator": {
+                "type": "string",
+                "enum": [
+                  "eq",
+                  "neq",
+                  "in_set",
+                  "not_in_set",
+                  "gt",
+                  "geq",
+                  "lt",
+                  "leq",
+                  "like",
+                  "not_like",
+                  "between",
+                  "not_between"
+                ],
+                "description": "The SQL-like operator to use for the operation."
+                // ✓ Only these operators allowed; no code/SQL
+              },
+              "value": {
+                "type": ["string", "number", "array"],
+                "description": "The value to use for filtering."
+                // ✓ Backend validates type matches property
+              }
+            },
+            "required": ["property", "operator", "value"]
+          }
+        }
+      }
+    }
+  }
+}
+```
 
 **Core Operations:**
 
@@ -103,7 +159,7 @@ filter.init(tool_name="dictionary", table_name="entries")
 
 filter.add("filter_v1_tool_dictionary_entries_abc", [
   {property: "term", operator: "like", value: "%usual%"},
-  {property: "confidence", operator: "greater_than", value: 0.8}
+  {property: "confidence", operator: "gt", value: 0.8}
 ])
 → "filter_v2_tool_dictionary_entries_def"
 # Validated against dictionary.entries schema (term, canonical_concept, confidence, tags, etc.)
@@ -113,8 +169,8 @@ filter.init(tool_name="dictionary", table_name="history")
 → "filter_v1_tool_dictionary_history_ghi"
 
 filter.add("filter_v1_tool_dictionary_history_ghi", [
-  {property: "action", operator: "equals", value: "add"},
-  {property: "timestamp", operator: "greater_than", value: "2024-01-01"}
+  {property: "action", operator: "eq", value: "add"},
+  {property: "timestamp", operator: "gt", value: "2024-01-01"}
 ])
 → "filter_v2_tool_dictionary_history_jkl"
 # Validated against dictionary.history schema (action, timestamp, dict_entry_id, user_id, etc.)
@@ -128,7 +184,7 @@ filter.init(tool_name="order_history", table_name="order_items")
 → "filter_v1_orders_items"
 
 filter.add("filter_v1_orders_items", [
-  {property: "customer_id", operator: "equals", value: "bob_123"}
+  {property: "customer_id", operator: "eq", value: "bob_123"}
 ])
 → "filter_v2_orders_items_bob"
 
@@ -137,7 +193,7 @@ filter.init(tool_name="order_history", table_name="order_metadata")
 → "filter_v1_orders_meta"
 
 filter.add("filter_v1_orders_meta", [
-  {property: "total_price", operator: "less_than", value: 50}
+  {property: "total_price", operator: "lt", value: 50}
 ])
 → "filter_v2_orders_meta_cheap"
 
@@ -181,10 +237,10 @@ filter.add("filter_v1_tool_browse_catalog_abc123", [
 
 # Add second operation; validates against both schema AND executes against mock dataset
 filter.add("filter_v2_tool_browse_catalog_def456", [
-  {property: "price", operator: "less_than", value: 500}
+  {property: "price", operator: "lt", value: 500}
 ])
 → "filter_v3_tool_browse_catalog_ghi789"
-# Validation: "price" is valid, "less_than" is valid, both ops compose correctly on mock data → Success
+# Validation: "price" is valid, "lt" is valid, both ops compose correctly on mock data → Success
 
 # Try invalid operation
 filter.add("filter_v3_tool_browse_catalog_ghi789", [
@@ -219,7 +275,7 @@ filter.get_filter("filter_v2_def456")
   "filter_id": "filter_v2_def456",
   "rules": [
     {property: "category", operator: "in_set", value: ["electronics", "appliances"]},
-    {property: "price", operator: "less_than", value: 500}
+    {property: "price", operator: "lt", value: 500}
   ],
   "created_at": "...",
   "parent_filter_id": "filter_v1_abc123"
@@ -247,7 +303,7 @@ filter.get_filter("filter_compressed_xyz789")
   "filter_id": "filter_compressed_xyz789",
   "rules": [
     {property: "category", operator: "in_set", value: ["electronics", "appliances"]},
-    {property: "price", operator: "less_than", value: 500}
+    {property: "price", operator: "lt", value: 500}
   ],
   "created_at": "...",
   "parent_filter_id": null
@@ -280,13 +336,13 @@ Combine multiple filters or views using set operations: union, intersection, dif
 ```
 # Two separate filters
 filter.init() → "filter_v1_budget_electronics"
-filter.add(..., [{property: "category", operator: "equals", value: "electronics"},
-                 {property: "price", operator: "less_than", value: 500}])
+filter.add(..., [{property: "category", operator: "eq", value: "electronics"},
+                 {property: "price", operator: "lt", value: 500}])
 → "filter_v2_budget_electronics"
 
 filter.init() → "filter_v1_appliances"
-filter.add(..., [{property: "category", operator: "equals", value: "appliances"},
-                 {property: "price", operator: "less_than", value: 1000}])
+filter.add(..., [{property: "category", operator: "eq", value: "appliances"},
+                 {property: "price", operator: "lt", value: 1000}])
 → "filter_v2_appliances"
 
 # Combine: budget electronics OR cheap appliances
@@ -299,11 +355,11 @@ filter.combine("union", ["filter_v2_budget_electronics", "filter_v2_appliances"]
 ```
 # Find items that are BOTH popular AND in stock
 filter.init(tool_name="browse_catalog") → "filter_v1_tool_popular"
-filter.add(..., [{property: "popularity", operator: "greater_than", value: 8.0}])
+filter.add(..., [{property: "popularity", operator: "gt", value: 8.0}])
 → "filter_v2_tool_popular"
 
 filter.init(tool_name="browse_catalog") → "filter_v1_tool_in_stock"
-filter.add(..., [{property: "inventory", operator: "greater_than", value: 0}])
+filter.add(..., [{property: "inventory", operator: "gt", value: 0}])
 → "filter_v2_tool_in_stock"
 
 # Combine and validate on mock data
@@ -317,11 +373,11 @@ filter.combine("intersection", ["filter_v2_tool_popular", "filter_v2_tool_in_sto
 ```
 # Premium items NOT in sale
 filter.init() → "filter_premium"
-filter.add(..., [{property: "tier", operator: "equals", value: "premium"}])
+filter.add(..., [{property: "tier", operator: "eq", value: "premium"}])
 → "filter_v2_premium"
 
 filter.init() → "filter_on_sale"
-filter.add(..., [{property: "discount", operator: "greater_than", value: 0}])
+filter.add(..., [{property: "discount", operator: "gt", value: 0}])
 → "filter_v2_on_sale"
 
 filter.combine("difference", ["filter_v2_premium", "filter_v2_on_sale"])
@@ -357,7 +413,7 @@ filter.parameters("browse_catalog")
   "table_schema": {
     "items": {
       "filterable_properties": ["name", "sku", "price", "category", "brand", "popularity_index"],
-      "operators": ["equals", "not_equals", "in_set", "not_in_set", "greater_than", "greater_than_or_equal", "less_than", "less_than_or_equal", "like", "not_like"],
+      "operators": ["eq", "not_eq", "in_set", "not_in_set", "gt", "geq", "lt", "leq", "like", "not_like"],
       "groupable_columns": ["category", "brand", "price_range"],
       "aggregations": ["count", "sum", "avg", "min", "max"],
       "result_shape": "items",
@@ -376,7 +432,7 @@ filter.parameters("browse_catalog", table_name="reviews")
   "tool_name": "browse_catalog",
   "table_name": "reviews",
   "filterable_properties": ["item_id", "rating", "reviewer_id", "review_text", "date"],
-  "operators": ["equals", "greater_than", "less_than", "like"],
+  "operators": ["eq", "gt", "lt", "like"],
   "result_shape": "reviews",
   "mock_dataset": [sample reviews]
 }
@@ -392,12 +448,12 @@ filter.parameters("dictionary")
   "table_schemas": {
     "entries": {
       "filterable_properties": ["term", "canonical_concept", "confidence", "tags", "description"],
-      "operators": ["equals", "like", "in_set"],
+      "operators": ["eq", "like", "in_set"],
       "mock_dataset": [sample dictionary entries]
     },
     "history": {
       "filterable_properties": ["action", "timestamp", "dict_entry_id", "user_id", "old_value", "new_value"],
-      "operators": ["equals", "greater_than", "less_than", "like"],
+      "operators": ["eq", "gt", "lt", "like"],
       "mock_dataset": [sample history records]
     }
   }
@@ -591,7 +647,7 @@ filter.save_filter(
    
    # Schema validation (fast)
    filter.add("filter_v1_tool_dictionary_history_xyz", 
-     [{property: "timestamp", operator: "greater_than", value: "2024-06-01"}]
+     [{property: "timestamp", operator: "gt", value: "2024-06-01"}]
    )
    → Check: "timestamp" in dictionary.history.filterable_properties? Yes → Continue
 
@@ -627,14 +683,14 @@ The Filter middleware isn't limited to query filters. Any tool that operates on 
 filter.parameters("menu_catalog")
 → {
   "filterable_properties": ["name", "category", "price", "rating", "available", "allergens"],
-  "operators": ["equals", "in_set", "greater_than", "less_than", "contains"],
+  "operators": ["eq", "in_set", "gt", "lt", "contains"],
   "mock_dataset": [sample menu items]
 }
 
 # Bob: "I want popular items with X, Y, Z"
 filter.init(tool_name="menu_catalog") → "filter_v1_bob_menu"
 filter.add("filter_v1_bob_menu", [
-  {property: "rating", operator: "greater_than", value: 4.5},
+  {property: "rating", operator: "gt", value: 4.5},
   {property: "allergens", operator: "not_in_set", value: ["X", "Y", "Z"]}
 ])
 → "filter_v2_bob_menu"
@@ -657,14 +713,14 @@ Bob orders: [item_a, item_b, item_c]  # Three items from the filtered menu
 filter.parameters("order_history")
 → {
   "filterable_properties": ["customer_name", "items_ordered", "total_price", "date", "status"],
-  "operators": ["equals", "in_set", "greater_than", "less_than", "contains"],
+  "operators": ["eq", "in_set", "gt", "lt", "contains"],
   "mock_dataset": [sample orders]
 }
 
 # Charlie: "I want everything Bob ordered"
 filter.init(tool_name="order_history") → "filter_v1_charlie_orders"
 filter.add("filter_v1_charlie_orders", [
-  {property: "customer_name", operator: "equals", value: "Bob"}
+  {property: "customer_name", operator: "eq", value: "Bob"}
 ])
 → "filter_v2_charlie_orders"
 
@@ -687,7 +743,7 @@ filter.add("filter_v1_charlie_menu", [
 
 # Charlie can add more criteria
 filter.add("filter_v2_charlie_menu", [
-  {property: "price", operator: "less_than", value: 25}
+  {property: "price", operator: "lt", value: 25}
 ])
 → "filter_v3_charlie_menu"
 
@@ -851,7 +907,7 @@ dictionary.resolve("blue pill patients", workspace_id="workspace_doc_smith_123")
 filter.parameters("medical_diagnosis")
 → {
   "filterable_properties": ["diagnosis_code", "medication_code", "age", "date", "severity"],
-  "operators": ["equals", "in_set", "greater_than", "less_than"],
+  "operators": ["eq", "in_set", "gt", "lt"],
   "groupable_columns": ["diagnosis_code", "severity", "age_group"],
   "result_shape": "diagnoses"
 }
@@ -866,9 +922,9 @@ filter.init(tool_name="medical_diagnosis")
 
 # Add operations; validation happens locally against medical_diagnosis.filterable_properties
 filter.add("filter_v1_tool_medical_diagnosis_abc", [
-  {property: "diagnosis_code", operator: "equals", value: "HTN_HIGH_BP"},
-  {property: "medication_code", operator: "equals", value: "MEDICATION_X_CODE"},
-  {property: "age", operator: "less_than", value: 50}
+  {property: "diagnosis_code", operator: "eq", value: "HTN_HIGH_BP"},
+  {property: "medication_code", operator: "eq", value: "MEDICATION_X_CODE"},
+  {property: "age", operator: "lt", value: 50}
 ])
 → "filter_v2_tool_medical_diagnosis_def"
 # No API call; validation was local (age, medication_code, diagnosis_code all in filterable_properties)
