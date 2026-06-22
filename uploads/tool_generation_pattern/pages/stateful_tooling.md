@@ -1027,7 +1027,7 @@ medical_diagnosis(view_id="view_v1_xyz")
 8. **Reusability:** Compressed, saved filters enable template workflows and can be combined in multiple ways
 9. **Auditability:** Every filter operation and dictionary entry is logged with ID + timestamp
 10. **Separation of Concerns:**
-       - Filter owns structure (WHERE, GROUP BY, LIMIT, OFFSET) and composition
+       - Filter owns structure (WHERE, GROUP BY, HAVING, SORT) and composition
        - Dictionary owns terminology (aliases → concepts)
        - Domain tools own operations (logic on filtered data)
 11. **Generic & Extensible:** Dictionary and Filter work across any domain—medical, e-commerce, inventory, etc.
