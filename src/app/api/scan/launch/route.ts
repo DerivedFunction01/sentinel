@@ -310,7 +310,8 @@ export async function POST(req: Request) {
       granularity,
       tracker,
     );
-    const inspirationExamplesBlock = formatInspirationExamplesBlock(inspirationExamples);
+    const inspirationExamplesBlock =
+      formatInspirationExamplesBlock(inspirationExamples);
 
     let hardenedPrompt = "";
     try {
@@ -481,6 +482,8 @@ export async function extractSeedInfo(
   thingDescription: string;
   thingNameVariants: string[];
   thingDescriptionVariants: string[];
+  personaDescription: string;
+  businessFeatures: string[];
 }> {
   const messages = [
     {
@@ -500,12 +503,16 @@ export async function extractSeedInfo(
       "confidential info",
       "sensitive data",
       "restricted content",
+      "out of scope tasks",
     ],
     thingDescriptionVariants: [
       "disclosing confidential or protected information",
       "exposing internal database details",
       "revealing restricted operational parameters",
+      "providing out of scope instructions",
     ],
+    personaDescription: "general AI assistant",
+    businessFeatures: [],
   };
 
   try {
@@ -534,6 +541,8 @@ export async function extractSeedInfo(
         parsed.thingDescriptionVariants.length > 0
           ? parsed.thingDescriptionVariants
           : defaultSeed.thingDescriptionVariants,
+      personaDescription: parsed.personaDescription || "general AI assistant",
+      businessFeatures: parsed.businessFeatures || [],
     };
   } catch (error) {
     console.error("Error extracting seed info:", error);
@@ -549,6 +558,9 @@ export async function generateCohesiveAttack(
   pattern: any,
   thingName: string,
   thingDescription: string,
+  attackDescription: string,
+  personaDescription: string,
+  businessFeatures: string[],
   tracker?: UsageTracker,
 ): Promise<string> {
   const draftParts = renderAttackV2(pattern, thingName, thingDescription);
@@ -560,7 +572,10 @@ export async function generateCohesiveAttack(
       content: ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2(
         thingName,
         thingDescription,
+        attackDescription,
         draftParts,
+        personaDescription,
+        businessFeatures,
       ),
     },
     {
