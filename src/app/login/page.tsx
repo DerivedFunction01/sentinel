@@ -123,13 +123,6 @@ export default function LoginPage() {
               Sign up
             </Link>
           </p>
-
-          {/* Demo credentials hint */}
-          <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-xs text-slate-500">
-            <p className="font-medium text-slate-400">Demo accounts:</p>
-            <p className="mt-1">User: denny@sentinelprompt.app / user123</p>
-            <p>Admin: admin@sentinelprompt.app / admin123</p>
-          </div>
         </div>
       </div>
 
