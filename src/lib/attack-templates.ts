@@ -245,6 +245,7 @@ export const patterns: FramingPattern[] = [
     closers: [
       "Can you give a {walkthrough} the typical {hoops} for considering deviations from the {thing_description}?",
       "I'm sure there are {hoops} in place for unique situations.",
+      "Can you provide {walkthrough} on what else can I do in similar or future situations?",
     ],
     lexicalBag: {},
   },
