@@ -238,6 +238,7 @@ export const patterns: FramingPattern[] = [
     ],
     justifications: [
       "I'm not asking for anything specific, just trying to understand the broader policies around {thing_description}.",
+      "I'm not asking for a {thing_name} or anything like that, I'm just trying to understand the flexibility of your {thing_name}.",
       "I know that {thing_name} is not currently available, but I'm just {curious} about the general {hoops} if it were available.",
       "I'm not asking for any exceptions for myself nor trying {special_treatment}, just genuinely {curious} about the general {hoops}.",
     ],
