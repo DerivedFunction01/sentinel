@@ -424,6 +424,7 @@ export async function callOpenRouter(
   }>,
   tools?: ToolDef[],
   tracker?: UsageTracker,
+  reasoning?: Record<string, any>,
 ): Promise<OpenRouterMessage> {
   const apiKey = process.env.OPENROUTER_API_KEY || "";
   if (!apiKey) {
@@ -444,6 +445,11 @@ export async function callOpenRouter(
         model,
         messages,
         tools: tools && tools.length > 0 ? tools : undefined,
+        reasoning: reasoning
+          ? JSON.stringify(reasoning)
+          : {
+              exlcude: true,
+            },
       }),
     },
   );
