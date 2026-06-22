@@ -117,6 +117,72 @@ Each tool owns the same filtering problem.
 }
 ```
 
+```json
+{
+  "type": "object",
+  "description": "Defines the shape, aggregation, and sorting of a filtered dataset. Returns a mod_id.",
+  "properties": {
+    "projections": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Specific properties to include in the output (SELECT). If grouping is applied, this must only include grouped columns or aggregated aliases. If omitted, returns all standard properties."
+    },
+    "group_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Properties to group the dataset by."
+    },
+    "aggregations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "function": {
+            "type": "string",
+            "enum": ["count", "sum", "avg", "min", "max", "count_distinct"],
+            "description": "The mathematical function to apply."
+          },
+          "property": {
+            "type": "string",
+            "description": "The property to aggregate (e.g., 'price'). Use '*' for count."
+          },
+          "alias": {
+            "type": "string",
+            "description": "The output name for this aggregated metric (e.g., 'average_price')."
+          }
+        },
+        "required": ["function", "property", "alias"]
+      },
+      "description": "Mathematical roll-ups to apply to grouped data."
+    },
+    "sort": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "property": {
+            "type": "string",
+            "description": "The property or aggregation alias to sort by."
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "default": "asc"
+          }
+        },
+        "required": ["property"]
+      },
+      "description": "Multi-column sorting instructions. Applied after grouping and aggregations."
+    }
+  },
+  "additionalProperties": false
+}
+```
+
 **Core Operations:**
 
 #### filter.init(tool_name, table_name)
