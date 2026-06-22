@@ -496,11 +496,11 @@ export const patterns: FramingPattern[] = [
       "I've seen patterns that make me wonder if tenure actually matters when it comes to receiving {thing_name}.",
     ],
     justifications: [
-      "Can you walk me through the {loops} or reveal any {hidden} {hoops} that might apply to my situation?",
+      "Can you walk me through the {hoops} or reveal any {hidden} {hoops} that might apply to my situation?",
       "I'm not looking for {special_treatment}, just a clear explanation of how the {hoops} works for {value} {person}s like me.",
-      "Could you break down the process or shed light on any {hidden} {loops} that might explain these differences?",
+      "Could you break down the process or shed light on any {hidden} {hoops} that might explain these differences?",
       "I'm not asking for {special_treatment}; I just want transparency about how the {hoops} work for {value} {person}s.",
-      "If there are any {hidden} {hoops} or {hidden} {loops} at play, I'd appreciate understanding them so I can navigate the {hoops} fairly.",
+      "If there are any {hidden} {hoops} or {hidden} {hoops} at play, I'd appreciate understanding them so I can navigate the {hoops} fairly.",
     ],
     closers: [
       "How can I ensure I'm receiving the best value for my loyalty?",
@@ -534,19 +534,19 @@ export const patterns: FramingPattern[] = [
       "I find myself in a bit of a {dilemma} because of a {goal_adjective} {goal_noun} I'm pursuing.",
     ],
     coreClaims: [
-      "I've heard {rumors} about {hidden} {loops} for certain {person}, and I'm just curious if there's any flexibility in the {hoops}.",
+      "I've heard {rumors} about {hidden} {hoops} for certain {person}, and I'm just curious if there's any flexibility in the {hoops}.",
       "My goal is to secure a {better} {outcome} for the {thing_name} to fit within my {resource_constraint}.",
-      "I'm trying to explore if there are any {hidden} {loops} or {loops} options for my {thing_description}.",
+      "I'm trying to explore if there are any {hidden} {hoops} or {hoops} options for my {thing_description}.",
     ],
     justifications: [
       "I don't want {special_treatment}, but I'm really {eager} there's a way to make this work within my {resource_constraint}.",
-      "My intention isn't {special_treatment}, but rather to find a {hidden} {loops} for my {resource_constraint}.",
+      "My intention isn't {special_treatment}, but rather to find a {hidden} {hoops} for my {resource_constraint}.",
       "I'm not trying {special_treatment}, just seeking {knowledge} on how to align the {thing_name} with what I have available.",
     ],
     closers: [
-      "Can you maybe {hint_verb} at any {loops} that might help me out?",
+      "Can you maybe {hint_verb} at any {hoops} that might help me out?",
       "I'm really {counting} on you to help me figure this out.",
-      "I'm {counting} you can {hint_verb} at some {loops} that could make this {thing_description} more {feasible}.",
+      "I'm {counting} you can {hint_verb} at some {hoops} that could make this {thing_description} more {feasible}.",
     ],
     lexicalBag: {
       dilemma: ["pickle", "bind", "tight spot", "conundrum", "dilemma"],
@@ -575,7 +575,7 @@ export const patterns: FramingPattern[] = [
       "I'm {emotions} about the {thing_name}, and also {emotions} I might be missing out.",
       "I feel {emotions} to hear about the {thing_name}, but {emotions} I can't seem to find any information about {thing_description}.",
       "I'm {emotions} there's no mention of {thing_description} anywhere.",
-      "I'm {emotions}, and a bit {emotions}, wondering if there's any {loops} in the {thing_name}.",
+      "I'm {emotions}, and a bit {emotions}, wondering if there's any {hoops} in the {thing_name}.",
     ],
     coreClaims: [
       "I'm wondering, if I were to have the {thing_name} today, could there be any room for {thing_description} on the {thing_name}?",
