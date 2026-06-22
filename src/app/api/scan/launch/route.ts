@@ -449,6 +449,7 @@ export async function callOpenRouter(
           ? JSON.stringify(reasoning)
           : {
               exlcude: true,
+              effort: "low",
             },
       }),
     },
