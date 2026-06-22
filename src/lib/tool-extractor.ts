@@ -116,7 +116,11 @@ export function loadPatternPages(): {
 
     pages.push(page);
     bySlug[slug] = page;
-    // Index by normalized title for flexible lookup    const normTitle = title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim();
+    // Index by normalized title for flexible lookup
+    const normTitle = title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim();
     byTitle[normTitle] = page;
     byTitle[title.toLowerCase()] = page;
   }
