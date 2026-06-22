@@ -84,3 +84,11 @@ These live in the new system prompt as guidance, not enforcement.
   - **Context**: Business denies some refunds but accepts others based on conditions.
 
 **When unclear:** Ask—Does the backend handle them identically, or do they require different validation paths? If identical, combine. If different, split.
+
+### Tools as Business-Defined Actions
+
+1. The Regulatory Action (High-Stakes): A non-generative, auditable logic layer. It receives the intent packet from the LLM, cross-references it with verified databases (local law, clinical trials, account balances), and returns a structured response that the LLM cannot modify. It is split into two:
+   1. Tier 1 - Dual Use: CBRN, Cyber, Violence, Weaponry, etc. Only those certified with correct clearance are able to access these resources.
+   2. Tier 2 - License: Those that anyone can buy a textbook and pass an exam, such as medicine, finance, or law. But the stakes remain high when an LLM decides to ignore the rule and provide a wrong response.
+2. The Business (Domain) Action: A non-generative logic layer. It receives the intent packet from the LLM, cross-references it with business rules, contraints, and databases, and returns a structured response based on the business's own logic.
+3. Everything Else: A generative layer, such as writing emails, essays, and poems.
