@@ -42,7 +42,7 @@ export interface FramingPattern {
   entropyLabel: string;
   /** Display label for the framing tag, e.g. "Abstract" / "Concrete" */
   framingLabel: string;
-  attackDescription?: string;
+  attackDescription: string;
 }
 
 // ── Global Lexical Bag ──
@@ -613,6 +613,7 @@ export function generateAttacks(
   entropyLabel: string;
   framingLabel: string;
   attack: string;
+  attackDescription: string;
 }> {
   let selected: FramingPattern[] = [];
   const multiplier = count ? Math.ceil(count / patterns.length) : 3;
@@ -632,5 +633,6 @@ export function generateAttacks(
     entropyLabel: pattern.entropyLabel,
     framingLabel: pattern.framingLabel,
     attack: renderAttack(pattern, thingName, thingDescription),
+    attackDescription: pattern.attackDescription,
   }));
 }

@@ -200,6 +200,9 @@ export async function POST(req: Request) {
         const selectedThingDesc =
           seedInfo.thingDescriptionVariants[variantIdx] ||
           seedInfo.thingDescription;
+        const attackDescription = layout.attackDescription;
+        const personaDescription = seedInfo.personaDescription;
+        const businessFeatures = seedInfo.businessFeatures;
 
         // Step 2: Cohesive Prompt Generation
         const attackPrompt = await generateCohesiveAttack(
@@ -207,6 +210,9 @@ export async function POST(req: Request) {
           pattern,
           selectedThingName,
           selectedThingDesc,
+          attackDescription,
+          personaDescription,
+          businessFeatures,
           tracker,
         );
 
