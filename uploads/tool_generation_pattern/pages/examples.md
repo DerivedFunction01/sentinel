@@ -1,4 +1,7 @@
-
+---
+title: Examples
+description: "Examples of the rule-to-tool conversion process"
+---
 
 ## Examples: Simple to Complex
 
@@ -308,7 +311,4 @@ The enforcement model doesn't change; only scope.
 - "I want to..." or "Transfer..." → precision_mode="strict_execute"
 - "Can I..." or "Could I..." → precision_mode="strict_clarify"
 - "Transfer if possible" → precision_mode="best_effort"
-
-```
-
----
+````

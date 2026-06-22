@@ -11,7 +11,7 @@ description: Index defining the canonical page order for tool generation pattern
 - universal_tool_protocols
 - schema_design_principles
 - mock_response_strategy
-- intent_recognition_precision_encoding
+- intent_recognition
 - generation_algorithm
 - avoid_tool_bloat
 - output_format
