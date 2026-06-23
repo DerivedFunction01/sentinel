@@ -91,9 +91,16 @@ export async function POST(req: Request) {
       businessCategories,
     } = await req.json();
 
-    if (!name || !description || !granularity || !toolJson || !mockResponse) {
+    const missingFields: string[] = [];
+    if (!name) missingFields.push("name");
+    if (!description) missingFields.push("description");
+    if (!granularity) missingFields.push("granularity");
+    if (!toolJson) missingFields.push("toolJson");
+    if (!mockResponse) missingFields.push("mockResponse");
+
+    if (missingFields.length > 0) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: `Missing required fields: ${missingFields.join(", ")}` },
         { status: 400 },
       );
     }
@@ -216,16 +223,17 @@ export async function PUT(req: Request) {
       businessCategories,
     } = await req.json();
 
-    if (
-      !id ||
-      !name ||
-      !description ||
-      !granularity ||
-      !toolJson ||
-      !mockResponse
-    ) {
+    const missingFields: string[] = [];
+    if (!id) missingFields.push("id");
+    if (!name) missingFields.push("name");
+    if (!description) missingFields.push("description");
+    if (!granularity) missingFields.push("granularity");
+    if (!toolJson) missingFields.push("toolJson");
+    if (!mockResponse) missingFields.push("mockResponse");
+
+    if (missingFields.length > 0) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: `Missing required fields: ${missingFields.join(", ")}` },
         { status: 400 },
       );
     }

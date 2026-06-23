@@ -729,19 +729,20 @@ export function ToolExamplesClient({
         .filter((t) => t.length > 0);
 
       const body = {
+        id: editingId,
         name,
         description,
         tags,
         granularity,
         category,
-        toolJson: JSON.parse(toolJson),
-        mockResponse: JSON.parse(mockResponse),
+        toolJson,
+        mockResponse,
         businessCategories:
           businessCategories.length > 0 ? businessCategories : [],
       };
 
       const url = editingId
-        ? `/api/admin/tool-examples/${editingId}`
+        ? `/api/admin/tool-examples?id=${editingId}`
         : "/api/admin/tool-examples";
 
       const method = editingId ? "PUT" : "POST";
@@ -931,7 +932,7 @@ export function ToolExamplesClient({
                     </Label>
                     <Textarea
                       id="toolJson"
-                      placeholder='{"type":"object",...}'
+                      placeholder='{"type":"function", "function": {...}}'
                       value={toolJson}
                       onChange={(e) => {
                         setToolJson(e.target.value);
