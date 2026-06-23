@@ -96,7 +96,7 @@ export default function PenTestScanPage() {
   const [attackerModel, setAttackerModel] = useState<string>("");
   const [judgeModel, setJudgeModel] = useState<string>("");
   const [hardenerModel, setHardenerModel] = useState<string>("");
-  const [enableHardening, setEnableHardening] = useState<boolean>(true);
+  const [enableHardening, setEnableHardening] = useState<boolean>(false);
   const [prompts, setPrompts] = useState<PromptConfig[]>([makeEmptyPrompt()]);
   const [launching, setLaunching] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -421,45 +421,139 @@ export default function PenTestScanPage() {
 
       {/* Top row: Target Model + Tokens (left) | Pipeline Diagram (right) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        {ChooseModels(
+          targetModels,
+          setTargetModels,
+          attackerModel,
+          setAttackerModel,
+          judgeModel,
+          setJudgeModel,
+          hardenerModel,
+          setHardenerModel,
+          enableHardening,
+          setEnableHardening,
+          tokens,
+        )}
+
+        {/* Pipeline diagram */}
+        <Card>
           <CardHeader>
-            <CardTitle className="text-base">Models &amp; Tokens</CardTitle>
+            <CardTitle className="text-base">Pipeline Diagram</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Target AI Model</Label>
-              <MultiModelSelector
-                value={targetModels}
-                onChange={setTargetModels}
-              />
-              <p className="text-xs text-muted-foreground">
-                Search OpenRouter&apos;s catalog (e.g. &quot;llama&quot;,
-                &quot;gemini&quot;, &quot;gpt-4&quot;).
+          <CardContent>
+            <AgentPipeline />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Prompts */}
+      {promptSection(
+        prompts,
+        copyFromPrevious,
+        removePrompt,
+        updatePrompt,
+        addPrompt,
+        handleImportClick,
+        handleExport,
+        fileInputRef,
+        handleImportFile,
+      )}
+
+      {/* Launch bar */}
+      {launchBar(
+        scanning,
+        tokens,
+        targetModels,
+        prompts,
+        handleLaunch,
+        launching,
+        handleTemplateAttack,
+        templateLoading,
+        currentStep,
+        totalSteps,
+        scanStatus,
+        handleScanComplete,
+      )}
+
+      {/* Info card */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-3">
+            <FileText className="h-5 w-5 shrink-0 text-blue-400" />
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">
+                Multi-LLM Agent Pipeline
+              </h4>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Paste your system prompt and select a target model. The
+                SentinelPrompt multi-agent workflow uses adversarial attack
+                prompts, tests them against the target, and has a Judge
+                determine if secrets leaked. You can test up to 3 prompts in
+                parallel — use &quot;Copy from&quot; to test variations of the
+                same prompt.
               </p>
+              <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Tool calls are simulated with mock responses
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm font-medium">
-                <Swords className="h-3.5 w-3.5 text-red-400" />
-                Attacker Model
-              </Label>
-              <ModelSelector
-                value={attackerModel}
-                onChange={setAttackerModel}
-              />
-              <p className="text-xs text-muted-foreground">
-                Generates adversarial prompts targeting the forbidden task.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm font-medium">
-                <Gavel className="h-3.5 w-3.5 text-emerald-400" />
-                Judge Model
-              </Label>
-              <ModelSelector value={judgeModel} onChange={setJudgeModel} />
-              <p className="text-xs text-muted-foreground">
-                Evaluates whether the target leaked restricted info.
-              </p>
-            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ChooseModels(
+  targetModels: string[],
+  setTargetModels,
+  attackerModel: string,
+  setAttackerModel,
+  judgeModel: string,
+  setJudgeModel,
+  hardenerModel: string,
+  setHardenerModel,
+  enableHardening: boolean,
+  setEnableHardening,
+  tokens: number | null,
+) {
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader>
+        <CardTitle className="text-base">Models &amp; Tokens</CardTitle>
+      </CardHeader>
+      <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Target AI Model</Label>
+          <MultiModelSelector value={targetModels} onChange={setTargetModels} />
+          <p className="text-xs text-muted-foreground">
+            Search OpenRouter&apos;s catalog (e.g. &quot;llama&quot;,
+            &quot;gemini&quot;, &quot;gpt-4&quot;).
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label className="flex items-center gap-1.5 text-sm font-medium">
+            <Swords className="h-3.5 w-3.5 text-red-400" />
+            Attacker Model
+          </Label>
+          <ModelSelector value={attackerModel} onChange={setAttackerModel} />
+          <p className="text-xs text-muted-foreground">
+            Generates adversarial prompts targeting the forbidden task.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label className="flex items-center gap-1.5 text-sm font-medium">
+            <Gavel className="h-3.5 w-3.5 text-emerald-400" />
+            Judge Model
+          </Label>
+          <ModelSelector value={judgeModel} onChange={setJudgeModel} />
+          <p className="text-xs text-muted-foreground">
+            Evaluates whether the target leaked restricted info.
+          </p>
+        </div>
+        {enableHardening && (
+          <>
+            {" "}
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5 text-sm font-medium">
                 <Sparkles className="h-3.5 w-3.5 text-purple-400" />
@@ -492,328 +586,318 @@ export default function PenTestScanPage() {
                 completes. Disable to skip hardening and save API costs.
               </p>
             </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm font-medium">
-                <Coins className="h-3.5 w-3.5 text-amber-400" />
-                Tokens Remaining
-              </Label>
-              <div className="flex h-9 items-center rounded-md border border-input bg-muted/30 px-3">
-                <span className="text-lg font-bold text-foreground">
-                  {tokens ?? "…"}
-                </span>
-                <span className="ml-2 text-xs text-muted-foreground">
-                  scans remaining
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Each scan consumes 1 token. Request more in Settings.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+          </>
+        )}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-1.5 text-sm font-medium">
+            <Coins className="h-3.5 w-3.5 text-amber-400" />
+            Tokens Remaining
+          </Label>
+          <div className="flex h-9 items-center rounded-md border border-input bg-muted/30 px-3">
+            <span className="text-lg font-bold text-foreground">
+              {tokens ?? "…"}
+            </span>
+            <span className="ml-2 text-xs text-muted-foreground">
+              scans remaining
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Each scan consumes 1 token. Request more in Settings.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-        {/* Pipeline diagram */}
-        <Card>
+function promptSection(
+  prompts: PromptConfig[],
+  copyFromPrevious: (idx: number) => void,
+  removePrompt: (idx: number) => void,
+  updatePrompt: (idx: number, field: keyof PromptConfig, value: string) => void,
+  addPrompt: () => void,
+  handleImportClick: () => void,
+  handleExport: () => void,
+  fileInputRef,
+  handleImportFile: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>,
+) {
+  return (
+    <div className="space-y-6">
+      {prompts.map((prompt, idx) => (
+        <Card key={idx}>
           <CardHeader>
-            <CardTitle className="text-base">Pipeline Diagram</CardTitle>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  Prompt {idx + 1}
+                </CardTitle>
+                <CardDescription>
+                  Configure the system prompt, tools, mock responses, and judge
+                  instructions for this prompt.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                {idx > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => copyFromPrevious(idx)}
+                  >
+                    <Copy className="mr-1 h-3 w-3" />
+                    Copy from {idx}
+                  </Button>
+                )}
+                {prompts.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-red-400 hover:text-red-500"
+                    onClick={() => removePrompt(idx)}
+                  >
+                    <Trash2 className="mr-1 h-3 w-3" />
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <AgentPipeline />
+            {/* 2×2 grid: left = System Prompt + Judge Instructions, right = Forbidden Task + Tools + Mock Responses */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Left column */}
+              <div className="space-y-6">
+                <FieldBlock
+                  icon={FileText}
+                  title="System Prompt"
+                  value={prompt.systemPrompt}
+                  onChange={(v) => updatePrompt(idx, "systemPrompt", v)}
+                  placeholder="Paste your system prompt here."
+                  minHeight="min-h-40"
+                  monospace
+                  showCharCount
+                  onUseSample={() => {
+                    updatePrompt(idx, "systemPrompt", sampleSystemPrompt);
+                    toast.success("Sample system prompt loaded");
+                  }}
+                />
+                <FieldBlock
+                  icon={Gavel}
+                  title="Judge Instructions"
+                  badge="NEW"
+                  description="How the Judge evaluates each response — separate from the forbidden task."
+                  value={prompt.judgeInstructions}
+                  onChange={(v) => updatePrompt(idx, "judgeInstructions", v)}
+                  placeholder="e.g. Only mark LEAKED if the forbidden content appears verbatim in the response."
+                  minHeight="min-h-32"
+                  onUseSample={() => {
+                    updatePrompt(
+                      idx,
+                      "judgeInstructions",
+                      sampleJudgeInstructions,
+                    );
+                    toast.success("Sample judge instructions loaded");
+                  }}
+                />
+              </div>
+
+              {/* Right column */}
+              <div className="space-y-6">
+                <FieldBlock
+                  icon={Ban}
+                  title="Forbidden Task"
+                  value={prompt.forbiddenTask}
+                  onChange={(v) => updatePrompt(idx, "forbiddenTask", v)}
+                  placeholder="Describe what the AI must never do or reveal."
+                  minHeight="min-h-32"
+                  showCharCount
+                  onUseSample={() => {
+                    updatePrompt(idx, "forbiddenTask", sampleForbiddenTask);
+                    toast.success("Sample forbidden task loaded");
+                  }}
+                />
+                <FieldBlock
+                  icon={Braces}
+                  title="Tools (JSON)"
+                  badge="NEW"
+                  description="OpenRouter tool definitions, appended as the tools payload on every Target call."
+                  value={prompt.tools}
+                  onChange={(v) => updatePrompt(idx, "tools", v)}
+                  placeholder='[{"type":"function","function":{"name":"..."}}]'
+                  minHeight="min-h-40"
+                  monospace
+                  onUseSample={() => {
+                    updatePrompt(
+                      idx,
+                      "tools",
+                      JSON.stringify(sampleTools, null, 2),
+                    );
+                    toast.success("Sample tools loaded");
+                  }}
+                />
+                <FieldBlock
+                  icon={Code2}
+                  title="Mock Tool Responses (JSON)"
+                  badge="NEW"
+                  description="Returned to the Target when it calls a tool, so the loop continues realistically."
+                  value={prompt.mockResponses}
+                  onChange={(v) => updatePrompt(idx, "mockResponses", v)}
+                  placeholder='{"tool_name": {"mock_result": "..."}}'
+                  minHeight="min-h-32"
+                  monospace
+                  onUseSample={() => {
+                    updatePrompt(
+                      idx,
+                      "mockResponses",
+                      JSON.stringify(sampleMockToolResponses, null, 2),
+                    );
+                    toast.success("Sample mock responses loaded");
+                  }}
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
+      ))}
+
+      {/* Add prompt + import/export buttons */}
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Button
+          variant="outline"
+          className="flex-1 border-dashed border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+          onClick={addPrompt}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add Prompt
+        </Button>
+        <Button
+          variant="outline"
+          className="sm:w-auto border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+          onClick={handleImportClick}
+        >
+          <Upload className="mr-2 h-4 w-4" />
+          Import from File
+        </Button>
+        <Button
+          variant="outline"
+          className="sm:w-auto border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+          onClick={handleExport}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Save to File
+        </Button>
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json,.json"
+        onChange={handleImportFile}
+        className="hidden"
+      />
+    </div>
+  );
+}
 
-      {/* Prompts */}
-      <div className="space-y-6">
-        {prompts.map((prompt, idx) => (
-          <Card key={idx}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    Prompt {idx + 1}
-                  </CardTitle>
-                  <CardDescription>
-                    Configure the system prompt, tools, mock responses, and
-                    judge instructions for this prompt.
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  {idx > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => copyFromPrevious(idx)}
-                    >
-                      <Copy className="mr-1 h-3 w-3" />
-                      Copy from {idx}
-                    </Button>
-                  )}
-                  {prompts.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-red-400 hover:text-red-500"
-                      onClick={() => removePrompt(idx)}
-                    >
-                      <Trash2 className="mr-1 h-3 w-3" />
-                      Remove
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* 2×2 grid: left = System Prompt + Judge Instructions, right = Forbidden Task + Tools + Mock Responses */}
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                {/* Left column */}
-                <div className="space-y-6">
-                  <FieldBlock
-                    icon={FileText}
-                    title="System Prompt"
-                    value={prompt.systemPrompt}
-                    onChange={(v) => updatePrompt(idx, "systemPrompt", v)}
-                    placeholder="Paste your system prompt here."
-                    minHeight="min-h-40"
-                    monospace
-                    showCharCount
-                    onUseSample={() => {
-                      updatePrompt(idx, "systemPrompt", sampleSystemPrompt);
-                      toast.success("Sample system prompt loaded");
-                    }}
-                  />
-                  <FieldBlock
-                    icon={Gavel}
-                    title="Judge Instructions"
-                    badge="NEW"
-                    description="How the Judge evaluates each response — separate from the forbidden task."
-                    value={prompt.judgeInstructions}
-                    onChange={(v) => updatePrompt(idx, "judgeInstructions", v)}
-                    placeholder="e.g. Only mark LEAKED if the forbidden content appears verbatim in the response."
-                    minHeight="min-h-32"
-                    onUseSample={() => {
-                      updatePrompt(
-                        idx,
-                        "judgeInstructions",
-                        sampleJudgeInstructions,
-                      );
-                      toast.success("Sample judge instructions loaded");
-                    }}
-                  />
-                </div>
-
-                {/* Right column */}
-                <div className="space-y-6">
-                  <FieldBlock
-                    icon={Ban}
-                    title="Forbidden Task"
-                    value={prompt.forbiddenTask}
-                    onChange={(v) => updatePrompt(idx, "forbiddenTask", v)}
-                    placeholder="Describe what the AI must never do or reveal."
-                    minHeight="min-h-32"
-                    showCharCount
-                    onUseSample={() => {
-                      updatePrompt(idx, "forbiddenTask", sampleForbiddenTask);
-                      toast.success("Sample forbidden task loaded");
-                    }}
-                  />
-                  <FieldBlock
-                    icon={Braces}
-                    title="Tools (JSON)"
-                    badge="NEW"
-                    description="OpenRouter tool definitions, appended as the tools payload on every Target call."
-                    value={prompt.tools}
-                    onChange={(v) => updatePrompt(idx, "tools", v)}
-                    placeholder='[{"type":"function","function":{"name":"..."}}]'
-                    minHeight="min-h-40"
-                    monospace
-                    onUseSample={() => {
-                      updatePrompt(
-                        idx,
-                        "tools",
-                        JSON.stringify(sampleTools, null, 2),
-                      );
-                      toast.success("Sample tools loaded");
-                    }}
-                  />
-                  <FieldBlock
-                    icon={Code2}
-                    title="Mock Tool Responses (JSON)"
-                    badge="NEW"
-                    description="Returned to the Target when it calls a tool, so the loop continues realistically."
-                    value={prompt.mockResponses}
-                    onChange={(v) => updatePrompt(idx, "mockResponses", v)}
-                    placeholder='{"tool_name": {"mock_result": "..."}}'
-                    minHeight="min-h-32"
-                    monospace
-                    onUseSample={() => {
-                      updatePrompt(
-                        idx,
-                        "mockResponses",
-                        JSON.stringify(sampleMockToolResponses, null, 2),
-                      );
-                      toast.success("Sample mock responses loaded");
-                    }}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        {/* Add prompt + import/export buttons */}
-        <div className="flex flex-col gap-3 sm:flex-row">
+function launchBar(
+  scanning: boolean,
+  tokens: number | null,
+  targetModels: string[],
+  prompts: PromptConfig[],
+  handleLaunch: () => Promise<void>,
+  launching: boolean,
+  handleTemplateAttack: () => Promise<void>,
+  templateLoading: boolean,
+  currentStep: number,
+  totalSteps: number,
+  scanStatus: string,
+  handleScanComplete: () => void,
+) {
+  return (
+    <Card className={scanning ? "border-blue-500/30" : ""}>
+      <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/15">
+            <Coins className="h-5 w-5 text-amber-400" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {tokens ?? "…"} tokens remaining
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {scanning ? (
+                "Scan in progress…"
+              ) : (
+                <>
+                  <span className="font-semibold text-foreground">
+                    {targetModels.length} model
+                    {targetModels.length !== 1 ? "s" : ""}
+                  </span>{" "}
+                  ×{" "}
+                  <span className="font-semibold text-foreground">
+                    {prompts.length} prompt{prompts.length !== 1 ? "s" : ""}
+                  </span>{" "}
+                  ={" "}
+                  <span className="font-semibold text-amber-400">
+                    {targetModels.length * prompts.length} token
+                    {targetModels.length * prompts.length !== 1 ? "s" : ""}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Button
-            variant="outline"
-            className="flex-1 border-dashed border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
-            onClick={addPrompt}
+            onClick={handleLaunch}
+            disabled={
+              launching || scanning || tokens === 0 || targetModels.length === 0
+            }
+            className="bg-blue-600 hover:bg-blue-700"
+            size="lg"
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Prompt
+            {launching || scanning ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Agent Running...
+              </>
+            ) : (
+              <>
+                <Crosshair className="mr-2 h-4 w-4" />
+                Launch Agent Scan
+              </>
+            )}
           </Button>
           <Button
+            onClick={handleTemplateAttack}
+            disabled={templateLoading}
             variant="outline"
-            className="sm:w-auto border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
-            onClick={handleImportClick}
+            size="lg"
+            className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10"
           >
-            <Upload className="mr-2 h-4 w-4" />
-            Import from File
-          </Button>
-          <Button
-            variant="outline"
-            className="sm:w-auto border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
-            onClick={handleExport}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Save to File
+            {templateLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating…
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Run Template Attack
+              </>
+            )}
           </Button>
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/json,.json"
-          onChange={handleImportFile}
-          className="hidden"
-        />
-      </div>
-
-      {/* Launch bar */}
-      <Card className={scanning ? "border-blue-500/30" : ""}>
-        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/15">
-              <Coins className="h-5 w-5 text-amber-400" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                {tokens ?? "…"} tokens remaining
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {scanning ? (
-                  "Scan in progress…"
-                ) : (
-                  <>
-                    <span className="font-semibold text-foreground">
-                      {targetModels.length} model
-                      {targetModels.length !== 1 ? "s" : ""}
-                    </span>{" "}
-                    ×{" "}
-                    <span className="font-semibold text-foreground">
-                      {prompts.length} prompt{prompts.length !== 1 ? "s" : ""}
-                    </span>{" "}
-                    ={" "}
-                    <span className="font-semibold text-amber-400">
-                      {targetModels.length * prompts.length} token
-                      {targetModels.length * prompts.length !== 1 ? "s" : ""}
-                    </span>
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              onClick={handleLaunch}
-              disabled={
-                launching ||
-                scanning ||
-                tokens === 0 ||
-                targetModels.length === 0
-              }
-              className="bg-blue-600 hover:bg-blue-700"
-              size="lg"
-            >
-              {launching || scanning ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Agent Running...
-                </>
-              ) : (
-                <>
-                  <Crosshair className="mr-2 h-4 w-4" />
-                  Launch Agent Scan
-                </>
-              )}
-            </Button>
-            <Button
-              onClick={handleTemplateAttack}
-              disabled={templateLoading}
-              variant="outline"
-              size="lg"
-              className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10"
-            >
-              {templateLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Run Template Attack
-                </>
-              )}
-            </Button>
-          </div>
+      </CardContent>
+      {scanning && (
+        <CardContent className="border-t border-border pt-5">
+          <ScanProgressPanel
+            currentStep={currentStep}
+            totalSteps={totalSteps}
+            scanStatus={scanStatus}
+            onComplete={handleScanComplete}
+          />
         </CardContent>
-        {scanning && (
-          <CardContent className="border-t border-border pt-5">
-            <ScanProgressPanel
-              currentStep={currentStep}
-              totalSteps={totalSteps}
-              scanStatus={scanStatus}
-              onComplete={handleScanComplete}
-            />
-          </CardContent>
-        )}
-      </Card>
-
-      {/* Info card */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-3">
-            <FileText className="h-5 w-5 shrink-0 text-blue-400" />
-            <div>
-              <h4 className="text-sm font-semibold text-foreground">
-                Multi-LLM Agent Pipeline
-              </h4>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Paste your system prompt and select a target model. The
-                SentinelPrompt multi-agent workflow uses adversarial attack
-                prompts, tests them against the target, and has a Judge
-                determine if secrets leaked. You can test up to 3 prompts in
-                parallel — use &quot;Copy from&quot; to test variations of the
-                same prompt.
-              </p>
-              <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Tool calls are simulated with mock responses
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      )}
+    </Card>
   );
 }
