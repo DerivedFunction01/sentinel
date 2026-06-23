@@ -136,6 +136,9 @@ Use for tools that process requests (transfers, refunds, verifications, inquirie
     "describe_processing": false,
     "exceptions": false,
     "negotiation": false,
+    "allow_hypothetical": false,
+    "allow_followup": false,
+    "allow_extrapolation": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true
   },
@@ -182,6 +185,9 @@ Use for tools that perform lookups such as store hours, policies, product catalo
     "describe_processing": false,
     "exceptions": false,
     "negotiation": false,
+    "allow_hypothetical": false,
+    "allow_followup": false,
+    "allow_extrapolation": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true
   },
