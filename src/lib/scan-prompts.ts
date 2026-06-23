@@ -554,11 +554,16 @@ export async function executeMultiStepHardening(
   trace?: HardeningTrace,
 ): Promise<string> {
   // ── Pre-step: Optimization Prompt Detection & Language Identification ──
+  // DISABLED: Commented out to reduce token costs. Can be re-enabled later if needed.
   // Detects the prompt language, strips any existing optimization block, and
   // returns a "cleaned" prompt so hardening steps work on uncontaminated content.
-  const detectorResult = await runOptDetector(callModel, systemPrompt, trace);
-  const detectedLanguage = detectorResult.language || "English";
-  const workingPrompt = detectorResult.cleanedPrompt || systemPrompt;
+  // const detectorResult = await runOptDetector(callModel, systemPrompt, trace);
+  // const detectedLanguage = detectorResult.language || "English";
+  // const workingPrompt = detectorResult.cleanedPrompt || systemPrompt;
+  
+  // Use systemPrompt directly since opt detection is disabled
+  const workingPrompt = systemPrompt;
+  const detectedLanguage = "English"; // Default since detector is disabled
 
   // ── Step 0.5: Attack Summarization (Key Patterns Extraction) ──
   let summarizedPatterns = "";
@@ -638,27 +643,45 @@ export async function executeMultiStepHardening(
   }
 
   // ── Step 2: Guardrails Addition ──
-  const step2Instructions = getHardenedPromptStep2Instructions(
-    compactedPrompt,
-    forbiddenTask,
-    breachedAttacks,
-    recommendedTools,
-    summarizedPatterns,
-  );
+  // CONDITIONAL: Skip when tools are present and enforce restrictions (rules as code pattern)
+  // When tools handle the forbidden task, we skip Step 2 to avoid redundant guardrails
+  let finalPrompt = compactedPrompt;
+  const hasToolsEnforcingRestrictions = recommendedTools && recommendedTools.length > 0;
+  
+  if (!hasToolsEnforcingRestrictions) {
+    // Only run Step 2 when no tools are present to enforce restrictions
+    const step2Instructions = getHardenedPromptStep2Instructions(
+      compactedPrompt,
+      forbiddenTask,
+      breachedAttacks,
+      recommendedTools,
+      summarizedPatterns,
+    );
 
-  let finalPrompt = "";
-  try {
-    const res = await callModel(step2Instructions);
-    finalPrompt = extractSystemPrompt(res || "");
+    let step2FinalPrompt = "";
+    try {
+      const res = await callModel(step2Instructions);
+      step2FinalPrompt = extractSystemPrompt(res || "");
+      if (trace) {
+        trace.step2 = {
+          promptSent: step2Instructions,
+          outputPrompt: step2FinalPrompt,
+        };
+      }
+      finalPrompt = step2FinalPrompt;
+    } catch (err) {
+      console.error("Step 2 of prompt hardening failed:", err);
+      finalPrompt = compactedPrompt;
+    }
+  } else {
+    // Tools are enforcing restrictions, so skip Step 2 (rules as code pattern)
+    // The tool definitions already handle the forbidden task dynamically
     if (trace) {
       trace.step2 = {
-        promptSent: step2Instructions,
-        outputPrompt: finalPrompt,
+        skipped: true,
+        reason: "Tools present to enforce restrictions (rules as code pattern)",
       };
     }
-  } catch (err) {
-    console.error("Step 2 of prompt hardening failed:", err);
-    finalPrompt = compactedPrompt;
   }
 
   if (finalPrompt.includes("<system_prompt>")) {
@@ -669,14 +692,15 @@ export async function executeMultiStepHardening(
   }
 
   // ── Post-step: Optimization Prompt Translation & Append ──
+  // DISABLED: Commented out to reduce token costs. Can be re-enabled later if needed.
   // Translate the optimization prompt into the detected language (no-op for English)
   // and append it to the final hardened prompt.
-  const translatedOptPrompt = await runOptTranslator(
-    callModel,
-    detectedLanguage,
-    trace,
-  );
-  finalPrompt = `${translatedOptPrompt}\n\n${finalPrompt.trim()}`;
+  // const translatedOptPrompt = await runOptTranslator(
+  //   callModel,
+  //   detectedLanguage,
+  //   trace,
+  // );
+  // finalPrompt = `${translatedOptPrompt}\n\n${finalPrompt.trim()}`;
 
   return finalPrompt.trim();
 }
