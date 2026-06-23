@@ -101,7 +101,7 @@ export default function PenTestScanPage() {
   const [templateLoading, setTemplateLoading] = useState(false);
   const [tokens, setTokens] = useState<number | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
-  
+
   // Real-time progress tracking state
   const [currentStep, setCurrentStep] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
@@ -113,15 +113,18 @@ export default function PenTestScanPage() {
 
     const pollProgress = async () => {
       try {
-        const res = await fetch(`/api/scan/${reportId}/progress`);
+        const res = await fetch(`/api/scan/progress/${reportId}`);
         if (res.ok) {
           const data = await res.json();
           setCurrentStep(data.currentStep || 0);
           setTotalSteps(data.totalSteps || 0);
           setScanStatus(data.status || "running");
-          
+
           // Check if scan is complete
-          if (data.status === "completed" || data.currentStep >= data.totalSteps) {
+          if (
+            data.status === "completed" ||
+            data.currentStep >= data.totalSteps
+          ) {
             handleScanComplete();
           }
         }
@@ -132,7 +135,7 @@ export default function PenTestScanPage() {
 
     // Poll every 1 second
     const interval = setInterval(pollProgress, 1000);
-    
+
     // Initial poll
     pollProgress();
 
@@ -154,10 +157,12 @@ export default function PenTestScanPage() {
         if (d.models && d.models.length > 0) {
           const defaultModelId = findDefaultModel(d.models);
           // Only set defaults if they are not already set by the preset
-          setTargetModels((prev) => prev.length === 0 ? [defaultModelId] : prev);
-          setAttackerModel((prev) => prev === "" ? defaultModelId : prev);
-          setJudgeModel((prev) => prev === "" ? defaultModelId : prev);
-          setHardenerModel((prev) => prev === "" ? defaultModelId : prev);
+          setTargetModels((prev) =>
+            prev.length === 0 ? [defaultModelId] : prev,
+          );
+          setAttackerModel((prev) => (prev === "" ? defaultModelId : prev));
+          setJudgeModel((prev) => (prev === "" ? defaultModelId : prev));
+          setHardenerModel((prev) => (prev === "" ? defaultModelId : prev));
         }
       })
       .catch(() => {
@@ -176,17 +181,17 @@ export default function PenTestScanPage() {
         if (preset.judgeModel) setJudgeModel(preset.judgeModel);
         if (preset.hardenerModel) setHardenerModel(preset.hardenerModel);
         if (preset.prompts) setPrompts(preset.prompts);
-        
+
         localStorage.removeItem("sentinelprompt_scan_preset");
         toast.success("Hardened system prompt preset loaded!", {
-          description: "Review and click 'Launch Agent Scan' to run the new scan.",
+          description:
+            "Review and click 'Launch Agent Scan' to run the new scan.",
         });
       } catch (e) {
         console.error("Failed to parse scan preset", e);
       }
     }
   }, []);
-
 
   const handleLaunch = async () => {
     if (targetModels.length === 0) {
@@ -457,7 +462,10 @@ export default function PenTestScanPage() {
                 <Sparkles className="h-3.5 w-3.5 text-purple-400" />
                 Hardener Model
               </Label>
-              <ModelSelector value={hardenerModel} onChange={setHardenerModel} />
+              <ModelSelector
+                value={hardenerModel}
+                onChange={setHardenerModel}
+              />
               <p className="text-xs text-muted-foreground">
                 Generates a hardened system prompt following the scan.
               </p>
@@ -787,4 +795,3 @@ export default function PenTestScanPage() {
     </div>
   );
 }
-

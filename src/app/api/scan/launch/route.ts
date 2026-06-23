@@ -105,7 +105,7 @@ export async function POST(req: Request) {
   for (const targetModel of targetModels) {
     // Create initial Scan record with RUNNING status before executing pipeline
     const reportId = generateReportId();
-    
+
     await db.scan.create({
       data: {
         reportId,
