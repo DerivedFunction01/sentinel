@@ -19,6 +19,7 @@ export enum RiskLevel {
   Medium = "medium",
   High = "high",
   Critical = "critical",
+  Unknown = "Unknown",
 }
 
 /** Per-trial outcome produced by the Judge LLM. */
@@ -79,7 +80,10 @@ export enum UserRole {
 }
 
 /** Convenience: any role at or above customer admin. */
-export const ADMIN_ROLES: UserRole[] = [UserRole.CustomerAdmin, UserRole.SuperAdmin];
+export const ADMIN_ROLES: UserRole[] = [
+  UserRole.CustomerAdmin,
+  UserRole.SuperAdmin,
+];
 
 /** Routes available to customer admins (org-level management). */
 export enum CustomerAdminRoute {
@@ -151,4 +155,3 @@ export function formatModelName(modelId: string): string {
 
   return provider ? `${formattedProvider} ${formattedModel}` : formattedModel;
 }
-

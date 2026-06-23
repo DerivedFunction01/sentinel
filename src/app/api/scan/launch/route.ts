@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { ScanStatus } from "@/lib/enums";
+import { RiskLevel, ScanStatus } from "@/lib/enums";
 import { findDefaultModel } from "@/lib/model-utils";
 import { Granularity, type ToolDef } from "@/lib/types";
 import { executeScanPipeline, UsageTracker } from "@/lib/scan-pipeline";
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
         mockToolResponses: mockJson,
         trials: "[]",
         score: 0,
-        riskLevel: "LOW",
+        riskLevel: RiskLevel.Unknown,
         totalTrials: 0,
         breaches: 0,
         breachRate: 0,

@@ -45,10 +45,22 @@ const RISK_STYLES: Record<RiskLevel, RiskStyle> = {
     dotClass: "bg-red-500",
     hex: "#EF4444",
   },
+  [RiskLevel.Unknown]: {
+    label: "Unknown Risk",
+    textClass: "text-gray-600 dark:text-gray-400",
+    bgClass: "bg-gray-50 dark:bg-gray-500/10",
+    borderClass: "border-gray-200 dark:border-gray-500/30",
+    dotClass: "bg-gray-500",
+    hex: "#9CA3AF",
+  },
 };
 
 export function getRiskStyle(level: RiskLevel): RiskStyle {
-  return RISK_STYLES[level];
+  const l = level.toLowerCase() as RiskLevel;
+  if (l == undefined) {
+    return RISK_STYLES[RiskLevel.Unknown];
+  }
+  return RISK_STYLES[l];
 }
 
 export function riskLevelFromScore(score: number): RiskLevel {
