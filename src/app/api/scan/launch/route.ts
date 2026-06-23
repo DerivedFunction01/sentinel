@@ -15,7 +15,6 @@ import {
   SEED_EXTRACTOR_USER_TEMPLATE,
   ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2,
   JUDGE_EVALUATION_TEMPLATE,
-  REWRITE_ASSISTANT_PREFILL_V2,
   executeMultiStepHardening,
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
@@ -27,7 +26,12 @@ import {
   generateToolRecommendation,
   parseSectionedRecommendation,
 } from "@/lib/tool-extractor";
-import type { ToolDef, Trial, ToolCall } from "@/lib/types";
+import {
+  type ToolDef,
+  type Trial,
+  type ToolCall,
+  Granularity,
+} from "@/lib/types";
 
 export interface UsageTracker {
   totalCost: number;
@@ -282,7 +286,7 @@ export async function POST(req: Request) {
     const modelShort = targetModel.split("/").pop() || targetModel;
 
     // Run tool extraction
-    const granularity = "compact"; // Default is compact on launch
+    const granularity = Granularity.Compact; // Default is compact on launch
 
     const { toolRecommendation, compatibilityScore } =
       await generateToolRecommendation(
