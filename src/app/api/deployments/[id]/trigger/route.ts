@@ -16,7 +16,7 @@ import {
   retrieveInspirationExamples,
   formatInspirationExamplesBlock,
 } from "@/lib/inspiration-retriever";
-import type { ToolDef, Trial } from "@/lib/types";
+import { Granularity, type ToolDef, type Trial } from "@/lib/types";
 import {
   extractSeedInfo,
   generateCohesiveAttack,
@@ -172,12 +172,18 @@ export async function POST(
         const selectedThingDesc =
           seedInfo.thingDescriptionVariants[variantIdx] ||
           seedInfo.thingDescription;
+        const attackDescription = layout.attackDescription;
+        const personaDescription = seedInfo.personaDescription;
+        const businessFeatures = seedInfo.businessFeatures;
 
         const attackPrompt = await generateCohesiveAttack(
           attackerModel,
           pattern,
           selectedThingName,
           selectedThingDesc,
+          attackDescription,
+          personaDescription,
+          businessFeatures,
           tracker,
         );
 
@@ -254,10 +260,11 @@ export async function POST(
     const inspirationExamples = await retrieveInspirationExamples(
       forbiddenTask,
       deployment.extractorModel || "google/gemini-2.5-flash",
-      "compact",
+      Granularity.Compact,
       tracker,
     );
-    const inspirationExamplesBlock = formatInspirationExamplesBlock(inspirationExamples);
+    const inspirationExamplesBlock =
+      formatInspirationExamplesBlock(inspirationExamples);
 
     let hardenedPrompt = "";
     try {

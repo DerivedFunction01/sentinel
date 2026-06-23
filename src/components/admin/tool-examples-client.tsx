@@ -16,14 +16,27 @@ import {
   Upload,
   Pencil,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
+import { Granularity } from "@/lib/types";
 
 interface ToolExample {
   id: string;
@@ -42,7 +55,9 @@ interface ToolExamplesClientProps {
   initialExamples: ToolExample[];
 }
 
-export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps) {
+export function ToolExamplesClient({
+  initialExamples,
+}: ToolExamplesClientProps) {
   const [examples, setExamples] = useState<ToolExample[]>(initialExamples);
   const [name, setName] = useState("");
   const [isImporting, setIsImporting] = useState(false);
@@ -77,7 +92,7 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
       }
 
       toast.success(
-        `Import complete! Imported: ${data.imported}, Skipped: ${data.skipped}, Errors: ${data.errors?.length || 0}`
+        `Import complete! Imported: ${data.imported}, Skipped: ${data.skipped}, Errors: ${data.errors?.length || 0}`,
       );
 
       // Refetch examples
@@ -97,8 +112,12 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
   };
   const [description, setDescription] = useState("");
   const [tagsStr, setTagsStr] = useState(""); // comma-separated
-  const [granularity, setGranularity] = useState<"compact" | "detailed">("compact");
-  const [category, setCategory] = useState<"standard" | "regulatory" | "meta">("standard");
+  const [granularity, setGranularity] = useState<Granularity>(
+    Granularity.Compact,
+  );
+  const [category, setCategory] = useState<"standard" | "regulatory" | "meta">(
+    "standard",
+  );
   const [toolJson, setToolJson] = useState("");
   const [mockResponse, setMockResponse] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -128,7 +147,7 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
     setName("");
     setDescription("");
     setTagsStr("");
-    setGranularity("compact");
+    setGranularity(Granularity.Compact);
     setCategory("standard");
     setToolJson("");
     setMockResponse("");
@@ -138,9 +157,14 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
 
   // JSON Validation States
   const [toolJsonError, setToolJsonError] = useState<string | null>(null);
-  const [mockResponseError, setMockResponseError] = useState<string | null>(null);
+  const [mockResponseError, setMockResponseError] = useState<string | null>(
+    null,
+  );
 
-  const validateJson = (val: string, setError: (err: string | null) => void) => {
+  const validateJson = (
+    val: string,
+    setError: (err: string | null) => void,
+  ) => {
     if (!val.trim()) {
       setError(null);
       return false;
@@ -161,7 +185,12 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
     const isToolJsonValid = validateJson(toolJson, setToolJsonError);
     const isMockValid = validateJson(mockResponse, setMockResponseError);
 
-    if (!name.trim() || !description.trim() || !toolJson.trim() || !mockResponse.trim()) {
+    if (
+      !name.trim() ||
+      !description.trim() ||
+      !toolJson.trim() ||
+      !mockResponse.trim()
+    ) {
       toast.error("Please fill in all required fields.");
       return;
     }
@@ -199,31 +228,38 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
 
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || `Failed to ${editingId ? "update" : "create"} example schema`);
+        toast.error(
+          data.error ||
+            `Failed to ${editingId ? "update" : "create"} example schema`,
+        );
         return;
       }
 
       if (editingId) {
-        setExamples((prev) => prev.map((ex) => (ex.id === editingId ? data : ex)));
+        setExamples((prev) =>
+          prev.map((ex) => (ex.id === editingId ? data : ex)),
+        );
         toast.success("Example schema successfully updated!");
         setEditingId(null);
       } else {
         setExamples((prev) => [data, ...prev]);
         toast.success("Example schema successfully created!");
       }
-      
+
       // Reset form
       setName("");
       setDescription("");
       setTagsStr("");
-      setGranularity("compact");
+      setGranularity(Granularity.Compact);
       setCategory("standard");
       setToolJson("");
       setMockResponse("");
       setToolJsonError(null);
       setMockResponseError(null);
     } catch {
-      toast.error(`An error occurred while ${editingId ? "updating" : "creating"} example schema.`);
+      toast.error(
+        `An error occurred while ${editingId ? "updating" : "creating"} example schema.`,
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -266,7 +302,8 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
           Tool Schema Examples
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manage the central catalog of reference schemas and mock tool responses utilized by the LLM tool recommendations pipeline.
+          Manage the central catalog of reference schemas and mock tool
+          responses utilized by the LLM tool recommendations pipeline.
         </p>
       </div>
 
@@ -337,8 +374,11 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                       <SelectValue placeholder="Select granularity" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="compact">Compact</SelectItem>
-                      <SelectItem value="detailed">Detailed</SelectItem>
+                      {Object.values(Granularity).map((g) => (
+                        <SelectItem key={g} value={g}>
+                          {g.charAt(0).toUpperCase() + g.slice(1)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -354,7 +394,9 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="regulatory">Regulatory (High-Stakes)</SelectItem>
+                      <SelectItem value="regulatory">
+                        Regulatory (High-Stakes)
+                      </SelectItem>
                       <SelectItem value="meta">Meta</SelectItem>
                     </SelectContent>
                   </Select>
@@ -362,7 +404,10 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="toolJson" className="flex items-center gap-1.5">
+                    <Label
+                      htmlFor="toolJson"
+                      className="flex items-center gap-1.5"
+                    >
                       <Code className="h-3.5 w-3.5 text-blue-400" />
                       Tool Schema JSON *
                     </Label>
@@ -391,7 +436,9 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                     required
                     rows={6}
                     className={`font-mono text-xs bg-black/60 resize-none ${
-                      toolJsonError ? "border-red-500/50 focus-visible:ring-red-500/30" : "border-muted"
+                      toolJsonError
+                        ? "border-red-500/50 focus-visible:ring-red-500/30"
+                        : "border-muted"
                     }`}
                   />
                   {toolJsonError && (
@@ -403,7 +450,10 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="mockResponse" className="flex items-center gap-1.5">
+                    <Label
+                      htmlFor="mockResponse"
+                      className="flex items-center gap-1.5"
+                    >
                       <Braces className="h-3.5 w-3.5 text-blue-400" />
                       Mock Response JSON *
                     </Label>
@@ -432,7 +482,9 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                     required
                     rows={5}
                     className={`font-mono text-xs bg-black/60 resize-none ${
-                      mockResponseError ? "border-red-500/50 focus-visible:ring-red-500/30" : "border-muted"
+                      mockResponseError
+                        ? "border-red-500/50 focus-visible:ring-red-500/30"
+                        : "border-muted"
                     }`}
                   />
                   {mockResponseError && (
@@ -463,8 +515,8 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                         ? "Updating..."
                         : "Creating..."
                       : editingId
-                      ? "Update Example"
-                      : "Save Example Schema"}
+                        ? "Update Example"
+                        : "Save Example Schema"}
                   </Button>
                 </div>
               </form>
@@ -515,7 +567,8 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
               <CardContent className="py-16 text-center">
                 <Database className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  No reference tool schemas found in the database. Add one to get started.
+                  No reference tool schemas found in the database. Add one to
+                  get started.
                 </p>
               </CardContent>
             </Card>
@@ -541,7 +594,7 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                             <Badge
                               variant="outline"
                               className={
-                                ex.granularity === "compact"
+                                ex.granularity === Granularity.Compact
                                   ? "border-sky-500/30 bg-sky-500/10 text-sky-400"
                                   : "border-purple-500/30 bg-purple-500/10 text-purple-400"
                               }
@@ -554,14 +607,19 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                                 ex.category === "regulatory"
                                   ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
                                   : ex.category === "meta"
-                                  ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
-                                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                                    ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
+                                    : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                               }
                             >
-                              {ex.category === "regulatory" ? "regulatory ⚠" : ex.category ?? "standard"}
+                              {ex.category === "regulatory"
+                                ? "regulatory ⚠"
+                                : (ex.category ?? "standard")}
                             </Badge>
                             {ex.isBuiltIn && (
-                              <Badge variant="secondary" className="text-[10px] bg-muted/65 text-muted-foreground">
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] bg-muted/65 text-muted-foreground"
+                              >
                                 Built-in
                               </Badge>
                             )}
@@ -591,7 +649,9 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                             variant="outline"
                             size="sm"
                             className="text-xs h-8"
-                            onClick={() => setExpandedId(isExpanded ? null : ex.id)}
+                            onClick={() =>
+                              setExpandedId(isExpanded ? null : ex.id)
+                            }
                           >
                             {isExpanded ? "Hide Details" : "View Details"}
                           </Button>
@@ -631,7 +691,11 @@ export function ToolExamplesClient({ initialExamples }: ToolExamplesClientProps)
                               <Braces className="h-3.5 w-3.5" /> Mock Response
                             </span>
                             <pre className="rounded-lg bg-black/60 p-3 text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-60 border border-muted/30">
-                              {JSON.stringify(JSON.parse(ex.mockResponse), null, 2)}
+                              {JSON.stringify(
+                                JSON.parse(ex.mockResponse),
+                                null,
+                                2,
+                              )}
                             </pre>
                           </div>
                         </div>

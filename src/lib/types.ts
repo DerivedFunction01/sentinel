@@ -48,10 +48,13 @@ export interface Trial {
   /** The raw seed prompt template before attack generator optimization. */
   seedTemplate?: string;
 }
-
+export enum Granularity {
+  Compact = "compact",
+  Detailed = "detailed",
+}
 export interface ToolRecommendationItem {
   name: string;
-  granularity: "compact" | "detailed";
+  granularity: Granularity;
   compatibilityScore: number;
   rationale: string;
   toolJson: ToolDef;
@@ -105,7 +108,7 @@ export interface ToolRecommendation {
   rationale?: string;
   tools: ToolRecommendationItem[] | ToolDef[];
   mockToolResponses?: Record<string, unknown>;
-  granularity?: "compact" | "detailed";
+  granularity?: Granularity;
   extractorModel: string;
   extractorModelName: string;
 }

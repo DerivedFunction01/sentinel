@@ -13,15 +13,13 @@ import { Button } from "@/components/ui/button";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { Sparkles, Check } from "lucide-react";
+import { Granularity } from "@/lib/types";
 
 interface GranularityPickerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (
-    granularity: "compact" | "detailed",
-    extractorModel: string,
-  ) => void;
-  defaultGranularity?: "compact" | "detailed";
+  onConfirm: (granularity: Granularity, extractorModel: string) => void;
+  defaultGranularity?: Granularity;
   defaultExtractorModel?: string;
 }
 
@@ -29,12 +27,11 @@ export function GranularityPickerDialog({
   open,
   onOpenChange,
   onConfirm,
-  defaultGranularity = "compact",
+  defaultGranularity = Granularity.Compact,
   defaultExtractorModel = "google/gemini-2.5-flash",
 }: GranularityPickerDialogProps) {
-  const [granularity, setGranularity] = useState<"compact" | "detailed">(
-    defaultGranularity,
-  );
+  const [granularity, setGranularity] =
+    useState<Granularity>(defaultGranularity);
   const [extractorModel, setExtractorModel] = useState<string>(
     defaultExtractorModel,
   );
@@ -106,9 +103,9 @@ export function GranularityPickerDialog({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Compact Mode Card */}
               <div
-                onClick={() => setGranularity("compact")}
+                onClick={() => setGranularity(Granularity.Compact)}
                 className={`relative flex flex-col justify-between rounded-xl border p-4 cursor-pointer transition-all duration-200 bg-slate-950/40 hover:bg-slate-950/60 ${
-                  granularity === "compact"
+                  granularity === Granularity.Compact
                     ? "border-blue-500 ring-1 ring-blue-500"
                     : "border-slate-800"
                 }`}
@@ -116,7 +113,7 @@ export function GranularityPickerDialog({
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-bold text-sm">Compact Mode</span>
-                    {granularity === "compact" && (
+                    {granularity === Granularity.Compact && (
                       <span className="rounded-full bg-blue-600/20 p-1">
                         <Check className="h-3 w-3 text-blue-400" />
                       </span>
@@ -136,9 +133,9 @@ export function GranularityPickerDialog({
 
               {/* Detailed Mode Card */}
               <div
-                onClick={() => setGranularity("detailed")}
+                onClick={() => setGranularity(Granularity.Detailed)}
                 className={`relative flex flex-col justify-between rounded-xl border p-4 cursor-pointer transition-all duration-200 bg-slate-950/40 hover:bg-slate-950/60 ${
-                  granularity === "detailed"
+                  granularity === Granularity.Detailed
                     ? "border-blue-500 ring-1 ring-blue-500"
                     : "border-slate-800"
                 }`}
@@ -146,7 +143,7 @@ export function GranularityPickerDialog({
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-bold text-sm">Detailed Mode</span>
-                    {granularity === "detailed" && (
+                    {granularity === Granularity.Detailed && (
                       <span className="rounded-full bg-blue-600/20 p-1">
                         <Check className="h-3 w-3 text-blue-400" />
                       </span>

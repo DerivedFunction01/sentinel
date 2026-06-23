@@ -30,7 +30,7 @@ import { ScoreGauge } from "@/components/shared/score-gauge";
 import { TrialCard } from "@/components/shared/trial-card";
 import { toast } from "sonner";
 import { TrialFilter, TrialVerdict } from "@/lib/enums";
-import type { Scan, Trial, HardeningTrace } from "@/lib/types";
+import { Scan, Trial, HardeningTrace, Granularity } from "@/lib/types";
 import { ScanSummary } from "@/components/shared/scan-summary";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { GranularityPickerDialog } from "@/components/shared/granularity-picker-dialog";
@@ -87,7 +87,7 @@ export function ReportView({ scan }: ReportViewProps) {
   };
 
   const handleExtractTools = async (
-    granularity: "compact" | "detailed",
+    granularity: Granularity,
     extractorModel: string,
   ) => {
     if (!selectedHardenedModel) return;
@@ -407,7 +407,7 @@ function hardenedPrompt(
   handleApplyToConfig: () => void,
   pickerOpen: boolean,
   handleExtractTools: (
-    granularity: "compact" | "detailed",
+    granularity: Granularity,
     extractorModel: string,
   ) => Promise<void>,
   trace: HardeningTrace | null,
@@ -598,7 +598,7 @@ function hardenedPrompt(
                       const toolGranularity =
                         recTool.granularity ||
                         currentHardenedPrompt.granularity ||
-                        "compact";
+                        Granularity.Compact;
                       const toolRationale =
                         recTool.rationale || "No rationale provided.";
 
@@ -735,7 +735,7 @@ function hardenedPrompt(
         onOpenChange={setPickerOpen}
         onConfirm={handleExtractTools}
         defaultGranularity={
-          (currentHardenedPrompt?.granularity as any) || "compact"
+          (currentHardenedPrompt?.granularity as any) || Granularity.Compact
         }
         defaultExtractorModel={
           currentHardenedPrompt?.extractorModel || "google/gemini-2.5-flash"
