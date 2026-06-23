@@ -772,21 +772,12 @@ export async function executeScanPipeline(
     .filter((t) => t.verdict === TrialVerdict.Breached)
     .map((t) => t.attack);
 
-  // Step 0: Get inspiration examples from the database
-  const inspirationExamples = await retrieveInspirationExamples(
-    forbiddenTask,
-    extractorModel || "google/gemini-2.5-flash",
-    granularity,
-    tracker,
-  );
-  const inspirationExamplesBlock =
-    formatInspirationExamplesBlock(inspirationExamples);
-
-  // Run tool extraction if requested
+  // Run tool extraction if requested AND hardening is enabled
+  // Tool recommendations are disabled when hardening is off
   let toolRecommendation: string = "";
   let compatibilityScore: number = 0;
 
-  if (includeToolRecommendation) {
+  if (enableHardening && includeToolRecommendation) {
     const result = await generateToolRecommendation(
       systemPrompt,
       forbiddenTask,
@@ -813,6 +804,16 @@ export async function executeScanPipeline(
   let hardeningModelName = "";
 
   if (enableHardening) {
+    // Step 0: Get inspiration examples from the database (only when hardening is enabled)
+    const inspirationExamples = await retrieveInspirationExamples(
+      forbiddenTask,
+      extractorModel || "google/gemini-2.5-flash",
+      granularity,
+      tracker,
+    );
+    const inspirationExamplesBlock =
+      formatInspirationExamplesBlock(inspirationExamples);
+
     try {
       hardenedPrompt = await executeMultiStepHardening(
         async (promptText) => {
