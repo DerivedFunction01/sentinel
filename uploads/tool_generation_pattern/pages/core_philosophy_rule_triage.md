@@ -109,6 +109,8 @@ In practice, C is the smallest legitimate target set, D is the broader business 
 the open-ended action space that contains both.
 ```
 
+If there was a breach, it meant that mostly, it was able to probe over the remaining region, or was able to reframe a harmless restriction as something that is allowed and helpful to provide.
+
 ### Types of Tools
 
 You may encounter these types of tools:
