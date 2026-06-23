@@ -104,6 +104,11 @@ A universal protocol tool:
     "negotiation": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true,
+    "advice": {
+      "financial": false,
+      "legal": false,
+      "process": "Direct users to appropriate professionals or official channels for such matters."
+    },
     "status": "All terms are final per company policy. Check your account or our support contacts for up to date information."
   },
   "support_contact": {
