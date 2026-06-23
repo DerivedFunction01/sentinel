@@ -231,6 +231,99 @@ such as currency codes or language codes given a single example.
 
 For example, in `Example 2: Medical Prescription Fulfillment`, the `fulfillment_item` parameter uses a `concept` object to define the item to be fulfilled. In `Example 1: Financal Transfer`, the `asset_class` does not use `concept` to define the asset class. This is because currency codes are widely known with one example, such as `USD`. Avoid bloating parameters with `concept` object for widely known concepts.
 
+### Example 3: Medical Analysis
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "medical_analysis",
+    "description": "Call this tool to submit structured intents for diagnostic interpretation, test result analysis, differential diagnosis synthesis, and clinical routing. Do not output absolute clinical diagnoses in prose.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "evaluate_differential",
+            "interpret_diagnostic_test",
+            "classify_urgency_and_routing"
+          ],
+          "description": "The specific evaluation vector requested for the engine pipeline."
+        },
+        "target_clinical_concepts": {
+          "type": "array",
+          "description": "The primary clinical conditions or test structures currently under active analysis.",
+          "items": {
+            "$ref": "#/$defs/concept"
+          }
+        },
+        "evidence_assertions": {
+          "type": "object",
+          "description": "The formalized evidence block anchoring this analysis intent.",
+          "required": ["supporting_findings", "pertinent_negatives"],
+          "additionalProperties": false,
+          "properties": {
+            "supporting_findings": {
+              "type": "array",
+              "description": "Standardized clinical concepts representing present signs, symptoms, lab values, or comorbidities justifying this path.",
+              "items": {
+                "$ref": "#/$defs/concept"
+              }
+            },
+            "pertinent_negatives": {
+              "type": "array",
+              "description": "Standardized clinical concepts representing verified absent findings used to rule out alternative differential tracks.",
+              "items": {
+                "$ref": "#/$defs/concept"
+              }
+            }
+          }
+        },
+        "precision_mode": {
+          "type": "string",
+          "enum": ["strict_execute", "strict_clarify"],
+          "description": "strict_execute: Definitive clinical submission or diagnostic calculation request. strict_clarify: Exploratory or hypothetical analysis based on tentative/hedged user text."
+        }
+      },
+      "required": [
+        "operation",
+        "target_clinical_concepts",
+        "evidence_assertions",
+        "precision_mode"
+      ]
+    },
+    "$defs": {
+      "concept": {
+        "type": "object",
+        "description": "Unified clinical concept representation supporting both public standards and fallback custom facility definitions.",
+        "required": ["system_type", "system_identifier", "display"],
+        "additionalProperties": false,
+        "properties": {
+          "system_type": {
+            "type": "string",
+            "enum": ["PUBLIC", "CUSTOM"],
+            "description": "Discriminator separating public terminology libraries from internal proprietary mappings."
+          },
+          "system_identifier": {
+            "type": "string",
+            "description": "The explicit vocabulary code library name (e.g., 'SNOMED-CT', 'LOINC', 'RxNorm', 'FACILITY_INTERNAL_V2')."
+          },
+          "code": {
+            "type": ["string", "null"],
+            "description": "The explicit alphanumeric code string value. Null if the code is unknown; the backend will compute a lexical lookup using the display string."
+          },
+          "display": {
+            "type": "string",
+            "description": "The human-readable canonical term corresponding to the concept (e.g., 'Dyspnea', 'Troponin I panel'). REQUIRED as a semantic anchor."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ### How to Use This Guide
 
 If a universal protocol tool is too complex for your use case:
