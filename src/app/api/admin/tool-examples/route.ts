@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ToolExampleCategory, UserRole } from "@/lib/enums";
+import { BusinessCategory } from "@/lib/types";
 
 /** GET /api/admin/tool-examples - Fetch all examples */
 export async function GET() {
@@ -19,6 +20,53 @@ export async function GET() {
   });
 
   return NextResponse.json(examples);
+}
+
+/**
+ * Validate and parse business categories
+ * Returns a JSON string of valid BusinessCategory values
+ * Falls back to ["GENERAL"] if invalid or empty
+ */
+function parseBusinessCategories(input: any): string {
+  if (!input) {
+    return JSON.stringify([BusinessCategory.GENERAL]);
+  }
+
+  let categoriesArray: string[] = [];
+
+  // Handle different input formats
+  if (typeof input === "string") {
+    // If it's already a JSON string, parse it
+    try {
+      const parsed = JSON.parse(input);
+      if (Array.isArray(parsed)) {
+        categoriesArray = parsed;
+      } else {
+        categoriesArray = [input];
+      }
+    } catch {
+      // If JSON parsing fails, treat as comma-separated or single value
+      categoriesArray = input
+        .split(",")
+        .map((c: string) => c.trim())
+        .filter((c: string) => c.length > 0);
+    }
+  } else if (Array.isArray(input)) {
+    categoriesArray = input;
+  }
+
+  // Validate each category against the enum
+  const validValues = Object.values(BusinessCategory);
+  const validatedCategories = categoriesArray.filter((cat) =>
+    validValues.includes(cat as BusinessCategory),
+  );
+
+  // If no valid categories, default to GENERAL
+  if (validatedCategories.length === 0) {
+    return JSON.stringify([BusinessCategory.GENERAL]);
+  }
+
+  return JSON.stringify(validatedCategories);
 }
 
 /** POST /api/admin/tool-examples - Create a new tool schema example */
@@ -40,6 +88,7 @@ export async function POST(req: Request) {
       category,
       toolJson,
       mockResponse,
+      businessCategories,
     } = await req.json();
 
     if (!name || !description || !granularity || !toolJson || !mockResponse) {
@@ -86,6 +135,9 @@ export async function POST(req: Request) {
       }
     }
 
+    // Parse and validate business categories
+    const businessCategoriesStr = parseBusinessCategories(businessCategories);
+
     const example = await db.toolSchemaExample.create({
       data: {
         name,
@@ -95,6 +147,7 @@ export async function POST(req: Request) {
         category: resolvedCategory,
         toolJson,
         mockResponse,
+        businessCategories: businessCategoriesStr,
         isBuiltIn: false,
       },
     });
@@ -109,7 +162,7 @@ export async function POST(req: Request) {
   }
 }
 
-/** DELETE /api/admin/tool-examples - Delete an example by ID */
+/** DELETE /api/admin/tool-examples/:id - Delete an example by ID */
 export async function DELETE(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -140,8 +193,8 @@ export async function DELETE(req: Request) {
   }
 }
 
-/** PATCH /api/admin/tool-examples - Update an existing example */
-export async function PATCH(req: Request) {
+/** PUT /api/admin/tool-examples/:id - Update an existing example */
+export async function PUT(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -160,6 +213,7 @@ export async function PATCH(req: Request) {
       category,
       toolJson,
       mockResponse,
+      businessCategories,
     } = await req.json();
 
     if (
@@ -213,6 +267,9 @@ export async function PATCH(req: Request) {
       }
     }
 
+    // Parse and validate business categories
+    const businessCategoriesStr = parseBusinessCategories(businessCategories);
+
     const example = await db.toolSchemaExample.update({
       where: { id },
       data: {
@@ -223,6 +280,7 @@ export async function PATCH(req: Request) {
         category: resolvedCategory,
         toolJson,
         mockResponse,
+        businessCategories: businessCategoriesStr,
       },
     });
 

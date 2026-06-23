@@ -112,6 +112,7 @@ export async function POST(req: Request) {
             toolJson: data.toolJson,
             mockResponse: data.mockResponse,
             isBuiltIn: data.isBuiltIn ?? false,
+            businessCategories: data.businessCategories,
           },
         });
         imported++;

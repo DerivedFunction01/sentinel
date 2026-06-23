@@ -36,11 +36,12 @@ export async function GET() {
       toolJson: ex.toolJson,
       mockResponse: ex.mockResponse,
       isBuiltIn: ex.isBuiltIn,
+      businessCategories: ex.businessCategories,
       createdAt: ex.createdAt.toISOString(),
       updatedAt: ex.updatedAt.toISOString(),
     }),
   );
-  
+
   const jsonl = lines.join("\n");
   const gzipped = gzipSync(jsonl);
 

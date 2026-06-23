@@ -97,6 +97,16 @@ enum ToolExampleCategory {
   meta
 }
 
+enum BusinessCategory {
+  BUSINESS_UNIVERSAL
+  RETAIL_HOSPITALITY_RESTAURANT
+  LAW_FIRM
+  BANKING_FINANCE
+  MEDICAL_HOSPITAL
+  ACCOUNTING_FIRM
+  GENERAL
+}
+
 model ToolSchemaExample {
   id           String               @id @default(cuid())
   name         String
@@ -106,7 +116,7 @@ model ToolSchemaExample {
   category     ToolExampleCategory  @default(standard)
   toolJson     String               // JSON string
   mockResponse String               // JSON string
-  businessCategories String         // JSON array of BusinessCategory
+  businessCategories String         @default("[GENERAL]")
   isBuiltIn    Boolean              @default(true)
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
