@@ -2,7 +2,12 @@ import { db } from "@/lib/db";
 import { callOpenRouter } from "@/app/api/scan/launch/route";
 import fs from "fs";
 import path from "path";
-import type { ToolDef, ToolRecommendationItem, HardeningTrace } from "./types";
+import {
+  ToolDef,
+  ToolRecommendationItem,
+  HardeningTrace,
+  Granularity,
+} from "./types";
 import {
   retrieveInspirationExamples,
   formatInspirationExamplesBlock,
@@ -146,7 +151,7 @@ function loadPromptFile(filename: string): string {
 export function getToolExtractionInstructions(
   hardenedPrompt: string,
   forbiddenTask: string,
-  granularity: "compact" | "detailed",
+  granularity: Granularity,
   requestedSections?: string[],
   existingTools?: ToolDef[],
   inspirationExamplesBlock?: string,
@@ -251,7 +256,7 @@ export function parseSectionedRecommendation(
           if (t.toolJson) return t;
           return {
             name: t.name || t.function?.name || "unknown_tool",
-            granularity: parsed.granularity || "compact",
+            granularity: parsed.granularity || Granularity.Compact,
             compatibilityScore: parsed.compatibilityScore || 80,
             rationale: parsed.rationale || "Extracted from system prompt.",
             toolJson: t,
@@ -273,10 +278,10 @@ export function parseSectionedRecommendation(
     const name = block.substring(0, endHeaderIdx).trim();
     const body = block.substring(endHeaderIdx + 1);
 
-    let granularity: "compact" | "detailed" = "compact";
+    let granularity: Granularity = Granularity.Compact;
     const granMatch = body.match(/GRANULARITY:\s*(compact|detailed)/i);
     if (granMatch) {
-      granularity = granMatch[1].toLowerCase() as "compact" | "detailed";
+      granularity = granMatch[1].toLowerCase() as Granularity;
     }
 
     let replaces: string | undefined = undefined;
@@ -363,7 +368,7 @@ export function parseSectionedRecommendation(
 export async function generateToolRecommendation(
   hardenedPrompt: string,
   forbiddenTask: string,
-  granularity: "compact" | "detailed",
+  granularity: Granularity,
   extractorModel: string,
   tracker?: any,
   requestedSections?: string[],
@@ -452,7 +457,10 @@ export async function generateToolRecommendation(
           parameters: {
             type: "object",
             properties: {
-              granularity: { type: "string", enum: ["compact", "detailed"] },
+              granularity: {
+                type: "string",
+                enum: [Granularity.Compact, "detailed"],
+              },
               query: {
                 type: "string",
                 description:
