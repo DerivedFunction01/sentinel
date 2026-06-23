@@ -50,6 +50,8 @@ Mock responses **must be generic and parameter-agnostic**:
     "exceptions": false,
     "negotiation": false,
     "allow_hypothetical": false,
+    "allow_followup": false,
+    "allow_extrapolation": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true,
     "give_advice": {
@@ -86,6 +88,8 @@ Use for tools that block access entirely (discounts, API keys, internal processe
     "exceptions": false,
     "negotiation": false,
     "allow_hypothetical": false,
+    "allow_followup": false,
+    "allow_extrapolation": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true
   },
@@ -224,6 +228,9 @@ This inspects parameters. You don't do that.
     "describe_processing": false,
     "exceptions": false,
     "negotiation": false,
+    "allow_hypothetical": false,
+    "allow_followup": false,
+    "allow_extrapolation": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true
   },
@@ -243,12 +250,16 @@ This inspects parameters. You don't do that.
     "describe_processing": false,
     "exceptions": false,
     "negotiation": false,
+    "allow_hypothetical": false,
+    "allow_followup": false,
+    "allow_extrapolation": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true,
     "give_advice": {
       "financial": false,
       "medical": false,
       "legal": false,
+      "safety": false,
       "process": "Direct users to appropriate professionals or official channels for such matters."
     }
   },

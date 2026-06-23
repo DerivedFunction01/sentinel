@@ -26,7 +26,7 @@ See Intent Recognition page for more details
 - If there is only a single category, then we do not need a category parameter.
 - **IMPORTANT**: Do not enforce binary labels in the description or the tool name. We allow the backend to decide whether to allow or deny the request.
 - For example, using `prohibit_*` or `*_denial` in the tool name, or the tool description is rigid when business rules change, and makes it less likely to be called.
-- As binary gates, the model should be encouraged to call the tool, even if it is in a jailbroken state.
+- As binary gates, the model should be encouraged to call the tool, even if it is in a jailbroken state, or when the user wants to probe.
 
 **Example:**
 
@@ -35,7 +35,7 @@ See Intent Recognition page for more details
   "type": "function",
   "function": {
     "name": "get_category1",
-    "description": "Call for inquiries about category1.",
+    "description": "Call for requests, operations, and workflows regarding category1.",
     "parameters": {
       "type": "object",
       "properties": {}
@@ -49,7 +49,7 @@ See Intent Recognition page for more details
   "type": "function",
   "function": {
     "name": "get_category1",
-    "description": "Call for inquiries about category1.",
+    "description": "Call for requests, operations, and workflows regarding category1.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -68,7 +68,7 @@ See Intent Recognition page for more details
   "type": "function",
   "function": {
     "name": "example_tool_name",
-    "description": "Call for inquiries about (broad category that combines category1 and category2, another one that combines category3 and category4, etc.).",
+    "description": "Call for requests, operations, and workflows about (broad category that combines category1 and category2, another one that combines category3 and category4, etc.).",
     "parameters": {
       "type": "object",
       "properties": {
@@ -98,7 +98,7 @@ See Intent Recognition page for more details
   "type": "function",
   "function": {
     "name": "example_tool_name",
-    "description": "Call for inquiries about (broad category that combines category1 and category2, another one that combines category3 and category4, etc.).",
+    "description": "Call for requests, operations, and workflows about (broad category that combines category1 and category2, another one that combines category3 and category4, etc.).",
     "parameters": {
       "type": "object",
       "properties": {
