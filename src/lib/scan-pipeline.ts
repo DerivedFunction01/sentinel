@@ -833,6 +833,11 @@ export async function executeScanPipeline(
       extractorModel || "google/gemini-2.5-flash",
       granularity,
       tracker,
+      undefined, // trace
+      seedInfo.businessCategories, // businessCategories
+      seedInfo.personaDescription, // personaDescription
+      seedInfo.businessFeatures, // businessFeatures
+      seedInfo.businessScenarios, // businessScenarios
     );
     const inspirationExamplesBlock =
       formatInspirationExamplesBlock(inspirationExamples);

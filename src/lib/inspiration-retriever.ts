@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { callOpenRouter } from "@/lib/scan-pipeline";
-import type { Granularity, HardeningTrace, BusinessCategory } from "./types";
+import { Granularity, HardeningTrace, BusinessCategory } from "./types";
 
 export interface InspirationExample {
   name: string;
@@ -28,7 +28,7 @@ export async function retrieveInspirationExamples(
     const businessCategoryContext =
       businessCategories && businessCategories.length > 0
         ? `\nTarget Business Categories: ${businessCategories.join(", ")}\nFocus on examples that match these business domains.`
-        : "";
+        : `\nPredict it from these Enums: ${Object.values(BusinessCategory)}`;
 
     const personaContext = personaDescription
       ? `\nAssistant Persona: ${personaDescription}\nTailor search toward examples relevant to this role.`
