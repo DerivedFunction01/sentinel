@@ -104,8 +104,7 @@ export async function callOpenRouter(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://sentinelprompt.com",
-        "X-Title": "SentinelPrompt",
+        "X-Title": "DerivedFunction",
       },
       body: JSON.stringify({
         model,
@@ -129,9 +128,8 @@ export async function callOpenRouter(
   const data = await response.json();
   const choice = data.choices?.[0];
   if (!choice || !choice.message) {
-    throw new Error(
-      "No completion choice or message returned from OpenRouter.",
-    );
+    console.warn("OpenRouter API returned no message", { data });
+    return { role: "assistant", content: "" };
   }
 
   // Accumulate token costs if usage statistics and pricing mappings exist
