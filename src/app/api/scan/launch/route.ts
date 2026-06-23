@@ -103,30 +103,12 @@ export async function POST(req: Request) {
   // Execute scans for each target model
   const reportIds: string[] = [];
   for (const targetModel of targetModels) {
-    const result = await executeScanPipeline({
-      systemPrompt,
-      forbiddenTask,
-      judgeInstructions,
-      targetModel,
-      attackerModel: attackGeneratorModel,
-      judgeModel,
-      hardenerModel,
-      seedExtractorModel,
-      extractorModel,
-      tools,
-      mockToolResponses,
-      userId: user.id,
-      granularity: Granularity.Compact,
-      includeToolRecommendation: true,
-    });
-
-    reportIds.push(result.reportId);
-
-    const modelShort = targetModel.split("/").pop() || targetModel;
-
+    // Create initial Scan record with RUNNING status before executing pipeline
+    const reportId = generateReportId();
+    
     await db.scan.create({
       data: {
-        reportId: result.reportId,
+        reportId,
         userId: user.id,
         targetModel,
         attackerModel: attackGeneratorModel,
@@ -137,6 +119,58 @@ export async function POST(req: Request) {
         judgeInstructions,
         tools: toolsJson,
         mockToolResponses: mockJson,
+        trials: "[]",
+        score: 0,
+        riskLevel: "LOW",
+        totalTrials: 0,
+        breaches: 0,
+        breachRate: 0,
+        summary: "",
+        summaryDetail: "",
+        apiCost: 0,
+        status: ScanStatus.Running,
+        currentStep: 0,
+        totalSteps: 0, // Will be updated during execution
+      },
+    });
+
+    reportIds.push(reportId);
+
+    // Execute pipeline with progress callback to update database
+    const result = await executeScanPipeline(
+      {
+        systemPrompt,
+        forbiddenTask,
+        judgeInstructions,
+        targetModel,
+        attackerModel: attackGeneratorModel,
+        judgeModel,
+        hardenerModel,
+        seedExtractorModel,
+        extractorModel,
+        tools,
+        mockToolResponses,
+        userId: user.id,
+        granularity: Granularity.Compact,
+        includeToolRecommendation: true,
+      },
+      // Progress callback - updates database with current progress
+      async (currentStep, totalSteps) => {
+        await db.scan.update({
+          where: { reportId },
+          data: {
+            currentStep,
+            totalSteps,
+          },
+        });
+      },
+    );
+
+    const modelShort = targetModel.split("/").pop() || targetModel;
+
+    await db.scan.update({
+      where: { reportId },
+      data: {
         trials: JSON.stringify(result.trials),
         score: result.score,
         riskLevel: result.riskLevel,
@@ -168,4 +202,14 @@ export async function POST(req: Request) {
     tokensRemaining: user.scanTokens - targetModels.length,
     scansCreated: reportIds.length,
   });
+}
+
+// Helper function for generating report ID (imported from scan-pipeline)
+function generateReportId(): string {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `SP-${yy}-${mm}${dd}-${rand}`;
 }

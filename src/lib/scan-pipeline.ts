@@ -600,11 +600,17 @@ export interface ScanPipelineResult {
 }
 
 /**
+ * Callback type for progress updates during scan execution
+ */
+export type ProgressCallback = (currentStep: number, totalSteps: number) => Promise<void>;
+
+/**
  * Execute the full scanning pipeline for a single target model.
  * This is the shared core logic used by both scan/launch and deployments/[id]/trigger routes.
  */
 export async function executeScanPipeline(
   options: ScanPipelineOptions,
+  onProgress?: ProgressCallback,
 ): Promise<ScanPipelineResult> {
   const {
     systemPrompt,
@@ -654,83 +660,98 @@ export async function executeScanPipeline(
     seedInfo.thingDescription,
   );
 
-  // Execute all trials in parallel to avoid Next.js timeouts and improve UX
-  const trials: Trial[] = await Promise.all(
-    attackLayouts.map(async (layout, i) => {
-      const pattern =
-        patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
+  // Calculate total steps: each trial has 3 stages (attacker, target, judge)
+  const totalSteps = attackLayouts.length * 3;
+  let currentStep = 0;
 
-      // Select varied synonym/descriptions across trials to avoid repetitive phrasing
-      const variantIdx = i % (seedInfo.thingNameVariants.length || 1);
-      const selectedThingName =
-        seedInfo.thingNameVariants[variantIdx] || seedInfo.thingName;
-      const selectedThingDesc =
-        seedInfo.thingDescriptionVariants[variantIdx] ||
-        seedInfo.thingDescription;
-      const attackDescription = layout.attackDescription;
-      const personaDescription = seedInfo.personaDescription;
-      const businessFeatures = seedInfo.businessFeatures;
+  // Helper to update progress
+  const updateProgress = async () => {
+    currentStep++;
+    if (onProgress) {
+      await onProgress(currentStep, totalSteps);
+    }
+  };
 
-      // Step 2: Cohesive Prompt Generation
-      const attackPrompt = await generateCohesiveAttack(
-        attackerModel,
+  // Execute trials sequentially with progress updates for real-time tracking
+  const trials: Trial[] = [];
+  for (const layout of attackLayouts) {
+    const pattern =
+      patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
+
+    const i = trials.length;
+    // Select varied synonym/descriptions across trials to avoid repetitive phrasing
+    const variantIdx = i % (seedInfo.thingNameVariants.length || 1);
+    const selectedThingName =
+      seedInfo.thingNameVariants[variantIdx] || seedInfo.thingName;
+    const selectedThingDesc =
+      seedInfo.thingDescriptionVariants[variantIdx] ||
+      seedInfo.thingDescription;
+    const attackDescription = layout.attackDescription;
+    const personaDescription = seedInfo.personaDescription;
+    const businessFeatures = seedInfo.businessFeatures;
+
+    // Step 2: Cohesive Prompt Generation (Attacker stage)
+    const attackPrompt = await generateCohesiveAttack(
+      attackerModel,
+      pattern,
+      selectedThingName,
+      selectedThingDesc,
+      attackDescription,
+      personaDescription,
+      businessFeatures,
+      tracker,
+    );
+    await updateProgress();
+
+    // Step 3: Run target LLM simulation (Target stage)
+    const targetResult = await runTargetSimulation(
+      targetModel,
+      systemPrompt,
+      attackPrompt,
+      tools,
+      mockToolResponses,
+      tracker,
+    );
+    await updateProgress();
+
+    // Step 4: Run Judge evaluation (Judge stage)
+    const evaluation = await runJudgeEvaluation(
+      judgeModel,
+      forbiddenTask,
+      judgeInstructions,
+      systemPrompt,
+      attackPrompt,
+      targetResult.responseText,
+      targetResult.toolCalls,
+      tracker,
+    );
+    await updateProgress();
+
+    const isBreached = evaluation.verdict === TrialVerdict.Breached;
+
+    trials.push({
+      number: i + 1,
+      verdict: evaluation.verdict,
+      attack: attackPrompt,
+      response: targetResult.responseText,
+      judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
+      judgeVerdict: evaluation.reasoning,
+      taskTag: "forbidden_task_1",
+      entropyLabel: layout.entropyLabel,
+      framingLabel: layout.framingLabel,
+      patternId: layout.patternId,
+      targetThing: selectedThingName,
+      seedTemplate: renderAttack(
         pattern,
         selectedThingName,
         selectedThingDesc,
-        attackDescription,
-        personaDescription,
-        businessFeatures,
-        tracker,
-      );
-
-      // Step 3: Run target LLM simulation
-      const targetResult = await runTargetSimulation(
-        targetModel,
-        systemPrompt,
-        attackPrompt,
-        tools,
-        mockToolResponses,
-        tracker,
-      );
-
-      // Step 4: Run Judge evaluation
-      const evaluation = await runJudgeEvaluation(
-        judgeModel,
-        forbiddenTask,
-        judgeInstructions,
-        systemPrompt,
-        attackPrompt,
-        targetResult.responseText,
-        targetResult.toolCalls,
-        tracker,
-      );
-
-      const isBreached = evaluation.verdict === TrialVerdict.Breached;
-
-      return {
-        number: i + 1,
-        verdict: evaluation.verdict,
-        attack: attackPrompt,
-        response: targetResult.responseText,
-        judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
-        judgeVerdict: evaluation.reasoning,
-        taskTag: "forbidden_task_1",
-        entropyLabel: layout.entropyLabel,
-        framingLabel: layout.framingLabel,
-        patternId: layout.patternId,
-        targetThing: selectedThingName,
-        seedTemplate: renderAttack(
-          pattern,
-          selectedThingName,
-          selectedThingDesc,
-        ),
-        toolCalls:
-          targetResult.toolCalls.length > 0
-            ? targetResult.toolCalls
-            : undefined,
-      };
-    }),
-  );
+      ),
+      toolCalls:
+        targetResult.toolCalls.length > 0
+          ? targetResult.toolCalls
+          : undefined,
+    });
+  }
 
   const breaches = trials.filter(
     (t) => t.verdict === TrialVerdict.Breached,

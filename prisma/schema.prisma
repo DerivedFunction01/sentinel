@@ -65,6 +65,8 @@ model Scan {
   summaryDetail     String   @default("")
   apiCost           Float    @default(0.0)
   status            String   @default("COMPLETED") // ScanStatus enum
+  currentStep       Int      @default(0) // Current progress step
+  totalSteps        Int      @default(0) // Total steps for progress calculation
   createdAt         DateTime @default(now())
 
   hardenedPrompts   HardenedPrompt[]

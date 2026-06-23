@@ -101,6 +101,43 @@ export default function PenTestScanPage() {
   const [templateLoading, setTemplateLoading] = useState(false);
   const [tokens, setTokens] = useState<number | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
+  
+  // Real-time progress tracking state
+  const [currentStep, setCurrentStep] = useState(0);
+  const [totalSteps, setTotalSteps] = useState(0);
+  const [scanStatus, setScanStatus] = useState<string>("running");
+
+  // Poll for scan progress when scanning
+  useEffect(() => {
+    if (!scanning || !reportId) return;
+
+    const pollProgress = async () => {
+      try {
+        const res = await fetch(`/api/scan/${reportId}/progress`);
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentStep(data.currentStep || 0);
+          setTotalSteps(data.totalSteps || 0);
+          setScanStatus(data.status || "running");
+          
+          // Check if scan is complete
+          if (data.status === "completed" || data.currentStep >= data.totalSteps) {
+            handleScanComplete();
+          }
+        }
+      } catch (error) {
+        console.error("Error polling progress:", error);
+      }
+    };
+
+    // Poll every 1 second
+    const interval = setInterval(pollProgress, 1000);
+    
+    // Initial poll
+    pollProgress();
+
+    return () => clearInterval(interval);
+  }, [scanning, reportId]);
 
   // Load the user's token balance from the API.
   useEffect(() => {
@@ -219,6 +256,15 @@ export default function PenTestScanPage() {
       router.push(`/dashboard/reports/${reportId}`);
     }
   };
+
+  // Reset progress state when starting a new scan
+  useEffect(() => {
+    if (scanning) {
+      setCurrentStep(0);
+      setTotalSteps(0);
+      setScanStatus("running");
+    }
+  }, [scanning]);
 
   /** Run a template-only attack (no LLM API calls, free). */
   const handleTemplateAttack = async () => {
@@ -704,7 +750,9 @@ export default function PenTestScanPage() {
         {scanning && (
           <CardContent className="border-t border-border pt-5">
             <ScanProgressPanel
-              totalSteps={TOTAL_STEPS}
+              currentStep={currentStep}
+              totalSteps={totalSteps}
+              scanStatus={scanStatus}
               onComplete={handleScanComplete}
             />
           </CardContent>

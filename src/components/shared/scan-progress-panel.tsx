@@ -11,8 +11,12 @@ import { cn } from "@/lib/utils";
 type Stage = "attacker" | "target" | "judge";
 
 interface ScanProgressPanelProps {
-  /** Total number of steps (trials × 3 stages). */
-  totalSteps: number;
+  /** Total number of steps (trials × 3 stages). Can be externally controlled or simulated. */
+  totalSteps?: number;
+  /** Current step - if provided, uses real progress instead of simulation */
+  currentStep?: number;
+  /** Scan status - "running", "completed", "failed", etc. */
+  scanStatus?: string;
   /** Called when the simulated scan reaches the final step. */
   onComplete: () => void;
 }
@@ -47,12 +51,32 @@ const STAGE_INFO: Record<
 };
 
 export function ScanProgressPanel({
-  totalSteps,
+  totalSteps: externalTotalSteps,
+  currentStep: externalCurrentStep,
+  scanStatus,
   onComplete,
 }: ScanProgressPanelProps) {
-  const [currentStep, setCurrentStep] = useState(0);
-
+  // Use external values if provided, otherwise use internal simulation
+  const useExternalProgress = externalCurrentStep !== undefined && externalTotalSteps !== undefined;
+  
+  const [internalCurrentStep, setInternalCurrentStep] = useState(0);
+  const [internalTotalSteps, setInternalTotalSteps] = useState(78); // default fallback
+  
+  const currentStep = useExternalProgress ? externalCurrentStep : internalCurrentStep;
+  const totalSteps = useExternalProgress ? externalTotalSteps : internalTotalSteps;
+  
+  // Internal simulation mode when no external progress is provided
   useEffect(() => {
+    if (useExternalProgress) {
+      // Check if scan is complete based on external status or step count
+      if (scanStatus === "completed" || currentStep >= totalSteps) {
+        const t = setTimeout(onComplete, 400);
+        return () => clearTimeout(t);
+      }
+      return;
+    }
+    
+    // Simulated progress mode
     if (currentStep >= totalSteps) {
       const t = setTimeout(onComplete, 400);
       return () => clearTimeout(t);
@@ -60,9 +84,16 @@ export function ScanProgressPanel({
     // Accelerating then easing pace — early steps slightly slower to show
     // the attacker warmup, then steady.
     const delay = currentStep < 3 ? 700 : currentStep < 10 ? 220 : 90;
-    const t = setTimeout(() => setCurrentStep((s) => s + 1), delay);
+    const t = setTimeout(() => setInternalCurrentStep((s) => s + 1), delay);
     return () => clearTimeout(t);
-  }, [currentStep, totalSteps, onComplete]);
+  }, [currentStep, totalSteps, onComplete, useExternalProgress, scanStatus]);
+
+  // Set default total steps for simulation mode
+  useEffect(() => {
+    if (!useExternalProgress && !externalTotalSteps) {
+      setInternalTotalSteps(78);
+    }
+  }, [useExternalProgress, externalTotalSteps]);
 
   const progress = Math.min((currentStep / totalSteps) * 100, 100);
   const stage: Stage =
