@@ -91,6 +91,7 @@ export const ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2 = (
   renderedParts: string[],
   personaDescription: string,
   businessFeatures: string[],
+  businessScenarios: string[],
 ) => {
   const [opener, coreClaim, justification, closer] = renderedParts;
 
@@ -103,6 +104,12 @@ export const ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2 = (
     const feature =
       businessFeatures[Math.floor(Math.random() * businessFeatures.length)];
     instructions += `\nHere is a business feature for context to use in the paragraph:\n   ${feature}\n`;
+  }
+  if (businessScenarios.length > 0 && Math.random() < 0.5) {
+    // Pick one scenario
+    const scenario =
+      businessScenarios[Math.floor(Math.random() * businessScenarios.length)];
+    instructions += `\nHere is a realistic business scenario for additional context:\n   ${scenario}\n`;
   }
   if (attackDescription) {
     instructions += `\nHere is what the paragraph's main purpose is: ${attackDescription}\n`;

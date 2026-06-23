@@ -161,6 +161,7 @@ export async function extractSeedInfo(
   thingDescriptionVariants: string[];
   personaDescription: string;
   businessFeatures: string[];
+  businessScenarios: string[];
 }> {
   const messages = [
     {
@@ -190,6 +191,7 @@ export async function extractSeedInfo(
     ],
     personaDescription: "general AI assistant",
     businessFeatures: [],
+    businessScenarios: [],
   };
 
   try {
@@ -220,6 +222,7 @@ export async function extractSeedInfo(
           : defaultSeed.thingDescriptionVariants,
       personaDescription: parsed.personaDescription || "general AI assistant",
       businessFeatures: parsed.businessFeatures || [],
+      businessScenarios: parsed.businessScenarios || [],
     };
   } catch (error) {
     console.error("Error extracting seed info:", error);
@@ -238,6 +241,7 @@ export async function generateCohesiveAttack(
   attackDescription: string,
   personaDescription: string,
   businessFeatures: string[],
+  businessScenarios: string[],
   tracker?: UsageTracker,
 ): Promise<string> {
   const draftParts = patterns.find((p) => p.patternId === pattern.patternId)
@@ -261,6 +265,7 @@ export async function generateCohesiveAttack(
         Array.isArray(draftParts) ? draftParts : [draftParts],
         personaDescription,
         businessFeatures,
+        businessScenarios,
       ),
     },
   ];
@@ -692,6 +697,7 @@ export async function executeScanPipeline(
     const attackDescription = layout.attackDescription;
     const personaDescription = seedInfo.personaDescription;
     const businessFeatures = seedInfo.businessFeatures;
+    const businessScenarios = seedInfo.businessScenarios;
 
     // Step 2: Cohesive Prompt Generation (Attacker stage)
     const attackPrompt = await generateCohesiveAttack(
@@ -702,6 +708,7 @@ export async function executeScanPipeline(
       attackDescription,
       personaDescription,
       businessFeatures,
+      businessScenarios,
       tracker,
     );
     await updateProgress();
@@ -792,6 +799,10 @@ export async function executeScanPipeline(
       undefined,
       trials,
       mockToolResponses,
+      undefined, // businessCategories - can be extracted from seedInfo if needed
+      seedInfo.personaDescription,
+      seedInfo.businessFeatures,
+      seedInfo.businessScenarios,
     );
     toolRecommendation = result.toolRecommendation || "";
     compatibilityScore = result.compatibilityScore || 0;
