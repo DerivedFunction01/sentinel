@@ -22,7 +22,13 @@ import {
   generateToolRecommendation,
   parseSectionedRecommendation,
 } from "@/lib/tool-extractor";
-import { ToolDef, Trial, ToolCall, Granularity } from "@/lib/types";
+import {
+  ToolDef,
+  Trial,
+  ToolCall,
+  Granularity,
+  BusinessCategory,
+} from "@/lib/types";
 
 export interface UsageTracker {
   totalCost: number;
@@ -113,9 +119,9 @@ export async function callOpenRouter(
         reasoning: reasoning
           ? JSON.stringify(reasoning)
           : {
-            exclude: true,
-            effort: "low",
-          },
+              exclude: true,
+              effort: "low",
+            },
       }),
     },
   );
@@ -161,6 +167,8 @@ export async function extractSeedInfo(
   thingDescriptionVariants: string[];
   personaDescription: string;
   businessFeatures: string[];
+  businessScenarios: string[];
+  businessCategories: BusinessCategory[];
 }> {
   const messages = [
     {
@@ -190,6 +198,8 @@ export async function extractSeedInfo(
     ],
     personaDescription: "general AI assistant",
     businessFeatures: [],
+    businessScenarios: [],
+    businessCategories: [],
   };
 
   try {
@@ -210,16 +220,18 @@ export async function extractSeedInfo(
       thingDescription: parsed.thingDescription || defaultSeed.thingDescription,
       thingNameVariants:
         Array.isArray(parsed.thingNameVariants) &&
-          parsed.thingNameVariants.length > 0
+        parsed.thingNameVariants.length > 0
           ? parsed.thingNameVariants
           : defaultSeed.thingNameVariants,
       thingDescriptionVariants:
         Array.isArray(parsed.thingDescriptionVariants) &&
-          parsed.thingDescriptionVariants.length > 0
+        parsed.thingDescriptionVariants.length > 0
           ? parsed.thingDescriptionVariants
           : defaultSeed.thingDescriptionVariants,
       personaDescription: parsed.personaDescription || "general AI assistant",
       businessFeatures: parsed.businessFeatures || [],
+      businessScenarios: parsed.businessScenarios || [],
+      businessCategories: parsed.businessCategories || [],
     };
   } catch (error) {
     console.error("Error extracting seed info:", error);
@@ -238,14 +250,15 @@ export async function generateCohesiveAttack(
   attackDescription: string,
   personaDescription: string,
   businessFeatures: string[],
+  businessScenarios: string[],
   tracker?: UsageTracker,
 ): Promise<string> {
   const draftParts = patterns.find((p) => p.patternId === pattern.patternId)
     ? (pattern.renderFunction || renderAttack)(
-      pattern,
-      thingName,
-      thingDescription,
-    )
+        pattern,
+        thingName,
+        thingDescription,
+      )
     : renderAttack(pattern, thingName, thingDescription);
   const draftJoined = Array.isArray(draftParts)
     ? draftParts.join(" ")
@@ -261,6 +274,7 @@ export async function generateCohesiveAttack(
         Array.isArray(draftParts) ? draftParts : [draftParts],
         personaDescription,
         businessFeatures,
+        businessScenarios,
       ),
     },
   ];
@@ -692,6 +706,7 @@ export async function executeScanPipeline(
     const attackDescription = layout.attackDescription;
     const personaDescription = seedInfo.personaDescription;
     const businessFeatures = seedInfo.businessFeatures;
+    const businessScenarios = seedInfo.businessScenarios;
 
     // Step 2: Cohesive Prompt Generation (Attacker stage)
     const attackPrompt = await generateCohesiveAttack(
@@ -702,6 +717,7 @@ export async function executeScanPipeline(
       attackDescription,
       personaDescription,
       businessFeatures,
+      businessScenarios,
       tracker,
     );
     await updateProgress();
@@ -792,6 +808,10 @@ export async function executeScanPipeline(
       undefined,
       trials,
       mockToolResponses,
+      seedInfo.businessCategories,
+      seedInfo.personaDescription,
+      seedInfo.businessFeatures,
+      seedInfo.businessScenarios,
     );
     toolRecommendation = result.toolRecommendation || "";
     compatibilityScore = result.compatibilityScore || 0;

@@ -16,7 +16,7 @@ import {
 import { callOpenRouter } from "@/lib/scan-pipeline";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
-import type { ToolDef, HardeningTrace } from "@/lib/types";
+import type { ToolDef, HardeningTrace, BusinessCategory } from "@/lib/types";
 
 export async function GET(
   req: Request,
@@ -156,6 +156,10 @@ export async function POST(
     const existingTools = scanRow.tools
       ? (JSON.parse(scanRow.tools) as ToolDef[])
       : [];
+
+    // Extract business categories from scan context if available (TODO)
+    let businessCategories: BusinessCategory[] = [];
+
     const { toolRecommendation, compatibilityScore } =
       await generateToolRecommendation(
         scanRow.systemPrompt,
@@ -168,6 +172,7 @@ export async function POST(
         trace,
         trials,
         mockToolResponses,
+        businessCategories,
       );
 
     // Parse recommended tools to pass to prompt hardener
@@ -182,6 +187,7 @@ export async function POST(
       granularity,
       undefined,
       trace,
+      businessCategories,
     );
     const inspirationExamplesBlock =
       formatInspirationExamplesBlock(inspirationExamples);

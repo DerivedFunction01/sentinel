@@ -393,18 +393,26 @@ export async function generateToolRecommendation(
   trace?: HardeningTrace,
   trials?: any[],
   mockToolResponses?: Record<string, any>,
+  businessCategories?: BusinessCategory[],
+  personaDescription?: string,
+  businessFeatures?: string[],
+  businessScenarios?: string[],
 ): Promise<{
   toolRecommendation: string | null;
   compatibilityScore: number | null;
 }> {
   try {
-    // Step 0: Retrieve inspiration examples from DB
+    // Step 0: Retrieve inspiration examples from DB with full business context
     const inspirationExamples = await retrieveInspirationExamples(
       forbiddenTask,
       extractorModel,
       granularity,
       tracker,
       trace,
+      businessCategories,
+      personaDescription,
+      businessFeatures,
+      businessScenarios,
     );
     const inspirationExamplesBlock =
       formatInspirationExamplesBlock(inspirationExamples);
