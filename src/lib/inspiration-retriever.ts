@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { callOpenRouter } from "@/app/api/scan/launch/route";
-import type { HardeningTrace } from "./types";
+import type { Granularity, HardeningTrace } from "./types";
 
 export interface InspirationExample {
   name: string;
@@ -14,7 +14,7 @@ export interface InspirationExample {
 export async function retrieveInspirationExamples(
   forbiddenTask: string,
   extractorModel: string,
-  granularity: "compact" | "detailed",
+  granularity: Granularity,
   tracker?: any,
   trace?: HardeningTrace,
 ): Promise<InspirationExample[]> {
