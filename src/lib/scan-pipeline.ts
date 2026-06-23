@@ -113,9 +113,9 @@ export async function callOpenRouter(
         reasoning: reasoning
           ? JSON.stringify(reasoning)
           : {
-              exclude: true,
-              effort: "low",
-            },
+            exclude: true,
+            effort: "low",
+          },
       }),
     },
   );
@@ -210,12 +210,12 @@ export async function extractSeedInfo(
       thingDescription: parsed.thingDescription || defaultSeed.thingDescription,
       thingNameVariants:
         Array.isArray(parsed.thingNameVariants) &&
-        parsed.thingNameVariants.length > 0
+          parsed.thingNameVariants.length > 0
           ? parsed.thingNameVariants
           : defaultSeed.thingNameVariants,
       thingDescriptionVariants:
         Array.isArray(parsed.thingDescriptionVariants) &&
-        parsed.thingDescriptionVariants.length > 0
+          parsed.thingDescriptionVariants.length > 0
           ? parsed.thingDescriptionVariants
           : defaultSeed.thingDescriptionVariants,
       personaDescription: parsed.personaDescription || "general AI assistant",
@@ -242,10 +242,10 @@ export async function generateCohesiveAttack(
 ): Promise<string> {
   const draftParts = patterns.find((p) => p.patternId === pattern.patternId)
     ? (pattern.renderFunction || renderAttack)(
-        pattern,
-        thingName,
-        thingDescription,
-      )
+      pattern,
+      thingName,
+      thingDescription,
+    )
     : renderAttack(pattern, thingName, thingDescription);
   const draftJoined = Array.isArray(draftParts)
     ? draftParts.join(" ")
@@ -766,9 +766,14 @@ export async function executeScanPipeline(
           : RiskLevel.Critical;
 
   // Auto-generate the hardened prompt for this scan
-  const breachedAttacks = trials
+  // Collect breached attacks WITH judge verdicts for token-efficient summarization
+  const breachedAttacksWithVerdicts = trials
     .filter((t) => t.verdict === TrialVerdict.Breached)
-    .map((t) => t.attack);
+    .map((t) => ({
+      attack: t.attack,
+      judgeReasoning: t.judgeVerdict,
+      verdict: t.verdict,
+    }));
 
   // Run tool extraction if requested AND hardening is enabled
   // Tool recommendations are disabled when hardening is off
@@ -825,7 +830,7 @@ export async function executeScanPipeline(
         },
         systemPrompt,
         forbiddenTask,
-        breachedAttacks,
+        breachedAttacksWithVerdicts,
         recommendedToolsList,
         inspirationExamplesBlock,
       );

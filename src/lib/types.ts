@@ -95,6 +95,8 @@ export interface HardeningTrace {
   step2?: {
     promptSent?: string;
     outputPrompt?: string;
+    skipped?: boolean;
+    reason?: string;
   };
   toolExtraction?: {
     promptSent?: string;
