@@ -578,6 +578,7 @@ export interface ScanPipelineOptions {
   userId: string;
   granularity?: Granularity;
   includeToolRecommendation?: boolean;
+  enableHardening?: boolean;
 }
 
 /**
@@ -602,7 +603,10 @@ export interface ScanPipelineResult {
 /**
  * Callback type for progress updates during scan execution
  */
-export type ProgressCallback = (currentStep: number, totalSteps: number) => Promise<void>;
+export type ProgressCallback = (
+  currentStep: number,
+  totalSteps: number,
+) => Promise<void>;
 
 /**
  * Execute the full scanning pipeline for a single target model.
@@ -627,6 +631,7 @@ export async function executeScanPipeline(
     userId,
     granularity = Granularity.Compact,
     includeToolRecommendation = true,
+    enableHardening = true,
   } = options;
 
   // Fetch dbModels once to get pricing rates and defaults
@@ -741,15 +746,9 @@ export async function executeScanPipeline(
       framingLabel: layout.framingLabel,
       patternId: layout.patternId,
       targetThing: selectedThingName,
-      seedTemplate: renderAttack(
-        pattern,
-        selectedThingName,
-        selectedThingDesc,
-      ),
+      seedTemplate: renderAttack(pattern, selectedThingName, selectedThingDesc),
       toolCalls:
-        targetResult.toolCalls.length > 0
-          ? targetResult.toolCalls
-          : undefined,
+        targetResult.toolCalls.length > 0 ? targetResult.toolCalls : undefined,
     });
   }
 
@@ -810,37 +809,42 @@ export async function executeScanPipeline(
     : [];
 
   let hardenedPrompt = "";
-  try {
-    hardenedPrompt = await executeMultiStepHardening(
-      async (promptText) => {
-        const response = await callOpenRouter(
-          hardenerModel,
-          [{ role: "user", content: promptText }],
-          undefined,
-          tracker,
-        );
-        return response.content || "";
-      },
-      systemPrompt,
-      forbiddenTask,
-      breachedAttacks,
-      recommendedToolsList,
-      inspirationExamplesBlock,
-    );
-  } catch (err) {
-    console.error("Error generating hardened prompt during scan:", err);
-    hardenedPrompt = getDeterministicHardenedPrompt(
-      systemPrompt,
-      forbiddenTask,
-    );
-  }
+  let hardeningModelId = "";
+  let hardeningModelName = "";
 
-  const hardeningModelId = hardenerModel;
-  const hardeningDbModel = dbModels.find((m) => m.id === hardeningModelId);
-  const hardeningModelName =
-    hardeningDbModel?.name ||
-    hardeningModelId.split("/").pop() ||
-    hardeningModelId;
+  if (enableHardening) {
+    try {
+      hardenedPrompt = await executeMultiStepHardening(
+        async (promptText) => {
+          const response = await callOpenRouter(
+            hardenerModel,
+            [{ role: "user", content: promptText }],
+            undefined,
+            tracker,
+          );
+          return response.content || "";
+        },
+        systemPrompt,
+        forbiddenTask,
+        breachedAttacks,
+        recommendedToolsList,
+        inspirationExamplesBlock,
+      );
+    } catch (err) {
+      console.error("Error generating hardened prompt during scan:", err);
+      hardenedPrompt = getDeterministicHardenedPrompt(
+        systemPrompt,
+        forbiddenTask,
+      );
+    }
+
+    hardeningModelId = hardenerModel;
+    const hardeningDbModel = dbModels.find((m) => m.id === hardeningModelId);
+    hardeningModelName =
+      hardeningDbModel?.name ||
+      hardeningModelId.split("/").pop() ||
+      hardeningModelId;
+  }
 
   return {
     reportId,

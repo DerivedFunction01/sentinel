@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/dashboard/dashboard-parts";
 import { AgentPipeline } from "@/components/shared/agent-pipeline";
 import { ScanProgressPanel } from "@/components/shared/scan-progress-panel";
@@ -95,6 +96,7 @@ export default function PenTestScanPage() {
   const [attackerModel, setAttackerModel] = useState<string>("");
   const [judgeModel, setJudgeModel] = useState<string>("");
   const [hardenerModel, setHardenerModel] = useState<string>("");
+  const [enableHardening, setEnableHardening] = useState<boolean>(true);
   const [prompts, setPrompts] = useState<PromptConfig[]>([makeEmptyPrompt()]);
   const [launching, setLaunching] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -228,6 +230,7 @@ export default function PenTestScanPage() {
           judgeInstructions: first.judgeInstructions,
           tools: first.tools,
           mockResponses: first.mockResponses,
+          enableHardening,
         }),
       });
       const data = await res.json();
@@ -468,6 +471,25 @@ export default function PenTestScanPage() {
               />
               <p className="text-xs text-muted-foreground">
                 Generates a hardened system prompt following the scan.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="enable-hardening"
+                  className="text-sm font-medium"
+                >
+                  Enable Prompt Hardening
+                </Label>
+                <Switch
+                  id="enable-hardening"
+                  checked={enableHardening}
+                  onCheckedChange={setEnableHardening}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                When enabled, generates a hardened system prompt after the scan
+                completes. Disable to skip hardening and save API costs.
               </p>
             </div>
             <div className="space-y-2">

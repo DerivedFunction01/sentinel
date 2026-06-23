@@ -153,6 +153,7 @@ export async function POST(req: Request) {
         userId: user.id,
         granularity: Granularity.Compact,
         includeToolRecommendation: true,
+        enableHardening: false, // Deployment trigger doesn't generate hardened prompts by default
       },
       // Progress callback - updates database with current progress
       async (currentStep, totalSteps) => {
