@@ -13,7 +13,8 @@ A universal protocol tool:
 
 - Encodes all the uncertainty a real system needs to handle (nullable IDs, nested validation, precision modes)
 - Avoids hardcoding business-specific constraints (no domain-specific limits, no edge cases, no jurisdiction-specific compliance checks)
-- Remains timeless and domain-agnostic; simple businesses strip it down, complex ones extend it
+- Remains timeless and domain-agnostic; simple businesses strip it down, complex ones extend it. Works in the past, now, and in the future, whether
+  it is in the US, China, the EU, or in the Global South.
 
 ### Example: Finance Transfer
 
