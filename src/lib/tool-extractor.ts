@@ -7,6 +7,7 @@ import {
   ToolRecommendationItem,
   HardeningTrace,
   Granularity,
+  BusinessCategory,
 } from "./types";
 import {
   retrieveInspirationExamples,
@@ -350,6 +351,21 @@ export function parseSectionedRecommendation(
     }
 
     if (name && toolJson) {
+      // Extract business categories if present in the output
+      let businessCategories: BusinessCategory[] | undefined = undefined;
+      const bizCatMatch = body.match(/BUSINESS_CATEGORIES:\s*\[([^\]]+)\]/i);
+      if (bizCatMatch) {
+        try {
+          const cats = bizCatMatch[1]
+            .split(",")
+            .map((c) => c.trim().replace(/"/g, ""))
+            .filter((c) => c.length > 0);
+          if (cats.length > 0) {
+            businessCategories = cats as BusinessCategory[];
+          }
+        } catch {}
+      }
+
       tools.push({
         name,
         granularity,
@@ -358,6 +374,7 @@ export function parseSectionedRecommendation(
         toolJson,
         mockResponse,
         replaces,
+        businessCategories,
       });
     }
   }

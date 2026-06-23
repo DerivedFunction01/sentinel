@@ -52,6 +52,16 @@ export enum Granularity {
   Compact = "compact",
   Detailed = "detailed",
 }
+export enum BusinessCategory {
+  BUSINESS_UNIVERSAL = "BUSINESS_UNIVERSAL",
+  RETAIL_HOSPITALITY_RESTAURANT = "RETAIL_HOSPITALITY_RESTAURANT",
+  LAW_FIRM = "LAW_FIRM",
+  BANKING_FINANCE = "BANKING_FINANCE",
+  MEDICAL_HOSPITAL = "MEDICAL_HOSPITAL",
+  ACCOUNTING_FIRM = "ACCOUNTING_FIRM",
+  GENERAL = "GENERAL",
+}
+
 export interface ToolRecommendationItem {
   name: string;
   granularity: Granularity;
@@ -59,6 +69,7 @@ export interface ToolRecommendationItem {
   rationale: string;
   toolJson: ToolDef;
   mockResponse: unknown;
+  businessCategories?: BusinessCategory[];
   replaces?: string;
 }
 

@@ -106,6 +106,7 @@ model ToolSchemaExample {
   category     ToolExampleCategory  @default(standard)
   toolJson     String               // JSON string
   mockResponse String               // JSON string
+  businessCategories String         // JSON array of BusinessCategory
   isBuiltIn    Boolean              @default(true)
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
