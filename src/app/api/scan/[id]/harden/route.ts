@@ -5,19 +5,22 @@ import {
   getDeterministicHardenedPrompt,
   executeMultiStepHardening,
 } from "@/lib/scan-prompts";
-import { generateToolRecommendation, parseSectionedRecommendation } from "@/lib/tool-extractor";
+import {
+  generateToolRecommendation,
+  parseSectionedRecommendation,
+} from "@/lib/tool-extractor";
 import {
   retrieveInspirationExamples,
   formatInspirationExamplesBlock,
 } from "@/lib/inspiration-retriever";
-import { callOpenRouter } from "@/app/api/scan/launch/route";
+import { callOpenRouter } from "@/lib/scan-pipeline";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
 import type { ToolDef, HardeningTrace } from "@/lib/types";
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: reportId } = await params;
@@ -28,7 +31,7 @@ export async function GET(
 
     const scanRow = await db.scan.findFirst({
       where: { reportId, userId: session.user.id },
-      include: { hardenedPrompts: true }
+      include: { hardenedPrompts: true },
     });
     if (!scanRow) {
       return new Response("Scan not found", { status: 404 });
@@ -43,8 +46,8 @@ export async function GET(
           scanId_modelId: {
             scanId: scanRow.id,
             modelId,
-          }
-        }
+          },
+        },
       });
       if (existing) {
         let recObj: any = null;
@@ -68,8 +71,12 @@ export async function GET(
 
     // Fallback to the first available hardened prompt, or create a deterministic one
     const firstPrompt = scanRow.hardenedPrompts[0];
-    const hardenedPromptText = firstPrompt?.prompt || 
-      getDeterministicHardenedPrompt(scanRow.systemPrompt, scanRow.forbiddenTask);
+    const hardenedPromptText =
+      firstPrompt?.prompt ||
+      getDeterministicHardenedPrompt(
+        scanRow.systemPrompt,
+        scanRow.forbiddenTask,
+      );
 
     let recObj: any = null;
     if (firstPrompt?.toolRecommendation) {
@@ -96,7 +103,7 @@ export async function GET(
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: reportId } = await params;
@@ -107,14 +114,18 @@ export async function POST(
 
     const scanRow = await db.scan.findFirst({
       where: { reportId, userId: session.user.id },
-      include: { hardenedPrompts: true }
+      include: { hardenedPrompts: true },
     });
     if (!scanRow) {
       return new Response("Scan not found", { status: 404 });
     }
 
     const body = await req.json().catch(() => ({}));
-    const modelId = body.modelId || scanRow.judgeModel || scanRow.attackerModel || "google/gemini-2.5-flash";
+    const modelId =
+      body.modelId ||
+      scanRow.judgeModel ||
+      scanRow.attackerModel ||
+      "google/gemini-2.5-flash";
     const granularity = body.granularity || "compact";
     const extractorModel = body.extractorModel || "google/gemini-2.5-flash";
 
@@ -124,8 +135,8 @@ export async function POST(
         scanId_modelId: {
           scanId: scanRow.id,
           modelId,
-        }
-      }
+        },
+      },
     });
 
     const dbModel = await db.model.findUnique({ where: { id: modelId } });
@@ -137,22 +148,27 @@ export async function POST(
     const breachedAttacks = trials
       .filter((t: any) => t.verdict === TrialVerdict.Breached)
       .map((t: any) => t.attack);
-    const mockToolResponses = scanRow.mockToolResponses ? JSON.parse(scanRow.mockToolResponses) : {};
+    const mockToolResponses = scanRow.mockToolResponses
+      ? JSON.parse(scanRow.mockToolResponses)
+      : {};
 
     // Run tool extraction first on the original system prompt
-    const existingTools = scanRow.tools ? (JSON.parse(scanRow.tools) as ToolDef[]) : [];
-    const { toolRecommendation, compatibilityScore } = await generateToolRecommendation(
-      scanRow.systemPrompt,
-      scanRow.forbiddenTask,
-      granularity,
-      extractorModel,
-      undefined,
-      undefined,
-      existingTools,
-      trace,
-      trials,
-      mockToolResponses,
-    );
+    const existingTools = scanRow.tools
+      ? (JSON.parse(scanRow.tools) as ToolDef[])
+      : [];
+    const { toolRecommendation, compatibilityScore } =
+      await generateToolRecommendation(
+        scanRow.systemPrompt,
+        scanRow.forbiddenTask,
+        granularity,
+        extractorModel,
+        undefined,
+        undefined,
+        existingTools,
+        trace,
+        trials,
+        mockToolResponses,
+      );
 
     // Parse recommended tools to pass to prompt hardener
     const recommendedToolsList = toolRecommendation
@@ -167,14 +183,15 @@ export async function POST(
       undefined,
       trace,
     );
-    const inspirationExamplesBlock = formatInspirationExamplesBlock(inspirationExamples);
+    const inspirationExamplesBlock =
+      formatInspirationExamplesBlock(inspirationExamples);
 
     let promptTextToExtract = "";
     try {
       promptTextToExtract = await executeMultiStepHardening(
         async (promptText) => {
           const response = await callOpenRouter(modelId, [
-            { role: "user", content: promptText }
+            { role: "user", content: promptText },
           ]);
           return response.content || "";
         },
@@ -187,7 +204,10 @@ export async function POST(
       );
     } catch (err) {
       console.error("Error generating hardened prompt via API:", err);
-      promptTextToExtract = getDeterministicHardenedPrompt(scanRow.systemPrompt, scanRow.forbiddenTask);
+      promptTextToExtract = getDeterministicHardenedPrompt(
+        scanRow.systemPrompt,
+        scanRow.forbiddenTask,
+      );
     }
 
     let saved;
@@ -200,7 +220,7 @@ export async function POST(
           compatibilityScore,
           granularity,
           extractorModel,
-        }
+        },
       });
     } else {
       saved = await db.hardenedPrompt.create({
@@ -213,7 +233,7 @@ export async function POST(
           compatibilityScore,
           granularity,
           extractorModel,
-        }
+        },
       });
     }
 
@@ -237,6 +257,8 @@ export async function POST(
     });
   } catch (error: any) {
     console.error("Error generating/updating hardened prompt:", error);
-    return new Response("Error generating/updating hardened prompt", { status: 500 });
+    return new Response("Error generating/updating hardened prompt", {
+      status: 500,
+    });
   }
 }

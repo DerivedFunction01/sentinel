@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { callOpenRouter } from "@/app/api/scan/launch/route";
+import { callOpenRouter } from "@/lib/scan-pipeline";
 import fs from "fs";
 import path from "path";
 import {

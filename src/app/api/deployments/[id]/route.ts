@@ -4,7 +4,7 @@ import { authenticateRequest } from "@/lib/auth-utils";
 
 export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const authUser = await authenticateRequest(req);
   if (!authUser) {
@@ -19,13 +19,16 @@ export async function DELETE(
     });
 
     if (!deployment) {
-      return NextResponse.json({ error: "Deployment not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Deployment not found" },
+        { status: 404 },
+      );
     }
 
     if (deployment.userId !== authUser.userId) {
       return NextResponse.json(
         { error: "Unauthorized access to this deployment" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -36,13 +39,16 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Error deleting deployment:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function PATCH(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const authUser = await authenticateRequest(req);
   if (!authUser) {
@@ -58,13 +64,16 @@ export async function PATCH(
     });
 
     if (!deployment) {
-      return NextResponse.json({ error: "Deployment not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Deployment not found" },
+        { status: 404 },
+      );
     }
 
     if (deployment.userId !== authUser.userId) {
       return NextResponse.json(
         { error: "Unauthorized access to this deployment" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -89,16 +98,22 @@ export async function PATCH(
     if (attackerModel !== undefined) dataToUpdate.attackerModel = attackerModel;
     if (judgeModel !== undefined) dataToUpdate.judgeModel = judgeModel;
     if (hardenerModel !== undefined) dataToUpdate.hardenerModel = hardenerModel;
-    if (extractorModel !== undefined) dataToUpdate.extractorModel = extractorModel;
+    if (extractorModel !== undefined)
+      dataToUpdate.extractorModel = extractorModel;
     if (systemPrompt !== undefined) dataToUpdate.systemPrompt = systemPrompt;
     if (forbiddenTask !== undefined) dataToUpdate.forbiddenTask = forbiddenTask;
-    if (judgeInstructions !== undefined) dataToUpdate.judgeInstructions = judgeInstructions;
-    
+    if (judgeInstructions !== undefined)
+      dataToUpdate.judgeInstructions = judgeInstructions;
+
     if (tools !== undefined) {
-      dataToUpdate.tools = typeof tools === "string" ? tools : JSON.stringify(tools);
+      dataToUpdate.tools =
+        typeof tools === "string" ? tools : JSON.stringify(tools);
     }
     if (mockToolResponses !== undefined) {
-      dataToUpdate.mockToolResponses = typeof mockToolResponses === "string" ? mockToolResponses : JSON.stringify(mockToolResponses);
+      dataToUpdate.mockToolResponses =
+        typeof mockToolResponses === "string"
+          ? mockToolResponses
+          : JSON.stringify(mockToolResponses);
     }
     if (status !== undefined) dataToUpdate.status = status;
 
@@ -119,6 +134,9 @@ export async function PATCH(
     });
   } catch (error: any) {
     console.error("Error updating deployment:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

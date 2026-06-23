@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { callOpenRouter } from "@/app/api/scan/launch/route";
+import { callOpenRouter } from "@/lib/scan-pipeline";
 import type { Granularity, HardeningTrace } from "./types";
 
 export interface InspirationExample {

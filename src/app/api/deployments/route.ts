@@ -27,7 +27,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ deployments: deploymentsWithUrl });
   } catch (error: any) {
     console.error("Error fetching deployments:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -59,8 +62,11 @@ export async function POST(req: Request) {
 
     if (!name || !targetModel || !systemPrompt || !forbiddenTask) {
       return NextResponse.json(
-        { error: "Missing required fields (name, targetModel, systemPrompt, forbiddenTask)" },
-        { status: 400 }
+        {
+          error:
+            "Missing required fields (name, targetModel, systemPrompt, forbiddenTask)",
+        },
+        { status: 400 },
       );
     }
 
@@ -83,7 +89,10 @@ export async function POST(req: Request) {
         forbiddenTask,
         judgeInstructions: judgeInstructions || "",
         tools: typeof tools === "string" ? tools : JSON.stringify(tools || []),
-        mockToolResponses: typeof mockToolResponses === "string" ? mockToolResponses : JSON.stringify(mockToolResponses || {}),
+        mockToolResponses:
+          typeof mockToolResponses === "string"
+            ? mockToolResponses
+            : JSON.stringify(mockToolResponses || {}),
         status: "ACTIVE",
         userId: authUser.userId,
       },
@@ -101,6 +110,9 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("Error creating deployment:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
