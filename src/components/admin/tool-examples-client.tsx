@@ -866,7 +866,12 @@ export function ToolExamplesClient({
                     <Label htmlFor="granularity" className="text-xs">
                       Granularity
                     </Label>
-                    <Select value={granularity} onValueChange={setGranularity}>
+                    <Select
+                      value={granularity}
+                      onValueChange={(value) =>
+                        setGranularity(value as Granularity)
+                      }
+                    >
                       <SelectTrigger id="granularity" className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
@@ -884,7 +889,12 @@ export function ToolExamplesClient({
                     <Label htmlFor="category" className="text-xs">
                       Category
                     </Label>
-                    <Select value={category} onValueChange={setCategory}>
+                    <Select
+                      value={category}
+                      onValueChange={(value) =>
+                        setCategory(value as ToolExampleCategory)
+                      }
+                    >
                       <SelectTrigger id="category" className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
