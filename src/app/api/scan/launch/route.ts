@@ -15,7 +15,6 @@ import {
   SEED_EXTRACTOR_USER_TEMPLATE,
   ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2,
   JUDGE_EVALUATION_TEMPLATE,
-  REWRITE_ASSISTANT_PREFILL,
   REWRITE_ASSISTANT_PREFILL_V2,
   executeMultiStepHardening,
   getDeterministicHardenedPrompt,
@@ -591,10 +590,6 @@ export async function generateCohesiveAttack(
         businessFeatures,
       ),
     },
-    {
-      role: "assistant",
-      content: REWRITE_ASSISTANT_PREFILL_V2,
-    },
   ];
 
   try {
@@ -606,28 +601,27 @@ export async function generateCohesiveAttack(
     );
     let text = response.content || "";
 
-    // Find the <PARAGRAPH> (use regex)
-    const TAG = "PARAGRAPH";
-    const tagRegex = new RegExp(`\\<${TAG}>([\\s\\S]*)\\<\\/${TAG}>`);
-    const tagMatch = text.match(tagRegex);
-    if (tagMatch && tagMatch[1]) {
-      text = tagMatch[1].trim();
-    }
-    // If it fails, see if it at least have a begin and end <TAG> tags (case insensitive)
-    const beginTag = `<${TAG}>`;
-    const endTag = `</${TAG}>`;
-    const beginIndex = text.indexOf(beginTag);
-    const endIndex = text.indexOf(endTag);
-    if (beginIndex !== -1 && endIndex !== -1) {
-      text = text.substring(beginIndex + beginTag.length, endIndex).trim();
-    } else if (beginIndex !== -1) {
-      text = text.substring(beginIndex + beginTag.length).trim();
-    } else if (endIndex !== -1) {
-      text = text.substring(0, endIndex).trim();
-    } else {
-      text = text.trim();
-    }
+    // The format is [REASONING] ... [PARAGRAH] ... [END]
+    const REASONING = "[REASONING]";
+    const PARAGRAPH = "[PARAGRAPH]";
+    const END = "[END]";
 
+    // extract the paragraph text
+    const reasoningIndex = text.indexOf(REASONING);
+    const paragraphIndex = text.indexOf(PARAGRAPH);
+    const endIndex = text.indexOf(END);
+
+    if (paragraphIndex !== -1) {
+      text = text.substring(
+        paragraphIndex + PARAGRAPH.length,
+        endIndex !== -1 ? endIndex : undefined,
+      );
+    } else if (reasoningIndex !== -1) {
+      text = text.substring(reasoningIndex + REASONING.length);
+    } else if (endIndex !== -1) {
+      text = text.substring(0, endIndex);
+    }
+    text = text.trim();
     return text || draftJoined;
   } catch (error) {
     console.error("Error generating cohesive attack V2:", error);
