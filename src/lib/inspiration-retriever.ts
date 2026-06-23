@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { callOpenRouter } from "@/lib/scan-pipeline";
-import type { Granularity, HardeningTrace } from "./types";
+import type { BusinessCategory, Granularity, HardeningTrace } from "./types";
 
 export interface InspirationExample {
   name: string;
@@ -9,6 +9,7 @@ export interface InspirationExample {
   granularity: string;
   toolJson: any;
   mockResponse: any;
+  businessCategories?: BusinessCategory[];
 }
 
 export async function retrieveInspirationExamples(
@@ -17,15 +18,24 @@ export async function retrieveInspirationExamples(
   granularity: Granularity,
   tracker?: any,
   trace?: HardeningTrace,
+  businessCategories?: BusinessCategory[],
 ): Promise<InspirationExample[]> {
   try {
+    const businessCategoryContext =
+      businessCategories && businessCategories.length > 0
+        ? `\nTarget Business Categories: ${businessCategories.join(", ")}\nFocus on examples that match these business domains.`
+        : "";
     const prompt = `You are a search query generator. Your task is to analyze the following security constraint/forbidden task of an AI assistant and generate search tags and a keyword query to find relevant tool schema templates in our database.
     
 Forbidden Task: "${forbiddenTask}"
 Target Granularity: ${granularity}
+${businessCategoryContext}
 
-Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords, e.g. "discount" or "refund") and "tags" (an array of lowercase tags, e.g. ["finance", "policy", "authentication", "pii", "moderation"]). Do not output any preamble, markdown blocks, or explanation.`;
-
+Output ONLY a JSON object containing the keys "query" 
+(a string of 1-3 keywords, e.g. "discount" or "refund"), 
+"tags" (an array of lowercase tags, e.g. ["finance", "policy", "authentication", "pii", "moderation"]), 
+and optionally "predictedCategories" (an array of business categories most relevant to this forbidden task, e.g. ["BANKING_FINANCE", "LAW_FIRM"]). 
+Do not output any preamble, markdown blocks, or explanation.`;
     const response = await callOpenRouter(
       extractorModel,
       [{ role: "user", content: prompt }],
