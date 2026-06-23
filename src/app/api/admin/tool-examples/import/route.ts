@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { UserRole } from "@/lib/enums";
+import { ToolExampleCategory, UserRole } from "@/lib/enums";
 import { gunzipSync } from "zlib";
 
 /**
@@ -42,7 +42,10 @@ export async function POST(req: Request) {
         jsonl = buffer.toString("utf-8");
       } catch {
         return NextResponse.json(
-          { error: "Could not read the file. Expected a valid .jsonl or gzipped .jsonl.gz file." },
+          {
+            error:
+              "Could not read the file. Expected a valid .jsonl or gzipped .jsonl.gz file.",
+          },
           { status: 400 },
         );
       }
@@ -58,7 +61,13 @@ export async function POST(req: Request) {
         const data = JSON.parse(lines[i]);
 
         // Validate required fields.
-        if (!data.name || !data.description || !data.granularity || !data.toolJson || !data.mockResponse) {
+        if (
+          !data.name ||
+          !data.description ||
+          !data.granularity ||
+          !data.toolJson ||
+          !data.mockResponse
+        ) {
           errors.push(`Line ${i + 1}: missing required fields`);
           continue;
         }
@@ -88,10 +97,10 @@ export async function POST(req: Request) {
           }
         }
 
-        const validCategories = ["standard", "regulatory", "meta"];
+        const validCategories = Object.values(ToolExampleCategory);
         const resolvedCategory = validCategories.includes(data.category)
           ? data.category
-          : "standard";
+          : ToolExampleCategory.Standard;
 
         await db.toolSchemaExample.create({
           data: {
@@ -107,7 +116,9 @@ export async function POST(req: Request) {
         });
         imported++;
       } catch (err: any) {
-        errors.push(`Line ${i + 1}: invalid JSON or database error (${err.message || err})`);
+        errors.push(
+          `Line ${i + 1}: invalid JSON or database error (${err.message || err})`,
+        );
       }
     }
 
@@ -118,6 +129,9 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     console.error("Error importing tool examples:", err);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

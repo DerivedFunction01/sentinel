@@ -17,7 +17,7 @@ import { createGunzip } from "zlib";
 import * as readline from "readline";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { PrismaClient } from "./generated/client.js";
+import { PrismaClient, ToolExampleCategory } from "./generated/client.js";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import {
   JudgeLabel,
@@ -277,7 +277,7 @@ Would you like assistance with product inquiries or order status?`,
     `  Loaded ${examplesData.length} tool example(s) from seed file.`,
   );
 
-  const validCategories = ["standard", "regulatory", "meta"] as const;
+  const validCategories = Object.values(ToolExampleCategory);
   type ValidCategory = (typeof validCategories)[number];
 
   for (const ex of examplesData) {
@@ -286,7 +286,7 @@ Would you like assistance with product inquiries or order status?`,
       ex.category as ValidCategory,
     )
       ? (ex.category as ValidCategory)
-      : "standard";
+      : ToolExampleCategory.standard;
     await db.toolSchemaExample.upsert({
       where: { id: slugId },
       update: {

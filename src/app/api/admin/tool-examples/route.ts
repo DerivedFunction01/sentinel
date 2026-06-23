@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { UserRole } from "@/lib/enums";
+import { ToolExampleCategory, UserRole } from "@/lib/enums";
 
 /** GET /api/admin/tool-examples - Fetch all examples */
 export async function GET() {
@@ -32,26 +32,45 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { name, description, tags, granularity, category, toolJson, mockResponse } = await req.json();
+    const {
+      name,
+      description,
+      tags,
+      granularity,
+      category,
+      toolJson,
+      mockResponse,
+    } = await req.json();
 
     if (!name || !description || !granularity || !toolJson || !mockResponse) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
-    const validCategories = ["standard", "regulatory", "meta"];
-    const resolvedCategory = validCategories.includes(category) ? category : "standard";
+    const validCategories = Object.values(ToolExampleCategory);
+    const resolvedCategory = validCategories.includes(category)
+      ? category
+      : ToolExampleCategory.Standard;
 
     // Validate JSON formatting
     try {
       JSON.parse(toolJson);
     } catch {
-      return NextResponse.json({ error: "Invalid Tool JSON schema format" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid Tool JSON schema format" },
+        { status: 400 },
+      );
     }
 
     try {
       JSON.parse(mockResponse);
     } catch {
-      return NextResponse.json({ error: "Invalid Mock Response JSON format" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid Mock Response JSON format" },
+        { status: 400 },
+      );
     }
 
     // tags must be a string (JSON array of strings)
@@ -83,7 +102,10 @@ export async function POST(req: Request) {
     return NextResponse.json(example);
   } catch (err: any) {
     console.error("Error creating tool schema example:", err);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -101,7 +123,10 @@ export async function DELETE(req: Request) {
   const id = searchParams.get("id");
 
   if (!id) {
-    return NextResponse.json({ error: "Missing id parameter" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing id parameter" },
+      { status: 400 },
+    );
   }
 
   try {
@@ -126,26 +151,53 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const { id, name, description, tags, granularity, category, toolJson, mockResponse } = await req.json();
+    const {
+      id,
+      name,
+      description,
+      tags,
+      granularity,
+      category,
+      toolJson,
+      mockResponse,
+    } = await req.json();
 
-    if (!id || !name || !description || !granularity || !toolJson || !mockResponse) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (
+      !id ||
+      !name ||
+      !description ||
+      !granularity ||
+      !toolJson ||
+      !mockResponse
+    ) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
-    const validCategories = ["standard", "regulatory", "meta"];
-    const resolvedCategory = validCategories.includes(category) ? category : "standard";
+    const validCategories = Object.values(ToolExampleCategory);
+    const resolvedCategory = validCategories.includes(category)
+      ? category
+      : ToolExampleCategory.Standard;
 
     // Validate JSON formatting
     try {
       JSON.parse(toolJson);
     } catch {
-      return NextResponse.json({ error: "Invalid Tool JSON schema format" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid Tool JSON schema format" },
+        { status: 400 },
+      );
     }
 
     try {
       JSON.parse(mockResponse);
     } catch {
-      return NextResponse.json({ error: "Invalid Mock Response JSON format" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid Mock Response JSON format" },
+        { status: 400 },
+      );
     }
 
     // tags must be a string (JSON array of strings)
@@ -177,6 +229,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json(example);
   } catch (err: any) {
     console.error("Error updating tool schema example:", err);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
