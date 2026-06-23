@@ -140,64 +140,96 @@ A complex business with compliance requirements might use all fields.
   "type": "function",
   "function": {
     "name": "medical_fulfillment",
-    "description": "Initiates a prescription request or refill action for pre-certified medical assets.",
+    "description": "Call this tool to execute, verify, or query the clinical fulfillment, dispensing, or distribution of medications, medical supplies, and devices.",
     "parameters": {
       "type": "object",
       "properties": {
-        "medication_target": {
-          "type": "object",
-          "properties": {
-            "label": {
-              "type": "object",
-              "description": "Label of the medication.",
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "description": "The brand name or conversational descriptor."
-                },
-                "standard": {
-                  "type": "string",
-                  "description": "The standard used if applicable, such as RxNorm, ANDA.",
-                  "default": "none"
-                },
-                "code": {
-                  "type": ["string", "number", "null"],
-                  "description": "The code from the standard, such as 203080 for Tylenol"
-                }
-              },
-              "required": ["name", "standard"]
-            },
-            "prescription_id": {
-              "type": ["string", "null"],
-              "description": "The verified infrastructure token pointing to an active, pre-existing medical chart record."
-            }
-          },
-          "required": ["label", "prescription_id"]
+        "operation": {
+          "type": "string",
+          "enum": ["query_stock", "verify_order", "execute_dispense"],
+          "description": "The fulfillment stage. query_stock: Check inventory; verify_order: Validate clinical safety boundaries; execute_dispense: Finalize physical/digital fulfillment transaction."
         },
-        "quantity_assertion": {
+        "fulfillment_item": {
           "type": "object",
+          "description": "The canonical concept defining the item to be fulfilled.",
           "properties": {
-            "quantity_type": {
+            "system_type": {
               "type": "string",
-              "enum": [
-                "standard_refill",
-                "explicit_count",
-                "remaining_allocation"
-              ]
+              "enum": ["PUBLIC", "CUSTOM"],
+              "description": "PUBLIC for international standards (RxNorm for drugs, SNOMED for devices/supplies). CUSTOM for proprietary internal SKUs or warehouse item codes."
             },
-            "explicit_unit_count": {
-              "type": ["integer", "null"],
-              "minimum": 1
+            "system_identifier": {
+              "type": "string",
+              "description": "Exact vocabulary label. Use 'RxNorm', 'SNOMED-CT', 'LOINC', or an internal string like 'WAREHOUSE_CENTRAL_V2'."
+            },
+            "code": {
+              "type": ["string", "null"],
+              "description": "The explicit terminology or SKU code. Null if unknown; the backend will perform semantic matching on the display string."
+            },
+            "display": {
+              "type": "string",
+              "description": "The explicit text representation of the item (e.g., 'Amoxicillin 500mg capsule', 'Sterile Gauze 4x4')."
             }
           },
-          "required": ["quantity_type"]
+          "required": ["system_type", "system_identifier", "display"]
+        },
+        "quantity": {
+          "type": "number",
+          "minimum": 1,
+          "description": "The exact quantity or count of items requested for fulfillment."
+        },
+        "precision_mode": {
+          "type": "string",
+          "enum": ["strict_execute", "strict_clarify", "best_effort"],
+          "description": "Captures user certainty. Use strict_execute for definitive 'dispense/ship' commands, strict_clarify for 'Can I fulfill this?' inquiries."
         }
       },
-      "required": ["medication_target", "quantity_assertion"]
+      "required": [
+        "operation",
+        "fulfillment_item",
+        "quantity",
+        "precision_mode"
+      ]
     }
   }
 }
 ```
+
+### Universal Concepts: The Canonical Concept codes
+
+```json
+{
+  "concept": {
+    "type": "object",
+    "description": "Unified concept representation supporting both public standards (SNOMED, UCUM, RxNorm, NSN, NYSE) and fallback internal custom codes.",
+    "properties": {
+      "system_type": {
+        "type": "string",
+        "enum": ["PUBLIC", "CUSTOM"],
+        "description": "Discriminator indicating whether the system code originates from a public terminology library or an internal proprietary database."
+      },
+      "system_identifier": {
+        "type": "string",
+        "description": "The specific vocabulary name. If system_type is PUBLIC, use exact strings: 'SNOMED-CT', 'RxNorm', 'LOINC', 'ICD-10-CM', 'UCUM', 'DICOM'. If CUSTOM, provide the internal system identifier (e.g., 'INTERNAL_BILLING', 'LEGACY_EMR')."
+      },
+      "code": {
+        "type": ["string", "null"],
+        "description": "The exact alphanumeric code value (e.g., '254837009', 'I10', '883-9'). Set to null if the exact code is unknown and only the text display is available; the backend will attempt a lexical lookup."
+      },
+      "display": {
+        "type": "string",
+        "description": "The human-readable canonical term or description corresponding to the concept (e.g., 'Malignant neoplasm of breast', 'Blood pressure', 'Amoxicillin 500mg capsule'). REQUIRED as a semantic anchor."
+      }
+    },
+    "required": ["system_type", "system_identifier", "display"]
+  }
+}
+```
+
+The `concept` object is not just a metadata dictionary. It is a deterministic semantic router. It bridges the gap between the open-ended, probabilistic way a user talks and the strict, immutable code structures a backend requires. However, this is not required for widely known concepts,
+such as currency codes or language codes given a single example.
+
+For example, in `Example 2: Medical Prescription Fulfillment`, the `fulfillment_item` parameter uses a `concept` object to define the item to be fulfilled. In `Example 1: Financal Transfer`, the `asset_class` does not use `concept` to define the asset class. This is because currency codes are widely known with one example, such as `USD`. Avoid bloating parameters with `concept` object for widely known concepts.
 
 ### How to Use This Guide
 
