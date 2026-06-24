@@ -43,6 +43,7 @@ export const sampleTools: ToolDef[] = [
                 "general_information",
                 "ordering",
                 "pricing",
+                "payment",
                 "disputes",
               ],
             },
