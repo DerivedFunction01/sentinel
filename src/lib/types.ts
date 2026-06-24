@@ -73,6 +73,7 @@ export interface HardeningTrace {
     query?: string;
     tags?: string[];
     retrievedExamples?: any[];
+    usedBusinessCategories?: BusinessCategory[];
   };
   attackSummary?: {
     promptSent?: string;
