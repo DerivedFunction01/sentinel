@@ -5,6 +5,7 @@ import {
   HardeningTrace,
   BusinessCategory,
   BreachedAttack,
+  ScanMetadata,
 } from "./types";
 
 export interface InspirationExample {
@@ -23,13 +24,14 @@ export async function retrieveInspirationExamples(
   granularity: Granularity,
   tracker?: any,
   trace?: HardeningTrace,
-  businessCategories?: BusinessCategory[],
-  personaDescription?: string,
-  businessFeatures?: string[],
-  businessScenarios?: string[],
-  breached_attack_trials?: BreachedAttack[],
+  metadata?: ScanMetadata,
 ): Promise<InspirationExample[]> {
   try {
+    const businessCategories = metadata?.seedExtraction?.businessCategories;
+    const personaDescription = metadata?.seedExtraction?.personaDescription;
+    const businessFeatures = metadata?.seedExtraction?.businessFeatures;
+    const businessScenarios = metadata?.seedExtraction?.businessScenarios;
+
     // Build rich business context for the prompt
     const businessCategoryContext =
       businessCategories && businessCategories.length > 0

@@ -589,6 +589,7 @@ export async function executeMultiStepHardening(
   recommendedTools?: any[],
   inspirationExamplesBlock?: string,
   trace?: HardeningTrace,
+  precomputedSummarizedPatterns?: string,
 ): Promise<string> {
   // ── Pre-step: Optimization Prompt Detection & Language Identification ──
   // DISABLED: Commented out to reduce token costs. Can be re-enabled later if needed.
@@ -603,8 +604,8 @@ export async function executeMultiStepHardening(
   const detectedLanguage = "English"; // Default since detector is disabled
 
   // ── Step 0.5: Attack Summarization (Key Patterns Extraction) ──
-  let summarizedPatterns = "";
-  if (breachedAttacks.length > 0) {
+  let summarizedPatterns = precomputedSummarizedPatterns || "";
+  if (!summarizedPatterns && breachedAttacks.length > 0) {
     const attackSummaryInstructions =
       getAttackSummaryInstructions(breachedAttacks);
     try {

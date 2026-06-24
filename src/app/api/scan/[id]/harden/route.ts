@@ -154,7 +154,11 @@ export async function POST(
     const trials = scanRow.trials ? JSON.parse(scanRow.trials) : [];
     const breachedAttacks = trials
       .filter((t: any) => t.verdict === TrialVerdict.Breached)
-      .map((t: any) => t.attack);
+      .map((t: any) => ({
+        attack: t.attack,
+        judgeReasoning: t.judgeVerdict,
+        verdict: t.verdict,
+      }));
     const mockToolResponses = scanRow.mockToolResponses
       ? JSON.parse(scanRow.mockToolResponses)
       : {};
@@ -164,8 +168,7 @@ export async function POST(
       ? (JSON.parse(scanRow.tools) as ToolDef[])
       : [];
 
-    // Extract business categories from scan context if available (TODO)
-    let businessCategories: BusinessCategory[] = [];
+    const metadata = scanRow.metadata ? JSON.parse(scanRow.metadata) : null;
 
     const { toolRecommendation, compatibilityScore } =
       await generateToolRecommendation(
@@ -179,7 +182,10 @@ export async function POST(
         trace,
         trials,
         mockToolResponses,
-        businessCategories,
+        metadata?.seedExtraction?.businessCategories || [],
+        metadata?.seedExtraction?.personaDescription,
+        metadata?.seedExtraction?.businessFeatures,
+        metadata?.seedExtraction?.businessScenarios,
       );
 
     // Parse recommended tools to pass to prompt hardener
@@ -194,7 +200,7 @@ export async function POST(
       granularity,
       undefined,
       trace,
-      businessCategories,
+      metadata,
     );
     const inspirationExamplesBlock =
       formatInspirationExamplesBlock(inspirationExamples);
@@ -214,6 +220,7 @@ export async function POST(
         recommendedToolsList,
         inspirationExamplesBlock,
         trace,
+        metadata?.attackSummary?.summarizedPatterns,
       );
     } catch (err) {
       console.error("Error generating hardened prompt via API:", err);

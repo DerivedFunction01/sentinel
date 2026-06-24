@@ -821,6 +821,27 @@ export async function executeScanPipeline(
     compatibilityScore = result.compatibilityScore || 0;
   }
 
+  // Construct the metadata object
+  const metadata: ScanMetadata = {
+    seedExtraction: {
+      thingName: seedInfo.thingName,
+      thingDescription: seedInfo.thingDescription,
+      thingNameVariants: seedInfo.thingNameVariants,
+      thingDescriptionVariants: seedInfo.thingDescriptionVariants,
+      personaDescription: seedInfo.personaDescription,
+      businessFeatures: seedInfo.businessFeatures,
+      businessScenarios: seedInfo.businessScenarios,
+      businessCategories: seedInfo.businessCategories,
+      extractorModel: seedExtractorModel,
+      extractedAt: new Date().toISOString(),
+    },
+    attackSummary: {
+      summarizedPatterns: getAttackSummaryInstructions(breachedAttacksWithVerdicts),
+      breachedAttacks: breachedAttacksWithVerdicts as any,
+      summarizedAt: new Date().toISOString(),
+    },
+  };
+
   // Parse recommended tools to pass to prompt hardener
   const recommendedToolsList = toolRecommendation
     ? parseSectionedRecommendation(toolRecommendation)
@@ -834,14 +855,11 @@ export async function executeScanPipeline(
     // Step 0: Get inspiration examples from the database (only when hardening is enabled)
     const inspirationExamples = await retrieveInspirationExamples(
       forbiddenTask,
-      extractorModel || DEFAULT_MODEL, // Using extractorModel for inspiration retrieval
+      extractorModel || DEFAULT_MODEL,
       granularity,
       tracker,
-      undefined, // trace
-      seedInfo.businessCategories, // businessCategories
-      seedInfo.personaDescription, // personaDescription
-      seedInfo.businessFeatures, // businessFeatures
-      seedInfo.businessScenarios, // businessScenarios
+      undefined,
+      metadata,
     );
     const inspirationExamplesBlock =
       formatInspirationExamplesBlock(inspirationExamples);
@@ -862,6 +880,8 @@ export async function executeScanPipeline(
         breachedAttacksWithVerdicts,
         recommendedToolsList,
         inspirationExamplesBlock,
+        undefined,
+        metadata.attackSummary?.summarizedPatterns,
       );
     } catch (err) {
       console.error("Error generating hardened prompt during scan:", err);
@@ -878,28 +898,6 @@ export async function executeScanPipeline(
       hardeningModelId.split("/").pop() ||
       hardeningModelId;
   }
-
-  // Construct the metadata object
-  const metadata: ScanMetadata = { // Assuming ScanMetadata interface is defined elsewhere (e.g., types.ts)
-    seedExtraction: {
-      thingName: seedInfo.thingName,
-      thingDescription: seedInfo.thingDescription,
-      thingNameVariants: seedInfo.thingNameVariants,
-      thingDescriptionVariants: seedInfo.thingDescriptionVariants,
-      personaDescription: seedInfo.personaDescription,
-      businessFeatures: seedInfo.businessFeatures,
-      businessScenarios: seedInfo.businessScenarios,
-      businessCategories: seedInfo.businessCategories,
-      extractorModel: seedExtractorModel, // Model used for seed extraction
-      extractedAt: new Date().toISOString(),
-    },
-    attackSummary: {
-      // Use getAttackSummaryInstructions for a better summary of breached attacks
-      summarizedPatterns: getAttackSummaryInstructions(breachedAttacksWithVerdicts),
-      breachedAttacks: breachedAttacksWithVerdicts as any, // Type assertion, assuming BreachedAttack is compatible
-      summarizedAt: new Date().toISOString(),
-    },
-  };
 
   // Return the complete scan result including metadata
   return {
