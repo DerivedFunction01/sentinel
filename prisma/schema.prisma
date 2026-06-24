@@ -112,6 +112,7 @@ enum BusinessCategory {
   CIVICS_VOTING
   PRIVACY
   ROLEPLAY_FICTION
+  SWE
   GENERAL
 }
 

@@ -170,6 +170,7 @@ export enum BusinessCategory {
   CIVICS_VOTING = "CIVICS_VOTING",
   PRIVACY = "PRIVACY",
   ROLEPLAY_FICTION = "ROLEPLAY_FICTION",
+  SWE = "SWE",
 }
 export enum Granularity {
   Compact = "compact",
