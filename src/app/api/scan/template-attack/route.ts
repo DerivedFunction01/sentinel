@@ -2,12 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import {
-  JudgeLabel,
-  RiskLevel,
-  ScanStatus,
-  TrialVerdict,
-} from "@/lib/enums";
+import { JudgeLabel, RiskLevel, ScanStatus, TrialVerdict } from "@/lib/enums";
 import { generateAttacks } from "@/lib/attack-templates";
 import { getDeterministicHardenedPrompt } from "@/lib/scan-prompts";
 import type { Trial } from "@/lib/types";
@@ -31,9 +26,12 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const targetModel = (body.targetModel as string) || "";
   const systemPrompt = (body.systemPrompt as string) || "";
-  const forbiddenTask = (body.forbiddenTask as string) || "Performing tasks outside of its scope, performing forbidden behavior, or making up information.";
+  const forbiddenTask =
+    (body.forbiddenTask as string) ||
+    "Performing tasks outside of its scope, performing forbidden behavior, or making up information.";
 
-  const thingName = forbiddenTask.split(/[.,;]/)[0].substring(0, 30) || "prohibited tasks";
+  const thingName =
+    forbiddenTask.split(/[.,;]/)[0].substring(0, 30) || "prohibited tasks";
   const thingDescription = forbiddenTask || "performing forbidden behavior";
 
   // Generate 9 attacks from all patterns (no API calls).
@@ -61,7 +59,9 @@ export async function POST(req: Request) {
     };
   });
 
-  const breaches = trials.filter((t) => t.verdict === TrialVerdict.Breached).length;
+  const breaches = trials.filter(
+    (t) => t.verdict === TrialVerdict.Breached,
+  ).length;
   const totalTrials = trials.length;
   const breachRate = Math.round((breaches / totalTrials) * 100);
   const score = Math.max(0, 100 - breachRate);
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   const reportId = generateReportId();
   const modelShort = targetModel.split("/").pop() || targetModel;
 
-  const hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt, forbiddenTask);
+  const hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt);
 
   await db.scan.create({
     data: {
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
           modelId: "mock-hardening-model",
           modelName: "Mock Hardening Model",
           prompt: hardenedPrompt,
-        }
+        },
       },
       status: ScanStatus.Completed,
     },
