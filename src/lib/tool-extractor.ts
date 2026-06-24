@@ -185,13 +185,7 @@ ${JSON.stringify(
   if (breachedTrials && breachedTrials.length > 0) {
     breachedTrialsBlock = `\nAdversarial attack prompts that SUCCESSFULLY bypassed the system prompt, including the model's response and the judge's verdict detailing why it leaked:
 <breached_attack_trials>
-${breachedTrials
-  .map(
-    (t, i) => `${i + 1}. ATTACK PROMPT: "${t.attack}"
-   ASSISTANT RESPONSE: "${t.response}"
-   JUDGE'S VERDICT REASONING: ${t.judgeVerdict || "None provided"}`,
-  )
-  .join("\n\n")}
+${breachedTrials.map((t) => `${t.judgeVerdict || "None provided"}`).join("\n\n")}
 </breached_attack_trials>\n`;
   }
 
