@@ -222,7 +222,7 @@ export async function generateCohesiveAttack(
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Pre-generate all 26 attacks for a single prompt configuration.
+ * Pre-generate all attacks for a single prompt configuration.
  * This is called once per unique prompt and the results are shared across
  * all target models that use the same prompt.
  */
@@ -258,7 +258,7 @@ export async function generateAttackSet(
     seedInfo.thingDescription,
   );
 
-  // Step 2: Generate all 26 attacks in parallel
+  // Step 2: Generate all attacks in parallel
   const attackPromises = attackLayouts.map((layout, i) => {
     const pattern =
       patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
@@ -879,7 +879,7 @@ export async function executeScanPipeline(
 
   const reportId = generateReportId();
 
-  // Calculate total steps: 1 (seed) + 26 (attacks) + 26×2 (target+judge)
+  // Calculate total steps: 1 (seed) + N (attacks) + N×2 (target+judge)
   const totalSteps =
     1 + attackSet.attacks.length + attackSet.attacks.length * 2;
   let currentStep = 0;

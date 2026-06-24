@@ -287,7 +287,7 @@ async function runModelPromptPipeline(
     const modelShort =
       options.targetModel.split("/").pop() || options.targetModel;
 
-    // Calculate total steps: target+judge × number of attacks (26)
+    // Calculate total steps: target+judge × number of attacks
     const totalSteps = attackSet.attacks.length * 2;
     let currentStep = 0;
 
