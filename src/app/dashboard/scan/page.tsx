@@ -77,6 +77,33 @@ function makeEmptyPrompt(): PromptConfig {
   };
 }
 
+function updatePrompt(
+  prompts: PromptConfig[],
+  setPrompts: (prompts: PromptConfig[]) => void,
+  idx: number,
+  field: keyof PromptConfig,
+  value: string,
+) {
+  setPrompts(prompts.map((p, i) => (i === idx ? { ...p, [field]: value } : p)));
+}
+
+function prettifyJson(
+  prompts: PromptConfig[],
+  setPrompts: (prompts: PromptConfig[]) => void,
+  idx: number,
+  field: "tools" | "mockResponses",
+) {
+  const current = prompts[idx][field];
+  try {
+    const parsed = JSON.parse(current);
+    const formatted = JSON.stringify(parsed, null, 2);
+    updatePrompt(prompts, setPrompts, idx, field, formatted);
+    toast.success("JSON formatted");
+  } catch {
+    toast.error("Invalid JSON — cannot format");
+  }
+}
+
 /** Shape of an exported/imported scan config file. */
 interface ScanConfigFile {
   targetModels: string[];
@@ -309,16 +336,6 @@ export default function PenTestScanPage() {
     toast.success(`Copied configuration from Prompt ${idx}`);
   };
 
-  const updatePrompt = (
-    idx: number,
-    field: keyof PromptConfig,
-    value: string,
-  ) => {
-    setPrompts(
-      prompts.map((p, i) => (i === idx ? { ...p, [field]: value } : p)),
-    );
-  };
-
   /** Export the current scan configuration to a JSON file. */
   const handleExport = () => {
     const config: ScanConfigFile = {
@@ -435,7 +452,7 @@ export default function PenTestScanPage() {
 
       {/* Prompts */}
       <div className="space-y-6">
-        {promptSection(prompts, copyFromPrevious, removePrompt, updatePrompt)}
+        {promptSection(prompts, setPrompts, copyFromPrevious, removePrompt)}
 
         {/* Add prompt + import/export buttons */}
         <PromptActionButtons
@@ -642,9 +659,9 @@ function PromptActionButtons({
 
 function promptSection(
   prompts: PromptConfig[],
+  setPrompts: (prompts: PromptConfig[]) => void,
   copyFromPrevious: (idx: number) => void,
   removePrompt: (idx: number) => void,
-  updatePrompt: (idx: number, field: keyof PromptConfig, value: string) => void,
 ) {
   return prompts.map((prompt, idx) => (
     <Card key={idx}>
@@ -694,13 +711,21 @@ function promptSection(
               icon={FileText}
               title="System Prompt"
               value={prompt.systemPrompt}
-              onChange={(v) => updatePrompt(idx, "systemPrompt", v)}
+              onChange={(v) =>
+                updatePrompt(prompts, setPrompts, idx, "systemPrompt", v)
+              }
               placeholder="Paste your system prompt here."
               minHeight="min-h-40"
               monospace
               showCharCount
               onUseSample={() => {
-                updatePrompt(idx, "systemPrompt", sampleSystemPrompt);
+                updatePrompt(
+                  prompts,
+                  setPrompts,
+                  idx,
+                  "systemPrompt",
+                  sampleSystemPrompt,
+                );
                 toast.success("Sample system prompt loaded");
               }}
             />
@@ -710,11 +735,19 @@ function promptSection(
               badge="NEW"
               description="How the Judge evaluates each response — separate from the forbidden task."
               value={prompt.judgeInstructions}
-              onChange={(v) => updatePrompt(idx, "judgeInstructions", v)}
+              onChange={(v) =>
+                updatePrompt(prompts, setPrompts, idx, "judgeInstructions", v)
+              }
               placeholder="e.g. Only mark LEAKED if the forbidden content appears verbatim in the response."
               minHeight="min-h-32"
               onUseSample={() => {
-                updatePrompt(idx, "judgeInstructions", sampleJudgeInstructions);
+                updatePrompt(
+                  prompts,
+                  setPrompts,
+                  idx,
+                  "judgeInstructions",
+                  sampleJudgeInstructions,
+                );
                 toast.success("Sample judge instructions loaded");
               }}
             />
@@ -726,53 +759,107 @@ function promptSection(
               icon={Ban}
               title="Forbidden Task"
               value={prompt.forbiddenTask}
-              onChange={(v) => updatePrompt(idx, "forbiddenTask", v)}
+              onChange={(v) =>
+                updatePrompt(prompts, setPrompts, idx, "forbiddenTask", v)
+              }
               placeholder="Describe what the AI must never do or reveal."
               minHeight="min-h-32"
               showCharCount
               onUseSample={() => {
-                updatePrompt(idx, "forbiddenTask", sampleForbiddenTask);
+                updatePrompt(
+                  prompts,
+                  setPrompts,
+                  idx,
+                  "forbiddenTask",
+                  sampleForbiddenTask,
+                );
                 toast.success("Sample forbidden task loaded");
               }}
             />
-            <FieldBlock
-              icon={Braces}
-              title="Tools (JSON)"
-              badge="NEW"
-              description="OpenRouter tool definitions, appended as the tools payload on every Target call."
-              value={prompt.tools}
-              onChange={(v) => updatePrompt(idx, "tools", v)}
-              placeholder='[{"type":"function","function":{"name":"..."}}]'
-              minHeight="min-h-40"
-              monospace
-              onUseSample={() => {
-                updatePrompt(
-                  idx,
-                  "tools",
-                  JSON.stringify(sampleTools, null, 2),
-                );
-                toast.success("Sample tools loaded");
-              }}
-            />
-            <FieldBlock
-              icon={Code2}
-              title="Mock Tool Responses (JSON)"
-              badge="NEW"
-              description="Returned to the Target when it calls a tool, so the loop continues realistically."
-              value={prompt.mockResponses}
-              onChange={(v) => updatePrompt(idx, "mockResponses", v)}
-              placeholder='{"tool_name": {"mock_result": "..."}}'
-              minHeight="min-h-32"
-              monospace
-              onUseSample={() => {
-                updatePrompt(
-                  idx,
-                  "mockResponses",
-                  JSON.stringify(sampleMockToolResponses, null, 2),
-                );
-                toast.success("Sample mock responses loaded");
-              }}
-            />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Braces className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-foreground">
+                    Tools (JSON)
+                  </span>
+                  <span className="rounded bg-blue-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">
+                    NEW
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    prettifyJson(prompts, setPrompts, idx, "tools")
+                  }
+                  className="h-7 text-xs text-slate-400 hover:text-white"
+                >
+                  <Code2 className="mr-1 h-3 w-3" />
+                  Prettify
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                OpenRouter tool definitions, appended as the tools payload on
+                every Target call.
+              </p>
+              <Textarea
+                value={prompt.tools}
+                onChange={(e) =>
+                  updatePrompt(
+                    prompts,
+                    setPrompts,
+                    idx,
+                    "tools",
+                    e.target.value,
+                  )
+                }
+                placeholder='[{"type":"function","function":{"name":"..."}}]'
+                className="font-mono text-xs min-h-40"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Code2 className="h-4 w-4 text-purple-400" />
+                  <span className="text-sm font-semibold text-foreground">
+                    Mock Tool Responses (JSON)
+                  </span>
+                  <span className="rounded bg-purple-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-400">
+                    NEW
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    prettifyJson(prompts, setPrompts, idx, "mockResponses")
+                  }
+                  className="h-7 text-xs text-slate-400 hover:text-white"
+                >
+                  <Code2 className="mr-1 h-3 w-3" />
+                  Prettify
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Returned to the Target when it calls a tool, so the loop
+                continues realistically.
+              </p>
+              <Textarea
+                value={prompt.mockResponses}
+                onChange={(e) =>
+                  updatePrompt(
+                    prompts,
+                    setPrompts,
+                    idx,
+                    "mockResponses",
+                    e.target.value,
+                  )
+                }
+                placeholder='{"tool_name": {"mock_result": "..."}}'
+                className="font-mono text-xs min-h-32"
+              />
+            </div>
           </div>
         </div>
       </CardContent>
