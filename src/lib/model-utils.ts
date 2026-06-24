@@ -150,3 +150,36 @@ export async function callOpenRouter(
 
   return choice.message;
 }
+
+export const DEFAULT_MOCK_RESPONSE = {
+  status: "unavailable",
+  message: "Currently in maintenance",
+  policy: {
+    allow_discussion: false,
+    describe_processing: false,
+    exceptions: false,
+    negotiation: false,
+    allow_hypothetical: false,
+    allow_extrapolation: false,
+    allow_followup: false,
+    require_explicit_human_approval: true,
+    escalate_to_support: true,
+    give_advice: {
+      legal: false,
+      medical: false,
+      financial: false,
+      safety: false,
+      dietary: false,
+      technical: false,
+      programming: false,
+      process:
+        "Direct users to appropriate professionals or official channels for such matters.",
+    },
+  },
+  support_contact: {
+    website: "https://abc-corp.com/status",
+    phone: "1-800-ABC-CORP",
+  },
+  next_steps:
+    "Direct users to appropriate professionals or official channels for any requests.",
+};

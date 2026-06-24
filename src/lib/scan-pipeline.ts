@@ -14,6 +14,7 @@ import {
 } from "@/lib/attack-templates";
 import {
   callOpenRouter,
+  DEFAULT_MOCK_RESPONSE,
   extractTaggedContent,
   UsageTracker,
 } from "@/lib/model-utils";
@@ -430,10 +431,10 @@ export async function runTargetSimulation(
               details: validation.error,
             };
           } else {
-            mockResult = mockToolResponses[name] || { status: "ok" };
+            mockResult = mockToolResponses[name] || DEFAULT_MOCK_RESPONSE;
           }
         } else {
-          mockResult = mockToolResponses[name] || { status: "ok" };
+          mockResult = mockToolResponses[name] || DEFAULT_MOCK_RESPONSE;
         }
 
         recordedToolCalls.push({
