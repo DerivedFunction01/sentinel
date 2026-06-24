@@ -639,11 +639,8 @@ export async function summarizeBreachedAttacks(
   try {
     const res = await callModel(instructions);
     return (
-      extractTaggedContent(
-        res,
-        "<BEGIN_ATTACK_PATTERNS>",
-        "<END_ATTACK_PATTERNS>",
-      ) || res
+      extractTaggedContent(res, "<ATTACK_PATTERNS>", "</ATTACK_PATTERNS>") ||
+      res
     );
   } catch (err) {
     console.error("Attack summarization step failed:", err);
