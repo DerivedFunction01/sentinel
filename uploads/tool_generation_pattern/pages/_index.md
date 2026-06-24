@@ -17,3 +17,4 @@ description: Index defining the canonical page order for tool generation pattern
 - output_format
 - examples
 - summary
+- final_check_important
