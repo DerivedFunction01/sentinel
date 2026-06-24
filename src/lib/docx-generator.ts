@@ -485,11 +485,22 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
   const metricCellWidth = 1872; // 9360 / 5
   const tableWidth = 9360;
 
+  const totalToolCalls = scan.trials.reduce(
+    (sum, trial) => sum + (trial.toolCalls?.length || 0),
+    0,
+  );
+  const toolCallRate = (totalToolCalls / scan.totalTrials).toFixed(1);
+
   const metrics = [
     { label: "TARGET MODEL", value: scan.modelName },
     { label: "TOTAL TRIALS", value: scan.totalTrials.toString() },
     { label: "BREACHES", value: scan.breaches.toString(), red: true },
     { label: "BREACH RATE", value: `${scan.breachRate}%`, red: true },
+    {
+      label: "TOOL CALL RATE",
+      value: `${toolCallRate}/trial`,
+      red: totalToolCalls > 0 && scan.breaches > 0,
+    },
     { label: "API COST", value: `$${(scan.apiCost || 0).toFixed(4)}` },
   ];
 
@@ -988,6 +999,24 @@ function createConfigurationSection(scan: Scan): any[] {
     }),
     createAdversarialCoverageCard(scan),
 
+    // Attack Pattern Summary
+    ...(scan.metadata?.attackSummary?.summarizedPatterns
+      ? [
+          new Paragraph({
+            spacing: { before: 250, after: 100 },
+            children: [
+              new TextRun({
+                text: "ATTACK PATTERN SUMMARY",
+                bold: true,
+                size: 16,
+                color: "999999",
+              }),
+            ],
+          }),
+          createAttackSummaryBox(scan),
+        ]
+      : []),
+
     // Agent Models Used
     new Paragraph({
       spacing: { before: 250, after: 100 },
@@ -1053,6 +1082,75 @@ function createAdversarialCoverageCard(scan: Scan): Table {
                   }),
                 ],
               }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+}
+
+/**
+ * Create a styled attack summary box similar to the dashboard report
+ */
+function createAttackSummaryBox(scan: Scan): Table {
+  const hasBreaches = scan.breaches > 0;
+  const statusColor = hasBreaches ? "E74C3C" : "D4AC0D"; // Red for breaches, amber for defended
+
+  const summaryContent = scan.metadata?.attackSummary?.summarizedPatterns || "";
+
+  return new Table({
+    width: { size: 9360, type: WidthType.DXA },
+    borders: {
+      left: {
+        style: BorderStyle.SINGLE,
+        size: 24, // 3pt
+        color: statusColor,
+      },
+      top: { style: BorderStyle.NONE },
+      right: { style: BorderStyle.NONE },
+      bottom: { style: BorderStyle.NONE },
+    },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 9360, type: WidthType.DXA },
+            shading: { fill: "FDF9E7", type: ShadingType.CLEAR }, // Light amber background
+            margins: { top: 200, bottom: 200, left: 240, right: 240 },
+            children: [
+              // Header row with icon and title
+              new Paragraph({
+                spacing: { before: 0, after: 150 },
+                children: [
+                  new TextRun({
+                    text: "⚔ ",
+                    size: 20,
+                    color: statusColor,
+                    bold: true,
+                  }),
+                  new TextRun({
+                    text: "ATTACK PATTERN SUMMARY",
+                    bold: true,
+                    size: 18,
+                    color: "1A1A1A",
+                  }),
+                ],
+              }),
+              // Separator line
+              new Paragraph({
+                spacing: { before: 0, after: 150 },
+                border: {
+                  bottom: {
+                    color: "E0E0E0",
+                    style: BorderStyle.SINGLE,
+                    size: 4,
+                  },
+                },
+                children: [new TextRun("")],
+              }),
+              // Summary content rendered as markdown
+              ...renderMarkdown(summaryContent, 20, "1A1A1A"),
             ],
           }),
         ],
@@ -1597,16 +1695,7 @@ function createTrialSection(scan: Scan): any[] {
                   ],
                 }),
                 // Judge Verdict
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: trial.judgeVerdict,
-                      italics: true,
-                      size: 20,
-                      color: "555555",
-                    }),
-                  ],
-                }),
+                ...renderMarkdown(trial.judgeVerdict, 20, "555555"),
               ],
             }),
           ],

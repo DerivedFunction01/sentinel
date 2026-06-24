@@ -986,15 +986,34 @@ function summaryHero(scan: Scan) {
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          { label: "Target Model", value: scan.modelName },
-          { label: "Total Trials", value: scan.totalTrials },
-          { label: "Breaches", value: scan.breaches },
-          { label: "Breach Rate", value: `${scan.breachRate}%` },
-        ].map((stat) => (
-          <Card key={stat.label} className="p-4">
+        {(() => {
+          const totalToolCalls = scan.trials.reduce(
+            (sum, trial) => sum + (trial.toolCalls?.length || 0),
+            0,
+          );
+          const toolCallRate = (totalToolCalls / scan.totalTrials).toFixed(1);
+          return [
+            { label: "Target Model", value: scan.modelName },
+            { label: "Total Trials", value: scan.totalTrials },
+            { label: "Breaches", value: scan.breaches },
+            { label: "Breach Rate", value: `${scan.breachRate}%` },
+            {
+              label: "Tool Call Rate",
+              value: `${toolCallRate}/trial`,
+              highlight: totalToolCalls > 0 && scan.breaches > 0,
+            },
+          ];
+        })().map((stat) => (
+          <Card
+            key={stat.label}
+            className={`p-4 ${stat.highlight ? "border-red-500/30" : ""}`}
+          >
             <p className="text-xs text-muted-foreground">{stat.label}</p>
-            <p className="mt-1 text-sm font-bold text-foreground">
+            <p
+              className={`mt-1 text-sm font-bold ${
+                stat.highlight ? "text-red-400" : "text-foreground"
+              }`}
+            >
               {stat.value}
             </p>
           </Card>
