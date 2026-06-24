@@ -16,6 +16,7 @@ export interface InspirationExample {
   granularityScore?: number; // 0-100: how well the example's granularity matches the target
   rationale?: string; // LLM explanation of the scores
   directMatch?: boolean; // true = confident enough to skip the full agentic extractor loop
+  bestMatchingCandidate?: boolean; // true = selected as the single best candidate for its action/role
 }
 
 export async function retrieveInspirationExamples(
@@ -225,9 +226,12 @@ For each example, output an array of scoring objects with:
 - "requirementScore" (0-100): How well this tool's purpose matches the forbidden task domain. A high score means it directly addresses the same kind of constraint or policy.
 - "granularityScore" (0-100): How well the granularity level matches. If the target is "compact" but the example is "detailed", this should be low.
 - "rationale": A one-sentence explanation of both scores.
+- "bestMatchingCandidate" (boolean): Set to true ONLY if this example is the single best choice for addressing the overall forbidden task. If multiple examples address the same sub-action (e.g., two tools for "discount management"), mark only the highest-scoring one as true. Mark all others as false.
+
+The forbidden task may contain multiple distinct prohibited actions (e.g., "Do not provide discounts AND do not describe corporate policy"). Each distinct prohibited action should have exactly one bestMatchingCandidate set to true if possible.
 
 Output ONLY valid JSON with no preamble:
-{"scores":[{"index":0,"requirementScore":85,"granularityScore":70,"rationale":"..."}]}`;
+{"scores":[{"index":0,"requirementScore":85,"granularityScore":70,"rationale":"...","bestMatchingCandidate":true}]}`;
 
         const scoringResponse = await callOpenRouter(
           extractorModel,
@@ -249,6 +253,8 @@ Output ONLY valid JSON with no preamble:
               candidates[idx].requirementScore = s.requirementScore as number;
               candidates[idx].granularityScore = s.granularityScore as number;
               candidates[idx].rationale = s.rationale as string;
+              candidates[idx].bestMatchingCandidate =
+                s.bestMatchingCandidate === true;
             }
           }
         }

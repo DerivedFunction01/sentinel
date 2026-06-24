@@ -658,8 +658,10 @@ export async function generateToolRecommendation(
       ));
     const inspirationExamplesBlock = formatInspirationExamplesBlock(examples);
 
-    // FAST PATH: Use direct-match examples from the inspiration retriever
-    const directMatches = examples.filter((ex) => ex.directMatch);
+    // FAST PATH: Use direct-match examples that are also the best matching candidate
+    const directMatches = examples.filter(
+      (ex) => ex.directMatch && ex.bestMatchingCandidate,
+    );
     if (directMatches.length > 0) {
       // Resolve model name once
       const dbModels = await db.model.findMany({
