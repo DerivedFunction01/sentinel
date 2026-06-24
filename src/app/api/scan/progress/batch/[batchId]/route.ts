@@ -74,13 +74,13 @@ export async function GET(
     );
 
     // Determine overall batch status
-    let batchStatus = "running";
+    let batchStatus = ScanStatus.Running;
     if (completedScans === totalScans) {
-      batchStatus = "completed";
+      batchStatus = ScanStatus.Completed;
     } else if (failedScans > 0 && completedScans + failedScans === totalScans) {
-      batchStatus = "completed_with_failures";
+      batchStatus = ScanStatus.CompletedWithFailures;
     } else if (failedScans > 0) {
-      batchStatus = "partial_failure";
+      batchStatus = ScanStatus.PartialFailure;
     }
 
     // Map scans to a serializable format
