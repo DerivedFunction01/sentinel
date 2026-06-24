@@ -55,8 +55,8 @@ const RISK_STYLES: Record<RiskLevel, RiskStyle> = {
   },
 };
 
-export function getRiskStyle(level: RiskLevel): RiskStyle {
-  const l = level.toLowerCase() as RiskLevel;
+export function getRiskStyle(level: RiskLevel | undefined): RiskStyle {
+  const l = level?.toLowerCase() as RiskLevel;
   if (l == undefined) {
     return RISK_STYLES[RiskLevel.Unknown];
   }

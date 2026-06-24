@@ -19,7 +19,7 @@ export enum RiskLevel {
   Medium = "medium",
   High = "high",
   Critical = "critical",
-  Unknown = "Unknown",
+  Unknown = "unknown",
 }
 
 /** Per-trial outcome produced by the Judge LLM. */
