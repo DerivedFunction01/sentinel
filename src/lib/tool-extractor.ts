@@ -51,6 +51,86 @@ export function parseMarkdownSections(content: string): Record<string, string> {
   return sections;
 }
 
+// ── Shared tool definitions for the agentic extractor loop ────────────────────
+
+export const EXTRACTOR_TOOLS: ToolDef[] = [
+  {
+    type: "function",
+    function: {
+      name: "get_available_markdown_sections",
+      description:
+        "Get list of available section headers in the Tool Generation Patterns guide.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_markdown_sections",
+      description:
+        "Read specific sections of the Tool Generation Patterns guide.",
+      parameters: {
+        type: "object",
+        properties: {
+          sections: {
+            type: "array",
+            items: { type: "string" },
+            description: "Array of section names to retrieve",
+          },
+        },
+        required: ["sections"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_schema_examples",
+      description:
+        "Search reference tool schema examples in the database by query terms or tags.",
+      parameters: {
+        type: "object",
+        properties: {
+          granularity: {
+            type: "string",
+            enum: Object.values(Granularity),
+          },
+          query: {
+            type: "string",
+            description:
+              "Search term to match against name, description, tags or JSON",
+          },
+          tags: {
+            type: "array",
+            items: { type: "string" },
+            description: "Tags to filter examples",
+          },
+        },
+        required: ["granularity"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_available_example_tags",
+      description:
+        "Retrieve all unique tags associated with the tool schema examples in the database.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+];
+
 // ── Page-based pattern loader ─────────────────────────────────────────────────
 
 const PAGES_DIR = path.join(
@@ -378,6 +458,175 @@ export function parseSectionedRecommendation(
   return tools;
 }
 
+/**
+ * Convert a direct-match tool schema to the target granularity using the same
+ * agentic tool-calling loop as the slow path, so the LLM can query the Tool
+ * Generation Patterns pages and DB examples dynamically.
+ */
+export async function convertGranularityForDirectMatch(
+  example: InspirationExample,
+  targetGranularity: Granularity,
+  extractorModel: string,
+  tracker?: any,
+): Promise<{ toolJson: any; mockResponse: any }> {
+  const prompt = `You are a tool schema converter. Convert the following tool to ${targetGranularity} granularity.
+
+Use the available tools to look up the Tool Generation Patterns and reference schema examples so you produce a correct schema at the target granularity.
+
+Original tool name: ${example.name}
+Original description: ${example.description}
+Original granularity: ${example.granularity}
+Target granularity: ${targetGranularity}
+
+Original schema:
+${JSON.stringify(example.toolJson, null, 2)}
+
+Original mock response:
+${JSON.stringify(example.mockResponse, null, 2)}
+
+${example.rationale ? `Match rationale: ${example.rationale}` : ""}
+
+Output ONLY valid JSON in the EXACT format below (no preamble, no markdown):
+{"toolJson": <adapted schema as a JSON object>, "mockResponse": <adapted mock response as a JSON object>}`;
+
+  const messages: any[] = [{ role: "user", content: prompt }];
+  let extractContent = "";
+  let loopCount = 0;
+  const maxLoops = 6;
+
+  while (loopCount < maxLoops) {
+    loopCount++;
+    const response = await callOpenRouter(
+      extractorModel,
+      messages,
+      EXTRACTOR_TOOLS,
+      tracker,
+    );
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      messages.push(response);
+
+      for (const toolCall of response.tool_calls) {
+        const name = toolCall.function.name;
+        const args = JSON.parse(toolCall.function.arguments || "{}");
+        let result = "";
+
+        if (name === "get_available_markdown_sections") {
+          try {
+            const { pages } = loadPatternPages();
+            result = JSON.stringify(pages.map((p) => p.title));
+          } catch (err: any) {
+            result = JSON.stringify({ error: err.message });
+          }
+        } else if (name === "read_markdown_sections") {
+          try {
+            const { byTitle } = loadPatternPages();
+            const requested: string[] = args.sections || [];
+            const output: Record<string, string> = {};
+            for (const r of requested) {
+              const norm = r
+                .toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, "")
+                .trim();
+              const page = byTitle[norm] || byTitle[r.toLowerCase()];
+              output[r] = page ? page.body : "Section not found.";
+            }
+            result = JSON.stringify(output);
+          } catch (err: any) {
+            result = JSON.stringify({ error: err.message });
+          }
+        } else if (name === "search_schema_examples") {
+          try {
+            const examples = await db.toolSchemaExample.findMany({
+              where: { granularity: args.granularity },
+            });
+            const query = args.query ? args.query.toLowerCase() : "";
+            const tags: string[] = args.tags
+              ? args.tags.map((t: string) => t.toLowerCase())
+              : [];
+
+            const filtered = examples.filter((ex) => {
+              let match = true;
+              if (tags.length > 0) {
+                try {
+                  const parsedTags = (JSON.parse(ex.tags) as string[]).map(
+                    (t) => t.toLowerCase(),
+                  );
+                  match = tags.every((t) => parsedTags.includes(t));
+                } catch {
+                  match = false;
+                }
+              }
+              if (match && query) {
+                const nameMatch = ex.name.toLowerCase().includes(query);
+                const descMatch = ex.description.toLowerCase().includes(query);
+                const jsonMatch = ex.toolJson.toLowerCase().includes(query);
+                let tagMatch = false;
+                try {
+                  tagMatch = JSON.parse(ex.tags).some((t: string) =>
+                    t.toLowerCase().includes(query),
+                  );
+                } catch {}
+                match = nameMatch || descMatch || jsonMatch || tagMatch;
+              }
+              return match;
+            });
+            result = JSON.stringify(filtered.slice(0, 3));
+          } catch (err: any) {
+            result = JSON.stringify({ error: err.message });
+          }
+        } else if (name === "get_available_example_tags") {
+          try {
+            const examples = await db.toolSchemaExample.findMany({
+              select: { tags: true },
+            });
+            const allTags = new Set<string>();
+            for (const ex of examples) {
+              try {
+                const parsed = JSON.parse(ex.tags) as string[];
+                parsed.forEach((t) => allTags.add(t));
+              } catch {}
+            }
+            result = JSON.stringify(Array.from(allTags));
+          } catch (err: any) {
+            result = JSON.stringify({ error: err.message });
+          }
+        } else {
+          result = JSON.stringify({ error: `Unknown tool ${name}` });
+        }
+
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          name,
+          content: result,
+        });
+      }
+    } else {
+      extractContent = (response.content || "").trim();
+      break;
+    }
+  }
+
+  if (!extractContent) {
+    return { toolJson: example.toolJson, mockResponse: example.mockResponse };
+  }
+
+  try {
+    const cleaned = extractContent
+      .replace(/^```[a-zA-Z]*\n/g, "")
+      .replace(/\n```$/g, "")
+      .trim();
+    const parsed = JSON.parse(cleaned);
+    return {
+      toolJson: parsed.toolJson || example.toolJson,
+      mockResponse: parsed.mockResponse || example.mockResponse,
+    };
+  } catch {
+    return { toolJson: example.toolJson, mockResponse: example.mockResponse };
+  }
+}
+
 export async function generateToolRecommendation(
   hardenedPrompt: string,
   forbiddenTask: string,
@@ -409,14 +658,80 @@ export async function generateToolRecommendation(
       ));
     const inspirationExamplesBlock = formatInspirationExamplesBlock(examples);
 
-    const breachedTrials = trials
-      ? trials.filter(
-          (t) =>
-            t.verdict === "breached" ||
-            t.verdict === "Breached" ||
-            t.judgeLabel === "LEAKED",
-        )
-      : [];
+    // FAST PATH: Use direct-match examples from the inspiration retriever
+    const directMatches = examples.filter((ex) => ex.directMatch);
+    if (directMatches.length > 0) {
+      // Resolve model name once
+      const dbModels = await db.model.findMany({
+        select: { id: true, name: true },
+      });
+      const dbExtractorModel = dbModels.find((m) => m.id === extractorModel);
+      const extractorModelName =
+        dbExtractorModel?.name ||
+        extractorModel.split("/").pop() ||
+        extractorModel;
+
+      // Process each match: handle granularity conversion if needed
+      const tools: any[] = [];
+      let totalScore = 0;
+
+      for (const match of directMatches) {
+        let toolJson = match.toolJson;
+        let mockResponse = match.mockResponse;
+
+        // If granularity doesn't match, run a lightweight conversion
+        if (
+          match.granularityScore !== undefined &&
+          match.granularityScore < 70
+        ) {
+          const converted = await convertGranularityForDirectMatch(
+            match,
+            granularity,
+            extractorModel,
+            tracker,
+          );
+          toolJson = converted.toolJson;
+          mockResponse = converted.mockResponse;
+        }
+
+        const score = Math.round(
+          ((match.requirementScore || 0) + (match.granularityScore || 0)) / 2,
+        );
+        totalScore += score;
+
+        tools.push({
+          name: match.name,
+          granularity,
+          compatibilityScore: score,
+          rationale:
+            match.rationale ||
+            `Direct match from database: ${match.description}`,
+          toolJson,
+          mockResponse,
+        });
+      }
+
+      const avgScore = Math.round(totalScore / tools.length);
+
+      const payload: any = {
+        tools,
+        compatibilityScore: avgScore,
+        extractorModel,
+        extractorModelName,
+      };
+
+      if (trace) {
+        trace.toolExtraction = {
+          promptSent: `(fast path — ${directMatches.length} direct matches from inspiration examples)`,
+          rawOutput: JSON.stringify(payload, null, 2),
+        };
+      }
+
+      return {
+        toolRecommendation: JSON.stringify(payload),
+        compatibilityScore: avgScore,
+      };
+    }
 
     const summarizedPatterns = metadata?.attackSummary?.summarizedPatterns;
 
@@ -433,84 +748,6 @@ export async function generateToolRecommendation(
 
     const messages: any[] = [{ role: "user", content: extractionInstructions }];
 
-    const tools: ToolDef[] = [
-      {
-        type: "function",
-        function: {
-          name: "get_available_markdown_sections",
-          description:
-            "Get list of available section headers in the Tool Generation Patterns guide.",
-          parameters: {
-            type: "object",
-            properties: {},
-            additionalProperties: false,
-          },
-        },
-      },
-      {
-        type: "function",
-        function: {
-          name: "read_markdown_sections",
-          description:
-            "Read specific sections of the Tool Generation Patterns guide.",
-          parameters: {
-            type: "object",
-            properties: {
-              sections: {
-                type: "array",
-                items: { type: "string" },
-                description: "Array of section names to retrieve",
-              },
-            },
-            required: ["sections"],
-            additionalProperties: false,
-          },
-        },
-      },
-      {
-        type: "function",
-        function: {
-          name: "search_schema_examples",
-          description:
-            "Search reference tool schema examples in the database by query terms or tags.",
-          parameters: {
-            type: "object",
-            properties: {
-              granularity: {
-                type: "string",
-                enum: [Granularity.Compact, "detailed"],
-              },
-              query: {
-                type: "string",
-                description:
-                  "Search term to match against name, description, tags or JSON",
-              },
-              tags: {
-                type: "array",
-                items: { type: "string" },
-                description: "Tags to filter examples",
-              },
-            },
-            required: ["granularity"],
-            additionalProperties: false,
-          },
-        },
-      },
-      {
-        type: "function",
-        function: {
-          name: "get_available_example_tags",
-          description:
-            "Retrieve all unique tags associated with the tool schema examples in the database.",
-          parameters: {
-            type: "object",
-            properties: {},
-            additionalProperties: false,
-          },
-        },
-      },
-    ];
-
     let extractContent = "";
     let loopCount = 0;
     const maxLoops = 6;
@@ -520,7 +757,7 @@ export async function generateToolRecommendation(
       const extractResponse = await callOpenRouter(
         extractorModel,
         messages,
-        tools,
+        EXTRACTOR_TOOLS,
         tracker,
       );
 

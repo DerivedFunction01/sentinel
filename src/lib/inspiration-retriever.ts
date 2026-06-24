@@ -12,6 +12,10 @@ export interface InspirationExample {
   toolJson: any;
   mockResponse: any;
   businessCategories?: BusinessCategory[];
+  requirementScore?: number; // 0-100: how well the example matches the forbidden task requirement
+  granularityScore?: number; // 0-100: how well the example's granularity matches the target
+  rationale?: string; // LLM explanation of the scores
+  directMatch?: boolean; // true = confident enough to skip the full agentic extractor loop
 }
 
 export async function retrieveInspirationExamples(
@@ -180,12 +184,12 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
 
     const filtered = sortedExamples.map((item) => item.ex);
 
-    // Return the top N examples
+    // Return the top N examples, then have the LLM score them
     const numberOfExamples = 4;
-    const result: InspirationExample[] = [];
+    const candidates: InspirationExample[] = [];
     for (const ex of filtered.slice(0, numberOfExamples)) {
       try {
-        result.push({
+        candidates.push({
           name: ex.name,
           description: ex.description,
           tags: JSON.parse(ex.tags),
@@ -197,15 +201,79 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
       } catch {}
     }
 
+    // NEW: LLM scoring of candidates for requirement + granularity match
+    if (candidates.length > 0) {
+      try {
+        const scoringPrompt = `You are a scoring evaluator. Analyze how well each database tool schema example matches the given forbidden task and target granularity.
+
+Forbidden Task: "${forbiddenTask}"
+Target Granularity: ${granularity}
+Business Categories: ${(businessCategories || []).join(", ") || "N/A"}
+
+Examples:
+${candidates
+  .map(
+    (c, i) => `[${i}] Name: ${c.name}
+Description: ${c.description}
+Tags: ${c.tags.join(", ")}
+Granularity: ${c.granularity}
+Business Categories: ${(c.businessCategories || []).join(", ")}`,
+  )
+  .join("\n\n")}
+
+For each example, output an array of scoring objects with:
+- "requirementScore" (0-100): How well this tool's purpose matches the forbidden task domain. A high score means it directly addresses the same kind of constraint or policy.
+- "granularityScore" (0-100): How well the granularity level matches. If the target is "compact" but the example is "detailed", this should be low.
+- "rationale": A one-sentence explanation of both scores.
+
+Output ONLY valid JSON with no preamble:
+{"scores":[{"index":0,"requirementScore":85,"granularityScore":70,"rationale":"..."}]}`;
+
+        const scoringResponse = await callOpenRouter(
+          extractorModel,
+          [{ role: "user", content: scoringPrompt }],
+          undefined,
+          tracker,
+        );
+
+        const cleaned = (scoringResponse.content || "")
+          .replace(/^```[a-zA-Z]*\n/g, "")
+          .replace(/\n```$/g, "")
+          .trim();
+        const parsed = JSON.parse(cleaned);
+
+        if (parsed.scores && Array.isArray(parsed.scores)) {
+          for (const s of parsed.scores) {
+            const idx = s.index as number;
+            if (idx >= 0 && idx < candidates.length) {
+              candidates[idx].requirementScore = s.requirementScore as number;
+              candidates[idx].granularityScore = s.granularityScore as number;
+              candidates[idx].rationale = s.rationale as string;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("LLM scoring of inspiration examples failed:", e);
+        // Fall through with unscored examples — still usable as context
+      }
+
+      // Mark direct matches: requirementScore >= 70 means we can skip the heavy agentic loop
+      for (const ex of candidates) {
+        if (ex.requirementScore !== undefined && ex.requirementScore >= 70) {
+          ex.directMatch = true;
+        }
+      }
+    }
+
     if (trace) {
       trace.step0 = {
         query,
         tags,
-        retrievedExamples: result,
+        retrievedExamples: candidates,
         usedBusinessCategories: businessCategories,
       };
     }
-    return result;
+    return candidates;
   } catch (err) {
     return [];
   }
