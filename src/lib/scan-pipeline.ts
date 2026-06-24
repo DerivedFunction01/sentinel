@@ -16,18 +16,9 @@ import {
   SEED_EXTRACTOR_USER_TEMPLATE,
   ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2,
   JUDGE_EVALUATION_TEMPLATE,
-  executeMultiStepHardening,
-  getDeterministicHardenedPrompt,
   loadPromptFile,
 } from "@/lib/scan-prompts";
-import {
-  retrieveInspirationExamples,
-  formatInspirationExamplesBlock,
-} from "@/lib/inspiration-retriever";
-import {
-  generateToolRecommendation,
-  parseSectionedRecommendation,
-} from "@/lib/tool-extractor";
+import { generateHardenedPrompt } from "@/lib/hardening";
 import {
   ToolDef,
   Trial,
@@ -751,81 +742,44 @@ export async function executeScanPipeline(
     },
   };
 
-  // Run tool extraction if requested AND hardening is enabled
-  // Tool recommendations are disabled when hardening is off
-  let toolRecommendation: string = "";
-  let compatibilityScore: number = 0;
-
-  if (enableHardening && includeToolRecommendation) {
-    const result = await generateToolRecommendation(
-      systemPrompt,
-      forbiddenTask,
-      granularity,
-      extractorModel, // Using extractorModel for tool recommendation
-      metadata,
-      tracker,
-      undefined,
-      tools,
-      undefined,
-      trials,
-      mockToolResponses,
-    );
-    toolRecommendation = result.toolRecommendation || "";
-    compatibilityScore = result.compatibilityScore || 0;
-  }
-
-  // Parse recommended tools to pass to prompt hardener
-  const recommendedToolsList = toolRecommendation
-    ? parseSectionedRecommendation(toolRecommendation)
-    : [];
-
   let hardenedPrompt = "";
   let hardeningModelId = "";
   let hardeningModelName = "";
+  let toolRecommendation: string = "";
+  let compatibilityScore: number = 0;
 
   if (enableHardening) {
-    // Step 0: Get inspiration examples from the database (only when hardening is enabled)
-    const inspirationExamples = await retrieveInspirationExamples(
-      forbiddenTask,
-      extractorModel || DEFAULT_MODEL,
-      granularity,
-      metadata,
-      tracker,
-      undefined,
-    );
-    const inspirationExamplesBlock =
-      formatInspirationExamplesBlock(inspirationExamples);
-
-    try {
-      hardenedPrompt = await executeMultiStepHardening(
-        async (promptText) => {
-          const response = await callOpenRouter(
-            hardenerModel,
-            [{ role: "user", content: promptText }],
-            undefined,
-            tracker,
-          );
-          return response.content || "";
-        },
+    const result = await generateHardenedPrompt(
+      {
         systemPrompt,
         forbiddenTask,
-        breachedAttacksWithVerdicts,
-        recommendedToolsList,
-        inspirationExamplesBlock,
-        undefined,
-        metadata.attackSummary?.summarizedPatterns,
-      );
-    } catch (err) {
-      console.error("Error generating hardened prompt during scan:", err);
-      hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt);
-    }
+        breachedAttacks: breachedAttacksWithVerdicts,
+        tools,
+        mockToolResponses,
+        granularity,
+        extractorModel,
+        hardenerModel,
+        metadata,
+        trials,
+        tracker,
+        includeToolRecommendation: enableHardening && includeToolRecommendation,
+      },
+      async (promptText) => {
+        const response = await callOpenRouter(
+          hardenerModel,
+          [{ role: "user", content: promptText }],
+          undefined,
+          tracker,
+        );
+        return response.content || "";
+      },
+    );
 
-    hardeningModelId = hardenerModel;
-    const hardeningDbModel = dbModels.find((m) => m.id === hardeningModelId);
-    hardeningModelName =
-      hardeningDbModel?.name ||
-      hardeningModelId.split("/").pop() ||
-      hardeningModelId;
+    hardenedPrompt = result.hardenedPrompt;
+    hardeningModelId = result.hardeningModelId;
+    hardeningModelName = result.hardeningModelName;
+    toolRecommendation = result.toolRecommendation;
+    compatibilityScore = result.compatibilityScore;
   }
 
   // Return the complete scan result including metadata

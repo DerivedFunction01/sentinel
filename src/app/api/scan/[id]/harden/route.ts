@@ -1,29 +1,12 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import {
-  getDeterministicHardenedPrompt,
-  executeMultiStepHardening,
-} from "@/lib/scan-prompts";
-import {
-  generateToolRecommendation,
-  parseSectionedRecommendation,
-} from "@/lib/tool-extractor";
-import {
-  retrieveInspirationExamples,
-  formatInspirationExamplesBlock,
-} from "@/lib/inspiration-retriever";
-import { callOpenRouter } from "@/lib/model-utils";
+import { callOpenRouter, DEFAULT_MODEL } from "@/lib/model-utils";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
-import {
-  type ToolDef,
-  type HardeningTrace,
-  type BusinessCategory,
-  Granularity,
-} from "@/lib/types";
-import { Grab } from "lucide-react";
-import { DEFAULT_MODEL } from "@/lib/model-utils";
+import { type ToolDef, type HardeningTrace, Granularity } from "@/lib/types";
+import { generateHardenedPrompt } from "@/lib/hardening";
+import { getDeterministicHardenedPrompt } from "@/lib/scan-prompts";
 
 export async function GET(
   req: Request,
@@ -80,10 +63,7 @@ export async function GET(
     const firstPrompt = scanRow.hardenedPrompts[0];
     const hardenedPromptText =
       firstPrompt?.prompt ||
-      getDeterministicHardenedPrompt(
-        scanRow.systemPrompt,
-        scanRow.forbiddenTask,
-      );
+      getDeterministicHardenedPrompt(scanRow.systemPrompt);
 
     let recObj: any = null;
     if (firstPrompt?.toolRecommendation) {
@@ -163,69 +143,38 @@ export async function POST(
       ? JSON.parse(scanRow.mockToolResponses)
       : {};
 
-    // Run tool extraction first on the original system prompt
+    // Use the shared hardening workflow
     const existingTools = scanRow.tools
       ? (JSON.parse(scanRow.tools) as ToolDef[])
       : [];
 
-    const metadata = scanRow.metadata ? JSON.parse(scanRow.metadata) : null;
+    const metadata = scanRow.metadata ? JSON.parse(scanRow.metadata) : {};
 
-    const { toolRecommendation, compatibilityScore } =
-      await generateToolRecommendation(
-        scanRow.systemPrompt,
-        scanRow.forbiddenTask,
+    const hardeningResult = await generateHardenedPrompt(
+      {
+        systemPrompt: scanRow.systemPrompt,
+        forbiddenTask: scanRow.forbiddenTask,
+        breachedAttacks,
+        tools: existingTools,
+        mockToolResponses,
         granularity,
         extractorModel,
+        hardenerModel: modelId,
         metadata,
-        undefined,
-        [],
-        existingTools,
-        trace,
         trials,
-        mockToolResponses,
-      );
-
-    // Parse recommended tools to pass to prompt hardener
-    const recommendedToolsList = toolRecommendation
-      ? parseSectionedRecommendation(toolRecommendation)
-      : [];
-
-    // Step 0: Get inspiration examples from the database
-    const inspirationExamples = await retrieveInspirationExamples(
-      scanRow.forbiddenTask,
-      extractorModel,
-      granularity,
-      metadata,
-      undefined,
-      trace,
-    );
-    const inspirationExamplesBlock =
-      formatInspirationExamplesBlock(inspirationExamples);
-
-    let promptTextToExtract = "";
-    try {
-      promptTextToExtract = await executeMultiStepHardening(
-        async (promptText) => {
-          const response = await callOpenRouter(modelId, [
-            { role: "user", content: promptText },
-          ]);
-          return response.content || "";
-        },
-        scanRow.systemPrompt,
-        scanRow.forbiddenTask,
-        breachedAttacks,
-        recommendedToolsList,
-        inspirationExamplesBlock,
         trace,
-        metadata?.attackSummary?.summarizedPatterns,
-      );
-    } catch (err) {
-      console.error("Error generating hardened prompt via API:", err);
-      promptTextToExtract = getDeterministicHardenedPrompt(
-        scanRow.systemPrompt,
-        scanRow.forbiddenTask,
-      );
-    }
+      },
+      async (promptText) => {
+        const response = await callOpenRouter(modelId, [
+          { role: "user", content: promptText },
+        ]);
+        return response.content || "";
+      },
+    );
+
+    const promptTextToExtract = hardeningResult.hardenedPrompt;
+    const toolRecommendation = hardeningResult.toolRecommendation;
+    const compatibilityScore = hardeningResult.compatibilityScore;
 
     let saved;
     if (existing) {
