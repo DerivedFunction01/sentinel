@@ -855,15 +855,104 @@ function scanConfiguration(scan: Scan) {
 
       {/* Adversarial Coverage */}
       <ConfigBlock label="Adversarial Coverage" icon={Swords}>
-        <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-4">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              forbidden_task_1
-            </p>
+        <div className="space-y-3">
+          {/* Forbidden Task */}
+          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {scan.forbiddenTask || "forbidden_task_1"}
+                </p>
+              </div>
+              <Badge
+                variant="outline"
+                className="border-red-500/30 text-red-400 shrink-0 ml-3"
+              >
+                {scan.breaches} / {scan.totalTrials} breached
+              </Badge>
+            </div>
           </div>
-          <Badge variant="outline" className="border-red-500/30 text-red-400">
-            {scan.breaches} / {scan.totalTrials} breached
-          </Badge>
+
+          {/* Seed extraction details from metadata */}
+          {scan.metadata?.seedExtraction &&
+            (() => {
+              const seed = scan.metadata.seedExtraction!;
+              return (
+                <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Seed Extraction
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                    {seed.personaDescription && (
+                      <>
+                        <span className="text-muted-foreground">Persona</span>
+                        <span className="text-foreground text-right">
+                          {seed.personaDescription}
+                        </span>
+                      </>
+                    )}
+                    {seed.businessCategories &&
+                      seed.businessCategories.length > 0 && (
+                        <>
+                          <span className="text-muted-foreground">
+                            Categories
+                          </span>
+                          <span className="text-foreground text-right">
+                            {seed.businessCategories.join(", ")}
+                          </span>
+                        </>
+                      )}
+                    {seed.thingName && (
+                      <>
+                        <span className="text-muted-foreground">
+                          Thing Name
+                        </span>
+                        <span className="text-foreground text-right">
+                          {seed.thingName}
+                        </span>
+                      </>
+                    )}
+                    {seed.businessFeatures &&
+                      seed.businessFeatures.length > 0 && (
+                        <>
+                          <span className="text-muted-foreground">
+                            Features
+                          </span>
+                          <span className="text-foreground text-right">
+                            {seed.businessFeatures.slice(0, 3).join(", ")}
+                          </span>
+                        </>
+                      )}
+                  </div>
+                </div>
+              );
+            })()}
+
+          {/* Attack summary patterns from metadata */}
+          {scan.metadata?.attackSummary?.summarizedPatterns && (
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-between border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+                >
+                  <span className="flex items-center gap-2">
+                    <Swords className="h-3.5 w-3.5 text-amber-400" />
+                    Attack Pattern Summary
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Click to expand
+                  </span>
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="mt-2 rounded-lg border border-border bg-muted/5 p-3 text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                  {scan.metadata.attackSummary.summarizedPatterns}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </div>
       </ConfigBlock>
     </section>

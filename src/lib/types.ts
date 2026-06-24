@@ -163,6 +163,7 @@ export interface Scan {
   hardenedPrompts: HardenedPrompt[];
   apiCost: number;
   trials: Trial[];
+  metadata?: ScanMetadata;
 }
 
 /** Lightweight scan reference for list/activity views. */

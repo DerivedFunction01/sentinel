@@ -12,7 +12,13 @@ import {
   TrialVerdict,
   formatModelName,
 } from "@/lib/enums";
-import type { Scan, ScanSummary, ToolDef, Trial } from "@/lib/types";
+import type {
+  Scan,
+  ScanMetadata,
+  ScanSummary,
+  ToolDef,
+  Trial,
+} from "@/lib/types";
 import { DEFAULT_MODEL } from "./model-utils";
 
 /** Convert a Prisma Scan row to the typed Scan structure. */
@@ -39,6 +45,7 @@ export function deserializeScan(row: {
   breachRate: number;
   summary: string;
   summaryDetail: string;
+  metadata?: string | null;
   hardenedPrompts?: Array<{
     id: string;
     scanId: string;
@@ -54,9 +61,17 @@ export function deserializeScan(row: {
   status: string;
   createdAt: Date;
 }): Scan {
+  let metadata: ScanMetadata | undefined = undefined;
   let tools: ToolDef[] = [];
   let mockToolResponses: Record<string, unknown> = {};
   let trials: Trial[] = [];
+  try {
+    if (row.metadata) {
+      metadata = JSON.parse(row.metadata) as ScanMetadata;
+    }
+  } catch {
+    /* keep undefined */
+  }
   try {
     tools = JSON.parse(row.tools) as ToolDef[];
   } catch {
@@ -114,6 +129,7 @@ export function deserializeScan(row: {
     status: row.status as ScanStatus,
     summary: row.summary,
     summaryDetail: row.summaryDetail,
+    metadata,
     hardenedPrompts: (row.hardenedPrompts || []).map((hp) => {
       let recObj: any = null;
       if (hp.toolRecommendation) {
