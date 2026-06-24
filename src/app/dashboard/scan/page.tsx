@@ -40,6 +40,7 @@ import { MultiScanProgress } from "@/components/shared/multi-scan-progress";
 import { MultiModelSelector } from "@/components/shared/multi-model-selector";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { FieldBlock } from "@/components/shared/field-block";
+import { ToolManagerDialog } from "@/components/shared/tool-manager-dialog";
 import { toast } from "sonner";
 import { DEFAULT_MOCK_RESPONSE, findDefaultModel } from "@/lib/model-utils";
 import {
@@ -275,6 +276,8 @@ export default function PenTestScanPage() {
     Array<{ reportId: string; targetModel: string; promptIndex: number }>
   >([]);
   const [scanComplete, setScanComplete] = useState(false);
+  const [toolManagerOpen, setToolManagerOpen] = useState(false);
+  const [managedPromptIdx, setManagedPromptIdx] = useState<number>(0);
 
   // Load the user's token balance from the API.
   useEffect(() => {
@@ -556,6 +559,60 @@ export default function PenTestScanPage() {
 
   const isScanning = scanning && !scanComplete;
 
+  const openToolManager = (idx: number) => {
+    setManagedPromptIdx(idx);
+    setToolManagerOpen(true);
+  };
+
+  const applyToolChanges = (toolsToAdd: any[], toolsToRemove: string[]) => {
+    const prompt = prompts[managedPromptIdx];
+    let currentTools: any[] = [];
+    try {
+      currentTools = JSON.parse(prompt.tools);
+    } catch {
+      currentTools = [];
+    }
+
+    let currentMocks: any = {};
+    try {
+      currentMocks = JSON.parse(prompt.mockResponses);
+    } catch {
+      currentMocks = {};
+    }
+
+    // Remove selected tools
+    for (const name of toolsToRemove) {
+      const idx = currentTools.findIndex((t: any) => t.function?.name === name);
+      if (idx !== -1) currentTools.splice(idx, 1);
+      delete currentMocks[name];
+    }
+
+    // Add selected new tools (avoid duplicates by name)
+    for (const tool of toolsToAdd) {
+      const name = tool.function?.name;
+      if (!name) continue;
+      const exists = currentTools.some((t: any) => t.function?.name === name);
+      if (!exists) currentTools.push(tool);
+      // Also add mock if dialog didn't supply one via props (dialog only adds mocks for recommended tools)
+    }
+
+    updatePrompt(
+      prompts,
+      setPrompts,
+      managedPromptIdx,
+      "tools",
+      JSON.stringify(currentTools, null, 2),
+    );
+    updatePrompt(
+      prompts,
+      setPrompts,
+      managedPromptIdx,
+      "mockResponses",
+      JSON.stringify(currentMocks, null, 2),
+    );
+    toast.success("Tools updated");
+  };
+
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
       <PageHeader
@@ -592,7 +649,13 @@ export default function PenTestScanPage() {
 
       {/* Prompts */}
       <div className="space-y-6">
-        {promptSection(prompts, setPrompts, copyFromPrevious, removePrompt)}
+        {promptSection(
+          prompts,
+          setPrompts,
+          copyFromPrevious,
+          removePrompt,
+          openToolManager,
+        )}
 
         {/* Add prompt + import/export buttons */}
         <PromptActionButtons
@@ -623,6 +686,29 @@ export default function PenTestScanPage() {
           templateLoading={templateLoading}
         />
       )}
+
+      <ToolManagerDialog
+        open={toolManagerOpen}
+        onOpenChange={setToolManagerOpen}
+        onConfirm={applyToolChanges}
+        recommendedTools={[]}
+        existingTools={(() => {
+          try {
+            return JSON.parse(prompts[managedPromptIdx]?.tools || "[]");
+          } catch {
+            return [];
+          }
+        })()}
+        existingMockKeys={(() => {
+          try {
+            return Object.keys(
+              JSON.parse(prompts[managedPromptIdx]?.mockResponses || "{}"),
+            );
+          } catch {
+            return [];
+          }
+        })()}
+      />
 
       {/* Info card */}
       <Card>
@@ -905,6 +991,7 @@ function promptSection(
   setPrompts: (prompts: PromptConfig[]) => void,
   copyFromPrevious: (idx: number) => void,
   removePrompt: (idx: number) => void,
+  openToolManager: (idx: number) => void,
 ) {
   return prompts.map((prompt, idx) => {
     const validation = useMemo(
@@ -1074,6 +1161,14 @@ function promptSection(
                       className="h-7 text-xs text-slate-400 hover:text-white"
                     >
                       Use sample
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openToolManager(idx)}
+                      className="h-7 text-xs text-slate-400 hover:text-white"
+                    >
+                      Manage tools
                     </Button>
                     <Button
                       variant="ghost"

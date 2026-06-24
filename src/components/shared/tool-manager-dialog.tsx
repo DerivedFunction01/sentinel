@@ -170,7 +170,7 @@ export function ToolManagerDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="dark max-w-3xl border-border bg-slate-900 text-slate-100 p-6 overflow-y-auto max-h-[90vh]">
+      <DialogContent className="dark md:min-w-3xl lg:min-w-5xl border-border bg-slate-900 text-slate-100 p-6 overflow-y-auto max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold flex items-center gap-2">
             <Wrench className="h-5 w-5 text-blue-400" />
