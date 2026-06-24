@@ -5,6 +5,10 @@ description: Mock response strategy for the tool generation pattern.
 
 ## Mock Response Strategy
 
+## Key Point
+
+The Mock Response, **not the tool**, is the main gate of enforcement. It provides concrete, non-negotiable answers that the LLM cannot override. If a rule is strong, it must be encoded in the mock response template itself, not in tool descriptions or name.
+
 ### The Pipeline Constraint
 
 **The pipeline returns the same mock response for every tool call, regardless of parameters.**
