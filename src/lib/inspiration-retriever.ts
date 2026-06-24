@@ -1,6 +1,11 @@
 import { db } from "@/lib/db";
 import { callOpenRouter } from "@/lib/scan-pipeline";
-import { Granularity, HardeningTrace, BusinessCategory } from "./types";
+import {
+  Granularity,
+  HardeningTrace,
+  BusinessCategory,
+  BreachedAttack,
+} from "./types";
 
 export interface InspirationExample {
   name: string;
@@ -22,6 +27,7 @@ export async function retrieveInspirationExamples(
   personaDescription?: string,
   businessFeatures?: string[],
   businessScenarios?: string[],
+  breached_attack_trials?: BreachedAttack[],
 ): Promise<InspirationExample[]> {
   try {
     // Build rich business context for the prompt

@@ -16,7 +16,14 @@ import {
 import { callOpenRouter } from "@/lib/scan-pipeline";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
-import type { ToolDef, HardeningTrace, BusinessCategory } from "@/lib/types";
+import {
+  type ToolDef,
+  type HardeningTrace,
+  type BusinessCategory,
+  Granularity,
+} from "@/lib/types";
+import { Grab } from "lucide-react";
+import { DEFAULT_MODEL } from "@/lib/model-utils";
 
 export async function GET(
   req: Request,
@@ -125,9 +132,9 @@ export async function POST(
       body.modelId ||
       scanRow.judgeModel ||
       scanRow.attackerModel ||
-      "google/gemini-2.5-flash";
-    const granularity = body.granularity || "compact";
-    const extractorModel = body.extractorModel || "google/gemini-2.5-flash";
+      DEFAULT_MODEL;
+    const granularity = body.granularity || Granularity.Compact;
+    const extractorModel = body.extractorModel || DEFAULT_MODEL;
 
     // Check if this model's hardened prompt record already exists
     const existing = await db.hardenedPrompt.findUnique({

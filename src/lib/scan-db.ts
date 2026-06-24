@@ -60,7 +60,10 @@ export function deserializeScan(row: {
     /* keep empty */
   }
   try {
-    mockToolResponses = JSON.parse(row.mockToolResponses) as Record<string, unknown>;
+    mockToolResponses = JSON.parse(row.mockToolResponses) as Record<
+      string,
+      unknown
+    >;
   } catch {
     /* keep empty */
   }
@@ -93,7 +96,7 @@ export function deserializeScan(row: {
     targetModel: row.targetModel,
     attackerModel: row.attackerModel || "",
     judgeModel: row.judgeModel || "",
-    hardenerModel: row.hardenerModel || "google/gemini-2.5-flash",
+    hardenerModel: row.hardenerModel || DEFAULT_MODEL,
     systemPrompt: row.systemPrompt,
     forbiddenTask: row.forbiddenTask,
     judgeInstructions: row.judgeInstructions,
@@ -133,15 +136,17 @@ export function deserializeScan(row: {
       };
     }),
     apiCost: (row as any).apiCost || 0,
-    modelName: "",          // filled by caller via lookupModelNames
-    attackerModelName: "",  // filled by caller via lookupModelNames
-    judgeModelName: "",     // filled by caller via lookupModelNames
-    hardenerModelName: "",  // filled by caller via lookupModelNames
+    modelName: "", // filled by caller via lookupModelNames
+    attackerModelName: "", // filled by caller via lookupModelNames
+    judgeModelName: "", // filled by caller via lookupModelNames
+    hardenerModelName: "", // filled by caller via lookupModelNames
   };
 }
 
 /** Look up human-readable model names for a set of model ids. */
-async function lookupModelNames(ids: string[]): Promise<Record<string, string>> {
+async function lookupModelNames(
+  ids: string[],
+): Promise<Record<string, string>> {
   const unique = [...new Set(ids)];
   const models = await db.model.findMany({
     where: { id: { in: unique } },
@@ -163,12 +168,20 @@ export async function getScanByReportId(
   });
   if (!row) return null;
   const scan = deserializeScan(row);
-  const allIds = [scan.targetModel, scan.attackerModel, scan.judgeModel, scan.hardenerModel].filter(Boolean);
+  const allIds = [
+    scan.targetModel,
+    scan.attackerModel,
+    scan.judgeModel,
+    scan.hardenerModel,
+  ].filter(Boolean);
   const names = await lookupModelNames(allIds);
   scan.modelName = names[scan.targetModel] || formatModelName(scan.targetModel);
-  scan.attackerModelName = names[scan.attackerModel] || formatModelName(scan.attackerModel);
-  scan.judgeModelName = names[scan.judgeModel] || formatModelName(scan.judgeModel);
-  scan.hardenerModelName = names[scan.hardenerModel] || formatModelName(scan.hardenerModel);
+  scan.attackerModelName =
+    names[scan.attackerModel] || formatModelName(scan.attackerModel);
+  scan.judgeModelName =
+    names[scan.judgeModel] || formatModelName(scan.judgeModel);
+  scan.hardenerModelName =
+    names[scan.hardenerModel] || formatModelName(scan.hardenerModel);
   return scan;
 }
 
@@ -244,8 +257,12 @@ export function computeDashboardStats(scans: ScanSummary[]) {
       : 0;
 
   // Risk distribution
-  const riskCounts = { low: 0, medium: 0, high: 0, critical: 0 } as Record<string, number>;
-  for (const s of scans) riskCounts[s.riskLevel] = (riskCounts[s.riskLevel] || 0) + 1;
+  const riskCounts = { low: 0, medium: 0, high: 0, critical: 0 } as Record<
+    string,
+    number
+  >;
+  for (const s of scans)
+    riskCounts[s.riskLevel] = (riskCounts[s.riskLevel] || 0) + 1;
   const riskDistribution = [
     { level: RiskLevel.Low, count: riskCounts["low"] || 0 },
     { level: RiskLevel.Medium, count: riskCounts["medium"] || 0 },
@@ -262,7 +279,10 @@ export function computeDashboardStats(scans: ScanSummary[]) {
   const modelMap = {} as Record<string, { name: string; scans: number }>;
   for (const s of scans) {
     if (!modelMap[s.targetModel]) {
-      modelMap[s.targetModel] = { name: s.modelName || s.targetModel, scans: 0 };
+      modelMap[s.targetModel] = {
+        name: s.modelName || s.targetModel,
+        scans: 0,
+      };
     }
     modelMap[s.targetModel].scans++;
   }
@@ -273,10 +293,19 @@ export function computeDashboardStats(scans: ScanSummary[]) {
   // Attack success rate (aggregated across all scans)
   const totalTrials = scans.reduce((s, sc) => s + sc.totalTrials, 0);
   const totalDefended = totalTrials - totalBreaches;
-  const rate = totalTrials > 0 ? Math.round((totalBreaches / totalTrials) * 100) : 0;
-  const attackSuccessRate = totalTrials > 0
-    ? [{ category: "Forbidden Task 1 — All scans", breached: totalBreaches, defended: totalDefended, rate }]
-    : [];
+  const rate =
+    totalTrials > 0 ? Math.round((totalBreaches / totalTrials) * 100) : 0;
+  const attackSuccessRate =
+    totalTrials > 0
+      ? [
+          {
+            category: "Forbidden Task 1 — All scans",
+            breached: totalBreaches,
+            defended: totalDefended,
+            rate,
+          },
+        ]
+      : [];
 
   return {
     totalScans,

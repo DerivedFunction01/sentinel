@@ -36,6 +36,7 @@ import { CodeHighlight } from "@/components/shared/code-highlight";
 import { GranularityPickerDialog } from "@/components/shared/granularity-picker-dialog";
 import { ExtractionTraceDialog } from "@/components/shared/extraction-trace-dialog";
 import { ModelSelector } from "@/components/shared/model-selector";
+import { DEFAULT_MODEL } from "@/lib/model-utils";
 
 interface ReportViewProps {
   scan: Scan;
@@ -48,13 +49,10 @@ export function ReportView({ scan }: ReportViewProps) {
   const [selectedHardenedModel, setSelectedHardenedModel] = useState<string>(
     () => {
       const active = scan.hardenedPrompts.find(
-        (hp) =>
-          hp.modelId === (scan.hardenerModel || "google/gemini-2.5-flash"),
+        (hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL),
       );
       return (
-        active?.modelId ||
-        scan.hardenedPrompts[0]?.modelId ||
-        "google/gemini-2.5-flash"
+        active?.modelId || scan.hardenedPrompts[0]?.modelId || DEFAULT_MODEL
       );
     },
   );
@@ -62,8 +60,7 @@ export function ReportView({ scan }: ReportViewProps) {
   const [currentHardenedPrompt, setCurrentHardenedPrompt] = useState<any>(
     () => {
       const active = scan.hardenedPrompts.find(
-        (hp) =>
-          hp.modelId === (scan.hardenerModel || "google/gemini-2.5-flash"),
+        (hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL),
       );
       return active || scan.hardenedPrompts[0] || null;
     },
@@ -738,7 +735,7 @@ function hardenedPrompt(
           (currentHardenedPrompt?.granularity as any) || Granularity.Compact
         }
         defaultExtractorModel={
-          currentHardenedPrompt?.extractorModel || "google/gemini-2.5-flash"
+          currentHardenedPrompt?.extractorModel || DEFAULT_MODEL
         }
       />
     </section>

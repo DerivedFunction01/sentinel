@@ -2,6 +2,9 @@
  * Find a default model from a list of models that is not a thinking/pro model
  * but is a fast/cheap one (flash, lite, mini, haiku, llama-3-8b, etc.).
  */
+
+export const DEFAULT_MODEL = "~google/gemini-flash-latest";
+
 export function findDefaultModel(
   models: Array<{ id: string; name: string }>,
 ): string {
@@ -29,5 +32,5 @@ export function findDefaultModel(
     return !hasForbidden && hasAllowed;
   });
 
-  return match ? match.id : "google/gemini-2.5-flash"; // fallback if none found
+  return match ? match.id : DEFAULT_MODEL; // fallback if none found
 }

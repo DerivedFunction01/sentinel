@@ -28,7 +28,7 @@ export function GranularityPickerDialog({
   onOpenChange,
   onConfirm,
   defaultGranularity = Granularity.Compact,
-  defaultExtractorModel = "google/gemini-2.5-flash",
+  defaultExtractorModel = DEFAULT_MODEL,
 }: GranularityPickerDialogProps) {
   const [granularity, setGranularity] =
     useState<Granularity>(defaultGranularity);

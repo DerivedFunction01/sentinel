@@ -356,7 +356,7 @@ export default function AgentDeploymentPage() {
           targetModels: [dep.targetModel],
           attackerModel: dep.attackerModel,
           judgeModel: dep.judgeModel,
-          hardenerModel: dep.hardenerModel || "google/gemini-2.5-flash",
+          hardenerModel: dep.hardenerModel || DEFAULT_MODEL,
           systemPrompt: dep.systemPrompt,
           forbiddenTask: dep.forbiddenTask,
           judgeInstructions: dep.judgeInstructions,

@@ -5,7 +5,7 @@ import {
   patterns,
   renderAttack,
 } from "@/lib/attack-templates";
-import { findDefaultModel } from "@/lib/model-utils";
+import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
 import {
   SEED_EXTRACTOR_SYSTEM,
   SEED_EXTRACTOR_USER_TEMPLATE,
@@ -37,7 +37,7 @@ export interface UsageTracker {
 
 // Fallback pricing map (USD per 1 token) in case DB is missing rates
 const PRICE_MAP: Record<string, { prompt: number; completion: number }> = {
-  "google/gemini-2.5-flash": {
+  DEFAULT_MODEL: {
     prompt: 0.075 / 1000000,
     completion: 0.3 / 1000000,
   },
@@ -830,7 +830,7 @@ export async function executeScanPipeline(
     // Step 0: Get inspiration examples from the database (only when hardening is enabled)
     const inspirationExamples = await retrieveInspirationExamples(
       forbiddenTask,
-      extractorModel || "google/gemini-2.5-flash",
+      extractorModel || DEFAULT_MODEL,
       granularity,
       tracker,
       undefined, // trace

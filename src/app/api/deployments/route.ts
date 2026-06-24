@@ -73,8 +73,8 @@ export async function POST(req: Request) {
     // Default attacker/judge to target model if not explicitly specified
     const finalAttacker = attackerModel || targetModel;
     const finalJudge = judgeModel || targetModel;
-    const finalHardener = hardenerModel || "google/gemini-2.5-flash";
-    const finalExtractor = extractorModel || "google/gemini-2.5-flash";
+    const finalHardener = hardenerModel || DEFAULT_MODEL;
+    const finalExtractor = extractorModel || DEFAULT_MODEL;
 
     // Create record
     const deployment = await db.deployment.create({

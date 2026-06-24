@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { TrialVerdict, JudgeLabel, RiskLevel, ScanStatus } from "@/lib/enums";
-import { findDefaultModel } from "@/lib/model-utils";
+import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
 import { Granularity, type ToolDef, type Trial } from "@/lib/types";
 import { executeScanPipeline, UsageTracker } from "@/lib/scan-pipeline";
 
@@ -108,8 +108,7 @@ export async function POST(
     const judgeModel = deployment.judgeModel || defaultModel;
     const hardenerModel = deployment.hardenerModel || defaultModel;
     const seedExtractorModel = defaultModel;
-    const extractorModel =
-      deployment.extractorModel || "google/gemini-2.5-flash";
+    const extractorModel = deployment.extractorModel || DEFAULT_MODEL;
 
     let tools: ToolDef[] = [];
     let mockToolResponses: Record<string, unknown> = {};

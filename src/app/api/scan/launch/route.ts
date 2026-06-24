@@ -67,8 +67,7 @@ export async function POST(req: Request) {
     defaultModel;
   const judgeModel = (body.judgeModel as string) || defaultModel;
   const hardenerModel = (body.hardenerModel as string) || defaultModel;
-  const extractorModel =
-    (body.extractorModel as string) || "google/gemini-2.5-flash";
+  const extractorModel = (body.extractorModel as string) || DEFAULT_MODEL;
 
   let tools: ToolDef[] = [];
   let mockToolResponses: Record<string, unknown> = {};

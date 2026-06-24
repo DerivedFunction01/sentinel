@@ -49,7 +49,7 @@ model Scan {
   targetModel       String   // OpenRouter model id, e.g. "anthropic/claude-3.5-haiku"
   attackerModel     String   @default("") // OpenRouter model id used for attack generation
   judgeModel        String   @default("") // OpenRouter model id used for judging
-  hardenerModel     String   @default("google/gemini-2.5-flash") // OpenRouter model id used for prompt hardening
+  hardenerModel     String   @default("~google/gemini-flash-latest") // OpenRouter model id used for prompt hardening
   systemPrompt      String
   forbiddenTask     String
   judgeInstructions String
@@ -78,7 +78,7 @@ model HardenedPrompt {
   id                 String   @id @default(cuid())
   scanId             String
   scan               Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  modelId            String   // The model used to generate it, e.g. "google/gemini-2.5-flash"
+  modelId            String   // The model used to generate it, e.g. "~google/gemini-flash-latest"
   modelName          String   // Human readable name of the model
   prompt             String   // The generated prompt text
   toolRecommendation String?  // JSON: ToolRecommendation
@@ -152,8 +152,8 @@ model Deployment {
   targetModel       String   // Target model to pentest
   attackerModel     String   // Attacker generator model
   judgeModel        String   // Evaluation judge model
-  hardenerModel     String   @default("google/gemini-2.5-flash") // Hardener model
-  extractorModel    String   @default("google/gemini-2.5-flash") // Extractor model
+  hardenerModel     String   @default("~google/gemini-flash-latest") // Hardener model
+  extractorModel    String   @default("~google/gemini-flash-latest") // Extractor model
   systemPrompt      String
   forbiddenTask     String
   judgeInstructions String

@@ -64,6 +64,12 @@ export enum BusinessCategory {
   CIVICS_VOTING = "CIVICS_VOTING",
   PRIVACY = "PRIVACY",
 }
+// Type alias for backward compatibility and enriched data support
+export type BreachedAttack = {
+  attack: string;
+  judgeReasoning: string;
+  verdict: TrialVerdict;
+};
 
 export interface ToolRecommendationItem {
   name: string;
