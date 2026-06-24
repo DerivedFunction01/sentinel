@@ -9,7 +9,6 @@ import {
   callOpenRouter,
   DEFAULT_MODEL,
   extractTaggedContent,
-  loadPromptFile,
   UsageTracker,
 } from "@/lib/model-utils";
 import {
@@ -19,6 +18,7 @@ import {
   JUDGE_EVALUATION_TEMPLATE,
   executeMultiStepHardening,
   getDeterministicHardenedPrompt,
+  loadPromptFile,
 } from "@/lib/scan-prompts";
 import {
   retrieveInspirationExamples,

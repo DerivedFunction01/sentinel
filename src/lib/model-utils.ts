@@ -1,5 +1,3 @@
-import path from "path";
-import fs from "fs";
 import { ToolDef } from "./types";
 /**
  * Find a default model from a list of models that is not a thinking/pro model
@@ -36,19 +34,6 @@ export function findDefaultModel(
   });
 
   return match ? match.id : DEFAULT_MODEL; // fallback if none found
-}
-
-export function loadPromptFile(
-  filename: string,
-  dir: string = "hardening_prompts",
-): string {
-  try {
-    const filePath = path.join(process.cwd(), "uploads", dir, filename);
-    return fs.readFileSync(filePath, "utf-8").trim();
-  } catch (err) {
-    console.error(`Failed to load ${filename}:`, err);
-    return "";
-  }
 }
 
 export function extractTaggedContent(
