@@ -817,10 +817,7 @@ export async function executeScanPipeline(
       );
     } catch (err) {
       console.error("Error generating hardened prompt during scan:", err);
-      hardenedPrompt = getDeterministicHardenedPrompt(
-        systemPrompt,
-        forbiddenTask,
-      );
+      hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt);
     }
 
     hardeningModelId = hardenerModel;
