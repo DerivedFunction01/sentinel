@@ -815,7 +815,7 @@ function promptSection(
                   )
                 }
                 placeholder='[{"type":"function","function":{"name":"..."}}]'
-                className="font-mono text-xs min-h-40"
+                className="font-mono text-xs min-h-40 max-h-80 overflow-y-auto"
               />
             </div>
             <div className="space-y-2">
@@ -857,7 +857,7 @@ function promptSection(
                   )
                 }
                 placeholder='{"tool_name": {"mock_result": "..."}}'
-                className="font-mono text-xs min-h-32"
+                className="font-mono text-xs min-h-32 max-h-80 overflow-y-auto"
               />
             </div>
           </div>

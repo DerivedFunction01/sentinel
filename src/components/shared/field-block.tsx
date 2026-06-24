@@ -113,7 +113,7 @@ export function FieldBlock({
         <Textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`${minHeight} max-h-80 resize-y overflow-y-auto scrollbar-thin ${
+          className={`${minHeight} max-h-80 overflow-y-auto scrollbar-thin ${
             monospace ? "font-mono text-xs" : "text-xs"
           }`}
           placeholder={placeholder}
