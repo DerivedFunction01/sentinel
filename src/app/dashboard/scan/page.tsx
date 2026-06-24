@@ -41,7 +41,7 @@ import { MultiModelSelector } from "@/components/shared/multi-model-selector";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { FieldBlock } from "@/components/shared/field-block";
 import { toast } from "sonner";
-import { findDefaultModel } from "@/lib/model-utils";
+import { DEFAULT_MOCK_RESPONSE, findDefaultModel } from "@/lib/model-utils";
 import {
   sampleForbiddenTask,
   sampleJudgeInstructions,
@@ -69,7 +69,9 @@ interface ToolValidationResult {
   /** JSON parse errors in each field. */
   toolsParseError: string | null;
   mockResponsesParseError: string | null;
-  /** Overall validity: true when both fields parse and all mapped tools have responses. */
+  /** Schema violations for individual tool entries (missing fields, wrong types). */
+  toolsSchemaErrors: string[];
+  /** Overall validity: true when both fields parse, schema is valid, and all mapped tools have responses. */
   isValid: boolean;
 }
 
@@ -82,6 +84,7 @@ function validateToolsAgainstMocks(
     extraMockResponses: [],
     toolsParseError: null,
     mockResponsesParseError: null,
+    toolsSchemaErrors: [],
     isValid: false,
   };
 
@@ -156,9 +159,41 @@ function validateToolsAgainstMocks(
     }
   }
 
+  // Validate OpenRouter schema for each tool after successful parsing
+  if (!result.toolsParseError) {
+    for (const [index, t] of (tools ?? []).entries()) {
+      if (
+        !t.function.description ||
+        typeof t.function.description !== "string"
+      ) {
+        result.toolsSchemaErrors.push(
+          `Tool #${index + 1} ("${t.function.name}") is missing a string "description" field.`,
+        );
+      }
+      const params = t.function.parameters;
+      if (!params || typeof params !== "object" || Array.isArray(params)) {
+        result.toolsSchemaErrors.push(
+          `Tool #${index + 1} ("${t.function.name}") has an invalid "parameters" field — expected a JSON object.`,
+        );
+      } else if (Object.keys(params).length > 0) {
+        // Only enforce type/properties when parameters is non-empty
+        if (params.type !== "object") {
+          result.toolsSchemaErrors.push(
+            `Tool #${index + 1} ("${t.function.name}") parameters.type should be "object".`,
+          );
+        } else if (!params.properties) {
+          result.toolsSchemaErrors.push(
+            `Tool #${index + 1} ("${t.function.name}") is missing "parameters.properties".`,
+          );
+        }
+      }
+    }
+  }
+
   result.isValid =
     result.missingMockResponses.length === 0 &&
-    result.extraMockResponses.length === 0;
+    result.extraMockResponses.length === 0 &&
+    result.toolsSchemaErrors.length === 0;
   return result;
 }
 
@@ -764,7 +799,13 @@ function PromptActionButtons({
 }
 
 /** Inline validation banner displayed between Tools and Mock Responses. */
-function ToolValidationBanner({ result }: { result: ToolValidationResult }) {
+function ToolValidationBanner({
+  result,
+  onPopulateMocks,
+}: {
+  result: ToolValidationResult;
+  onPopulateMocks: (toolNames: string[]) => void;
+}) {
   if (result.toolsParseError || result.mockResponsesParseError) {
     return (
       <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3">
@@ -800,31 +841,60 @@ function ToolValidationBanner({ result }: { result: ToolValidationResult }) {
 
   return (
     <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
-      <div className="flex items-start gap-2">
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-        <div className="space-y-1">
-          {result.missingMockResponses.length > 0 && (
-            <p className="text-xs text-amber-200">
-              Missing mock response for tool
-              {result.missingMockResponses.length > 1 ? "s" : ""}:{" "}
-              <span className="font-mono font-semibold">
-                {result.missingMockResponses.join(", ")}
-              </span>
+      <div className="space-y-2">
+        {result.toolsSchemaErrors.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-amber-200">
+              Tool schema issues:
             </p>
-          )}
-          {result.extraMockResponses.length > 0 && (
-            <p className="text-xs text-amber-200">
-              Mock response keys with no matching tool definition:{" "}
-              <span className="font-mono font-semibold">
-                {result.extraMockResponses.join(", ")}
-              </span>
-            </p>
-          )}
-          <p className="text-xs text-amber-300/80">
-            Add the missing tool definitions or remove the extra mock response
-            keys to fix.
-          </p>
-        </div>
+            <ul className="list-inside list-disc space-y-0.5">
+              {result.toolsSchemaErrors.map((err, i) => (
+                <li key={i} className="text-xs text-amber-200">
+                  {err}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {(result.missingMockResponses.length > 0 ||
+          result.extraMockResponses.length > 0) && (
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              {result.missingMockResponses.length > 0 && (
+                <p className="text-xs text-amber-200">
+                  Missing mock response for tool
+                  {result.missingMockResponses.length > 1 ? "s" : ""}:{" "}
+                  <span className="font-mono font-semibold">
+                    {result.missingMockResponses.join(", ")}
+                  </span>
+                </p>
+              )}
+              {result.extraMockResponses.length > 0 && (
+                <p className="text-xs text-amber-200">
+                  Mock response keys with no matching tool definition:{" "}
+                  <span className="font-mono font-semibold">
+                    {result.extraMockResponses.join(", ")}
+                  </span>
+                </p>
+              )}
+              <p className="text-xs text-amber-300/80">
+                Add the missing tool definitions or remove the extra mock
+                response keys to fix.
+              </p>
+            </div>
+            {result.missingMockResponses.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPopulateMocks(result.missingMockResponses)}
+                className="shrink-0 border-amber-500/40 bg-amber-500/10 text-xs text-amber-200 hover:bg-amber-500/20 hover:text-amber-100"
+              >
+                <Sparkles className="mr-1 h-3 w-3" />
+                Auto-populate mocks
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -841,6 +911,28 @@ function promptSection(
       () => validateToolsAgainstMocks(prompt.tools, prompt.mockResponses),
       [prompt.tools, prompt.mockResponses],
     );
+
+    const handlePopulateMocks = () => {
+      const populated: Record<string, unknown> = {};
+      for (const name of validation.missingMockResponses) {
+        populated[name] = DEFAULT_MOCK_RESPONSE;
+      }
+      const currentMocks =
+        prompt.mockResponses.trim() === ""
+          ? {}
+          : JSON.parse(prompt.mockResponses);
+      const updated = { ...currentMocks, ...populated };
+      updatePrompt(
+        prompts,
+        setPrompts,
+        idx,
+        "mockResponses",
+        JSON.stringify(updated, null, 2),
+      );
+      toast.success(
+        `Added mock responses for ${validation.missingMockResponses.length} tool(s)`,
+      );
+    };
 
     return (
       <Card key={idx}>
@@ -999,7 +1091,10 @@ function promptSection(
               </div>
 
               {/* Validation banner between Tools and Mock Responses */}
-              <ToolValidationBanner result={validation} />
+              <ToolValidationBanner
+                result={validation}
+                onPopulateMocks={handlePopulateMocks}
+              />
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
