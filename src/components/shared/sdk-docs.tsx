@@ -430,7 +430,7 @@ console.log(result);`;
                   hardenedPrompt:
                     "You are a helpful customer support assistant. Never offer discounts...",
                   modelId: "~google/gemini-flash-latest",
-                  modelName: "Gemini 2.5 Flash",
+                  modelName: "Gemini Flash Latest",
                   toolRecommendation: {
                     compatibilityScore: 85,
                     rationale:
