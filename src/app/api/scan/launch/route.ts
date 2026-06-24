@@ -347,8 +347,26 @@ async function runModelPromptPipeline(
     const finalSummary = `Adversarial pressure on ${modelShort}.`;
     const finalSummaryDetail = `${result.totalTrials} adversarial trials probed a ${modelShort} deployment. ${result.breaches} landed (${result.breachRate}% breach rate).`;
 
-    // Temporarily disable hardening for batch scans to keep things simpler
-    // TODO: Re-enable hardening for batch scans with per-scan results
+    // Build metadata from attack set and results
+    const metadata = {
+      seedExtraction: {
+        thingName: attackSet.seedInfo.thingName,
+        thingDescription: attackSet.seedInfo.thingDescription,
+        thingNameVariants: attackSet.seedInfo.thingNameVariants,
+        thingDescriptionVariants: attackSet.seedInfo.thingDescriptionVariants,
+        personaDescription: attackSet.seedInfo.personaDescription,
+        businessFeatures: attackSet.seedInfo.businessFeatures,
+        businessScenarios: attackSet.seedInfo.businessScenarios,
+        businessCategories: attackSet.seedInfo.businessCategories,
+        extractorModel: options.seedExtractorModel,
+        extractedAt: new Date().toISOString(),
+      },
+      attackSummary: {
+        summarizedPatterns: attackSummaryText,
+        breachedAttacks: breachedAttacksWithVerdicts,
+        summarizedAt: new Date().toISOString(),
+      },
+    };
 
     // Update scan record with final results
     await db.scan.update({
@@ -363,6 +381,7 @@ async function runModelPromptPipeline(
         summary: finalSummary,
         summaryDetail: finalSummaryDetail,
         apiCost: result.apiCost,
+        metadata: JSON.stringify(metadata),
         status: ScanStatus.Completed,
         currentStep: totalSteps,
         totalSteps,
