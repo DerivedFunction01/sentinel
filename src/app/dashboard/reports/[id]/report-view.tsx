@@ -487,7 +487,7 @@ function hardenedPrompt(
                   "No hardened prompt generated for this model yet."
                 }
                 language="plaintext"
-                className="!p-4 max-h-[300px] overflow-y-auto border border-white/5 rounded-lg"
+                className="p-4! max-h-75 overflow-y-auto border border-white/5 rounded-lg"
               />
             </div>
 
@@ -644,7 +644,7 @@ function hardenedPrompt(
                               <CodeHighlight
                                 code={JSON.stringify(toolJson, null, 2)}
                                 language="json"
-                                className="text-[10px] p-2.5 max-h-[160px] overflow-y-auto border border-white/5 rounded"
+                                className="text-[10px] p-2.5 max-h-40 overflow-y-auto border border-white/5 rounded"
                               />
                             </div>
                             <div className="space-y-1">
@@ -654,7 +654,7 @@ function hardenedPrompt(
                               <CodeHighlight
                                 code={JSON.stringify(mockVal, null, 2)}
                                 language="json"
-                                className="text-[10px] p-2.5 max-h-[160px] overflow-y-auto border border-white/5 rounded"
+                                className="text-[10px] p-2.5 max-h-40 overflow-y-auto border border-white/5 rounded"
                               />
                             </div>
                           </div>
@@ -759,7 +759,7 @@ function scanConfiguration(scan: Scan) {
         <CodeHighlight
           code={scan.systemPrompt}
           language="plaintext"
-          className="!p-4"
+          className="p-4!"
         />
       </ConfigBlock>
 
@@ -790,7 +790,7 @@ function scanConfiguration(scan: Scan) {
             <CodeHighlight
               code={JSON.stringify(scan.tools, null, 2)}
               language="json"
-              className="mt-3 !p-4 max-h-96 overflow-auto"
+              className="mt-3 p-4! max-h-96 overflow-auto"
             />
           </CollapsibleContent>
         </Collapsible>
@@ -823,7 +823,7 @@ function scanConfiguration(scan: Scan) {
             <CodeHighlight
               code={JSON.stringify(scan.mockToolResponses, null, 2)}
               language="json"
-              className="mt-3 !p-4 max-h-96 overflow-auto"
+              className="mt-3 p-4! max-h-96 overflow-auto"
             />
           </CollapsibleContent>
         </Collapsible>
@@ -834,7 +834,7 @@ function scanConfiguration(scan: Scan) {
         <CodeHighlight
           code={scan.forbiddenTask}
           language="plaintext"
-          className="!p-4"
+          className="p-4!"
         />
       </ConfigBlock>
 
@@ -848,7 +848,7 @@ function scanConfiguration(scan: Scan) {
         <CodeHighlight
           code={scan.judgeInstructions}
           language="plaintext"
-          className="!p-4"
+          className="p-4!"
         />
       </ConfigBlock>
 
