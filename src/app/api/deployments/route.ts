@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateRequest } from "@/lib/auth-utils";
+import { DEFAULT_MODEL } from "@/lib/model-utils";
 
 /**
  * GET /api/deployments

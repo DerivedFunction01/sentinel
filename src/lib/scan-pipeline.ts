@@ -28,6 +28,7 @@ import {
   ToolCall,
   Granularity,
   BusinessCategory,
+  ScanMetadata,
 } from "@/lib/types";
 
 export interface UsageTracker {
@@ -663,7 +664,7 @@ export async function executeScanPipeline(
 
   // Step 1: Seed Generation (Extract assets + variants using the extractor model, accumulating cost)
   const seedInfo = await extractSeedInfo(
-    seedExtractorModel,
+    seedExtractorModel, // Use seedExtractorModel for seed extraction
     systemPrompt,
     toolsJson,
     mockJson,
@@ -790,6 +791,7 @@ export async function executeScanPipeline(
       attack: t.attack,
       judgeReasoning: t.judgeVerdict,
       verdict: t.verdict,
+      // Assuming BreachedAttack interface is compatible with this structure
     }));
 
   // Run tool extraction if requested AND hardening is enabled
@@ -802,7 +804,7 @@ export async function executeScanPipeline(
       systemPrompt,
       forbiddenTask,
       granularity,
-      extractorModel,
+      extractorModel, // Using extractorModel for tool recommendation
       tracker,
       undefined,
       tools,
@@ -831,7 +833,7 @@ export async function executeScanPipeline(
     // Step 0: Get inspiration examples from the database (only when hardening is enabled)
     const inspirationExamples = await retrieveInspirationExamples(
       forbiddenTask,
-      extractorModel || DEFAULT_MODEL,
+      extractorModel || DEFAULT_MODEL, // Using extractorModel for inspiration retrieval
       granularity,
       tracker,
       undefined, // trace
@@ -876,6 +878,29 @@ export async function executeScanPipeline(
       hardeningModelId;
   }
 
+  // Construct the metadata object
+  const metadata: ScanMetadata = { // Assuming ScanMetadata interface is defined elsewhere (e.g., types.ts)
+    seedExtraction: {
+      thingName: seedInfo.thingName,
+      thingDescription: seedInfo.thingDescription,
+      thingNameVariants: seedInfo.thingNameVariants,
+      thingDescriptionVariants: seedInfo.thingDescriptionVariants,
+      personaDescription: seedInfo.personaDescription,
+      businessFeatures: seedInfo.businessFeatures,
+      businessScenarios: seedInfo.businessScenarios,
+      businessCategories: seedInfo.businessCategories,
+      extractorModel: seedExtractorModel, // Model used for seed extraction
+      extractedAt: new Date().toISOString(),
+    },
+    attackSummary: {
+      // Summarize breached attacks. This is a basic concatenation; a more sophisticated summary might be needed.
+      summarizedPatterns: breachedAttacksWithVerdicts.map(b => `Attack: ${b.attack}\nJudge Reasoning: ${b.judgeReasoning}`).join('\n\n---\n\n'),
+      breachedAttacks: breachedAttacksWithVerdicts as any, // Type assertion, assuming BreachedAttack is compatible
+      summarizedAt: new Date().toISOString(),
+    },
+  };
+
+  // Return the complete scan result including metadata
   return {
     reportId,
     trials,
@@ -890,5 +915,6 @@ export async function executeScanPipeline(
     toolRecommendation,
     compatibilityScore,
     apiCost: tracker.totalCost,
+    metadata, // Include the constructed metadata
   };
 }
