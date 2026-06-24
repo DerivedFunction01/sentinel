@@ -39,6 +39,7 @@ import { GranularityPickerDialog } from "@/components/shared/granularity-picker-
 import { ExtractionTraceDialog } from "@/components/shared/extraction-trace-dialog";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { DEFAULT_MODEL } from "@/lib/model-utils";
+import { ToolManagerDialog } from "@/components/shared/tool-manager-dialog";
 
 interface ReportViewProps {
   scan: Scan;
@@ -47,6 +48,7 @@ interface ReportViewProps {
 export function ReportView({ scan }: ReportViewProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<TrialFilter>(TrialFilter.All);
+  const [toolManagerOpen, setToolManagerOpen] = useState(false);
 
   const [selectedHardenedModel, setSelectedHardenedModel] = useState<string>(
     () => {
@@ -256,6 +258,95 @@ export function ReportView({ scan }: ReportViewProps) {
     (t) => t.verdict === TrialVerdict.Breached,
   ).length;
   const defendedCount = scan.totalTrials - breachedCount;
+  const handleOpenToolManager = () => {
+    setToolManagerOpen(true);
+  };
+
+  const handleApplyFromDialog = (
+    toolsToAdd: any[],
+    toolsToRemove: string[],
+  ) => {
+    if (!currentHardenedPrompt?.toolRecommendation) return;
+    const rec = currentHardenedPrompt.toolRecommendation;
+
+    let recommendedMocks: any = {};
+    if (Array.isArray(rec.tools)) {
+      recommendedMocks = rec.tools.reduce((acc: any, t: any) => {
+        const name = t.name || t.toolJson?.function?.name;
+        if (name) acc[name] = t.mockResponse || {};
+        return acc;
+      }, {});
+    } else {
+      recommendedMocks = rec.mockToolResponses || {};
+    }
+
+    let existingTools: any[] = [];
+    if (Array.isArray(scan.tools)) {
+      existingTools = [...scan.tools];
+    } else if (typeof scan.tools === "string") {
+      try {
+        existingTools = JSON.parse(scan.tools);
+      } catch {}
+    }
+
+    let existingMocks: any = {};
+    if (scan.mockToolResponses && typeof scan.mockToolResponses === "object") {
+      existingMocks = { ...scan.mockToolResponses };
+    } else if (typeof scan.mockToolResponses === "string") {
+      try {
+        existingMocks = JSON.parse(scan.mockToolResponses);
+      } catch {}
+    }
+
+    const mergedToolsMap = new Map<string, any>();
+    for (const tool of existingTools) {
+      const name = tool.function?.name;
+      if (name) mergedToolsMap.set(name, tool);
+    }
+
+    for (const name of toolsToRemove) {
+      mergedToolsMap.delete(name);
+      delete existingMocks[name];
+    }
+
+    for (const tool of toolsToAdd) {
+      const name = tool.function?.name;
+      if (name) mergedToolsMap.set(name, tool);
+    }
+    const toolsList = Array.from(mergedToolsMap.values());
+
+    const keepNames = new Set(
+      toolsList.map((t) => t.function?.name).filter(Boolean),
+    );
+    const mockResponsesDict: any = {};
+    for (const [key, val] of Object.entries(existingMocks)) {
+      if (keepNames.has(key)) mockResponsesDict[key] = val;
+    }
+    for (const tool of toolsToAdd) {
+      const name = tool.function?.name;
+      if (name && recommendedMocks[name])
+        mockResponsesDict[name] = recommendedMocks[name];
+    }
+
+    const preset = {
+      targetModels: [scan.targetModel],
+      attackerModel: scan.attackerModel,
+      judgeModel: scan.judgeModel,
+      hardenerModel: scan.hardenerModel,
+      prompts: [
+        {
+          systemPrompt: currentHardenedPrompt.prompt,
+          forbiddenTask: scan.forbiddenTask,
+          tools: JSON.stringify(toolsList),
+          mockResponses: JSON.stringify(mockResponsesDict),
+          judgeInstructions: scan.judgeInstructions,
+        },
+      ],
+    };
+    localStorage.setItem("sentinelprompt_scan_preset", JSON.stringify(preset));
+    toast.success("Tools applied to scan configuration. Redirecting...");
+    router.push("/dashboard/scan");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -285,7 +376,7 @@ export function ReportView({ scan }: ReportViewProps) {
           currentHardenedPrompt,
           setPickerOpen,
           extracting,
-          handleApplyToConfig,
+          handleOpenToolManager,
           pickerOpen,
           handleExtractTools,
           trace,
@@ -317,6 +408,41 @@ export function ReportView({ scan }: ReportViewProps) {
         open={traceOpen}
         onOpenChange={setTraceOpen}
         trace={trace}
+      />
+      <ToolManagerDialog
+        open={toolManagerOpen}
+        onOpenChange={setToolManagerOpen}
+        onConfirm={handleApplyFromDialog}
+        recommendedTools={
+          currentHardenedPrompt?.toolRecommendation?.tools || []
+        }
+        existingTools={
+          Array.isArray(scan.tools)
+            ? scan.tools
+            : typeof scan.tools === "string"
+              ? (() => {
+                  try {
+                    return JSON.parse(scan.tools);
+                  } catch {
+                    return [];
+                  }
+                })()
+              : []
+        }
+        existingMockKeys={
+          typeof scan.mockToolResponses === "object" &&
+          scan.mockToolResponses !== null
+            ? Object.keys(scan.mockToolResponses)
+            : typeof scan.mockToolResponses === "string"
+              ? (() => {
+                  try {
+                    return Object.keys(JSON.parse(scan.mockToolResponses));
+                  } catch {
+                    return [];
+                  }
+                })()
+              : []
+        }
       />
     </div>
   );
@@ -403,7 +529,7 @@ function hardenedPrompt(
   currentHardenedPrompt: any,
   setPickerOpen,
   extracting: boolean,
-  handleApplyToConfig: () => void,
+  handleOpenToolManager: () => void,
   pickerOpen: boolean,
   handleExtractTools: (
     granularity: Granularity,
@@ -670,7 +796,7 @@ function hardenedPrompt(
                     <div className="pt-2 flex justify-end">
                       <Button
                         size="sm"
-                        onClick={handleApplyToConfig}
+                        onClick={handleOpenToolManager}
                         className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs flex items-center gap-1.5 shadow-[0_4px_12px_rgba(59,130,246,0.3)] transition-all"
                       >
                         <Layers className="h-3.5 w-3.5" />
