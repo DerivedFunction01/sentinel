@@ -1,3 +1,6 @@
+import path from "path";
+import fs from "fs";
+import { ToolDef } from "./types";
 /**
  * Find a default model from a list of models that is not a thinking/pro model
  * but is a fast/cheap one (flash, lite, mini, haiku, llama-3-8b, etc.).
@@ -33,4 +36,132 @@ export function findDefaultModel(
   });
 
   return match ? match.id : DEFAULT_MODEL; // fallback if none found
+}
+
+export function loadPromptFile(
+  filename: string,
+  dir: string = "hardening_prompts",
+): string {
+  try {
+    const filePath = path.join(process.cwd(), "uploads", dir, filename);
+    return fs.readFileSync(filePath, "utf-8").trim();
+  } catch (err) {
+    console.error(`Failed to load ${filename}:`, err);
+    return "";
+  }
+}
+
+export function extractTaggedContent(
+  text: string,
+  startTag: string,
+  endTag: string,
+): string {
+  const startIdx = text.indexOf(startTag);
+  const endIdx = text.indexOf(endTag);
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    return text.substring(startIdx + startTag.length, endIdx).trim();
+  } else if (startIdx !== -1) {
+    return text.substring(startIdx + startTag.length).trim();
+  } else if (endIdx !== -1) {
+    return text.substring(0, endIdx).trim();
+  }
+  return "";
+}
+
+export interface UsageTracker {
+  totalCost: number;
+  dbModels: any[];
+}
+
+function getModelPrice(model: string, dbModels: any[]) {
+  const dbModel = dbModels.find((m) => m.id === model);
+  if (dbModel) {
+    const prompt = parseFloat(dbModel.promptPrice || "0");
+    const completion = parseFloat(dbModel.completionPrice || "0");
+    if (prompt > 0 || completion > 0) {
+      return { prompt, completion };
+    }
+  }
+  return { prompt: 0.1 / 1000000, completion: 0.4 / 1000000 };
+}
+
+interface OpenRouterMessage {
+  role: string;
+  content: string | null;
+  tool_calls?: Array<{
+    id: string;
+    type: "function";
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
+}
+
+/**
+ * Helper to call OpenRouter API completions.
+ */
+export async function callOpenRouter(
+  model: string,
+  messages: Array<{
+    role: string;
+    content: string | null;
+    name?: string;
+    tool_call_id?: string;
+  }>,
+  tools?: ToolDef[],
+  tracker?: UsageTracker,
+  reasoning?: Record<string, any>,
+): Promise<OpenRouterMessage> {
+  const apiKey = process.env.OPENROUTER_API_KEY || "";
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not configured.");
+  }
+
+  const response = await fetch(
+    "https://openrouter.ai/api/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "X-Title": "DerivedFunction",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        tools: tools && tools.length > 0 ? tools : undefined,
+        reasoning: reasoning
+          ? JSON.stringify(reasoning)
+          : {
+              exclude: true,
+              effort: "low",
+            },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const choice = data.choices?.[0];
+  if (!choice || !choice.message) {
+    console.warn("OpenRouter API returned no message", { data });
+    return { role: "assistant", content: "" };
+  }
+
+  // Accumulate token costs if usage statistics and pricing mappings exist
+  if (tracker && data.usage) {
+    const promptTokens = data.usage.prompt_tokens || 0;
+    const completionTokens = data.usage.completion_tokens || 0;
+    const pricing = getModelPrice(model, tracker.dbModels);
+    const cost =
+      promptTokens * pricing.prompt + completionTokens * pricing.completion;
+    tracker.totalCost += cost;
+  }
+
+  return choice.message;
 }

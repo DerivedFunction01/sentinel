@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { callOpenRouter } from "@/lib/scan-pipeline";
+import { callOpenRouter } from "@/lib/model-utils";
 import fs from "fs";
 import path from "path";
 import {
@@ -8,6 +8,7 @@ import {
   HardeningTrace,
   Granularity,
   BusinessCategory,
+  ScanMetadata,
 } from "./types";
 import {
   retrieveInspirationExamples,
@@ -381,16 +382,13 @@ export async function generateToolRecommendation(
   forbiddenTask: string,
   granularity: Granularity,
   extractorModel: string,
+  metadata: ScanMetadata,
   tracker?: any,
   requestedSections?: string[],
   existingTools?: ToolDef[],
   trace?: HardeningTrace,
   trials?: any[],
   mockToolResponses?: Record<string, any>,
-  businessCategories?: BusinessCategory[],
-  personaDescription?: string,
-  businessFeatures?: string[],
-  businessScenarios?: string[],
 ): Promise<{
   toolRecommendation: string | null;
   compatibilityScore: number | null;
@@ -401,12 +399,9 @@ export async function generateToolRecommendation(
       forbiddenTask,
       extractorModel,
       granularity,
+      metadata,
       tracker,
       trace,
-      businessCategories,
-      personaDescription,
-      businessFeatures,
-      businessScenarios,
     );
     const inspirationExamplesBlock =
       formatInspirationExamplesBlock(inspirationExamples);

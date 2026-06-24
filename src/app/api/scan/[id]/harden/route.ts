@@ -13,7 +13,7 @@ import {
   retrieveInspirationExamples,
   formatInspirationExamplesBlock,
 } from "@/lib/inspiration-retriever";
-import { callOpenRouter } from "@/lib/scan-pipeline";
+import { callOpenRouter } from "@/lib/model-utils";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
 import {
@@ -176,16 +176,13 @@ export async function POST(
         scanRow.forbiddenTask,
         granularity,
         extractorModel,
+        metadata,
         undefined,
-        undefined,
+        [],
         existingTools,
         trace,
         trials,
         mockToolResponses,
-        metadata?.seedExtraction?.businessCategories || [],
-        metadata?.seedExtraction?.personaDescription,
-        metadata?.seedExtraction?.businessFeatures,
-        metadata?.seedExtraction?.businessScenarios,
       );
 
     // Parse recommended tools to pass to prompt hardener
@@ -198,9 +195,9 @@ export async function POST(
       scanRow.forbiddenTask,
       extractorModel,
       granularity,
+      metadata,
       undefined,
       trace,
-      metadata,
     );
     const inspirationExamplesBlock =
       formatInspirationExamplesBlock(inspirationExamples);

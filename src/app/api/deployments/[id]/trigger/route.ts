@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { TrialVerdict, JudgeLabel, RiskLevel, ScanStatus } from "@/lib/enums";
 import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
 import { Granularity, type ToolDef, type Trial } from "@/lib/types";
-import { executeScanPipeline, UsageTracker } from "@/lib/scan-pipeline";
+import { executeScanPipeline } from "@/lib/scan-pipeline";
 
 export async function POST(
   req: Request,

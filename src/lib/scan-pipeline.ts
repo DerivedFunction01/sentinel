@@ -1,11 +1,17 @@
 import { db } from "@/lib/db";
-import { JudgeLabel, RiskLevel, ScanStatus, TrialVerdict } from "@/lib/enums";
+import { JudgeLabel, RiskLevel, TrialVerdict } from "@/lib/enums";
 import {
   generateAttacks,
   patterns,
   renderAttack,
 } from "@/lib/attack-templates";
-import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
+import {
+  callOpenRouter,
+  DEFAULT_MODEL,
+  extractTaggedContent,
+  loadPromptFile,
+  UsageTracker,
+} from "@/lib/model-utils";
 import {
   SEED_EXTRACTOR_SYSTEM,
   SEED_EXTRACTOR_USER_TEMPLATE,
@@ -30,128 +36,6 @@ import {
   BusinessCategory,
   ScanMetadata,
 } from "@/lib/types";
-import { getAttackSummaryInstructions } from "@/lib/scan-prompts";
-
-export interface UsageTracker {
-  totalCost: number;
-  dbModels: any[];
-}
-
-// Fallback pricing map (USD per 1 token) in case DB is missing rates
-const PRICE_MAP: Record<string, { prompt: number; completion: number }> = {
-  DEFAULT_MODEL: {
-    prompt: 0.075 / 1000000,
-    completion: 0.3 / 1000000,
-  },
-  "openai/gpt-4o-mini": { prompt: 0.15 / 1000000, completion: 0.6 / 1000000 },
-  "meta-llama/llama-3-8b-instruct": {
-    prompt: 0.05 / 1000000,
-    completion: 0.05 / 1000000,
-  },
-  "meta-llama/llama-3-70b-instruct": {
-    prompt: 0.59 / 1000000,
-    completion: 0.79 / 1000000,
-  },
-  "anthropic/claude-3.5-haiku": {
-    prompt: 0.8 / 1000000,
-    completion: 4.0 / 1000000,
-  },
-};
-
-function getModelPrice(model: string, dbModels: any[]) {
-  const dbModel = dbModels.find((m) => m.id === model);
-  if (dbModel) {
-    const prompt = parseFloat(dbModel.promptPrice || "0");
-    const completion = parseFloat(dbModel.completionPrice || "0");
-    if (prompt > 0 || completion > 0) {
-      return { prompt, completion };
-    }
-  }
-  return (
-    PRICE_MAP[model] || { prompt: 0.1 / 1000000, completion: 0.4 / 1000000 }
-  );
-}
-
-interface OpenRouterMessage {
-  role: string;
-  content: string | null;
-  tool_calls?: Array<{
-    id: string;
-    type: "function";
-    function: {
-      name: string;
-      arguments: string;
-    };
-  }>;
-}
-
-/**
- * Helper to call OpenRouter API completions.
- */
-export async function callOpenRouter(
-  model: string,
-  messages: Array<{
-    role: string;
-    content: string | null;
-    name?: string;
-    tool_call_id?: string;
-  }>,
-  tools?: ToolDef[],
-  tracker?: UsageTracker,
-  reasoning?: Record<string, any>,
-): Promise<OpenRouterMessage> {
-  const apiKey = process.env.OPENROUTER_API_KEY || "";
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not configured.");
-  }
-
-  const response = await fetch(
-    "https://openrouter.ai/api/v1/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "X-Title": "DerivedFunction",
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        tools: tools && tools.length > 0 ? tools : undefined,
-        reasoning: reasoning
-          ? JSON.stringify(reasoning)
-          : {
-              exclude: true,
-              effort: "low",
-            },
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
-  }
-
-  const data = await response.json();
-  const choice = data.choices?.[0];
-  if (!choice || !choice.message) {
-    console.warn("OpenRouter API returned no message", { data });
-    return { role: "assistant", content: "" };
-  }
-
-  // Accumulate token costs if usage statistics and pricing mappings exist
-  if (tracker && data.usage) {
-    const promptTokens = data.usage.prompt_tokens || 0;
-    const completionTokens = data.usage.completion_tokens || 0;
-    const pricing = getModelPrice(model, tracker.dbModels);
-    const cost =
-      promptTokens * pricing.prompt + completionTokens * pricing.completion;
-    tracker.totalCost += cost;
-  }
-
-  return choice.message;
-}
 
 /**
  * Step 1: Seed Generation (Extraction)
@@ -623,6 +507,49 @@ export type ProgressCallback = (
   totalSteps: number,
 ) => Promise<void>;
 
+export function getAttackSummaryInstructions(breachedAttacks: any[]): string {
+  const template = loadPromptFile("instructions_template_attack_summary.md");
+
+  // Check format and build appropriate list
+  const hasJudgeVerdicts =
+    breachedAttacks.length > 0 && typeof breachedAttacks[0] !== "string";
+
+  const attacksList = hasJudgeVerdicts
+    ? (
+        breachedAttacks as Array<{
+          attack: string;
+          judgeReasoning: string;
+          verdict: TrialVerdict;
+        }>
+      ).map(
+        (a, i) =>
+          `Attack ${i + 1}:\n"${a.attack}"\n\nJudge Verdict: ${a.verdict}\nJudge Reasoning: ${a.judgeReasoning}`,
+      )
+    : (breachedAttacks as string[]).map((a, i) => `${i + 1}. "${a}"`);
+
+  return template.replace("{{SUCCESSFUL_ATTACKS}}", attacksList.join("\n\n"));
+}
+
+export async function summarizeBreachedAttacks(
+  callModel: (prompt: string) => Promise<string>,
+  breachedAttacks: any[],
+): Promise<string> {
+  const instructions = getAttackSummaryInstructions(breachedAttacks);
+  try {
+    const res = await callModel(instructions);
+    return (
+      extractTaggedContent(
+        res,
+        "<BEGIN_ATTACK_PATTERNS>",
+        "<END_ATTACK_PATTERNS>",
+      ) || res
+    );
+  } catch (err) {
+    console.error("Attack summarization step failed:", err);
+    return "";
+  }
+}
+
 /**
  * Execute the full scanning pipeline for a single target model.
  * This is the shared core logic used by both scan/launch and deployments/[id]/trigger routes.
@@ -795,32 +722,6 @@ export async function executeScanPipeline(
       // Assuming BreachedAttack interface is compatible with this structure
     }));
 
-  // Run tool extraction if requested AND hardening is enabled
-  // Tool recommendations are disabled when hardening is off
-  let toolRecommendation: string = "";
-  let compatibilityScore: number = 0;
-
-  if (enableHardening && includeToolRecommendation) {
-    const result = await generateToolRecommendation(
-      systemPrompt,
-      forbiddenTask,
-      granularity,
-      extractorModel, // Using extractorModel for tool recommendation
-      tracker,
-      undefined,
-      tools,
-      undefined,
-      trials,
-      mockToolResponses,
-      seedInfo.businessCategories,
-      seedInfo.personaDescription,
-      seedInfo.businessFeatures,
-      seedInfo.businessScenarios,
-    );
-    toolRecommendation = result.toolRecommendation || "";
-    compatibilityScore = result.compatibilityScore || 0;
-  }
-
   // Construct the metadata object
   const metadata: ScanMetadata = {
     seedExtraction: {
@@ -836,11 +737,42 @@ export async function executeScanPipeline(
       extractedAt: new Date().toISOString(),
     },
     attackSummary: {
-      summarizedPatterns: getAttackSummaryInstructions(breachedAttacksWithVerdicts),
+      summarizedPatterns: await summarizeBreachedAttacks(async (promptText) => {
+        const response = await callOpenRouter(
+          hardenerModel,
+          [{ role: "user", content: promptText }],
+          undefined,
+          tracker,
+        );
+        return response.content || "";
+      }, breachedAttacksWithVerdicts),
       breachedAttacks: breachedAttacksWithVerdicts as any,
       summarizedAt: new Date().toISOString(),
     },
   };
+
+  // Run tool extraction if requested AND hardening is enabled
+  // Tool recommendations are disabled when hardening is off
+  let toolRecommendation: string = "";
+  let compatibilityScore: number = 0;
+
+  if (enableHardening && includeToolRecommendation) {
+    const result = await generateToolRecommendation(
+      systemPrompt,
+      forbiddenTask,
+      granularity,
+      extractorModel, // Using extractorModel for tool recommendation
+      metadata,
+      tracker,
+      undefined,
+      tools,
+      undefined,
+      trials,
+      mockToolResponses,
+    );
+    toolRecommendation = result.toolRecommendation || "";
+    compatibilityScore = result.compatibilityScore || 0;
+  }
 
   // Parse recommended tools to pass to prompt hardener
   const recommendedToolsList = toolRecommendation
@@ -857,9 +789,9 @@ export async function executeScanPipeline(
       forbiddenTask,
       extractorModel || DEFAULT_MODEL,
       granularity,
+      metadata,
       tracker,
       undefined,
-      metadata,
     );
     const inspirationExamplesBlock =
       formatInspirationExamplesBlock(inspirationExamples);

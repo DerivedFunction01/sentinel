@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { callOpenRouter } from "@/lib/scan-pipeline";
+import { callOpenRouter } from "@/lib/model-utils";
 import {
   Granularity,
   HardeningTrace,
@@ -22,15 +22,15 @@ export async function retrieveInspirationExamples(
   forbiddenTask: string,
   extractorModel: string,
   granularity: Granularity,
+  metadata: ScanMetadata,
   tracker?: any,
   trace?: HardeningTrace,
-  metadata?: ScanMetadata,
 ): Promise<InspirationExample[]> {
   try {
-    const businessCategories = metadata?.seedExtraction?.businessCategories;
-    const personaDescription = metadata?.seedExtraction?.personaDescription;
-    const businessFeatures = metadata?.seedExtraction?.businessFeatures;
-    const businessScenarios = metadata?.seedExtraction?.businessScenarios;
+    const businessCategories = metadata.seedExtraction?.businessCategories;
+    const personaDescription = metadata.seedExtraction?.personaDescription;
+    const businessFeatures = metadata.seedExtraction?.businessFeatures;
+    const businessScenarios = metadata.seedExtraction?.businessScenarios;
 
     // Build rich business context for the prompt
     const businessCategoryContext =
