@@ -219,9 +219,8 @@ export function TrialCard({ trial }: TrialCardProps) {
                 {judgeStyle.label}
               </span>
             </div>
-            <p className="text-sm leading-relaxed text-white/80">
-              {trial.judgeVerdict}
-            </p>
+
+            <MarkdownRenderer content={trial.judgeVerdict} />
           </Section>
         </div>
       )}
