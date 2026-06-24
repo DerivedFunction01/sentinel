@@ -176,3 +176,9 @@ export enum Granularity {
   Compact = "compact",
   Detailed = "detailed",
 }
+
+export enum CredentialMode {
+  FICTIONAL = "fictional",
+  EXACT = "exact",
+  NULL = "null",
+}

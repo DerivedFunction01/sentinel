@@ -1,5 +1,10 @@
 import { db } from "@/lib/db";
-import { JudgeLabel, RiskLevel, TrialVerdict } from "@/lib/enums";
+import {
+  CredentialMode,
+  JudgeLabel,
+  RiskLevel,
+  TrialVerdict,
+} from "@/lib/enums";
 import {
   generateAttacks,
   patterns,
@@ -43,6 +48,7 @@ export interface SeedInfo {
   businessFeatures: string[];
   businessScenarios: string[];
   businessCategories: BusinessCategory[];
+  credentials: string[];
 }
 
 export interface AttackEntry {
@@ -51,6 +57,10 @@ export interface AttackEntry {
   entropyLabel: string;
   framingLabel: string;
   attackText: string;
+  credentialContext?: {
+    credential: string;
+    instruction: CredentialMode;
+  };
 }
 
 /** Pre-generated artifacts for one prompt — reused across models. */
@@ -100,6 +110,7 @@ export async function extractSeedInfo(
     businessFeatures: [],
     businessScenarios: [],
     businessCategories: [],
+    credentials: [],
   };
 
   try {
@@ -132,6 +143,7 @@ export async function extractSeedInfo(
       businessFeatures: parsed.businessFeatures || [],
       businessScenarios: parsed.businessScenarios || [],
       businessCategories: parsed.businessCategories || [],
+      credentials: parsed.credentials || [],
     };
   } catch (error) {
     console.error("Error extracting seed info:", error);
@@ -152,6 +164,8 @@ export async function generateCohesiveAttack(
   personaDescription: string,
   businessFeatures: string[],
   businessScenarios: string[],
+  credentials?: string[],
+  credentialMode?: CredentialMode | null,
   tracker?: UsageTracker,
 ): Promise<string> {
   const draftParts = patterns.find((p) => p.patternId === pattern.patternId)
@@ -176,6 +190,8 @@ export async function generateCohesiveAttack(
         personaDescription,
         businessFeatures,
         businessScenarios,
+        credentials,
+        credentialMode,
       ),
     },
   ];
@@ -269,27 +285,57 @@ export async function generateAttackSet(
       seedInfo.thingDescriptionVariants[variantIdx] ||
       seedInfo.thingDescription;
 
-    return generateCohesiveAttack(
-      options.attackerModel,
-      pattern,
-      selectedThingName,
-      selectedThingDesc,
-      layout.attackDescription,
-      seedInfo.personaDescription,
-      seedInfo.businessFeatures,
-      seedInfo.businessScenarios,
-      tracker,
-    );
+    // Determine credential context for this attack
+    const hasCredentials = seedInfo.credentials.length > 0;
+    let credCtx:
+      | { credential: string; instruction: CredentialMode }
+      | undefined;
+    let credMode: CredentialMode | null = null;
+
+    if (hasCredentials) {
+      const isVerificationCheck = layout.patternId === "verification_check";
+      if (isVerificationCheck || Math.random() < 0.5) {
+        const instruction: CredentialMode = isVerificationCheck
+          ? CredentialMode.EXACT
+          : Math.random() < 0.5
+            ? CredentialMode.EXACT
+            : CredentialMode.FICTIONAL;
+        const credential =
+          seedInfo.credentials[
+            Math.floor(Math.random() * seedInfo.credentials.length)
+          ];
+        credCtx = { credential, instruction };
+        credMode = instruction;
+      }
+    }
+
+    return (async () => {
+      const text = await generateCohesiveAttack(
+        options.attackerModel,
+        pattern,
+        selectedThingName,
+        selectedThingDesc,
+        layout.attackDescription,
+        seedInfo.personaDescription,
+        seedInfo.businessFeatures,
+        seedInfo.businessScenarios,
+        seedInfo.credentials,
+        credMode,
+        tracker,
+      );
+      return { text, credCtx } as const;
+    })();
   });
 
-  const attackTexts = await Promise.all(attackPromises);
+  const attackResults = await Promise.all(attackPromises);
 
   const attacks: AttackEntry[] = attackLayouts.map((layout, i) => ({
     patternId: layout.patternId,
     attackDescription: layout.attackDescription,
     entropyLabel: layout.entropyLabel,
     framingLabel: layout.framingLabel,
-    attackText: attackTexts[i],
+    attackText: attackResults[i].text,
+    credentialContext: attackResults[i].credCtx,
   }));
 
   return { seedInfo, attacks };
