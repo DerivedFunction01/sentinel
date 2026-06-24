@@ -480,7 +480,7 @@ export default function PenTestScanPage() {
                 Paste your system prompt and select target models. The
                 SentinelPrompt multi-agent workflow uses adversarial attack
                 prompts, tests them against the target, and has a Judge
-                determine if secrets leaked. Run up to 3 prompts in parallel
+                determine if secrets leaked. Run up as many prompts in parallel
                 across multiple models — use "Copy from" to test variations of
                 the same prompt.
               </p>
