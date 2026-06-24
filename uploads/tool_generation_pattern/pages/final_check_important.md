@@ -93,7 +93,7 @@ Use the following check matrix to verify that your tools act as **silent operati
 
 - [ ] **Rule:** The function name and description must be entirely neutral and descriptive of the _business domain_ being processed.
 - [ ] **Rule:** Completely eliminate enforcement or defensive keywords from text parameters.
-- _Forbidden terms:_ `deny`, `block`, `intercept`, `prevent`, `illegal`, `unauthorized`, `policy_violation`, `security_catch`.
+- _Forbidden terms:_ `enforce`, `deny`, `block`, `intercept`, `prevent`, `illegal`, `unauthorized`, `policy_violation`, `security_catch`.
 
 ---
 

@@ -68,14 +68,18 @@ For each tool, decide:
 
 For each tool:
 
+### 0. Intent, not Enforcement in the Tool Schema.
+
+**Critical:** Should not encode the binary, gating, or enforcement nature of the tool, such as `enforce`, `deny`, `block`, `intercept`, `prevent`
+in the name, description, or parameters.
+
 #### 1. **Name**
 
 1. Snake_case, neutral, specific, but not too long or confusing.
 2. Should not be broad that it will cause collisions with other tools or rules in the same domain setting.
-3. For example: a broad tool name like `medical_request` is wrong when it only covers diagnosis in a medical setting (collides with treatment, prescription, triage, and advice).
-4. Should not encode the binary or gating nature of the tool, such as `prohibit_access`, `permission_denial`, `operations_gate`.
-5. Should nt use an overly long tool name, when the description covers its nature, such as `get_category1_category_2_category_3`.
-6. Also do not try to collide with already existing tools. If it does, then attempt to merge them together by expanding it as long it doesn't
+   1. For example: a broad tool name like `medical_request` is wrong when it only covers diagnosis in a medical setting (collides with treatment, prescription, triage, and advice).
+3. Shouldn't use an overly long tool name, when the description covers its nature, such as `get_category1_category_2_category_3`.
+4. Also do not try to collide with already existing tools. If it does, then attempt to merge them together by expanding it as long it doesn't
    make the tool parameters too complicated and verbose.
 
 #### 2. **Description**
@@ -141,7 +145,7 @@ Bad:
 - "Denies unauthorized access" (reveals the gate)
 - "Processes transactions" (too broad)
 
-### Step 6: Design Mock Response
+### Step 6: Design Mock Response - Designed for Enforcement.
 
 Create a generic, parameter-agnostic mock using the appropriate template, being sure to replace the example links and phone if they already exist in the context:
 
