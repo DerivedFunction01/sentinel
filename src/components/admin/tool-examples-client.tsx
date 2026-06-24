@@ -16,6 +16,7 @@ import {
   Upload,
   Pencil,
   ChevronDown,
+  Copy,
 } from "lucide-react";
 import {
   Card,
@@ -530,6 +531,248 @@ const ExampleList = ({
     </div>
   );
 };
+function EditableForm({
+  editingId,
+  handleSubmit,
+  name,
+  setName,
+  description,
+  setDescription,
+  tagsStr,
+  setTagsStr,
+  granularity,
+  setGranularity,
+  category,
+  setCategory,
+  businessCategoriesStr,
+  setBusinessCategoriesStr,
+  businessCategoriesDropdownOpen,
+  setBusinessCategoriesDropdownOpen,
+  toolJson,
+  setToolJson,
+  validateJson,
+  setToolJsonError,
+  toolJsonError,
+  mockResponse,
+  setMockResponse,
+  setMockResponseError,
+  mockResponseError,
+  handleCancelEdit,
+  isSubmitting,
+}: {
+  editingId: string | null;
+  handleSubmit: (e: React.FormEvent) => Promise<void>;
+  name: string;
+  setName;
+  description: string;
+  setDescription;
+  tagsStr: string;
+  setTagsStr;
+  granularity: Granularity;
+  setGranularity;
+  category: ToolExampleCategory;
+  setCategory;
+  businessCategoriesStr: string;
+  setBusinessCategoriesStr;
+  businessCategoriesDropdownOpen: boolean;
+  setBusinessCategoriesDropdownOpen;
+  toolJson: string;
+  setToolJson;
+  validateJson: (
+    val: string,
+    setError: (err: string | null) => void,
+  ) => boolean;
+  setToolJsonError;
+  toolJsonError: string | null;
+  mockResponse: string;
+  setMockResponse;
+  setMockResponseError;
+  mockResponseError: string | null;
+  handleCancelEdit: () => void;
+  isSubmitting: boolean;
+}) {
+  return (
+    <Card className="border-muted bg-black/30">
+      <CardHeader>
+        <CardTitle className="text-base">
+          {editingId ? "Edit Example" : "New Example"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="name" className="text-xs">
+              Name
+            </Label>
+            <Input
+              id="name"
+              placeholder="e.g., Get Weather"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="description" className="text-xs">
+              Description
+            </Label>
+            <Textarea
+              id="description"
+              placeholder="Describe this tool..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="mt-1 text-xs"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="tags" className="text-xs">
+              Tags (comma-separated)
+            </Label>
+            <Input
+              id="tags"
+              placeholder="e.g., weather, forecast, api"
+              value={tagsStr}
+              onChange={(e) => setTagsStr(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="granularity" className="text-xs">
+              Granularity
+            </Label>
+            <Select
+              value={granularity}
+              onValueChange={(value) => setGranularity(value as Granularity)}
+            >
+              <SelectTrigger id="granularity" className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(Granularity).map((gran) => (
+                  <SelectItem key={gran} value={gran}>
+                    {gran}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="category" className="text-xs">
+              Category
+            </Label>
+            <Select
+              value={category}
+              onValueChange={(value) =>
+                setCategory(value as ToolExampleCategory)
+              }
+            >
+              <SelectTrigger id="category" className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(ToolExampleCategory).map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs">Business Categories</Label>
+            <BusinessCategoryMultiSelect
+              selectedCategories={
+                businessCategoriesStr
+                  .split(",")
+                  .map((c) => c.trim())
+                  .filter((c) => c.length > 0) as BusinessCategory[]
+              }
+              onSelectChange={(categories) => {
+                setBusinessCategoriesStr(categories.join(","));
+              }}
+              isOpen={businessCategoriesDropdownOpen}
+              onOpenChange={setBusinessCategoriesDropdownOpen}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="toolJson" className="text-xs">
+              Tool JSON Schema
+            </Label>
+            <Textarea
+              id="toolJson"
+              placeholder='{"type":"function", "function": {...}}'
+              value={toolJson}
+              onChange={(e) => {
+                setToolJson(e.target.value);
+                validateJson(e.target.value, setToolJsonError);
+              }}
+              rows={6}
+              className="mt-1 text-xs font-mono"
+            />
+            {toolJsonError && (
+              <p className="text-[10px] text-red-400 mt-1">{toolJsonError}</p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="mockResponse" className="text-xs">
+              Mock Response
+            </Label>
+            <Textarea
+              id="mockResponse"
+              placeholder="{...}"
+              value={mockResponse}
+              onChange={(e) => {
+                setMockResponse(e.target.value);
+                validateJson(e.target.value, setMockResponseError);
+              }}
+              rows={6}
+              className="mt-1 text-xs font-mono"
+            />
+            {mockResponseError && (
+              <p className="text-[10px] text-red-400 mt-1">
+                {mockResponseError}
+              </p>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            {editingId && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancelEdit}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            )}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+            >
+              {isSubmitting
+                ? editingId
+                  ? "Updating..."
+                  : "Creating..."
+                : editingId
+                  ? "Update Example"
+                  : "Save Example Schema"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
 
 // ============================================================================
 // MAIN COMPONENT
@@ -804,201 +1047,49 @@ export function ToolExamplesClient({
   };
 
   return (
-    <div className="min-h-screen p-6 bg-black text-foreground">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
+    <div className="h-screen p-6 bg-black text-foreground overflow-hidden">
+      <div className="max-w-7xl mx-auto h-full flex flex-col">
+        <div className="mb-8 shrink-0">
           <h1 className="text-3xl font-bold mb-2">Tool Examples Manager</h1>
           <p className="text-sm text-muted-foreground">
             Create, edit, and manage tool examples and schemas
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form - remaining code stays the same as original */}
-          <div className="lg:col-span-1">
-            <Card className="border-muted bg-black/30">
-              <CardHeader>
-                <CardTitle className="text-base">
-                  {editingId ? "Edit Example" : "New Example"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <Label htmlFor="name" className="text-xs">
-                      Name
-                    </Label>
-                    <Input
-                      id="name"
-                      placeholder="e.g., Get Weather"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="description" className="text-xs">
-                      Description
-                    </Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Describe this tool..."
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      rows={3}
-                      className="mt-1 text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="tags" className="text-xs">
-                      Tags (comma-separated)
-                    </Label>
-                    <Input
-                      id="tags"
-                      placeholder="e.g., weather, forecast, api"
-                      value={tagsStr}
-                      onChange={(e) => setTagsStr(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="granularity" className="text-xs">
-                      Granularity
-                    </Label>
-                    <Select
-                      value={granularity}
-                      onValueChange={(value) =>
-                        setGranularity(value as Granularity)
-                      }
-                    >
-                      <SelectTrigger id="granularity" className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(Granularity).map((gran) => (
-                          <SelectItem key={gran} value={gran}>
-                            {gran}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="category" className="text-xs">
-                      Category
-                    </Label>
-                    <Select
-                      value={category}
-                      onValueChange={(value) =>
-                        setCategory(value as ToolExampleCategory)
-                      }
-                    >
-                      <SelectTrigger id="category" className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(ToolExampleCategory).map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label className="text-xs">Business Categories</Label>
-                    <BusinessCategoryMultiSelect
-                      selectedCategories={
-                        businessCategoriesStr
-                          .split(",")
-                          .map((c) => c.trim())
-                          .filter((c) => c.length > 0) as BusinessCategory[]
-                      }
-                      onSelectChange={(categories) => {
-                        setBusinessCategoriesStr(categories.join(","));
-                      }}
-                      isOpen={businessCategoriesDropdownOpen}
-                      onOpenChange={setBusinessCategoriesDropdownOpen}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="toolJson" className="text-xs">
-                      Tool JSON Schema
-                    </Label>
-                    <Textarea
-                      id="toolJson"
-                      placeholder='{"type":"function", "function": {...}}'
-                      value={toolJson}
-                      onChange={(e) => {
-                        setToolJson(e.target.value);
-                        validateJson(e.target.value, setToolJsonError);
-                      }}
-                      rows={6}
-                      className="mt-1 text-xs font-mono"
-                    />
-                    {toolJsonError && (
-                      <p className="text-[10px] text-red-400 mt-1">
-                        {toolJsonError}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="mockResponse" className="text-xs">
-                      Mock Response
-                    </Label>
-                    <Textarea
-                      id="mockResponse"
-                      placeholder="{...}"
-                      value={mockResponse}
-                      onChange={(e) => {
-                        setMockResponse(e.target.value);
-                        validateJson(e.target.value, setMockResponseError);
-                      }}
-                      rows={6}
-                      className="mt-1 text-xs font-mono"
-                    />
-                    {mockResponseError && (
-                      <p className="text-[10px] text-red-400 mt-1">
-                        {mockResponseError}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2">
-                    {editingId && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleCancelEdit}
-                        className="flex-1"
-                      >
-                        Cancel
-                      </Button>
-                    )}
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium"
-                    >
-                      {isSubmitting
-                        ? editingId
-                          ? "Updating..."
-                          : "Creating..."
-                        : editingId
-                          ? "Update Example"
-                          : "Save Example Schema"}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+          {/* Form - scrollable independently */}
+          <div className="lg:col-span-1 overflow-y-auto min-h-0">
+            <EditableForm
+              editingId={editingId}
+              handleSubmit={handleSubmit}
+              name={name}
+              setName={setName}
+              description={description}
+              setDescription={setDescription}
+              tagsStr={tagsStr}
+              setTagsStr={setTagsStr}
+              granularity={granularity}
+              setGranularity={setGranularity}
+              category={category}
+              setCategory={setCategory}
+              businessCategoriesStr={businessCategoriesStr}
+              setBusinessCategoriesStr={setBusinessCategoriesStr}
+              businessCategoriesDropdownOpen={businessCategoriesDropdownOpen}
+              setBusinessCategoriesDropdownOpen={
+                setBusinessCategoriesDropdownOpen
+              }
+              toolJson={toolJson}
+              setToolJson={setToolJson}
+              validateJson={validateJson}
+              setToolJsonError={setToolJsonError}
+              toolJsonError={toolJsonError}
+              mockResponse={mockResponse}
+              setMockResponse={setMockResponse}
+              setMockResponseError={setMockResponseError}
+              mockResponseError={mockResponseError}
+              handleCancelEdit={handleCancelEdit}
+              isSubmitting={isSubmitting}
+            />
           </div>
 
           {/* Examples List */}
