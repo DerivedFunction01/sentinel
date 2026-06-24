@@ -157,7 +157,6 @@ export function getToolExtractionInstructions(
   requestedSections?: string[],
   existingTools?: ToolDef[],
   inspirationExamplesBlock?: string,
-  breachedTrials?: any[],
   mockToolResponses?: Record<string, any>,
   summarizedPatterns?: string,
 ): string {
@@ -189,11 +188,6 @@ ${JSON.stringify(
 <attack_patterns>
 ${summarizedPatterns}
 </attack_patterns>\n`;
-  } else if (breachedTrials && breachedTrials.length > 0) {
-    breachedTrialsBlock = `\nAdversarial attack prompts that SUCCESSFULLY bypassed the system prompt, including the model's response and the judge's verdict detailing why it leaked:
-<breached_attack_trials>
-${breachedTrials.map((t) => `${t.judgeVerdict || "None provided"}`).join("\n\n")}
-</breached_attack_trials>\n`;
   }
 
   const granularityPrompt = `Target Granularity: ${granularity}.
@@ -430,7 +424,6 @@ export async function generateToolRecommendation(
       requestedSections,
       existingTools,
       inspirationExamplesBlock,
-      breachedTrials,
       mockToolResponses,
       summarizedPatterns,
     );
