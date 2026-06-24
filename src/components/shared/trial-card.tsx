@@ -18,6 +18,7 @@ import { getVerdictStyle, getJudgeLabelStyle } from "@/lib/risk-utils";
 import type { Trial } from "@/lib/types";
 
 import { CodeHighlight } from "@/components/shared/code-highlight";
+import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
 
 interface TrialCardProps {
   trial: Trial;
@@ -95,9 +96,7 @@ export function TrialCard({ trial }: TrialCardProps) {
             bgColor="bg-red-500/5"
             borderColor="border-red-500/10"
           >
-            <pre className="whitespace-pre-wrap font-mono text-sm text-white/80">
-              {trial.attack}
-            </pre>
+            <MarkdownRenderer content={trial.attack} />
           </Section>
 
           {/* Debug Metadata */}
@@ -196,9 +195,7 @@ export function TrialCard({ trial }: TrialCardProps) {
             bgColor="bg-blue-500/5"
             borderColor="border-blue-500/10"
           >
-            <pre className="whitespace-pre-wrap font-mono text-sm text-white/80">
-              {trial.response}
-            </pre>
+            <MarkdownRenderer content={trial.response} />
           </Section>
 
           {/* Judge verdict */}

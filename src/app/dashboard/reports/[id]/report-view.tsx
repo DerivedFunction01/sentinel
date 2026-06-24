@@ -34,6 +34,7 @@ import { Scan, Trial, HardeningTrace } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
 import { ScanSummary } from "@/components/shared/scan-summary";
 import { CodeHighlight } from "@/components/shared/code-highlight";
+import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
 import { GranularityPickerDialog } from "@/components/shared/granularity-picker-dialog";
 import { ExtractionTraceDialog } from "@/components/shared/extraction-trace-dialog";
 import { ModelSelector } from "@/components/shared/model-selector";
@@ -947,8 +948,10 @@ function scanConfiguration(scan: Scan) {
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="mt-2 rounded-lg border border-border bg-muted/5 p-3 text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                  {scan.metadata.attackSummary.summarizedPatterns}
+                <div className="mt-2 rounded-lg border border-border bg-muted/5 p-3">
+                  <MarkdownRenderer
+                    content={scan.metadata.attackSummary.summarizedPatterns}
+                  />
                 </div>
               </CollapsibleContent>
             </Collapsible>
