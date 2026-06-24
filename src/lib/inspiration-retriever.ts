@@ -1,6 +1,12 @@
 import { db } from "@/lib/db";
 import { callOpenRouter } from "@/lib/model-utils";
-import { HardeningTrace, BreachedAttack, ScanMetadata } from "./types";
+import {
+  HardeningTrace,
+  BreachedAttack,
+  ScanMetadata,
+  OverlapInfo,
+  ToolDef,
+} from "./types";
 import { Granularity } from "./enums";
 import { BusinessCategory } from "./enums";
 
@@ -17,6 +23,7 @@ export interface InspirationExample {
   rationale?: string; // LLM explanation of the scores
   directMatch?: boolean; // true = confident enough to skip the full agentic extractor loop
   bestMatchingCandidate?: boolean; // true = selected as the single best candidate for its action/role
+  overlap?: OverlapInfo; // overlap assessment with existing tools
 }
 
 export async function retrieveInspirationExamples(
@@ -26,6 +33,7 @@ export async function retrieveInspirationExamples(
   metadata: ScanMetadata,
   tracker?: any,
   trace?: HardeningTrace,
+  existingTools?: ToolDef[],
 ): Promise<InspirationExample[]> {
   try {
     const businessCategories = metadata.seedExtraction?.businessCategories;
@@ -205,6 +213,28 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
     // NEW: LLM scoring of candidates for requirement + granularity match
     if (candidates.length > 0) {
       try {
+        let existingToolsBlock = "";
+        if (existingTools && existingTools.length > 0) {
+          existingToolsBlock = `\nExisting tools already configured for this assistant:
+${existingTools
+  .map(
+    (t, i) => `[T${i}] Name: "${t.function.name}"
+    Description: ${t.function.description}
+    Parameters: ${Object.keys(t.function.parameters?.properties || {}).join(", ")}`,
+  )
+  .join("\n\n")}
+
+For each candidate example, also evaluate overlap with these existing tools by adding an "overlap" field per candidate:
+- overlap: {"score": <0-100>, "replaceExisting": <tool name or null>, "merge": <bool>, "rationale": "<one-sentence>"}
+
+Overlap scoring guidelines:
+- score 0-30: No meaningful overlap → brand new tool candidate
+- score 31-69: Partial overlap → may need parameter merging or splitting
+- score 70+: Direct overlap → this example replaces the existing tool
+- Set "replaceExisting" to the existing tool's name (e.g., "T0", "T1") if score >= 70
+- Set "merge": true if the example should be merged INTO the existing tool (same name, expanded parameters)\n`;
+        }
+
         const scoringPrompt = `You are a scoring evaluator. Analyze how well each database tool schema example matches the given forbidden task and target granularity.
 
 Forbidden Task: "${forbiddenTask}"
@@ -221,17 +251,18 @@ Granularity: ${c.granularity}
 Business Categories: ${(c.businessCategories || []).join(", ")}`,
   )
   .join("\n\n")}
-
+${existingToolsBlock}
 For each example, output an array of scoring objects with:
 - "requirementScore" (0-100): How well this tool's purpose matches the forbidden task domain. A high score means it directly addresses the same kind of constraint or policy.
 - "granularityScore" (0-100): How well the granularity level matches. If the target is "compact" but the example is "detailed", this should be low.
 - "rationale": A one-sentence explanation of both scores.
 - "bestMatchingCandidate" (boolean): Set to true ONLY if this example is the single best choice for addressing the overall forbidden task. If multiple examples address the same sub-action (e.g., two tools for "discount management"), mark only the highest-scoring one as true. Mark all others as false.
+- "overlap" (object | null): Overlap assessment with existing tools. Include fields: "score" (0-100), "replaceExisting" (the tool ref like "T0" or null), "merge" (boolean), "rationale" (one sentence). Set to null if no existing tools were provided.
 
 The forbidden task may contain multiple distinct prohibited actions (e.g., "Do not provide discounts AND do not describe corporate policy"). Each distinct prohibited action should have exactly one bestMatchingCandidate set to true if possible.
 
 Output ONLY valid JSON with no preamble:
-{"scores":[{"index":0,"requirementScore":85,"granularityScore":70,"rationale":"...","bestMatchingCandidate":true}]}`;
+{"scores":[{"index":0,"requirementScore":85,"granularityScore":70,"rationale":"...","bestMatchingCandidate":true,"overlap":{"score":0,"replaceExisting":null,"merge":false,"rationale":"..."}}]}`;
 
         const scoringResponse = await callOpenRouter(
           extractorModel,
@@ -255,6 +286,34 @@ Output ONLY valid JSON with no preamble:
               candidates[idx].rationale = s.rationale as string;
               candidates[idx].bestMatchingCandidate =
                 s.bestMatchingCandidate === true;
+
+              // Parse overlap info
+              if (s.overlap && typeof s.overlap === "object") {
+                let replaceExisting: string | undefined;
+                if (
+                  s.overlap.replaceExisting &&
+                  typeof s.overlap.replaceExisting === "string" &&
+                  existingTools
+                ) {
+                  // Convert "T0", "T1" ref back to actual tool function name
+                  const refMatch = s.overlap.replaceExisting.match(/^T(\d+)$/);
+                  if (refMatch) {
+                    const toolIdx = parseInt(refMatch[1], 10);
+                    if (toolIdx >= 0 && toolIdx < existingTools.length) {
+                      replaceExisting = existingTools[toolIdx].function.name;
+                    }
+                  } else {
+                    // Already a tool name
+                    replaceExisting = s.overlap.replaceExisting;
+                  }
+                }
+                candidates[idx].overlap = {
+                  score: s.overlap.score as number,
+                  replaceExisting,
+                  merge: s.overlap.merge === true,
+                  rationale: s.overlap.rationale as string | undefined,
+                };
+              }
             }
           }
         }
@@ -264,9 +323,19 @@ Output ONLY valid JSON with no preamble:
       }
 
       // Mark direct matches: requirementScore >= 70 means we can skip the heavy agentic loop
+      // Suppress directMatch if there's high unresolved overlap (conflict without a replacement decision)
       for (const ex of candidates) {
         if (ex.requirementScore !== undefined && ex.requirementScore >= 70) {
-          ex.directMatch = true;
+          if (
+            ex.overlap &&
+            ex.overlap.score >= 70 &&
+            !ex.overlap.replaceExisting
+          ) {
+            // High overlap but LLM didn't identify a specific tool to replace — fall through to slow path
+            ex.directMatch = false;
+          } else {
+            ex.directMatch = true;
+          }
         }
       }
     }

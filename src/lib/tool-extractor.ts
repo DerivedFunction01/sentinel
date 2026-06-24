@@ -655,6 +655,7 @@ export async function generateToolRecommendation(
         metadata,
         tracker,
         trace,
+        existingTools, // pass existing tools for overlap assessment
       ));
     const inspirationExamplesBlock = formatInspirationExamplesBlock(examples);
 
@@ -710,6 +711,7 @@ export async function generateToolRecommendation(
             `Direct match from database: ${match.description}`,
           toolJson,
           mockResponse,
+          replaces: match.overlap?.replaceExisting,
         });
       }
 

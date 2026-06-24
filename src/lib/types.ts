@@ -68,6 +68,14 @@ export interface ToolRecommendationItem {
   replaces?: string;
 }
 
+/** Overlap information between a candidate database example and an existing tool. */
+export interface OverlapInfo {
+  score: number; // 0-100: degree of overlap with existing tools
+  replaceExisting?: string; // tool function name to replace (if score >= 70 and replacement is preferred)
+  merge?: boolean; // merge params into existing tool vs full replacement
+  rationale?: string; // explanation of the overlap decision
+}
+
 export interface HardeningTrace {
   step0?: {
     query?: string;

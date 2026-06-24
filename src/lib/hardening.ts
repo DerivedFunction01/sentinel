@@ -98,6 +98,7 @@ export async function generateHardenedPrompt(
       metadata,
       tracker,
       trace,
+      tools, // pass existing tools for overlap assessment
     );
   const inspirationExamplesBlock =
     formatInspirationExamplesBlock(inspirationExamples);
