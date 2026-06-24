@@ -159,6 +159,7 @@ export function getToolExtractionInstructions(
   inspirationExamplesBlock?: string,
   breachedTrials?: any[],
   mockToolResponses?: Record<string, any>,
+  summarizedPatterns?: string,
 ): string {
   let existingToolsBlock = "";
   if (existingTools && existingTools.length > 0) {
@@ -183,7 +184,12 @@ ${JSON.stringify(
   }
 
   let breachedTrialsBlock = "";
-  if (breachedTrials && breachedTrials.length > 0) {
+  if (summarizedPatterns) {
+    breachedTrialsBlock = `\nThreat analysis of successful attack patterns and strategies identified during a pentest:
+<attack_patterns>
+${summarizedPatterns}
+</attack_patterns>\n`;
+  } else if (breachedTrials && breachedTrials.length > 0) {
     breachedTrialsBlock = `\nAdversarial attack prompts that SUCCESSFULLY bypassed the system prompt, including the model's response and the judge's verdict detailing why it leaked:
 <breached_attack_trials>
 ${breachedTrials.map((t) => `${t.judgeVerdict || "None provided"}`).join("\n\n")}
@@ -415,6 +421,8 @@ export async function generateToolRecommendation(
         )
       : [];
 
+    const summarizedPatterns = metadata?.attackSummary?.summarizedPatterns;
+
     const extractionInstructions = getToolExtractionInstructions(
       hardenedPrompt,
       forbiddenTask,
@@ -424,6 +432,7 @@ export async function generateToolRecommendation(
       inspirationExamplesBlock,
       breachedTrials,
       mockToolResponses,
+      summarizedPatterns,
     );
 
     const messages: any[] = [{ role: "user", content: extractionInstructions }];
