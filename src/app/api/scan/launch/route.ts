@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { RiskLevel, ScanStatus } from "@/lib/enums";
-import { findDefaultModel } from "@/lib/model-utils";
+import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
 import { Granularity, type ToolDef } from "@/lib/types";
 import { executeScanPipeline, UsageTracker } from "@/lib/scan-pipeline";
 
@@ -192,6 +192,7 @@ export async function POST(req: Request) {
         },
         apiCost: result.apiCost,
         status: ScanStatus.Completed,
+        metadata: JSON.stringify(result.metadata),
       },
     });
   }

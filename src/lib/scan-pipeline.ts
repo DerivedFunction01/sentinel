@@ -610,6 +610,7 @@ export interface ScanPipelineResult {
   toolRecommendation?: string;
   compatibilityScore?: number;
   apiCost: number;
+  metadata?: any;
 }
 
 /**

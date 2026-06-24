@@ -68,6 +68,7 @@ model Scan {
   currentStep       Int      @default(0) // Current progress step
   totalSteps        Int      @default(0) // Total steps for progress calculation
   createdAt         DateTime @default(now())
+  metadata          String?  // JSON: ScanMetadata - stores seed extraction results, attack summaries, etc.
 
   hardenedPrompts   HardenedPrompt[]
 

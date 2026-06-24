@@ -193,6 +193,29 @@ export interface ScanSummary {
   relativeTime: string;
 }
 
+export interface ScanMetadata {
+  // Seed extraction results
+  seedExtraction?: {
+    thingName: string;
+    thingDescription: string;
+    thingNameVariants: string[];
+    thingDescriptionVariants: string[];
+    personaDescription: string;
+    businessFeatures: string[];
+    businessScenarios: string[];
+    businessCategories: BusinessCategory[];
+    extractorModel?: string;
+    extractedAt?: string;
+  };
+
+  // Attack pattern summarization
+  attackSummary?: {
+    summarizedPatterns: string;
+    breachedAttacks: BreachedAttack[];
+    summarizedAt?: string;
+  };
+}
+
 /** Authenticated user. */
 export interface User {
   firstName: string;
