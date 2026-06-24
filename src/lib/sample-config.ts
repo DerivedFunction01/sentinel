@@ -38,7 +38,13 @@ export const sampleTools: ToolDef[] = [
             type: "array",
             items: {
               type: "string",
-              enum: ["catalog", "general_information", "ordering"],
+              enum: [
+                "catalog",
+                "general_information",
+                "ordering",
+                "pricing",
+                "disputes",
+              ],
             },
           },
           query: {
@@ -74,6 +80,11 @@ export const sampleMockToolResponses: Record<string, unknown> = {
         policy:
           "All refunds, returns and disputes must be handled by calling our disputes management team. No exceptions",
         contact: "1-800-DIS-PUTE",
+      },
+      payment: {
+        accepted_methods: ["cash", "Visa", "Mastercard", "Discover", "AMEX"],
+        non_cash_minimum: 15,
+        valid_currency: "USD",
       },
       general_information: {
         hours: "Mon–Fri 9–5 EST",
