@@ -20,7 +20,13 @@ import {
   loadPromptFile,
 } from "@/lib/scan-prompts";
 import { generateHardenedPrompt } from "@/lib/hardening";
-import { ToolDef, Trial, ToolCall, ScanMetadata } from "@/lib/types";
+import {
+  ToolDef,
+  Trial,
+  ToolCall,
+  ScanMetadata,
+  BreachedAttack,
+} from "@/lib/types";
 import { Granularity } from "./enums";
 import { BusinessCategory } from "./enums";
 
@@ -612,32 +618,22 @@ export type ProgressCallback = (
 // Attack summary
 // ────────────────────────────────────────────────────────────────────────────
 
-export function getAttackSummaryInstructions(breachedAttacks: any[]): string {
+export function getAttackSummaryInstructions(
+  breachedAttacks: BreachedAttack[],
+): string {
   const template = loadPromptFile("instructions_template_attack_summary.md");
 
-  // Check format and build appropriate list
-  const hasJudgeVerdicts =
-    breachedAttacks.length > 0 && typeof breachedAttacks[0] !== "string";
-
-  const attacksList = hasJudgeVerdicts
-    ? (
-        breachedAttacks as Array<{
-          attack: string;
-          judgeReasoning: string;
-          verdict: TrialVerdict;
-        }>
-      ).map(
-        (a, i) =>
-          `Attack ${i + 1}:\n"${a.attack}"\n\nJudge Verdict: ${a.verdict}\nJudge Reasoning: ${a.judgeReasoning}`,
-      )
-    : (breachedAttacks as string[]).map((a, i) => `${i + 1}. "${a}"`);
+  const attacksList = breachedAttacks.map(
+    (a, i) =>
+      `Attack ${i + 1}:\n"${a.attack}"\n\nJudge Verdict: ${a.verdict}\nJudge Reasoning: ${a.judgeReasoning}`,
+  );
 
   return template.replace("{{SUCCESSFUL_ATTACKS}}", attacksList.join("\n\n"));
 }
 
 export async function summarizeBreachedAttacks(
   callModel: (prompt: string) => Promise<string>,
-  breachedAttacks: any[],
+  breachedAttacks: BreachedAttack[],
 ): Promise<string> {
   const instructions = getAttackSummaryInstructions(breachedAttacks);
   try {
@@ -1026,12 +1022,6 @@ export async function executeScanPipeline(
       summarizedAt: new Date().toISOString(),
     },
   };
-
-  // Use rich summary text if available, fallback to generic
-  const modelShort = targetModel.split("/").pop() || targetModel;
-  const finalSummary = `Adversarial pressure on ${modelShort}.`;
-  const finalSummaryDetail = `${totalTrials} adversarial trials probed a ${modelShort} deployment. ${breaches} landed (${breachRate}% breach rate).`;
-
   let hardenedPrompt = "";
   let hardeningModelId = "";
   let hardeningModelName = "";
