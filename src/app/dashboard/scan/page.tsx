@@ -123,11 +123,21 @@ export default function PenTestScanPage() {
           setScanStatus(data.status || "running");
 
           // Check if scan is complete
-          if (
-            data.status === "completed" ||
+          if (data.status === "completed") {
+            // Short delay so user sees 100% before navigation
+            setTimeout(handleScanComplete, 800);
+          } else if (data.status === "failed") {
+            setScanning(false);
+            toast.error("Scan failed", {
+              description:
+                data.summary || "The scan pipeline encountered an error.",
+            });
+          } else if (
+            data.totalSteps > 0 &&
             data.currentStep >= data.totalSteps
           ) {
-            handleScanComplete();
+            // Fallback completion detection if status wasn't updated yet
+            setTimeout(handleScanComplete, 800);
           }
         }
       } catch (error) {

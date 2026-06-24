@@ -103,12 +103,13 @@ export async function POST(req: Request) {
     dbModels,
   };
 
-  // Execute scans for each target model
+  // Create scan records and start pipelines asynchronously
   const reportIds: string[] = [];
   for (const targetModel of targetModels) {
-    // Create initial Scan record with RUNNING status before executing pipeline
     const reportId = generateReportId();
+    reportIds.push(reportId);
 
+    // Create Scan record with RUNNING status before starting pipeline
     await db.scan.create({
       data: {
         reportId,
@@ -133,14 +134,13 @@ export async function POST(req: Request) {
         apiCost: 0,
         status: ScanStatus.Running,
         currentStep: 0,
-        totalSteps: 0, // Will be updated during execution
+        totalSteps: 0, // Will be updated by the background pipeline
       },
     });
 
-    reportIds.push(reportId);
-
-    // Execute pipeline with progress callback to update database
-    const result = await executeScanPipeline(
+    // Start pipeline asynchronously — don't await so the HTTP response returns
+    // immediately and the frontend can poll progress in real-time.
+    runPipelineInBackground(
       {
         systemPrompt,
         forbiddenTask,
@@ -158,7 +158,57 @@ export async function POST(req: Request) {
         includeToolRecommendation: true,
         enableHardening: body.enableHardening !== false,
       },
-      // Progress callback - updates database with current progress
+      reportId,
+      dbModels,
+    ).catch((err) =>
+      console.error(`Background pipeline failed for ${reportId}:`, err),
+    );
+  }
+
+  // Return immediately — scan is now running in background,
+  // frontend polls /api/scan/progress/[reportId] for updates.
+  return NextResponse.json({
+    scanIds: reportIds,
+    reportId: reportIds[0],
+    tokensRemaining: user.scanTokens - targetModels.length,
+    scansCreated: reportIds.length,
+  });
+}
+
+/**
+ * Run the scan pipeline in the background and update the database with results.
+ * This allows the launch endpoint to return immediately so the frontend can poll
+ * progress via /api/scan/progress/[reportId] while the pipeline executes.
+ */
+async function runPipelineInBackground(
+  options: {
+    systemPrompt: string;
+    forbiddenTask: string;
+    judgeInstructions: string;
+    targetModel: string;
+    attackerModel: string;
+    judgeModel: string;
+    hardenerModel: string;
+    seedExtractorModel: string;
+    extractorModel: string;
+    tools: ToolDef[];
+    mockToolResponses: Record<string, unknown>;
+    userId: string;
+    granularity: Granularity;
+    includeToolRecommendation: boolean;
+    enableHardening: boolean;
+  },
+  reportId: string,
+  dbModels: any[],
+) {
+  try {
+    const modelShort =
+      options.targetModel.split("/").pop() || options.targetModel;
+
+    const result = await executeScanPipeline(
+      options,
+      // Progress callback — updates database with current step so the
+      // frontend polling endpoint can read it.
       async (currentStep, totalSteps) => {
         await db.scan.update({
           where: { reportId },
@@ -170,8 +220,7 @@ export async function POST(req: Request) {
       },
     );
 
-    const modelShort = targetModel.split("/").pop() || targetModel;
-
+    // Update scan record with final results
     await db.scan.update({
       where: { reportId },
       data: {
@@ -191,7 +240,7 @@ export async function POST(req: Request) {
             toolRecommendation: result.toolRecommendation,
             compatibilityScore: result.compatibilityScore,
             granularity: Granularity.Compact,
-            extractorModel,
+            extractorModel: options.extractorModel,
           },
         },
         apiCost: result.apiCost,
@@ -199,17 +248,21 @@ export async function POST(req: Request) {
         metadata: JSON.stringify(result.metadata),
       },
     });
+  } catch (error) {
+    console.error(`Pipeline failed for ${reportId}:`, error);
+    // Mark scan as failed so the frontend polling detects it
+    await db.scan.update({
+      where: { reportId },
+      data: {
+        status: ScanStatus.Failed,
+        summary: "Scan pipeline execution failed.",
+        summaryDetail: `An unexpected error occurred: ${(error as Error).message || "Unknown error"}`,
+      },
+    });
   }
-
-  return NextResponse.json({
-    scanIds: reportIds,
-    reportId: reportIds[0], // navigate to the first scan
-    tokensRemaining: user.scanTokens - targetModels.length,
-    scansCreated: reportIds.length,
-  });
 }
 
-// Helper function for generating report ID (imported from scan-pipeline)
+// Helper function for generating report ID
 function generateReportId(): string {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);

@@ -13,6 +13,7 @@ import {
   formatModelName,
 } from "@/lib/enums";
 import type { Scan, ScanSummary, ToolDef, Trial } from "@/lib/types";
+import { DEFAULT_MODEL } from "./model-utils";
 
 /** Convert a Prisma Scan row to the typed Scan structure. */
 export function deserializeScan(row: {
