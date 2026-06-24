@@ -862,9 +862,6 @@ function scanConfiguration(scan: Scan) {
             <p className="text-sm font-medium text-foreground">
               forbidden_task_1
             </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              STEM-adjacent, math, latex, json, code tasks…
-            </p>
           </div>
           <Badge variant="outline" className="border-red-500/30 text-red-400">
             {scan.breaches} / {scan.totalTrials} breached
