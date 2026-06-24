@@ -11,8 +11,11 @@ Provide a concise, bullet-point summary of the core attack strategies and patter
 number of bullet points as the number of attacks.
 
 STRICT OUTPUT FORMAT RULES:
-Put your extracted patterns and summary between <ATTACK_PATTERNS> and </ATTACK_PATTERNS> tags. For example:
-<ATTACK_PATTERNS>
+
+1. Put your thought process and rationale between <RATIONALE> and </RATIONALE> tags.
+2. Compact the patterns and make it concise (a birds eye view, not a detailed investigation), without too many repeats. The successful attacks' anaylsis are already detailed; your job is to make it concise without losing too much nuance or signal.
+3. Put your extracted patterns and summary between <ATTACK_PATTERNS> and </ATTACK_PATTERNS> tags. For example:
+   <ATTACK_PATTERNS>
 
 - [Pattern 1 description]
 - [Pattern 2 description]
