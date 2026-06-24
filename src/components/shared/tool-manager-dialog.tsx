@@ -215,237 +215,30 @@ export function ToolManagerDialog({
           </TabsList>
 
           {/* ── RECOMMENDED TAB ── */}
-          <TabsContent value="recommended" className="space-y-3 mt-0">
-            {parsedRecommended.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/5 p-6 text-center">
-                <p className="text-xs text-slate-400">
-                  No new tool recommendations to add.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400">
-                    {selectedToAdd.size} of {parsedRecommended.length} selected
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={selectAllAdd}
-                      className="h-7 text-[11px] text-slate-400 hover:text-white"
-                    >
-                      Select all
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={deselectAllAdd}
-                      className="h-7 text-[11px] text-slate-400 hover:text-white"
-                    >
-                      Deselect all
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-                  {parsedRecommended.map((tool, idx) => {
-                    const isChecked = selectedToAdd.has(tool.name);
-                    const isExpanded = expandedAdd.has(idx);
-                    const score = tool.compatibilityScore ?? 0;
-                    return (
-                      <div
-                        key={idx}
-                        className="rounded-lg border border-slate-800 bg-slate-950/40 p-3"
-                      >
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            checked={isChecked}
-                            onCheckedChange={() => toggleAdd(tool.name)}
-                            className="mt-0.5"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-mono text-sm font-bold text-blue-400 truncate">
-                                {tool.name}
-                              </span>
-                              <span
-                                className={`rounded border px-1.5 py-0.5 text-[9px] font-medium ${scoreColor(score)}`}
-                              >
-                                {scoreLabel(score)} · {score}
-                              </span>
-                            </div>
-                            {tool.rationale && (
-                              <p className="mt-1 text-[11px] leading-relaxed text-slate-400 line-clamp-2">
-                                {tool.rationale}
-                              </p>
-                            )}
-                            <div className="mt-2 flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleExpandedAdd(idx)}
-                                className="h-7 text-[11px] text-slate-400 hover:text-white px-2"
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="mr-1 h-3 w-3" />
-                                ) : (
-                                  <ChevronRight className="mr-1 h-3 w-3" />
-                                )}
-                                {isExpanded ? "Hide" : "Show"} schema & mock
-                              </Button>
-                            </div>
-                            {isExpanded && (
-                              <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                  <span className="text-[10px] font-semibold text-slate-400">
-                                    JSON Schema
-                                  </span>
-                                  <CodeHighlight
-                                    code={JSON.stringify(
-                                      tool.toolJson,
-                                      null,
-                                      2,
-                                    )}
-                                    language="json"
-                                    className="text-[9px] p-2 max-h-40 overflow-y-auto border border-white/5 rounded"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <span className="text-[10px] font-semibold text-slate-400">
-                                    Mock Response
-                                  </span>
-                                  <CodeHighlight
-                                    code={JSON.stringify(
-                                      tool.mockResponse,
-                                      null,
-                                      2,
-                                    )}
-                                    language="json"
-                                    className="text-[9px] p-2 max-h-40 overflow-y-auto border border-white/5 rounded"
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </TabsContent>
+          {Recommended(
+            parsedRecommended,
+            selectedToAdd,
+            selectAllAdd,
+            deselectAllAdd,
+            expandedAdd,
+            toggleAdd,
+            scoreColor,
+            scoreLabel,
+            toggleExpandedAdd,
+          )}
 
           {/* ── CURRENT TOOLS TAB ── */}
-          <TabsContent value="current" className="space-y-3 mt-0">
-            {existingToolNames.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/5 p-6 text-center">
-                <p className="text-xs text-slate-400">
-                  No existing tools in this scan configuration.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400">
-                    {existingToolNames.length - selectedToRemove.size} of{" "}
-                    {existingToolNames.length} will be kept
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={selectAllRemove}
-                      className="h-7 text-[11px] text-red-400 hover:text-red-300"
-                    >
-                      Deselect all (remove all)
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={deselectAllRemove}
-                      className="h-7 text-[11px] text-slate-400 hover:text-white"
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-                  {existingTools.map((tool, idx) => {
-                    const name = tool.function?.name || `tool-${idx}`;
-                    const isChecked = !selectedToRemove.has(name);
-                    const isExpanded = expandedRemove.has(idx);
-                    const hasMock = existingMockKeys.includes(name);
-                    return (
-                      <div
-                        key={idx}
-                        className="rounded-lg border border-slate-800 bg-slate-950/40 p-3"
-                      >
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            checked={isChecked}
-                            onCheckedChange={() => toggleRemove(name)}
-                            className="mt-0.5"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-mono text-sm font-bold text-purple-400 truncate">
-                                {name}
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                {hasMock && (
-                                  <span className="rounded bg-purple-600/15 px-1.5 py-0.5 text-[9px] font-medium text-purple-300 border border-purple-600/20">
-                                    has mock
-                                  </span>
-                                )}
-                                {!isChecked && (
-                                  <span className="rounded bg-red-600/15 px-1.5 py-0.5 text-[9px] font-medium text-red-300 border border-red-600/20 flex items-center gap-1">
-                                    <Trash2 className="h-3 w-3" />
-                                    removing
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            {tool.function?.description && (
-                              <p className="mt-1 text-[11px] leading-relaxed text-slate-400 line-clamp-2">
-                                {tool.function.description}
-                              </p>
-                            )}
-                            <div className="mt-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleExpandedRemove(idx)}
-                                className="h-7 text-[11px] text-slate-400 hover:text-white px-2"
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="mr-1 h-3 w-3" />
-                                ) : (
-                                  <ChevronRight className="mr-1 h-3 w-3" />
-                                )}
-                                {isExpanded ? "Hide" : "Show"} definition
-                              </Button>
-                              {isExpanded && (
-                                <div className="mt-2">
-                                  <CodeHighlight
-                                    code={JSON.stringify(tool, null, 2)}
-                                    language="json"
-                                    className="text-[9px] p-2 max-h-48 overflow-y-auto border border-white/5 rounded"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </TabsContent>
+          {CurrentTools(
+            existingToolNames,
+            selectedToRemove,
+            selectAllRemove,
+            deselectAllRemove,
+            existingTools,
+            expandedRemove,
+            existingMockKeys,
+            toggleRemove,
+            toggleExpandedRemove,
+          )}
         </Tabs>
 
         <DialogFooter className="border-t border-slate-800/80 pt-4 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
@@ -489,6 +282,265 @@ export function ToolManagerDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CurrentTools(
+  existingToolNames: any[],
+  selectedToRemove: Set<string>,
+  selectAllRemove: () => void,
+  deselectAllRemove: () => void,
+  existingTools: any[],
+  expandedRemove: Set<number>,
+  existingMockKeys: string[],
+  toggleRemove: (name: string) => void,
+  toggleExpandedRemove: (idx: number) => void,
+) {
+  return (
+    <TabsContent value="current" className="space-y-3 mt-0">
+      {existingToolNames.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/5 p-6 text-center">
+          <p className="text-xs text-slate-400">
+            No existing tools in this scan configuration.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-400">
+              {existingToolNames.length - selectedToRemove.size} of{" "}
+              {existingToolNames.length} will be kept
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={selectAllRemove}
+                className="h-7 text-[11px] text-red-400 hover:text-red-300"
+              >
+                Deselect all (remove all)
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={deselectAllRemove}
+                className="h-7 text-[11px] text-slate-400 hover:text-white"
+              >
+                Reset
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+            {existingTools.map((tool, idx) => {
+              const name = tool.function?.name || `tool-${idx}`;
+              const isChecked = !selectedToRemove.has(name);
+              const isExpanded = expandedRemove.has(idx);
+              const hasMock = existingMockKeys.includes(name);
+              return (
+                <div
+                  key={idx}
+                  className="rounded-lg border border-slate-800 bg-slate-950/40 p-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={() => toggleRemove(name)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-sm font-bold text-purple-400 truncate">
+                          {name}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {hasMock && (
+                            <span className="rounded bg-purple-600/15 px-1.5 py-0.5 text-[9px] font-medium text-purple-300 border border-purple-600/20">
+                              has mock
+                            </span>
+                          )}
+                          {!isChecked && (
+                            <span className="rounded bg-red-600/15 px-1.5 py-0.5 text-[9px] font-medium text-red-300 border border-red-600/20 flex items-center gap-1">
+                              <Trash2 className="h-3 w-3" />
+                              removing
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {tool.function?.description && (
+                        <p className="mt-1 text-[11px] leading-relaxed text-slate-400 line-clamp-2">
+                          {tool.function.description}
+                        </p>
+                      )}
+                      <div className="mt-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleExpandedRemove(idx)}
+                          className="h-7 text-[11px] text-slate-400 hover:text-white px-2"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="mr-1 h-3 w-3" />
+                          ) : (
+                            <ChevronRight className="mr-1 h-3 w-3" />
+                          )}
+                          {isExpanded ? "Hide" : "Show"} definition
+                        </Button>
+                        {isExpanded && (
+                          <div className="mt-2">
+                            <CodeHighlight
+                              code={JSON.stringify(tool, null, 2)}
+                              language="json"
+                              className="text-[9px] p-2 max-h-48 overflow-y-auto border border-white/5 rounded"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </TabsContent>
+  );
+}
+
+function Recommended(
+  parsedRecommended: RecommendedTool[],
+  selectedToAdd: Set<string>,
+  selectAllAdd: () => void,
+  deselectAllAdd: () => void,
+  expandedAdd: Set<number>,
+  toggleAdd: (name: string) => void,
+  scoreColor: (
+    score?: number,
+  ) =>
+    | "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
+    | "bg-amber-500/15 text-amber-400 border-amber-500/20"
+    | "bg-red-500/15 text-red-400 border-red-500/20"
+    | "bg-slate-500/15 text-slate-400 border-slate-500/20",
+  scoreLabel: (
+    score?: number,
+  ) => "Unknown" | "Low-risk" | "Moderate" | "High-priority",
+  toggleExpandedAdd: (idx: number) => void,
+) {
+  return (
+    <TabsContent value="recommended" className="space-y-3 mt-0">
+      {parsedRecommended.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/5 p-6 text-center">
+          <p className="text-xs text-slate-400">
+            No new tool recommendations to add.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-400">
+              {selectedToAdd.size} of {parsedRecommended.length} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={selectAllAdd}
+                className="h-7 text-[11px] text-slate-400 hover:text-white"
+              >
+                Select all
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={deselectAllAdd}
+                className="h-7 text-[11px] text-slate-400 hover:text-white"
+              >
+                Deselect all
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+            {parsedRecommended.map((tool, idx) => {
+              const isChecked = selectedToAdd.has(tool.name);
+              const isExpanded = expandedAdd.has(idx);
+              const score = tool.compatibilityScore ?? 0;
+              return (
+                <div
+                  key={idx}
+                  className="rounded-lg border border-slate-800 bg-slate-950/40 p-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={() => toggleAdd(tool.name)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-sm font-bold text-blue-400 truncate">
+                          {tool.name}
+                        </span>
+                        <span
+                          className={`rounded border px-1.5 py-0.5 text-[9px] font-medium ${scoreColor(score)}`}
+                        >
+                          {scoreLabel(score)} · {score}
+                        </span>
+                      </div>
+                      {tool.rationale && (
+                        <p className="mt-1 text-[11px] leading-relaxed text-slate-400 line-clamp-2">
+                          {tool.rationale}
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleExpandedAdd(idx)}
+                          className="h-7 text-[11px] text-slate-400 hover:text-white px-2"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="mr-1 h-3 w-3" />
+                          ) : (
+                            <ChevronRight className="mr-1 h-3 w-3" />
+                          )}
+                          {isExpanded ? "Hide" : "Show"} schema & mock
+                        </Button>
+                      </div>
+                      {isExpanded && (
+                        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-semibold text-slate-400">
+                              JSON Schema
+                            </span>
+                            <CodeHighlight
+                              code={JSON.stringify(tool.toolJson, null, 2)}
+                              language="json"
+                              className="text-[9px] p-2 max-h-40 overflow-y-auto border border-white/5 rounded"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-semibold text-slate-400">
+                              Mock Response
+                            </span>
+                            <CodeHighlight
+                              code={JSON.stringify(tool.mockResponse, null, 2)}
+                              language="json"
+                              className="text-[9px] p-2 max-h-40 overflow-y-auto border border-white/5 rounded"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </TabsContent>
   );
 }
 
