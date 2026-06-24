@@ -37,7 +37,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Granularity, BusinessCategory } from "@/lib/types";
+import { Granularity } from "@/lib/enums";
+import { BusinessCategory } from "@/lib/enums";
 import { Check } from "lucide-react";
 import { ToolExampleCategory } from "@/lib/enums";
 

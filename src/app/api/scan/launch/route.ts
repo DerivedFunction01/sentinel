@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { RiskLevel, ScanStatus } from "@/lib/enums";
+import { RiskLevel, ScanStatus, TrialVerdict } from "@/lib/enums";
 import {
   DEFAULT_MODEL,
   findDefaultModel,
   UsageTracker,
 } from "@/lib/model-utils";
-import { Granularity, type ToolDef } from "@/lib/types";
+import { type ToolDef } from "@/lib/types";
+import { Granularity } from "@/lib/enums";
 import {
   generateAttackSet,
   executeTargetJudgePipeline,
@@ -321,7 +322,7 @@ async function runModelPromptPipeline(
 
     // Generate attack summary
     const breachedAttacksWithVerdicts = result.trials
-      .filter((t) => t.verdict === ("BREACHED" as any))
+      .filter((t) => t.verdict === TrialVerdict.Breached)
       .map((t) => ({
         attack: t.attack,
         judgeReasoning: t.judgeVerdict,
@@ -343,12 +344,8 @@ async function runModelPromptPipeline(
       console.error("Attack summarization failed:", err);
     }
 
-    const finalSummary = attackSummaryText
-      ? attackSummaryText
-      : `Adversarial pressure on ${modelShort}.`;
-    const finalSummaryDetail = attackSummaryText
-      ? `${result.totalTrials} adversarial trials probed a ${modelShort} deployment. ${result.breaches} landed (${result.breachRate}% breach rate).`
-      : `${result.totalTrials} adversarial trials probed a ${modelShort} deployment. ${result.breaches} landed (${result.breachRate}% breach rate).`;
+    const finalSummary = `Adversarial pressure on ${modelShort}.`;
+    const finalSummaryDetail = `${result.totalTrials} adversarial trials probed a ${modelShort} deployment. ${result.breaches} landed (${result.breachRate}% breach rate).`;
 
     // Temporarily disable hardening for batch scans to keep things simpler
     // TODO: Re-enable hardening for batch scans with per-scan results

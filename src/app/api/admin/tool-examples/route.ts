@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ToolExampleCategory, UserRole } from "@/lib/enums";
-import { BusinessCategory } from "@/lib/types";
+import { BusinessCategory } from "@/lib/enums";
 
 /** GET /api/admin/tool-examples - Fetch all examples */
 export async function GET() {

@@ -1,12 +1,8 @@
 import { db } from "@/lib/db";
 import { callOpenRouter } from "@/lib/model-utils";
-import {
-  Granularity,
-  HardeningTrace,
-  BusinessCategory,
-  BreachedAttack,
-  ScanMetadata,
-} from "./types";
+import { HardeningTrace, BreachedAttack, ScanMetadata } from "./types";
+import { Granularity } from "./enums";
+import { BusinessCategory } from "./enums";
 
 export interface InspirationExample {
   name: string;

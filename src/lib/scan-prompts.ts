@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { HardeningTrace, BusinessCategory, BreachedAttack } from "./types";
+import { HardeningTrace, BreachedAttack } from "./types";
+import { BusinessCategory } from "./enums";
 import { TrialVerdict } from "@/lib/enums";
 
 export function loadPromptFile(filename: string): string {

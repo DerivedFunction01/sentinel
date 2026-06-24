@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Brain, Target, Gavel, Shield, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ScanStatus } from "@/lib/enums";
 
 /**
  * The three pipeline stages, in execution order. Each trial cycles through
@@ -16,7 +17,7 @@ interface ScanProgressPanelProps {
   /** Current step - if provided, uses real progress instead of simulation */
   currentStep?: number;
   /** Scan status - "running", "completed", "failed", etc. */
-  scanStatus?: string;
+  scanStatus?: ScanStatus;
   /** Called when the simulated scan reaches the final step. */
   onComplete: () => void;
 }
@@ -77,7 +78,7 @@ export function ScanProgressPanel({
       // 1. The backend explicitly reports "completed" status, OR
       // 2. totalSteps > 0 and we've reached the final step (backup detection)
       if (
-        scanStatus === "completed" ||
+        scanStatus === ScanStatus.Completed ||
         (totalSteps > 0 && currentStep >= totalSteps)
       ) {
         const t = setTimeout(onComplete, 400);

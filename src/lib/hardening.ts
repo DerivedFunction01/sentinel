@@ -26,8 +26,8 @@ import {
   type ScanMetadata,
   type BreachedAttack,
   type HardeningTrace,
-  Granularity,
 } from "@/lib/types";
+import { Granularity } from "./enums";
 
 export interface GenerateHardenedPromptParams {
   systemPrompt: string;

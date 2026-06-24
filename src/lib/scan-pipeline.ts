@@ -20,14 +20,9 @@ import {
   loadPromptFile,
 } from "@/lib/scan-prompts";
 import { generateHardenedPrompt } from "@/lib/hardening";
-import {
-  ToolDef,
-  Trial,
-  ToolCall,
-  Granularity,
-  BusinessCategory,
-  ScanMetadata,
-} from "@/lib/types";
+import { ToolDef, Trial, ToolCall, ScanMetadata } from "@/lib/types";
+import { Granularity } from "./enums";
+import { BusinessCategory } from "./enums";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Shared seed / attack types

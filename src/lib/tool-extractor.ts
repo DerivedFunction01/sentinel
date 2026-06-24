@@ -6,10 +6,10 @@ import {
   ToolDef,
   ToolRecommendationItem,
   HardeningTrace,
-  Granularity,
-  BusinessCategory,
   ScanMetadata,
 } from "./types";
+import { Granularity } from "./enums";
+import { BusinessCategory } from "./enums";
 import {
   retrieveInspirationExamples,
   formatInspirationExamplesBlock,

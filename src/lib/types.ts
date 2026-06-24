@@ -2,7 +2,9 @@
  * SentinelPrompt — Domain Types
  */
 import type {
+  BusinessCategory,
   DashboardRoute,
+  Granularity,
   JudgeLabel,
   RiskLevel,
   ScanStatus,
@@ -47,22 +49,6 @@ export interface Trial {
   targetThing?: string;
   /** The raw seed prompt template before attack generator optimization. */
   seedTemplate?: string;
-}
-export enum Granularity {
-  Compact = "compact",
-  Detailed = "detailed",
-}
-export enum BusinessCategory {
-  GENERAL = "GENERAL",
-  BUSINESS_UNIVERSAL = "BUSINESS_UNIVERSAL",
-  RETAIL_HOSPITALITY_RESTAURANT = "RETAIL_HOSPITALITY_RESTAURANT_TRANSPORTATION",
-  LAW_FIRM = "LAW_FIRM",
-  BANKING_FINANCE = "BANKING_FINANCE",
-  MEDICAL_HOSPITAL = "MEDICAL_HOSPITAL",
-  ACCOUNTING_FIRM = "ACCOUNTING_FIRM",
-  CYBER_FIRM = "CYBER_FIRM",
-  CIVICS_VOTING = "CIVICS_VOTING",
-  PRIVACY = "PRIVACY",
 }
 // Type alias for backward compatibility and enriched data support
 export type BreachedAttack = {

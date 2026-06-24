@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { ScanStatus } from "@/lib/enums";
 import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
-import { Granularity, type ToolDef } from "@/lib/types";
+import { type ToolDef } from "@/lib/types";
+import { Granularity } from "@/lib/enums";
 import { executeScanPipeline } from "@/lib/scan-pipeline";
 
 export async function POST(

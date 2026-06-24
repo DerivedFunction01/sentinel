@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { Sparkles, Check } from "lucide-react";
-import { Granularity } from "@/lib/types";
+import { Granularity } from "@/lib/enums";
 import { DEFAULT_MODEL } from "@/lib/model-utils";
 
 interface GranularityPickerDialogProps {

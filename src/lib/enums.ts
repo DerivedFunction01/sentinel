@@ -40,6 +40,9 @@ export enum ScanStatus {
   Running = "running",
   Pending = "pending",
   Failed = "failed",
+  CompletedWithFailures = "completed_with_failures",
+  PartialFailure = "partial_failure",
+  Unknown = "unknown",
 }
 
 /** Filter applied to the trial-by-trial breakdown in the report view. */
@@ -154,4 +157,20 @@ export function formatModelName(modelId: string): string {
     .join(" ");
 
   return provider ? `${formattedProvider} ${formattedModel}` : formattedModel;
+}
+export enum BusinessCategory {
+  GENERAL = "GENERAL",
+  BUSINESS_UNIVERSAL = "BUSINESS_UNIVERSAL",
+  RETAIL_HOSPITALITY_RESTAURANT = "RETAIL_HOSPITALITY_RESTAURANT_TRANSPORTATION",
+  LAW_FIRM = "LAW_FIRM",
+  BANKING_FINANCE = "BANKING_FINANCE",
+  MEDICAL_HOSPITAL = "MEDICAL_HOSPITAL",
+  ACCOUNTING_FIRM = "ACCOUNTING_FIRM",
+  CYBER_FIRM = "CYBER_FIRM",
+  CIVICS_VOTING = "CIVICS_VOTING",
+  PRIVACY = "PRIVACY",
+}
+export enum Granularity {
+  Compact = "compact",
+  Detailed = "detailed",
 }

@@ -73,8 +73,8 @@ export function MultiScanProgress({
 
           // Check if all complete
           if (
-            json.status === "completed" ||
-            json.status === "completed_with_failures"
+            json.status === ScanStatus.Completed ||
+            json.status === ScanStatus.CompletedWithFailures
           ) {
             setTimeout(onComplete, 1200);
           }
@@ -101,9 +101,10 @@ export function MultiScanProgress({
 
   const selected = data.scans[selectedIdx];
   const allDone =
-    data.status === "completed" || data.status === "completed_with_failures";
+    data.status === ScanStatus.Completed ||
+    data.status === ScanStatus.CompletedWithFailures;
 
-  const statusBadge = (status: string) => {
+  const statusBadge = (status: ScanStatus) => {
     if (status === ScanStatus.Completed)
       return (
         <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30">

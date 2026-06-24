@@ -4,7 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { callOpenRouter, DEFAULT_MODEL } from "@/lib/model-utils";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
-import { type ToolDef, type HardeningTrace, Granularity } from "@/lib/types";
+import { type ToolDef, type HardeningTrace } from "@/lib/types";
+import { Granularity } from "@/lib/enums";
 import { generateHardenedPrompt } from "@/lib/hardening";
 import { getDeterministicHardenedPrompt } from "@/lib/scan-prompts";
 
