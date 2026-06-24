@@ -49,11 +49,11 @@ export async function retrieveInspirationExamples(
         : "";
 
     const prompt = `You are a search query generator. Your task is to analyze the following security constraint/forbidden task of an AI assistant and generate search tags and a keyword query to find relevant tool schema templates in our database.
-    
+
 Forbidden Task: "${forbiddenTask}"
 Target Granularity: ${granularity}${businessCategoryContext}${personaContext}${featuresContext}${scenariosContext}
 
-Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords, e.g. "discount" or "refund"), "tags" (an array of lowercase tags, e.g. ["finance", "policy", "authentication", "pii", "moderation"]), and optionally "predictedCategories" (an array of business categories most relevant to this forbidden task, e.g. ["BANKING_FINANCE", "LAW_FIRM"]). Do not output any preamble, markdown blocks, or explanation.`;
+Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords, e.g. "discount" or "refund") and "tags" (an array of lowercase tags, e.g. ["finance", "policy", "authentication", "pii", "moderation"]). Do not output any preamble, markdown blocks, or explanation.`;
 
     const response = await callOpenRouter(
       extractorModel,
@@ -64,7 +64,6 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
 
     let query = "";
     let tags: string[] = [];
-    let predictedCategories: BusinessCategory[] = [];
     try {
       const cleaned = (response.content || "")
         .replace(/^```[a-zA-Z]*\n/g, "")
@@ -75,14 +74,7 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
       tags = Array.isArray(parsed.tags)
         ? parsed.tags.map((t: string) => t.toLowerCase())
         : [];
-      // Extract predicted business categories if provided by LLM
-      if (Array.isArray(parsed.predictedCategories)) {
-        predictedCategories = parsed.predictedCategories.filter(
-          (c: string) => typeof c === "string" && c.length > 0,
-        ) as BusinessCategory[];
-      }
     } catch (e) {
-      console.warn("Failed to parse search parameters from LLM response:", e);
       // Fallback search using split words from the forbidden task
       query = forbiddenTask.split(/\s+/)[0]?.toLowerCase() || "";
     }
@@ -107,82 +99,84 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
       );
     });
 
-    const scoredExamples = allExamples
-      .map((ex) => {
-        let matchingWordsCount = 0;
-        if (searchWords.length > 0) {
-          const nameLower = ex.name.toLowerCase();
-          const descLower = ex.description.toLowerCase();
-          const jsonLower = ex.toolJson.toLowerCase();
-          let tagsLower = "";
-          try {
-            tagsLower = JSON.stringify(JSON.parse(ex.tags)).toLowerCase();
-          } catch {}
+    const scoredExamples = allExamples.map((ex) => {
+      let matchingWordsCount = 0;
+      if (searchWords.length > 0) {
+        const nameLower = ex.name.toLowerCase();
+        const descLower = ex.description.toLowerCase();
+        const jsonLower = ex.toolJson.toLowerCase();
+        let tagsLower = "";
+        try {
+          tagsLower = JSON.stringify(JSON.parse(ex.tags)).toLowerCase();
+        } catch {}
 
-          searchWords.forEach((word) => {
-            if (
-              nameLower.includes(word) ||
-              descLower.includes(word) ||
-              tagsLower.includes(word) ||
-              jsonLower.includes(word)
-            ) {
-              matchingWordsCount++;
-            }
-          });
-        }
+        searchWords.forEach((word) => {
+          if (
+            nameLower.includes(word) ||
+            descLower.includes(word) ||
+            tagsLower.includes(word) ||
+            jsonLower.includes(word)
+          ) {
+            matchingWordsCount++;
+          }
+        });
+      }
 
-        const granularityBonus = ex.granularity === granularity ? 1 : 0;
+      const granularityBonus = ex.granularity === granularity ? 1 : 0;
 
-        // Calculate business category match bonus
-        let categoryBonus = 0;
-        if (businessCategories && businessCategories.length > 0) {
-          try {
-            const exampleCategories = JSON.parse(
-              ex.businessCategories || "[]",
-            ) as BusinessCategory[];
-            if (
-              Array.isArray(exampleCategories) &&
-              exampleCategories.length > 0
-            ) {
-              // Count how many target categories match the example's categories
-              const matchingCategories = businessCategories.filter((cat) =>
-                exampleCategories.includes(cat),
-              );
-              // Bonus proportional to match ratio (0 to 2 points)
-              categoryBonus =
-                (matchingCategories.length / businessCategories.length) * 2;
-            }
-          } catch {}
-        }
+      // Calculate business category match bonus using metadata categories directly
+      let categoryBonus = 0;
+      const categoriesToMatch = businessCategories;
+      if (categoriesToMatch && categoriesToMatch.length > 0) {
+        try {
+          const exampleCategories = JSON.parse(
+            ex.businessCategories || "[]",
+          ) as BusinessCategory[];
+          if (
+            Array.isArray(exampleCategories) &&
+            exampleCategories.length > 0
+          ) {
+            // Count how many target categories match the example's categories
+            const matchingCategories = categoriesToMatch.filter((cat) =>
+              exampleCategories.includes(cat),
+            );
+            // Bonus proportional to match ratio (0 to 2 points)
+            categoryBonus =
+              (matchingCategories.length / categoriesToMatch.length) * 2;
+          }
+        } catch {}
+      }
 
-        return {
-          ex,
-          matchingWordsCount,
-          granularityBonus,
-          categoryBonus,
-        };
-      })
-      .filter((item) => {
-        // If there are search words, only keep examples that match at least one search word
-        if (searchWords.length > 0) {
-          return item.matchingWordsCount > 0;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        // Sort by match count first (descending)
-        if (b.matchingWordsCount !== a.matchingWordsCount) {
-          return b.matchingWordsCount - a.matchingWordsCount;
-        }
-        // Then sort by category bonus (descending)
-        if (b.categoryBonus !== a.categoryBonus) {
-          return b.categoryBonus - a.categoryBonus;
-        }
-        // Then sort by granularity match bonus (descending)
-        return b.granularityBonus - a.granularityBonus;
-      });
+      return {
+        ex,
+        matchingWordsCount,
+        granularityBonus,
+        categoryBonus,
+      };
+    });
 
-    const filtered = scoredExamples.map((item) => item.ex);
+    const afterFilter = scoredExamples.filter((item) => {
+      // If there are search words, only keep examples that match at least one search word
+      if (searchWords.length > 0) {
+        return item.matchingWordsCount > 0;
+      }
+      return true;
+    });
+
+    const sortedExamples = afterFilter.sort((a, b) => {
+      // Sort by match count first (descending)
+      if (b.matchingWordsCount !== a.matchingWordsCount) {
+        return b.matchingWordsCount - a.matchingWordsCount;
+      }
+      // Then sort by category bonus (descending)
+      if (b.categoryBonus !== a.categoryBonus) {
+        return b.categoryBonus - a.categoryBonus;
+      }
+      // Then sort by granularity match bonus (descending)
+      return b.granularityBonus - a.granularityBonus;
+    });
+
+    const filtered = sortedExamples.map((item) => item.ex);
 
     // Return the top N examples
     const numberOfExamples = 4;
@@ -206,12 +200,11 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
         query,
         tags,
         retrievedExamples: result,
+        usedBusinessCategories: businessCategories,
       };
     }
-
     return result;
   } catch (err) {
-    console.error("Error retrieving inspiration examples:", err);
     return [];
   }
 }
