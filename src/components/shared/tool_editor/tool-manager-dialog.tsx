@@ -62,8 +62,8 @@ interface RecommendedTool {
 interface ToolEditorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  tool: any | null; // Pass the active tool object to edit
-  mockResponse: any | null; // Pass the active tool's mock response
+  tool: any | null;
+  mockResponse: any | null;
   onSave: (updatedToolJson: any, updatedMockResponse: any) => void;
 }
 
@@ -305,6 +305,7 @@ export function ToolEditorDialog({
     </Dialog>
   );
 }
+
 function parseRecommendedTools(raw: any[]): RecommendedTool[] {
   return raw.map((t) => {
     const name = t.name || t.toolJson?.function?.name || "Unnamed Tool";
