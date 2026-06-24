@@ -1,8 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { HardeningTrace, BreachedAttack } from "./types";
+import { HardeningTrace, BreachedAttack, SeedInfo } from "./types";
 import { BusinessCategory, CredentialMode } from "./enums";
 import { TrialVerdict } from "@/lib/enums";
+import { patterns, renderAttack } from "@/lib/attack-templates";
 
 export function loadPromptFile(filename: string): string {
   try {
@@ -120,16 +121,30 @@ your final output in first person here
 // </example_2>`;
 
 export const ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2 = (
-  thingName: string,
-  thingDescription: string,
-  attackDescription: string,
-  renderedParts: string[],
-  personaDescription: string,
-  businessFeatures: string[],
-  businessScenarios: string[],
-  credentials?: string[],
-  credentialMode?: CredentialMode | null,
+  seedInfo: SeedInfo,
+  layout: {
+    attackDescription: string;
+    patternId: string;
+  },
+  credentialMode?: CredentialMode,
 ) => {
+  const {
+    thingName,
+    thingDescription,
+    personaDescription,
+    businessFeatures,
+    businessScenarios,
+    credentials,
+  } = seedInfo;
+  const { attackDescription } = layout;
+
+  const draftParts = renderAttack(
+    patterns.find((p) => p.patternId === layout.patternId) || patterns[0],
+    thingName,
+    thingDescription,
+  );
+
+  const renderedParts = Array.isArray(draftParts) ? draftParts : [draftParts];
   const [opener, coreClaim, justification, closer] = renderedParts;
 
   let instructions = "";

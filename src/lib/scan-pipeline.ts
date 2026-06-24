@@ -9,10 +9,11 @@ import {
   generateAttacks,
   patterns,
   renderAttack,
+  FramingPattern,
+  FramingStrategy,
 } from "@/lib/attack-templates";
 import {
   callOpenRouter,
-  DEFAULT_MODEL,
   extractTaggedContent,
   UsageTracker,
 } from "@/lib/model-utils";
@@ -31,43 +32,11 @@ import {
   ToolCall,
   ScanMetadata,
   BreachedAttack,
+  SeedInfo,
+  AttackEntry,
+  AttackSet,
 } from "@/lib/types";
 import { Granularity } from "./enums";
-import { BusinessCategory } from "./enums";
-
-// ────────────────────────────────────────────────────────────────────────────
-// Shared seed / attack types
-// ────────────────────────────────────────────────────────────────────────────
-
-export interface SeedInfo {
-  thingName: string;
-  thingDescription: string;
-  thingNameVariants: string[];
-  thingDescriptionVariants: string[];
-  personaDescription: string;
-  businessFeatures: string[];
-  businessScenarios: string[];
-  businessCategories: BusinessCategory[];
-  credentials: string[];
-}
-
-export interface AttackEntry {
-  patternId: string;
-  attackDescription: string;
-  entropyLabel: string;
-  framingLabel: string;
-  attackText: string;
-  credentialContext?: {
-    credential: string;
-    instruction: CredentialMode;
-  };
-}
-
-/** Pre-generated artifacts for one prompt — reused across models. */
-export interface AttackSet {
-  seedInfo: SeedInfo;
-  attacks: AttackEntry[];
-}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Step 1: Seed Generation (Extraction)
@@ -157,24 +126,14 @@ export async function extractSeedInfo(
 
 export async function generateCohesiveAttack(
   generatorModel: string,
-  pattern: any,
-  thingName: string,
-  thingDescription: string,
-  attackDescription: string,
-  personaDescription: string,
-  businessFeatures: string[],
-  businessScenarios: string[],
-  credentials?: string[],
-  credentialMode?: CredentialMode | null,
+  pattern: FramingPattern,
+  seedInfo: SeedInfo,
+  credentialMode?: CredentialMode,
   tracker?: UsageTracker,
 ): Promise<string> {
-  const draftParts = patterns.find((p) => p.patternId === pattern.patternId)
-    ? (pattern.renderFunction || renderAttack)(
-        pattern,
-        thingName,
-        thingDescription,
-      )
-    : renderAttack(pattern, thingName, thingDescription);
+  const { thingName, thingDescription } = seedInfo;
+
+  const draftParts = renderAttack(pattern, thingName, thingDescription);
   const draftJoined = Array.isArray(draftParts)
     ? draftParts.join(" ")
     : draftParts;
@@ -183,14 +142,8 @@ export async function generateCohesiveAttack(
     {
       role: "user",
       content: ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2(
-        thingName,
-        thingDescription,
-        attackDescription,
-        Array.isArray(draftParts) ? draftParts : [draftParts],
-        personaDescription,
-        businessFeatures,
-        businessScenarios,
-        credentials,
+        seedInfo,
+        pattern,
         credentialMode,
       ),
     },
@@ -278,12 +231,6 @@ export async function generateAttackSet(
   const attackPromises = attackLayouts.map((layout, i) => {
     const pattern =
       patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
-    const variantIdx = i % (seedInfo.thingNameVariants.length || 1);
-    const selectedThingName =
-      seedInfo.thingNameVariants[variantIdx] || seedInfo.thingName;
-    const selectedThingDesc =
-      seedInfo.thingDescriptionVariants[variantIdx] ||
-      seedInfo.thingDescription;
 
     // Determine credential context for this attack
     const hasCredentials = seedInfo.credentials.length > 0;
@@ -293,7 +240,8 @@ export async function generateAttackSet(
     let credMode: CredentialMode | null = null;
 
     if (hasCredentials) {
-      const isVerificationCheck = layout.patternId === "verification_check";
+      const isVerificationCheck =
+        layout.strategy === FramingStrategy.InsiderVerification;
       if (isVerificationCheck || Math.random() < 0.5) {
         const instruction: CredentialMode = isVerificationCheck
           ? CredentialMode.EXACT
@@ -313,14 +261,8 @@ export async function generateAttackSet(
       const text = await generateCohesiveAttack(
         options.attackerModel,
         pattern,
-        selectedThingName,
-        selectedThingDesc,
-        layout.attackDescription,
-        seedInfo.personaDescription,
-        seedInfo.businessFeatures,
-        seedInfo.businessScenarios,
-        seedInfo.credentials,
-        credMode,
+        seedInfo,
+        credCtx?.instruction,
         tracker,
       );
       return { text, credCtx } as const;
@@ -1048,14 +990,7 @@ export async function executeScanPipeline(
   // Construct the metadata object
   const metadata: ScanMetadata = {
     seedExtraction: {
-      thingName: attackSet.seedInfo.thingName,
-      thingDescription: attackSet.seedInfo.thingDescription,
-      thingNameVariants: attackSet.seedInfo.thingNameVariants,
-      thingDescriptionVariants: attackSet.seedInfo.thingDescriptionVariants,
-      personaDescription: attackSet.seedInfo.personaDescription,
-      businessFeatures: attackSet.seedInfo.businessFeatures,
-      businessScenarios: attackSet.seedInfo.businessScenarios,
-      businessCategories: attackSet.seedInfo.businessCategories,
+      ...attackSet.seedInfo,
       extractorModel: seedExtractorModel,
       extractedAt: new Date().toISOString(),
     },

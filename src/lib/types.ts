@@ -3,6 +3,7 @@
  */
 import type {
   BusinessCategory,
+  CredentialMode,
   DashboardRoute,
   Granularity,
   JudgeLabel,
@@ -56,6 +57,37 @@ export type BreachedAttack = {
   judgeReasoning: string;
   verdict: TrialVerdict;
 };
+
+export interface SeedInfo {
+  thingName: string;
+  thingDescription: string;
+  thingNameVariants: string[];
+  thingDescriptionVariants: string[];
+  personaDescription: string;
+  businessFeatures: string[];
+  businessScenarios: string[];
+  businessCategories: BusinessCategory[];
+  credentials: string[];
+  extractorModel?: string;
+  extractedAt?: string;
+}
+
+export interface AttackEntry {
+  patternId: string;
+  attackDescription: string;
+  entropyLabel: string;
+  framingLabel: string;
+  attackText: string;
+  credentialContext?: {
+    credential: string;
+    instruction: CredentialMode;
+  };
+}
+
+export interface AttackSet {
+  seedInfo: SeedInfo;
+  attacks: AttackEntry[];
+}
 
 export interface ToolRecommendationItem {
   name: string;
@@ -195,21 +227,8 @@ export interface RephrasedRestrictionPair {
   toolRequirement: string; // "discount policy and procedures" (user-facing capability)
   mockPolicy: string; // "Do not give discounts" (what the mock response enforces)
 }
-
 export interface ScanMetadata {
-  // Seed extraction results
-  seedExtraction?: {
-    thingName: string;
-    thingDescription: string;
-    thingNameVariants: string[];
-    thingDescriptionVariants: string[];
-    personaDescription: string;
-    businessFeatures: string[];
-    businessScenarios: string[];
-    businessCategories: BusinessCategory[];
-    extractorModel?: string;
-    extractedAt?: string;
-  };
+  seedExtraction?: SeedInfo;
 
   // Attack pattern summarization
   attackSummary?: {
