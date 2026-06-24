@@ -323,6 +323,7 @@ interface ExampleActionsProps {
   onEdit: (example: ToolExample) => void;
   onDelete: (id: string) => void;
   onToggleDetails: () => void;
+  onCopy: (example: ToolExample) => void; // Add this
 }
 
 const ExampleActions = ({
@@ -331,6 +332,7 @@ const ExampleActions = ({
   onEdit,
   onDelete,
   onToggleDetails,
+  onCopy, // Add this
 }: ExampleActionsProps) => {
   return (
     <div className="flex shrink-0 gap-2 items-center">
@@ -341,6 +343,15 @@ const ExampleActions = ({
         onClick={onToggleDetails}
       >
         {isExpanded ? "Hide Details" : "View Details"}
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-muted-foreground hover:text-green-400 hover:bg-green-500/10 h-8 w-8"
+        onClick={() => onCopy(example)}
+        title="Copy to create new"
+      >
+        <Copy className="h-4 w-4" />
       </Button>
       <Button
         variant="ghost"
@@ -363,7 +374,6 @@ const ExampleActions = ({
     </div>
   );
 };
-
 /**
  * Single example card in the list
  */
@@ -373,6 +383,7 @@ interface ExampleCardProps {
   onEdit: (example: ToolExample) => void;
   onDelete: (id: string) => void;
   onToggleDetails: (id: string) => void;
+  onCopy: (example: ToolExample) => void; // Add this
 }
 
 const ExampleCard = ({
@@ -381,6 +392,7 @@ const ExampleCard = ({
   onEdit,
   onDelete,
   onToggleDetails,
+  onCopy,
 }: ExampleCardProps) => {
   const tags = getParsedTags(example.tags);
   const businessCategories = getParsedBusinessCategories(
@@ -423,6 +435,7 @@ const ExampleCard = ({
             onEdit={onEdit}
             onDelete={onDelete}
             onToggleDetails={() => onToggleDetails(example.id)}
+            onCopy={onCopy} // Add this
           />
         </div>
 
@@ -503,6 +516,7 @@ interface ExampleListProps {
   onEdit: (example: ToolExample) => void;
   onDelete: (id: string) => void;
   onToggleDetails: (id: string) => void;
+  onCopy: (example: ToolExample) => void; // Add this
 }
 
 const ExampleList = ({
@@ -511,6 +525,7 @@ const ExampleList = ({
   onEdit,
   onDelete,
   onToggleDetails,
+  onCopy,
 }: ExampleListProps) => {
   if (examples.length === 0) {
     return <EmptyState />;
@@ -526,6 +541,7 @@ const ExampleList = ({
           onEdit={onEdit}
           onDelete={onDelete}
           onToggleDetails={onToggleDetails}
+          onCopy={onCopy}
         />
       ))}
     </div>
@@ -744,16 +760,14 @@ function EditableForm({
           </div>
 
           <div className="flex gap-2">
-            {editingId && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancelEdit}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancelEdit}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
@@ -1046,6 +1060,40 @@ export function ToolExamplesClient({
     }
   };
 
+  const handleCopy = (ex: ToolExample) => {
+    // Pre-fill form with copied data, but clear the ID so it creates new
+    setEditingId(null); // Important: NOT editing mode
+    setName(`${ex.name} (Copy)`);
+    setDescription(ex.description);
+
+    let tagsList: string[] = [];
+    try {
+      tagsList = JSON.parse(ex.tags);
+    } catch {}
+    setTagsStr(tagsList.join(", "));
+
+    setGranularity(ex.granularity as any);
+    setCategory((ex.category as any) || ToolExampleCategory.Standard);
+    setToolJson(JSON.stringify(JSON.parse(ex.toolJson), null, 2));
+    setMockResponse(JSON.stringify(JSON.parse(ex.mockResponse), null, 2));
+    setToolJsonError(null);
+    setMockResponseError(null);
+
+    // Copy business categories
+    let catStr = "";
+    if (ex.businessCategories) {
+      try {
+        const parsed = JSON.parse(ex.businessCategories) as BusinessCategory[];
+        catStr = parsed.join(",");
+      } catch {}
+    }
+    setBusinessCategoriesStr(catStr);
+    setBusinessCategoriesDropdownOpen(false);
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    toast.success("Example copied! Ready to create as new.");
+  };
+
   return (
     <div className="h-screen p-6 bg-black text-foreground overflow-hidden">
       <div className="max-w-7xl mx-auto h-full flex flex-col">
@@ -1093,7 +1141,7 @@ export function ToolExamplesClient({
           </div>
 
           {/* Examples List */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 overflow-y-auto min-h-0 space-y-4">
             <input
               type="file"
               ref={fileInputRef}
@@ -1115,6 +1163,7 @@ export function ToolExamplesClient({
               onEdit={handleStartEdit}
               onDelete={handleDelete}
               onToggleDetails={setExpandedId}
+              onCopy={handleCopy}
             />
           </div>
         </div>
