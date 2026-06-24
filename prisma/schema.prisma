@@ -111,6 +111,7 @@ enum BusinessCategory {
   CYBER_FIRM
   CIVICS_VOTING
   PRIVACY
+  ROLEPLAY_FICTION
   GENERAL
 }
 
