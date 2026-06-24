@@ -92,8 +92,8 @@ Your entire response must strictly follow this template. Do not add any extra te
 [REASONING]
 your reasoning here
 
-[PARAGRAPH]
-your final paragraph in first person here
+[OUTPUT]
+your final output in first person here
 
 [END]`;
 

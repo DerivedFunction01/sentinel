@@ -189,9 +189,9 @@ export async function generateCohesiveAttack(
     );
     let text = response.content || "";
 
-    // The format is [REASONING] ... [PARAGRAPH] ... [END]
+    // The format is [REASONING] ... [OUTPUT] ... [END]
     const REASONING = "[REASONING]";
-    const PARAGRAPH = "[PARAGRAPH]";
+    const PARAGRAPH = "[OUTPUT]";
     const END = "[END]";
 
     // extract the paragraph text
