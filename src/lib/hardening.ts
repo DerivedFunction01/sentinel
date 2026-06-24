@@ -13,6 +13,7 @@ import {
 import {
   retrieveInspirationExamples,
   formatInspirationExamplesBlock,
+  type InspirationExample,
 } from "@/lib/inspiration-retriever";
 import {
   executeMultiStepHardening,
@@ -88,7 +89,20 @@ export async function generateHardenedPrompt(
     includeToolRecommendation = true,
   } = params;
 
-  // Step 1: Run tool extraction
+  // Step 1: Get inspiration examples from the database (shared between tool extractor and hardening)
+  const inspirationExamples: InspirationExample[] =
+    await retrieveInspirationExamples(
+      forbiddenTask,
+      extractorModel || DEFAULT_MODEL,
+      granularity,
+      metadata,
+      tracker,
+      trace,
+    );
+  const inspirationExamplesBlock =
+    formatInspirationExamplesBlock(inspirationExamples);
+
+  // Step 2: Run tool extraction (pass pre-fetched examples to avoid a second fetch)
   let toolRecommendation = "";
   let compatibilityScore = 0;
 
@@ -102,30 +116,19 @@ export async function generateHardenedPrompt(
       tracker,
       undefined,
       tools,
-      undefined,
+      trace,
       trials,
       mockToolResponses,
+      inspirationExamples,
     );
     toolRecommendation = result.toolRecommendation || "";
     compatibilityScore = result.compatibilityScore || 0;
   }
 
-  // Step 2: Parse recommended tools
+  // Step 3: Parse recommended tools
   const recommendedToolsList = toolRecommendation
     ? parseSectionedRecommendation(toolRecommendation)
     : [];
-
-  // Step 3: Get inspiration examples from the database
-  const inspirationExamples = await retrieveInspirationExamples(
-    forbiddenTask,
-    extractorModel || DEFAULT_MODEL,
-    granularity,
-    metadata,
-    tracker,
-    undefined,
-  );
-  const inspirationExamplesBlock =
-    formatInspirationExamplesBlock(inspirationExamples);
 
   // Step 4: Multi-step prompt hardening
   let hardenedPrompt = "";

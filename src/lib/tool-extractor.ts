@@ -13,6 +13,7 @@ import { BusinessCategory } from "./enums";
 import {
   retrieveInspirationExamples,
   formatInspirationExamplesBlock,
+  InspirationExample,
 } from "./inspiration-retriever";
 
 export function parseMarkdownSections(content: string): Record<string, string> {
@@ -389,22 +390,24 @@ export async function generateToolRecommendation(
   trace?: HardeningTrace,
   trials?: any[],
   mockToolResponses?: Record<string, any>,
+  inspirationExamples?: InspirationExample[],
 ): Promise<{
   toolRecommendation: string | null;
   compatibilityScore: number | null;
 }> {
   try {
     // Step 0: Retrieve inspiration examples from DB with full business context
-    const inspirationExamples = await retrieveInspirationExamples(
-      forbiddenTask,
-      extractorModel,
-      granularity,
-      metadata,
-      tracker,
-      trace,
-    );
-    const inspirationExamplesBlock =
-      formatInspirationExamplesBlock(inspirationExamples);
+    const examples =
+      inspirationExamples ??
+      (await retrieveInspirationExamples(
+        forbiddenTask,
+        extractorModel,
+        granularity,
+        metadata,
+        tracker,
+        trace,
+      ));
+    const inspirationExamplesBlock = formatInspirationExamplesBlock(examples);
 
     const breachedTrials = trials
       ? trials.filter(
