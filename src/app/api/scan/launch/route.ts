@@ -9,7 +9,24 @@ import {
   UsageTracker,
 } from "@/lib/model-utils";
 import { Granularity, type ToolDef } from "@/lib/types";
-import { executeScanPipeline } from "@/lib/scan-pipeline";
+import {
+  executeScanPipeline,
+  generateAttackSet,
+  executeTargetJudgePipeline,
+  generateReportId,
+  generateBatchId,
+  summarizeBreachedAttacks,
+} from "@/lib/scan-pipeline";
+import { callOpenRouter } from "@/lib/model-utils";
+
+/** Shape of a prompt config received from the frontend. */
+interface PromptPayload {
+  systemPrompt: string;
+  forbiddenTask: string;
+  judgeInstructions: string;
+  tools: string;
+  mockResponses: string;
+}
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -42,11 +59,34 @@ export async function POST(req: Request) {
     );
   }
 
+  // Accept multiple prompts
+  const promptsRaw: PromptPayload[] = Array.isArray(body.prompts)
+    ? body.prompts
+    : [
+        {
+          systemPrompt: (body.systemPrompt as string) || "",
+          forbiddenTask: (body.forbiddenTask as string) || "",
+          judgeInstructions: (body.judgeInstructions as string) || "",
+          tools: (body.tools as string) || "",
+          mockResponses: (body.mockResponses as string) || "",
+        },
+      ];
+
+  if (promptsRaw.length === 0) {
+    return NextResponse.json(
+      { error: "At least one prompt is required." },
+      { status: 400 },
+    );
+  }
+
+  // Calculate total scans for token deduction
+  const totalScans = targetModels.length * promptsRaw.length;
+
   // Check token balance.
-  if (user.scanTokens < targetModels.length) {
+  if (user.scanTokens < totalScans) {
     return NextResponse.json(
       {
-        error: `Not enough tokens. You need ${targetModels.length} but have ${user.scanTokens}.`,
+        error: `Not enough tokens. You need ${totalScans} but have ${user.scanTokens}.`,
       },
       { status: 403 },
     );
@@ -58,11 +98,7 @@ export async function POST(req: Request) {
   });
   const defaultModel = findDefaultModel(dbModels);
 
-  const systemPrompt = (body.systemPrompt as string) || "";
-  const forbiddenTask = (body.forbiddenTask as string) || "";
-  const judgeInstructions = (body.judgeInstructions as string) || "";
-
-  // Custom pipeline model overrides — accept either explicit field name, falling back to dynamically queried default
+  // Custom pipeline model overrides
   const seedExtractorModel =
     (body.seedExtractorModel as string) || defaultModel;
   const attackGeneratorModel =
@@ -73,114 +109,157 @@ export async function POST(req: Request) {
   const hardenerModel = (body.hardenerModel as string) || defaultModel;
   const extractorModel = (body.extractorModel as string) || DEFAULT_MODEL;
 
-  let tools: ToolDef[] = [];
-  let mockToolResponses: Record<string, unknown> = {};
-  try {
-    tools = body.tools ? (JSON.parse(body.tools) as ToolDef[]) : [];
-  } catch {
-    /* keep empty */
-  }
-  try {
-    mockToolResponses = body.mockResponses
-      ? (JSON.parse(body.mockResponses) as Record<string, unknown>)
-      : {};
-  } catch {
-    /* keep empty */
-  }
-
-  const toolsJson = JSON.stringify(tools);
-  const mockJson = JSON.stringify(mockToolResponses);
-
-  // Decrement tokens atomically.
-  await db.user.update({
-    where: { id: user.id },
-    data: { scanTokens: { decrement: targetModels.length } },
+  // Parse each prompt's tools and mock responses
+  const parsedPrompts = promptsRaw.map((p) => {
+    let tools: ToolDef[] = [];
+    let mockToolResponses: Record<string, unknown> = {};
+    try {
+      tools = p.tools ? (JSON.parse(p.tools) as ToolDef[]) : [];
+    } catch {
+      /* keep empty */
+    }
+    try {
+      mockToolResponses = p.mockResponses
+        ? (JSON.parse(p.mockResponses) as Record<string, unknown>)
+        : {};
+    } catch {
+      /* keep empty */
+    }
+    return {
+      systemPrompt: p.systemPrompt,
+      forbiddenTask: p.forbiddenTask,
+      judgeInstructions: p.judgeInstructions,
+      tools,
+      mockToolResponses,
+    };
   });
 
-  // Initialize a tracker to aggregate the total cost
+  // Decrement tokens atomically
+  await db.user.update({
+    where: { id: user.id },
+    data: { scanTokens: { decrement: totalScans } },
+  });
+
+  // Initialize a shared tracker for cost aggregation (rough estimate)
   const tracker: UsageTracker = {
     totalCost: 0,
     dbModels,
   };
 
-  // Create scan records and start pipelines asynchronously
-  const reportIds: string[] = [];
-  for (const targetModel of targetModels) {
-    const reportId = generateReportId();
-    reportIds.push(reportId);
+  // Generate a single batch ID for all scans in this launch
+  const batchId = generateBatchId();
 
-    // Create Scan record with RUNNING status before starting pipeline
-    await db.scan.create({
-      data: {
-        reportId,
-        userId: user.id,
-        targetModel,
-        attackerModel: attackGeneratorModel,
-        judgeModel,
-        hardenerModel,
-        systemPrompt,
-        forbiddenTask,
-        judgeInstructions,
-        tools: toolsJson,
-        mockToolResponses: mockJson,
-        trials: "[]",
-        score: 0,
-        riskLevel: RiskLevel.Unknown,
-        totalTrials: 0,
-        breaches: 0,
-        breachRate: 0,
-        summary: "",
-        summaryDetail: "",
-        apiCost: 0,
-        status: ScanStatus.Running,
-        currentStep: 0,
-        totalSteps: 0, // Will be updated by the background pipeline
-      },
-    });
-
-    // Start pipeline asynchronously — don't await so the HTTP response returns
-    // immediately and the frontend can poll progress in real-time.
-    runPipelineInBackground(
+  // Phase 1: Pre-generate attack sets for each unique prompt
+  // Attack generation uses the same attacker model + seedExtractor for all
+  const attackSets: Record<
+    number,
+    Awaited<ReturnType<typeof generateAttackSet>>
+  > = {};
+  const attackSetPromises = parsedPrompts.map(async (prompt, idx) => {
+    const attackSet = await generateAttackSet(
       {
-        systemPrompt,
-        forbiddenTask,
-        judgeInstructions,
-        targetModel,
+        systemPrompt: prompt.systemPrompt,
+        forbiddenTask: prompt.forbiddenTask,
+        judgeInstructions: prompt.judgeInstructions,
+        tools: prompt.tools,
+        mockToolResponses: prompt.mockToolResponses,
         attackerModel: attackGeneratorModel,
-        judgeModel,
-        hardenerModel,
         seedExtractorModel,
         extractorModel,
-        tools,
-        mockToolResponses,
-        userId: user.id,
-        granularity: Granularity.Compact,
-        includeToolRecommendation: true,
-        enableHardening: body.enableHardening !== false,
       },
-      reportId,
-      dbModels,
-    ).catch((err) =>
-      console.error(`Background pipeline failed for ${reportId}:`, err),
+      tracker,
     );
+    attackSets[idx] = attackSet;
+  });
+  await Promise.all(attackSetPromises);
+
+  // Phase 2: Create scan records and launch background pipelines
+  const scanInfos: Array<{
+    reportId: string;
+    targetModel: string;
+    promptIndex: number;
+  }> = [];
+
+  for (const targetModel of targetModels) {
+    for (let promptIdx = 0; promptIdx < parsedPrompts.length; promptIdx++) {
+      const prompt = parsedPrompts[promptIdx];
+      const reportId = generateReportId();
+      scanInfos.push({ reportId, targetModel, promptIndex: promptIdx });
+
+      const toolsJson = JSON.stringify(prompt.tools);
+      const mockJson = JSON.stringify(prompt.mockToolResponses);
+
+      // Create Scan record with RUNNING status
+      await db.scan.create({
+        data: {
+          reportId,
+          userId: user.id,
+          batchId,
+          promptIndex: promptIdx,
+          targetModel,
+          attackerModel: attackGeneratorModel,
+          judgeModel,
+          hardenerModel,
+          systemPrompt: prompt.systemPrompt,
+          forbiddenTask: prompt.forbiddenTask,
+          judgeInstructions: prompt.judgeInstructions,
+          tools: toolsJson,
+          mockToolResponses: mockJson,
+          trials: "[]",
+          score: 0,
+          riskLevel: RiskLevel.Unknown,
+          totalTrials: 0,
+          breaches: 0,
+          breachRate: 0,
+          summary: "",
+          summaryDetail: "",
+          apiCost: 0,
+          status: ScanStatus.Running,
+          currentStep: 0,
+          totalSteps: 0,
+        },
+      });
+
+      // Start pipeline asynchronously with shared attack set
+      runModelPromptPipeline(
+        {
+          systemPrompt: prompt.systemPrompt,
+          forbiddenTask: prompt.forbiddenTask,
+          judgeInstructions: prompt.judgeInstructions,
+          targetModel,
+          attackerModel: attackGeneratorModel,
+          judgeModel,
+          hardenerModel,
+          seedExtractorModel,
+          extractorModel,
+          tools: prompt.tools,
+          mockToolResponses: prompt.mockToolResponses,
+          userId: user.id,
+          granularity: Granularity.Compact,
+          includeToolRecommendation: true,
+          enableHardening: body.enableHardening !== false,
+        },
+        reportId,
+        attackSets[promptIdx],
+        dbModels,
+      ).catch((err) =>
+        console.error(`Background pipeline failed for ${reportId}:`, err),
+      );
+    }
   }
 
-  // Return immediately — scan is now running in background,
-  // frontend polls /api/scan/progress/[reportId] for updates.
   return NextResponse.json({
-    scanIds: reportIds,
-    reportId: reportIds[0],
-    tokensRemaining: user.scanTokens - targetModels.length,
-    scansCreated: reportIds.length,
+    batchId,
+    scans: scanInfos,
+    tokensRemaining: user.scanTokens - totalScans,
+    totalScans,
   });
 }
 
 /**
- * Run the scan pipeline in the background and update the database with results.
- * This allows the launch endpoint to return immediately so the frontend can poll
- * progress via /api/scan/progress/[reportId] while the pipeline executes.
+ * Run target+judge pipeline for one (model × prompt) combo using a pre-generated attack set.
  */
-async function runPipelineInBackground(
+async function runModelPromptPipeline(
   options: {
     systemPrompt: string;
     forbiddenTask: string;
@@ -199,26 +278,81 @@ async function runPipelineInBackground(
     enableHardening: boolean;
   },
   reportId: string,
+  attackSet: Awaited<ReturnType<typeof generateAttackSet>>,
   dbModels: any[],
 ) {
+  const tracker: UsageTracker = { totalCost: 0, dbModels };
+
   try {
     const modelShort =
       options.targetModel.split("/").pop() || options.targetModel;
 
-    const result = await executeScanPipeline(
-      options,
-      // Progress callback — updates database with current step so the
-      // frontend polling endpoint can read it.
-      async (currentStep, totalSteps) => {
-        await db.scan.update({
-          where: { reportId },
-          data: {
-            currentStep,
-            totalSteps,
-          },
-        });
+    // Calculate total steps: target+judge × number of attacks (26)
+    const totalSteps = attackSet.attacks.length * 2;
+    let currentStep = 0;
+
+    const updateProgress = async (step: number, total: number) => {
+      await db.scan.update({
+        where: { reportId },
+        data: { currentStep: step, totalSteps: total },
+      });
+    };
+
+    // Call initial progress
+    await updateProgress(0, totalSteps);
+
+    // Execute target+judge pipeline with shared attacks
+    const result = await executeTargetJudgePipeline(
+      {
+        systemPrompt: options.systemPrompt,
+        forbiddenTask: options.forbiddenTask,
+        judgeInstructions: options.judgeInstructions,
+        targetModel: options.targetModel,
+        judgeModel: options.judgeModel,
+        tools: options.tools,
+        mockToolResponses: options.mockToolResponses,
+      },
+      attackSet,
+      tracker,
+      async (step, total) => {
+        currentStep = step;
+        await updateProgress(step, total);
       },
     );
+
+    // Generate attack summary
+    const breachedAttacksWithVerdicts = result.trials
+      .filter((t) => t.verdict === ("BREACHED" as any))
+      .map((t) => ({
+        attack: t.attack,
+        judgeReasoning: t.judgeVerdict,
+        verdict: t.verdict,
+      }));
+
+    let attackSummaryText = "";
+    try {
+      attackSummaryText = await summarizeBreachedAttacks(async (promptText) => {
+        const response = await callOpenRouter(
+          options.hardenerModel,
+          [{ role: "user", content: promptText }],
+          undefined,
+          tracker,
+        );
+        return response.content || "";
+      }, breachedAttacksWithVerdicts);
+    } catch (err) {
+      console.error("Attack summarization failed:", err);
+    }
+
+    const finalSummary = attackSummaryText
+      ? attackSummaryText
+      : `Adversarial pressure on ${modelShort}.`;
+    const finalSummaryDetail = attackSummaryText
+      ? `${result.totalTrials} adversarial trials probed a ${modelShort} deployment. ${result.breaches} landed (${result.breachRate}% breach rate).`
+      : `${result.totalTrials} adversarial trials probed a ${modelShort} deployment. ${result.breaches} landed (${result.breachRate}% breach rate).`;
+
+    // Temporarily disable hardening for batch scans to keep things simpler
+    // TODO: Re-enable hardening for batch scans with per-scan results
 
     // Update scan record with final results
     await db.scan.update({
@@ -230,27 +364,16 @@ async function runPipelineInBackground(
         totalTrials: result.totalTrials,
         breaches: result.breaches,
         breachRate: result.breachRate,
-        summary: `Adversarial pressure on ${modelShort}.`,
-        summaryDetail: `${result.totalTrials} adversarial trials probed a ${modelShort} deployment. ${result.breaches} landed (${result.breachRate}% breach rate).`,
-        hardenedPrompts: {
-          create: {
-            modelId: result.hardeningModelId,
-            modelName: result.hardeningModelName,
-            prompt: result.hardenedPrompt,
-            toolRecommendation: result.toolRecommendation,
-            compatibilityScore: result.compatibilityScore,
-            granularity: Granularity.Compact,
-            extractorModel: options.extractorModel,
-          },
-        },
+        summary: finalSummary,
+        summaryDetail: finalSummaryDetail,
         apiCost: result.apiCost,
         status: ScanStatus.Completed,
-        metadata: JSON.stringify(result.metadata),
+        currentStep: totalSteps,
+        totalSteps,
       },
     });
   } catch (error) {
     console.error(`Pipeline failed for ${reportId}:`, error);
-    // Mark scan as failed so the frontend polling detects it
     await db.scan.update({
       where: { reportId },
       data: {
@@ -260,14 +383,4 @@ async function runPipelineInBackground(
       },
     });
   }
-}
-
-// Helper function for generating report ID
-function generateReportId(): string {
-  const now = new Date();
-  const yy = String(now.getFullYear()).slice(-2);
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `SP-${yy}-${mm}${dd}-${rand}`;
 }

@@ -20,6 +20,8 @@ export function deserializeScan(row: {
   id: string;
   reportId: string;
   userId: string;
+  batchId?: string | null;
+  promptIndex?: number;
   targetModel: string;
   attackerModel: string;
   judgeModel: string;

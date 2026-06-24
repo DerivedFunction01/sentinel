@@ -46,6 +46,8 @@ model Scan {
   reportId          String   @unique // human-readable, e.g. "SP-26-0617-3Q91"
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batchId           String?  // Groups scans from the same multi-model × multi-prompt launch
+  promptIndex       Int      @default(0) // Which prompt this scan uses (0-based)
   targetModel       String   // OpenRouter model id, e.g. "anthropic/claude-3.5-haiku"
   attackerModel     String   @default("") // OpenRouter model id used for attack generation
   judgeModel        String   @default("") // OpenRouter model id used for judging
@@ -73,6 +75,7 @@ model Scan {
   hardenedPrompts   HardenedPrompt[]
 
   @@index([userId])
+  @@index([batchId])
 }
 
 model HardenedPrompt {
