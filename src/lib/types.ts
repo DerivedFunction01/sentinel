@@ -189,6 +189,13 @@ export interface ScanSummary {
   relativeTime: string;
 }
 
+/** A single rephrased pair: original restriction → capability + mock policy. */
+export interface RephrasedRestrictionPair {
+  original: string;
+  toolRequirement: string; // "discount policy and procedures" (user-facing capability)
+  mockPolicy: string; // "Do not give discounts" (what the mock response enforces)
+}
+
 export interface ScanMetadata {
   // Seed extraction results
   seedExtraction?: {
@@ -209,6 +216,14 @@ export interface ScanMetadata {
     summarizedPatterns: string;
     breachedAttacks: BreachedAttack[];
     summarizedAt?: string;
+  };
+
+  // Rephrased restrictions for tool extraction (computed lazily)
+  toolExtraction?: {
+    toolRequirements: string; // "discount policy and procedures, refund/return requests"
+    mockPolicy: string; // "Do not give discounts, Do not give refunds"
+    pairs: RephrasedRestrictionPair[];
+    rephrasedAt?: string;
   };
 }
 

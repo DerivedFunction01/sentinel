@@ -235,9 +235,14 @@ Overlap scoring guidelines:
 - Set "merge": true if the example should be merged INTO the existing tool (same name, expanded parameters)\n`;
         }
 
-        const scoringPrompt = `You are a scoring evaluator. Analyze how well each database tool schema example matches the given forbidden task and target granularity.
+        // Use rephrased capabilities from metadata if available, fall back to raw forbidden task
+        const toolRequirements =
+          metadata.toolExtraction?.toolRequirements || forbiddenTask;
 
-Forbidden Task: "${forbiddenTask}"
+        const scoringPrompt = `You are a scoring evaluator. Analyze how well each database tool schema example matches the required user-facing capabilities and target granularity.
+
+Tool Requirements (what users request from the assistant):
+${toolRequirements}
 Target Granularity: ${granularity}
 Business Categories: ${(businessCategories || []).join(", ") || "N/A"}
 
@@ -253,13 +258,13 @@ Business Categories: ${(c.businessCategories || []).join(", ")}`,
   .join("\n\n")}
 ${existingToolsBlock}
 For each example, output an array of scoring objects with:
-- "requirementScore" (0-100): How well this tool's purpose matches the forbidden task domain. A high score means it directly addresses the same kind of constraint or policy.
+- "requirementScore" (0-100): How well this tool's purpose matches the user-facing capability the assistant needs to handle. A high score means this tool is a natural one for the assistant to call when a user makes a request in this domain.
 - "granularityScore" (0-100): How well the granularity level matches. If the target is "compact" but the example is "detailed", this should be low.
 - "rationale": A one-sentence explanation of both scores.
-- "bestMatchingCandidate" (boolean): Set to true ONLY if this example is the single best choice for addressing the overall forbidden task. If multiple examples address the same sub-action (e.g., two tools for "discount management"), mark only the highest-scoring one as true. Mark all others as false.
+- "bestMatchingCandidate" (boolean): Set to true ONLY if this example is the single best choice for addressing a specific user capability. If multiple examples address the same capability (e.g., two tools for "discount management"), mark only the highest-scoring one as true. Mark all others as false.
 - "overlap" (object | null): Overlap assessment with existing tools. Include fields: "score" (0-100), "replaceExisting" (the tool ref like "T0" or null), "merge" (boolean), "rationale" (one sentence). Set to null if no existing tools were provided.
 
-The forbidden task may contain multiple distinct prohibited actions (e.g., "Do not provide discounts AND do not describe corporate policy"). Each distinct prohibited action should have exactly one bestMatchingCandidate set to true if possible.
+The tool requirements may describe multiple distinct user capabilities (e.g., "discount policy, refund requests, corporate policy info"). Each distinct capability should have exactly one bestMatchingCandidate set to true if possible.
 
 Output ONLY valid JSON with no preamble:
 {"scores":[{"index":0,"requirementScore":85,"granularityScore":70,"rationale":"...","bestMatchingCandidate":true,"overlap":{"score":0,"replaceExisting":null,"merge":false,"rationale":"..."}}]}`;
