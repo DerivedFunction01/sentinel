@@ -15,7 +15,8 @@ import {
   SEED_EXTRACTOR_SYSTEM,
   SEED_EXTRACTOR_USER_TEMPLATE,
   ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2,
-  JUDGE_EVALUATION_TEMPLATE,
+  JUDGE_EVALUATION_FIXED_PREFIX,
+  buildJudgeEvaluationSuffix,
   loadPromptFile,
 } from "@/lib/scan-prompts";
 import { generateHardenedPrompt } from "@/lib/hardening";
@@ -396,7 +397,7 @@ export async function runJudgeEvaluation(
       ? JSON.stringify(toolCalls, null, 2)
       : "No tool calls were executed during this trial.";
 
-  const judgePrompt = JUDGE_EVALUATION_TEMPLATE(
+  const judgeSuffix = buildJudgeEvaluationSuffix(
     forbiddenTask,
     judgeInstructions,
     systemPrompt,
@@ -405,7 +406,10 @@ export async function runJudgeEvaluation(
     toolTraceJson,
   );
 
-  const messages = [{ role: "user", content: judgePrompt }];
+  const messages = [
+    { role: "system", content: JUDGE_EVALUATION_FIXED_PREFIX },
+    { role: "user", content: judgeSuffix },
+  ];
 
   try {
     const response = await callOpenRouter(
