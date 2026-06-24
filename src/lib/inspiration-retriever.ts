@@ -220,7 +220,7 @@ export function formatInspirationExamplesBlock(
   examples.forEach((ex, idx) => {
     block += `\nExample ${idx + 1}: ${ex.name} (${ex.description})\n`;
     block += `Schema:\n${JSON.stringify(ex.toolJson, null, 2)}\n`;
-    block += `Mock Response:\n${JSON.stringify(ex.mockResponse, null, 2)}\n`;
+    // block += `Mock Response:\n${JSON.stringify(ex.mockResponse, null, 2)}\n`;
   });
   return block;
 }
