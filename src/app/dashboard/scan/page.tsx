@@ -1058,17 +1058,35 @@ function promptSection(
                       NEW
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      prettifyJson(prompts, setPrompts, idx, "tools")
-                    }
-                    className="h-7 text-xs text-slate-400 hover:text-white"
-                  >
-                    <Code2 className="mr-1 h-3 w-3" />
-                    Prettify
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        updatePrompt(
+                          prompts,
+                          setPrompts,
+                          idx,
+                          "tools",
+                          JSON.stringify(sampleTools, null, 2),
+                        )
+                      }
+                      className="h-7 text-xs text-slate-400 hover:text-white"
+                    >
+                      Use sample
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        prettifyJson(prompts, setPrompts, idx, "tools")
+                      }
+                      className="h-7 text-xs text-slate-400 hover:text-white"
+                    >
+                      <Code2 className="mr-1 h-3 w-3" />
+                      Prettify
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   OpenRouter tool definitions, appended as the tools payload on
@@ -1107,17 +1125,35 @@ function promptSection(
                       NEW
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      prettifyJson(prompts, setPrompts, idx, "mockResponses")
-                    }
-                    className="h-7 text-xs text-slate-400 hover:text-white"
-                  >
-                    <Code2 className="mr-1 h-3 w-3" />
-                    Prettify
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        updatePrompt(
+                          prompts,
+                          setPrompts,
+                          idx,
+                          "mockResponses",
+                          JSON.stringify(sampleMockToolResponses, null, 2),
+                        )
+                      }
+                      className="h-7 text-xs text-slate-400 hover:text-white"
+                    >
+                      Use sample
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        prettifyJson(prompts, setPrompts, idx, "mockResponses")
+                      }
+                      className="h-7 text-xs text-slate-400 hover:text-white"
+                    >
+                      <Code2 className="mr-1 h-3 w-3" />
+                      Prettify
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Returned to the Target when it calls a tool, so the loop
