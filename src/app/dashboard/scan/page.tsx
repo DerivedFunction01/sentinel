@@ -40,7 +40,7 @@ import { MultiScanProgress } from "@/components/shared/multi-scan-progress";
 import { MultiModelSelector } from "@/components/shared/multi-model-selector";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { FieldBlock } from "@/components/shared/field-block";
-import { ToolManagerDialog } from "@/components/shared/tool-manager-dialog";
+import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-dialog";
 import { toast } from "sonner";
 import { DEFAULT_MOCK_RESPONSE, findDefaultModel } from "@/lib/model-utils";
 import {

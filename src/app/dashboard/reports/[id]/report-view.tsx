@@ -39,7 +39,7 @@ import { GranularityPickerDialog } from "@/components/shared/granularity-picker-
 import { ExtractionTraceDialog } from "@/components/shared/extraction-trace-dialog";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { DEFAULT_MODEL } from "@/lib/model-utils";
-import { ToolManagerDialog } from "@/components/shared/tool-manager-dialog";
+import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-dialog";
 
 interface ReportViewProps {
   scan: Scan;
