@@ -29,6 +29,7 @@ export async function GET() {
   // Build JSONL — one JSON object per line.
   const lines = examples.map((ex) =>
     JSON.stringify({
+      id: ex.id,
       name: ex.name,
       description: ex.description,
       tags: ex.tags,

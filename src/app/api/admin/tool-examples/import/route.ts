@@ -72,14 +72,23 @@ export async function POST(req: Request) {
           continue;
         }
 
-        // Check for existing tool schema example with same name and granularity.
-        const existing = await db.toolSchemaExample.findFirst({
+        // Check for existing record: by id first, fall back to name+granularity dedup.
+        if (data.id) {
+          const existingById = await db.toolSchemaExample.findUnique({
+            where: { id: data.id },
+          });
+          if (existingById) {
+            skipped++;
+            continue;
+          }
+        }
+        const existingByName = await db.toolSchemaExample.findFirst({
           where: {
             name: data.name,
             granularity: data.granularity,
           },
         });
-        if (existing) {
+        if (existingByName) {
           skipped++;
           continue;
         }
