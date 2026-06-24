@@ -30,6 +30,7 @@ import {
   BusinessCategory,
   ScanMetadata,
 } from "@/lib/types";
+import { getAttackSummaryInstructions } from "@/lib/scan-prompts";
 
 export interface UsageTracker {
   totalCost: number;
@@ -893,8 +894,8 @@ export async function executeScanPipeline(
       extractedAt: new Date().toISOString(),
     },
     attackSummary: {
-      // Summarize breached attacks. This is a basic concatenation; a more sophisticated summary might be needed.
-      summarizedPatterns: breachedAttacksWithVerdicts.map(b => `Attack: ${b.attack}\nJudge Reasoning: ${b.judgeReasoning}`).join('\n\n---\n\n'),
+      // Use getAttackSummaryInstructions for a better summary of breached attacks
+      summarizedPatterns: getAttackSummaryInstructions(breachedAttacksWithVerdicts),
       breachedAttacks: breachedAttacksWithVerdicts as any, // Type assertion, assuming BreachedAttack is compatible
       summarizedAt: new Date().toISOString(),
     },
