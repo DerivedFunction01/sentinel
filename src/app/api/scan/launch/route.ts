@@ -10,7 +10,6 @@ import {
 } from "@/lib/model-utils";
 import { Granularity, type ToolDef } from "@/lib/types";
 import {
-  executeScanPipeline,
   generateAttackSet,
   executeTargetJudgePipeline,
   generateReportId,

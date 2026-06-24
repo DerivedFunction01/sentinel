@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { TrialVerdict, JudgeLabel, RiskLevel, ScanStatus } from "@/lib/enums";
+import { ScanStatus } from "@/lib/enums";
 import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
-import { Granularity, type ToolDef, type Trial } from "@/lib/types";
+import { Granularity, type ToolDef } from "@/lib/types";
 import { executeScanPipeline } from "@/lib/scan-pipeline";
 
 export async function POST(

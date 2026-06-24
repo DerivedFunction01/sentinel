@@ -1034,12 +1034,8 @@ export async function executeScanPipeline(
 
   // Use rich summary text if available, fallback to generic
   const modelShort = targetModel.split("/").pop() || targetModel;
-  const finalSummary = attackSummaryText
-    ? attackSummaryText
-    : `Adversarial pressure on ${modelShort}.`;
-  const finalSummaryDetail = attackSummaryText
-    ? `${totalTrials} adversarial trials probed a ${modelShort} deployment. ${breaches} landed (${breachRate}% breach rate).`
-    : `${totalTrials} adversarial trials probed a ${modelShort} deployment. ${breaches} landed (${breachRate}% breach rate).`;
+  const finalSummary = `Adversarial pressure on ${modelShort}.`;
+  const finalSummaryDetail = `${totalTrials} adversarial trials probed a ${modelShort} deployment. ${breaches} landed (${breachRate}% breach rate).`;
 
   let hardenedPrompt = "";
   let hardeningModelId = "";
