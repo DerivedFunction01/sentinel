@@ -18,9 +18,11 @@ HARDENING APPROACH — Step 2:
 {{STEP_2_TEXT}}
 
 ## Shared Guardrail Rules
+
 {{SHARED_GUARDRAIL_RULES}}
 
 GUARDRAIL CONSOLIDATION & QUALITY RULES:
+
 - **Consolidate instructions**: Do NOT output multiple redundant sentences or paragraphs enforcing the same constraint or tool call. If the system prompt already uses a tool, do NOT add a new separate guardrail paragraph.
 - **Limit Length**: The final added/modified guardrail text must be at most 1-2 sentences total.
 
@@ -45,10 +47,10 @@ Never offer or agree to offer discounts without calling the tool first. If asked
 </after>
 
 STRICT OUTPUT FORMAT RULES:
-Put your final hardened version of the system prompt between <BEGIN_SYSTEM_PROMPT> and </BEGIN_SYSTEM_PROMPT> tags. For example:
-<BEGIN_SYSTEM_PROMPT>
+Put your final hardened version of the system prompt between <SYSTEM_PROMPT> and </SYSTEM_PROMPT> tags. For example:
+<SYSTEM_PROMPT>
 [Your rewritten and final hardened version of the system prompt goes here]
-</BEGIN_SYSTEM_PROMPT>
+</SYSTEM_PROMPT>
 
 Do NOT include any introduction, explanations, preambles, or markdown formatting outside the tags.
 Do NOT emit the DEFENSIVE GUARD STRUCTURE bullet points verbatim — they are a guide only, not text to paste.

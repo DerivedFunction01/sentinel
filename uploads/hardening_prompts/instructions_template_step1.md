@@ -19,16 +19,35 @@ HARDENING APPROACH — Step 1:
 
 STRICT OUTPUT FORMAT RULES:
 
-1. Put your rewritten version of the system prompt between <BEGIN_SYSTEM_PROMPT> and </BEGIN_SYSTEM_PROMPT> tags.
-2. Put the specific sentences/rules that were modified or added between <CHANGED_SENTENCES> and </CHANGED_SENTENCES> tags.
+1. Put your rewritten version of the system prompt between <SYSTEM_PROMPT> and </SYSTEM_PROMPT> tags.
+2. Put the specific sentences/rules that were modified, removed, or added between <CHANGED_SENTENCES> and </CHANGED_SENTENCES> tags. Use the format below:
+
+<CHANGED_SENTENCES>
+REMOVED:
+
+- "The minimum payment is $10" (reason: now enforced by `payment_options` tool)
+- "Do not negotiate different prices" (reason: now enforced by tool)
+
+REWRITTEN:
+
+- Original: "Never offer discounts"
+- Rewritten: "Never offer discounts without calling the tool to gain information from authorized sources."
+  </CHANGED_SENTENCES>
 
 For example:
-<BEGIN_SYSTEM_PROMPT>
+<SYSTEM_PROMPT>
 [Your rewritten version of the system prompt goes here]
-</BEGIN_SYSTEM_PROMPT>
+</SYSTEM_PROMPT>
 <CHANGED_SENTENCES>
 
-- Changed "never offer refunds" to "never offer refunds without calling the tool to gain information from authorized sources."
+REMOVED:
+
+- "The minimum payment is $10" (now enforced by tool)
+
+REWRITTEN:
+
+- Original: "never offer refunds"
+- Rewritten: "never offer refunds without calling the tool to gain information from authorized sources."
   </CHANGED_SENTENCES>
 
 Do NOT include any introduction, explanations, preambles, or markdown formatting outside the tags.

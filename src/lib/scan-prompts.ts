@@ -572,8 +572,8 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a.judgeReasoning}"`).join("\n")}
 }
 
 function extractSystemPrompt(text: string): string {
-  const startTag = "<BEGIN_SYSTEM_PROMPT>";
-  const endTag = "</BEGIN_SYSTEM_PROMPT>";
+  const startTag = "<SYSTEM_PROMPT>";
+  const endTag = "</SYSTEM_PROMPT>";
   const startIdx = text.indexOf(startTag);
   const endIdx = text.indexOf(endTag);
 
@@ -655,7 +655,7 @@ export async function executeMultiStepHardening(
   let compactedPrompt = intermediatePrompt;
   if (changedSentences) {
     const compactionInstructions = getHardenedPromptCompactionInstructions(
-      intermediatePrompt,
+      workingPrompt,
       changedSentences,
     );
     try {
