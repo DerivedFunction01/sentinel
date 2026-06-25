@@ -160,57 +160,31 @@ export async function generateCohesiveAttack(
       undefined,
       tracker,
     );
+    // Ensure we have a string to work with
     let text = response.content || "";
 
-    const PARAGRAPH_TAG = "[OUTPUT]";
-    const REASONING_TAG = "[REASONING]";
-    const END_TAG = "[END]";
+    // 1. Define flexible regex patterns that ignore case and potential whitespace
+    const outputRegex = /\[OUTPUT\]([\s\S]*?)(?=\[REASONING\]|\[END\]|$)/i;
+    const reasoningRegex = /\[REASONING\]([\s\S]*?)(?=\[END\]|$)/i;
+    const endRegex = /^([\s\S]*?)(?=\[END\])/i;
 
-    // 1. Primary Strategy: Look for text inside [OUTPUT] ... [END] (or end of string)
-    const paragraphIndex = text.indexOf(PARAGRAPH_TAG);
-
-    if (paragraphIndex !== -1) {
-      // Start cutting right after the [OUTPUT] tag
-      let extracted = text.substring(paragraphIndex + PARAGRAPH_TAG.length);
-
-      // Look for the earliest stopping marker after [OUTPUT]
-      const nextEnd = extracted.indexOf(END_TAG);
-      const nextReasoning = extracted.indexOf(REASONING_TAG);
-
-      // Determine the closest stop index (if they exist)
-      let stopIndex = -1;
-      if (nextEnd !== -1 && nextReasoning !== -1) {
-        stopIndex = Math.min(nextEnd, nextReasoning);
-      } else if (nextEnd !== -1) {
-        stopIndex = nextEnd;
-      } else if (nextReasoning !== -1) {
-        stopIndex = nextReasoning;
-      }
-
-      if (stopIndex !== -1) {
-        extracted = extracted.substring(0, stopIndex);
-      }
-
-      text = extracted.trim();
+    // 2. Primary Strategy: Match everything inside [OUTPUT] up to the next logical tag or string end
+    if (outputRegex.test(text)) {
+      text = text.match(outputRegex)?.[1] || text;
     }
-    // 2. Fallback Strategy: If [OUTPUT] is missing entirely, check for [REASONING]
-    else if (text.includes(REASONING_TAG)) {
-      let extracted = text.substring(
-        text.indexOf(REASONING_TAG) + REASONING_TAG.length,
-      );
-      const nextEnd = extracted.indexOf(END_TAG);
-      if (nextEnd !== -1) {
-        extracted = extracted.substring(0, nextEnd);
-      }
-      text = extracted.trim();
+    // 3. Fallback 1: If [OUTPUT] is missing but [REASONING] exists, capture up to [END]
+    else if (reasoningRegex.test(text)) {
+      text = text.match(reasoningRegex)?.[1] || text;
     }
-    // 3. Fallback Strategy: If only [END] exists, grab everything before it
-    else if (text.includes(END_TAG)) {
-      text = text.substring(0, text.indexOf(END_TAG)).trim();
-    } else {
-      // 4. Ultimate Fallback: The model ignored tags entirely and returned raw text
-      text = text.trim();
+    // 4. Fallback 2: If only [END] exists, capture everything before it
+    else if (endRegex.test(text)) {
+      text = text.match(endRegex)?.[1] || text;
     }
+
+    // 5. Clean up any accidental duplicate tags or markdown formatting left over
+    text = text
+      .replace(/\[OUTPUT\]|\[REASONING\]|\[END\]/gi, "") // Strip any duplicate tags
+      .trim();
 
     return text || draftJoined;
   } catch (error) {
