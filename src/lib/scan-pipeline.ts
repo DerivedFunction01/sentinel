@@ -81,6 +81,7 @@ export async function extractSeedInfo(
     businessScenarios: [],
     businessCategories: [],
     credentials: [],
+    isGenerative: false,
   };
 
   try {
@@ -114,6 +115,8 @@ export async function extractSeedInfo(
       businessScenarios: parsed.businessScenarios || [],
       businessCategories: parsed.businessCategories || [],
       credentials: parsed.credentials || [],
+      isGenerative:
+        typeof parsed.isGenerative === "boolean" ? parsed.isGenerative : false,
     };
   } catch (error) {
     console.error("Error extracting seed info:", error);

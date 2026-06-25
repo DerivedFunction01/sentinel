@@ -68,6 +68,7 @@ export interface SeedInfo {
   businessScenarios: string[];
   businessCategories: BusinessCategory[];
   credentials: string[];
+  isGenerative: boolean;
   extractorModel?: string;
   extractedAt?: string;
 }

@@ -358,6 +358,7 @@ async function runModelPromptPipeline(
         businessFeatures: attackSet.seedInfo.businessFeatures,
         businessScenarios: attackSet.seedInfo.businessScenarios,
         businessCategories: attackSet.seedInfo.businessCategories,
+        isGenerative: attackSet.seedInfo.isGenerative,
         extractorModel: options.seedExtractorModel,
         extractedAt: new Date().toISOString(),
       },
