@@ -629,11 +629,9 @@ export async function executeMultiStepHardening(
     summarizedPatterns,
   );
 
-  let intermediatePrompt = "";
   let changedSentences = "";
   try {
     const res = await callModel(step1Instructions);
-    intermediatePrompt = extractSystemPrompt(res || "");
     changedSentences = extractTaggedContent(
       res || "",
       "<CHANGED_SENTENCES>",
@@ -642,17 +640,16 @@ export async function executeMultiStepHardening(
     if (trace) {
       trace.step1 = {
         promptSent: step1Instructions,
-        outputPrompt: intermediatePrompt,
         changedSentencesRaw: changedSentences,
       };
     }
   } catch (err) {
     console.error("Step 1 of prompt hardening failed:", err);
-    intermediatePrompt = workingPrompt;
   }
 
   // ── Step 1.5: Compaction ──
-  let compactedPrompt = intermediatePrompt;
+  // Start from original prompt; compaction applies the diff
+  let compactedPrompt = workingPrompt;
   if (changedSentences) {
     const compactionInstructions = getHardenedPromptCompactionInstructions(
       workingPrompt,
@@ -669,7 +666,7 @@ export async function executeMultiStepHardening(
       }
     } catch (err) {
       console.error("Compaction step of prompt hardening failed:", err);
-      compactedPrompt = intermediatePrompt;
+      compactedPrompt = workingPrompt;
     }
   }
 
