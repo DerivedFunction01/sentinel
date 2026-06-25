@@ -32,7 +32,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/dashboard/dashboard-parts";
 import { AgentPipeline } from "@/components/shared/agent-pipeline";
@@ -63,16 +62,11 @@ interface PromptConfig {
 
 /** Result of validating tools against mock responses. */
 interface ToolValidationResult {
-  /** Tools that have definitions but no mock response key. */
   missingMockResponses: string[];
-  /** Mock response keys that don't match any tool. */
   extraMockResponses: string[];
-  /** JSON parse errors in each field. */
   toolsParseError: string | null;
   mockResponsesParseError: string | null;
-  /** Schema violations for individual tool entries (missing fields, wrong types). */
   toolsSchemaErrors: string[];
-  /** Overall validity: true when both fields parse, schema is valid, and all mapped tools have responses. */
   isValid: boolean;
 }
 
@@ -89,7 +83,6 @@ function validateToolsAgainstMocks(
     isValid: false,
   };
 
-  // Parse tools
   let tools: ToolDef[] | null = null;
   if (toolsJson.trim()) {
     try {
@@ -103,7 +96,6 @@ function validateToolsAgainstMocks(
             typeof t.function?.name === "string",
         );
       } else if (typeof parsed === "object" && parsed !== null) {
-        // Backward compat: object with function names as keys
         tools = Object.entries(parsed).map(([name, fn]) => ({
           type: "function" as const,
           function: { name, description: "", parameters: {} },
@@ -118,7 +110,6 @@ function validateToolsAgainstMocks(
     }
   }
 
-  // Parse mock responses
   let mockResponses: Record<string, unknown> | null = null;
   if (mockResponsesJson.trim()) {
     try {
@@ -144,7 +135,6 @@ function validateToolsAgainstMocks(
     return result;
   }
 
-  // Compare tool names to mock response keys
   const toolNames = new Set(tools?.map((t) => t.function.name) ?? []);
   const mockKeys = Object.keys(mockResponses ?? {});
 
@@ -160,7 +150,6 @@ function validateToolsAgainstMocks(
     }
   }
 
-  // Validate OpenRouter schema for each tool after successful parsing
   if (!result.toolsParseError) {
     for (const [index, t] of (tools ?? []).entries()) {
       if (
@@ -177,7 +166,6 @@ function validateToolsAgainstMocks(
           `Tool #${index + 1} ("${t.function.name}") has an invalid "parameters" field — expected a JSON object.`,
         );
       } else if (Object.keys(params).length > 0) {
-        // Only enforce type/properties when parameters is non-empty
         if (params.type !== "object") {
           result.toolsSchemaErrors.push(
             `Tool #${index + 1} ("${t.function.name}") parameters.type should be "object".`,
@@ -196,16 +184,6 @@ function validateToolsAgainstMocks(
     result.extraMockResponses.length === 0 &&
     result.toolsSchemaErrors.length === 0;
   return result;
-}
-
-function makeDefaultPrompt(): PromptConfig {
-  return {
-    systemPrompt: sampleSystemPrompt,
-    forbiddenTask: sampleForbiddenTask,
-    tools: JSON.stringify(sampleTools, null, 2),
-    mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
-    judgeInstructions: sampleJudgeInstructions,
-  };
 }
 
 function makeEmptyPrompt(): PromptConfig {
@@ -245,7 +223,6 @@ function prettifyJson(
   }
 }
 
-/** Shape of an exported/imported scan config file. */
 interface ScanConfigFile {
   targetModels: string[];
   targetModel?: string;
@@ -268,9 +245,7 @@ export default function PenTestScanPage() {
   const [scanning, setScanning] = useState(false);
   const [templateLoading, setTemplateLoading] = useState(false);
   const [tokens, setTokens] = useState<number | null>(null);
-  const [reportId, setReportId] = useState<string | null>(null);
 
-  // Batch scan state
   const [batchId, setBatchId] = useState<string | null>(null);
   const [batchScans, setBatchScans] = useState<
     Array<{ reportId: string; targetModel: string; promptIndex: number }>
@@ -279,14 +254,12 @@ export default function PenTestScanPage() {
   const [toolManagerOpen, setToolManagerOpen] = useState(false);
   const [managedPromptIdx, setManagedPromptIdx] = useState<number>(0);
 
-  // Load the user's token balance from the API.
   useEffect(() => {
     fetch("/api/user")
       .then((r) => r.json())
       .then((d) => d.user && setTokens(d.user.scanTokens));
   }, []);
 
-  // Pick the default model using db-queried/filtered defaults.
   useEffect(() => {
     fetch("/api/models")
       .then((r) => r.json())
@@ -301,12 +274,9 @@ export default function PenTestScanPage() {
           setHardenerModel((prev) => (prev === "" ? defaultModelId : prev));
         }
       })
-      .catch(() => {
-        /* keep empty — user can still select manually */
-      });
+      .catch(() => {});
   }, []);
 
-  // Load preset scan from localStorage if redirected from Report/Hardening page.
   useEffect(() => {
     const presetStr = localStorage.getItem("sentinelprompt_scan_preset");
     if (presetStr) {
@@ -398,38 +368,6 @@ export default function PenTestScanPage() {
     router.push("/dashboard/reports");
   };
 
-  const resetScan = () => {
-    setScanning(false);
-    setBatchId(null);
-    setBatchScans([]);
-    setScanComplete(false);
-    setReportId(null);
-  };
-
-  // Load preset scan from localStorage if redirected from Report/Hardening page.
-  useEffect(() => {
-    const presetStr = localStorage.getItem("sentinelprompt_scan_preset");
-    if (presetStr) {
-      try {
-        const preset = JSON.parse(presetStr);
-        if (preset.targetModels) setTargetModels(preset.targetModels);
-        if (preset.attackerModel) setAttackerModel(preset.attackerModel);
-        if (preset.judgeModel) setJudgeModel(preset.judgeModel);
-        if (preset.hardenerModel) setHardenerModel(preset.hardenerModel);
-        if (preset.prompts) setPrompts(preset.prompts);
-
-        localStorage.removeItem("sentinelprompt_scan_preset");
-        toast.success("Hardened system prompt preset loaded!", {
-          description:
-            "Review and click 'Launch Agent Scan' to run the new scan.",
-        });
-      } catch (e) {
-        console.error("Failed to parse scan preset", e);
-      }
-    }
-  }, []);
-
-  /** Run a template-only attack (no LLM API calls, free). */
   const handleTemplateAttack = async () => {
     setTemplateLoading(true);
     toast.info("Generating template attacks…", {
@@ -479,7 +417,6 @@ export default function PenTestScanPage() {
     toast.success(`Copied configuration from Prompt ${idx}`);
   };
 
-  /** Export the current scan configuration to a JSON file. */
   const handleExport = () => {
     const config: ScanConfigFile = {
       targetModels,
@@ -504,12 +441,10 @@ export default function PenTestScanPage() {
     });
   };
 
-  /** Trigger the hidden file input for import. */
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
 
-  /** Parse an imported JSON file and load it into the form. */
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -529,7 +464,6 @@ export default function PenTestScanPage() {
       if (data.targetModels && Array.isArray(data.targetModels)) {
         setTargetModels(data.targetModels);
       } else if (data.targetModel) {
-        // Backward compat with old single-model config files.
         setTargetModels([data.targetModel]);
       }
       if (data.attackerModel) setAttackerModel(data.attackerModel);
@@ -551,13 +485,11 @@ export default function PenTestScanPage() {
       toast.error("Failed to import", {
         description: "The file is not valid JSON.",
       });
-    } finally {
-      // Reset the input so the same file can be re-imported.
+    }
+    {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
-
-  const isScanning = scanning && !scanComplete;
 
   const openToolManager = (idx: number) => {
     setManagedPromptIdx(idx);
@@ -584,14 +516,12 @@ export default function PenTestScanPage() {
       currentMocks = {};
     }
 
-    // Remove selected tools
     for (const name of toolsToRemove) {
       const idx = currentTools.findIndex((t: any) => t.function?.name === name);
       if (idx !== -1) currentTools.splice(idx, 1);
       delete currentMocks[name];
     }
 
-    // Add selected new tools (avoid duplicates by name)
     const keepNames = new Set<string>();
     for (const tool of toolsToAdd) {
       const name = tool.function?.name;
@@ -601,7 +531,6 @@ export default function PenTestScanPage() {
       keepNames.add(name);
     }
 
-    // Merge in localMocks for the tools being added
     for (const name of keepNames) {
       if (localMocks[name]) currentMocks[name] = localMocks[name];
     }
@@ -630,7 +559,6 @@ export default function PenTestScanPage() {
         description="A multi-LLM agent tests your system prompt: an Attacker generates adversarial prompts from seed templates, the Target model responds, and a Judge determines if secrets were leaked."
       />
 
-      {/* Top row: Target Model + Tokens (left) | Pipeline Diagram (right) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <ChooseModels
           targetModels={targetModels}
@@ -646,7 +574,6 @@ export default function PenTestScanPage() {
           tokens={tokens}
         />
 
-        {/* Pipeline diagram */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Pipeline Diagram</CardTitle>
@@ -657,17 +584,21 @@ export default function PenTestScanPage() {
         </Card>
       </div>
 
-      {/* Prompts */}
+      {/* Renders each item through our extracted stable component */}
       <div className="space-y-6">
-        {promptSection(
-          prompts,
-          setPrompts,
-          copyFromPrevious,
-          removePrompt,
-          openToolManager,
-        )}
+        {prompts.map((prompt, idx) => (
+          <PromptSectionItem
+            key={idx}
+            prompt={prompt}
+            idx={idx}
+            prompts={prompts}
+            setPrompts={setPrompts}
+            copyFromPrevious={copyFromPrevious}
+            removePrompt={removePrompt}
+            openToolManager={openToolManager}
+          />
+        ))}
 
-        {/* Add prompt + import/export buttons */}
         <PromptActionButtons
           addPrompt={addPrompt}
           handleImportClick={handleImportClick}
@@ -677,7 +608,6 @@ export default function PenTestScanPage() {
         />
       </div>
 
-      {/* Launch bar / Multi-scan progress */}
       {scanning && batchId ? (
         <MultiScanProgress
           batchId={batchId}
@@ -727,7 +657,6 @@ export default function PenTestScanPage() {
         })()}
       />
 
-      {/* Info card */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex gap-3">
@@ -753,6 +682,304 @@ export default function PenTestScanPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Extracted item component preventing the Rules of Hooks exception */
+function PromptSectionItem({
+  prompt,
+  idx,
+  prompts,
+  setPrompts,
+  copyFromPrevious,
+  removePrompt,
+  openToolManager,
+}: {
+  prompt: PromptConfig;
+  idx: number;
+  prompts: PromptConfig[];
+  setPrompts: (prompts: PromptConfig[]) => void;
+  copyFromPrevious: (idx: number) => void;
+  removePrompt: (idx: number) => void;
+  openToolManager: (idx: number) => void;
+}) {
+  const validation = useMemo(
+    () => validateToolsAgainstMocks(prompt.tools, prompt.mockResponses),
+    [prompt.tools, prompt.mockResponses],
+  );
+
+  const handlePopulateMocks = () => {
+    const populated: Record<string, unknown> = {};
+    for (const name of validation.missingMockResponses) {
+      populated[name] = DEFAULT_MOCK_RESPONSE;
+    }
+    const currentMocks =
+      prompt.mockResponses.trim() === ""
+        ? {}
+        : JSON.parse(prompt.mockResponses);
+    const updated = { ...currentMocks, ...populated };
+    updatePrompt(
+      prompts,
+      setPrompts,
+      idx,
+      "mockResponses",
+      JSON.stringify(updated, null, 2),
+    );
+    toast.success(
+      `Added mock responses for ${validation.missingMockResponses.length} tool(s)`,
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              Prompt {idx + 1}
+            </CardTitle>
+            <CardDescription>
+              Configure the system prompt, tools, mock responses, and judge
+              instructions for this prompt.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            {idx > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => copyFromPrevious(idx)}
+              >
+                <Copy className="mr-1 h-3 w-3" />
+                Copy from {idx}
+              </Button>
+            )}
+            {prompts.length > 1 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-red-400 hover:text-red-500"
+                onClick={() => removePrompt(idx)}
+              >
+                <Trash2 className="mr-1 h-3 w-3" />
+                Remove
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Left column */}
+          <div className="space-y-6">
+            <FieldBlock
+              icon={FileText}
+              title="System Prompt"
+              value={prompt.systemPrompt}
+              onChange={(v) =>
+                updatePrompt(prompts, setPrompts, idx, "systemPrompt", v)
+              }
+              placeholder="Paste your system prompt here."
+              minHeight="min-h-40"
+              monospace
+              showCharCount
+              onUseSample={() => {
+                updatePrompt(
+                  prompts,
+                  setPrompts,
+                  idx,
+                  "systemPrompt",
+                  sampleSystemPrompt,
+                );
+                toast.success("Sample system prompt loaded");
+              }}
+            />
+            <FieldBlock
+              icon={Gavel}
+              title="Judge Instructions"
+              badge="NEW"
+              description="How the Judge evaluates each response — separate from the forbidden task."
+              value={prompt.judgeInstructions}
+              onChange={(v) =>
+                updatePrompt(prompts, setPrompts, idx, "judgeInstructions", v)
+              }
+              placeholder="e.g. Only mark LEAKED if the forbidden content appears verbatim in the response."
+              minHeight="min-h-32"
+              onUseSample={() => {
+                updatePrompt(
+                  prompts,
+                  setPrompts,
+                  idx,
+                  "judgeInstructions",
+                  sampleJudgeInstructions,
+                );
+                toast.success("Sample judge instructions loaded");
+              }}
+            />
+          </div>
+
+          {/* Right column */}
+          <div className="space-y-6">
+            <FieldBlock
+              icon={Ban}
+              title="Forbidden Task"
+              value={prompt.forbiddenTask}
+              onChange={(v) =>
+                updatePrompt(prompts, setPrompts, idx, "forbiddenTask", v)
+              }
+              placeholder="Describe what the AI must never do or reveal."
+              minHeight="min-h-32"
+              showCharCount
+              onUseSample={() => {
+                updatePrompt(
+                  prompts,
+                  setPrompts,
+                  idx,
+                  "forbiddenTask",
+                  sampleForbiddenTask,
+                );
+                toast.success("Sample forbidden task loaded");
+              }}
+            />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Braces className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-foreground">
+                    Tools (JSON)
+                  </span>
+                  <span className="rounded bg-blue-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">
+                    NEW
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      updatePrompt(
+                        prompts,
+                        setPrompts,
+                        idx,
+                        "tools",
+                        JSON.stringify(sampleTools, null, 2),
+                      )
+                    }
+                    className="h-7 text-xs text-slate-400 hover:text-white"
+                  >
+                    Use sample
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openToolManager(idx)}
+                    className="h-7 text-xs text-slate-400 hover:text-white"
+                  >
+                    Manage tools
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      prettifyJson(prompts, setPrompts, idx, "tools")
+                    }
+                    className="h-7 text-xs text-slate-400 hover:text-white"
+                  >
+                    <Code2 className="mr-1 h-3 w-3" />
+                    Prettify
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                OpenRouter tool definitions, appended as the tools payload on
+                every Target call.
+              </p>
+              <Textarea
+                value={prompt.tools}
+                onChange={(e) =>
+                  updatePrompt(
+                    prompts,
+                    setPrompts,
+                    idx,
+                    "tools",
+                    e.target.value,
+                  )
+                }
+                placeholder='[{"type":"function","function":{"name":"..."}}]'
+                className="font-mono text-xs min-h-40 max-h-80 overflow-y-auto"
+              />
+            </div>
+
+            <ToolValidationBanner
+              result={validation}
+              onPopulateMocks={handlePopulateMocks}
+            />
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Code2 className="h-4 w-4 text-purple-400" />
+                  <span className="text-sm font-semibold text-foreground">
+                    Mock Tool Responses (JSON)
+                  </span>
+                  <span className="rounded bg-purple-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-400">
+                    NEW
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      updatePrompt(
+                        prompts,
+                        setPrompts,
+                        idx,
+                        "mockResponses",
+                        JSON.stringify(sampleMockToolResponses, null, 2),
+                      )
+                    }
+                    className="h-7 text-xs text-slate-400 hover:text-white"
+                  >
+                    Use sample
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      prettifyJson(prompts, setPrompts, idx, "mockResponses")
+                    }
+                    className="h-7 text-xs text-slate-400 hover:text-white"
+                  >
+                    <Code2 className="mr-1 h-3 w-3" />
+                    Prettify
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Returned to the Target when it calls a tool, so the loop
+                continues realistically.
+              </p>
+              <Textarea
+                value={prompt.mockResponses}
+                onChange={(e) =>
+                  updatePrompt(
+                    prompts,
+                    setPrompts,
+                    idx,
+                    "mockResponses",
+                    e.target.value,
+                  )
+                }
+                placeholder='{"tool_name": {"mock_result": "..."}}'
+                className="font-mono text-xs min-h-32 max-h-80 overflow-y-auto"
+              />
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -901,7 +1128,6 @@ function PromptActionButtons({
   );
 }
 
-/** Inline validation banner displayed between Tools and Mock Responses. */
 function ToolValidationBanner({
   result,
   onPopulateMocks,
@@ -1001,297 +1227,6 @@ function ToolValidationBanner({
       </div>
     </div>
   );
-}
-
-function promptSection(
-  prompts: PromptConfig[],
-  setPrompts: (prompts: PromptConfig[]) => void,
-  copyFromPrevious: (idx: number) => void,
-  removePrompt: (idx: number) => void,
-  openToolManager: (idx: number) => void,
-) {
-  return prompts.map((prompt, idx) => {
-    const validation = useMemo(
-      () => validateToolsAgainstMocks(prompt.tools, prompt.mockResponses),
-      [prompt.tools, prompt.mockResponses],
-    );
-
-    const handlePopulateMocks = () => {
-      const populated: Record<string, unknown> = {};
-      for (const name of validation.missingMockResponses) {
-        populated[name] = DEFAULT_MOCK_RESPONSE;
-      }
-      const currentMocks =
-        prompt.mockResponses.trim() === ""
-          ? {}
-          : JSON.parse(prompt.mockResponses);
-      const updated = { ...currentMocks, ...populated };
-      updatePrompt(
-        prompts,
-        setPrompts,
-        idx,
-        "mockResponses",
-        JSON.stringify(updated, null, 2),
-      );
-      toast.success(
-        `Added mock responses for ${validation.missingMockResponses.length} tool(s)`,
-      );
-    };
-
-    return (
-      <Card key={idx}>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-base">
-                Prompt {idx + 1}
-              </CardTitle>
-              <CardDescription>
-                Configure the system prompt, tools, mock responses, and judge
-                instructions for this prompt.
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              {idx > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => copyFromPrevious(idx)}
-                >
-                  <Copy className="mr-1 h-3 w-3" />
-                  Copy from {idx}
-                </Button>
-              )}
-              {prompts.length > 1 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-red-400 hover:text-red-500"
-                  onClick={() => removePrompt(idx)}
-                >
-                  <Trash2 className="mr-1 h-3 w-3" />
-                  Remove
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* 2×2 grid: left = System Prompt + Judge Instructions, right = Forbidden Task + Tools + Mock Responses */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* Left column */}
-            <div className="space-y-6">
-              <FieldBlock
-                icon={FileText}
-                title="System Prompt"
-                value={prompt.systemPrompt}
-                onChange={(v) =>
-                  updatePrompt(prompts, setPrompts, idx, "systemPrompt", v)
-                }
-                placeholder="Paste your system prompt here."
-                minHeight="min-h-40"
-                monospace
-                showCharCount
-                onUseSample={() => {
-                  updatePrompt(
-                    prompts,
-                    setPrompts,
-                    idx,
-                    "systemPrompt",
-                    sampleSystemPrompt,
-                  );
-                  toast.success("Sample system prompt loaded");
-                }}
-              />
-              <FieldBlock
-                icon={Gavel}
-                title="Judge Instructions"
-                badge="NEW"
-                description="How the Judge evaluates each response — separate from the forbidden task."
-                value={prompt.judgeInstructions}
-                onChange={(v) =>
-                  updatePrompt(prompts, setPrompts, idx, "judgeInstructions", v)
-                }
-                placeholder="e.g. Only mark LEAKED if the forbidden content appears verbatim in the response."
-                minHeight="min-h-32"
-                onUseSample={() => {
-                  updatePrompt(
-                    prompts,
-                    setPrompts,
-                    idx,
-                    "judgeInstructions",
-                    sampleJudgeInstructions,
-                  );
-                  toast.success("Sample judge instructions loaded");
-                }}
-              />
-            </div>
-
-            {/* Right column */}
-            <div className="space-y-6">
-              <FieldBlock
-                icon={Ban}
-                title="Forbidden Task"
-                value={prompt.forbiddenTask}
-                onChange={(v) =>
-                  updatePrompt(prompts, setPrompts, idx, "forbiddenTask", v)
-                }
-                placeholder="Describe what the AI must never do or reveal."
-                minHeight="min-h-32"
-                showCharCount
-                onUseSample={() => {
-                  updatePrompt(
-                    prompts,
-                    setPrompts,
-                    idx,
-                    "forbiddenTask",
-                    sampleForbiddenTask,
-                  );
-                  toast.success("Sample forbidden task loaded");
-                }}
-              />
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Braces className="h-4 w-4 text-blue-400" />
-                    <span className="text-sm font-semibold text-foreground">
-                      Tools (JSON)
-                    </span>
-                    <span className="rounded bg-blue-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">
-                      NEW
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        updatePrompt(
-                          prompts,
-                          setPrompts,
-                          idx,
-                          "tools",
-                          JSON.stringify(sampleTools, null, 2),
-                        )
-                      }
-                      className="h-7 text-xs text-slate-400 hover:text-white"
-                    >
-                      Use sample
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openToolManager(idx)}
-                      className="h-7 text-xs text-slate-400 hover:text-white"
-                    >
-                      Manage tools
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        prettifyJson(prompts, setPrompts, idx, "tools")
-                      }
-                      className="h-7 text-xs text-slate-400 hover:text-white"
-                    >
-                      <Code2 className="mr-1 h-3 w-3" />
-                      Prettify
-                    </Button>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  OpenRouter tool definitions, appended as the tools payload on
-                  every Target call.
-                </p>
-                <Textarea
-                  value={prompt.tools}
-                  onChange={(e) =>
-                    updatePrompt(
-                      prompts,
-                      setPrompts,
-                      idx,
-                      "tools",
-                      e.target.value,
-                    )
-                  }
-                  placeholder='[{"type":"function","function":{"name":"..."}}]'
-                  className="font-mono text-xs min-h-40 max-h-80 overflow-y-auto"
-                />
-              </div>
-
-              {/* Validation banner between Tools and Mock Responses */}
-              <ToolValidationBanner
-                result={validation}
-                onPopulateMocks={handlePopulateMocks}
-              />
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Code2 className="h-4 w-4 text-purple-400" />
-                    <span className="text-sm font-semibold text-foreground">
-                      Mock Tool Responses (JSON)
-                    </span>
-                    <span className="rounded bg-purple-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-400">
-                      NEW
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        updatePrompt(
-                          prompts,
-                          setPrompts,
-                          idx,
-                          "mockResponses",
-                          JSON.stringify(sampleMockToolResponses, null, 2),
-                        )
-                      }
-                      className="h-7 text-xs text-slate-400 hover:text-white"
-                    >
-                      Use sample
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        prettifyJson(prompts, setPrompts, idx, "mockResponses")
-                      }
-                      className="h-7 text-xs text-slate-400 hover:text-white"
-                    >
-                      <Code2 className="mr-1 h-3 w-3" />
-                      Prettify
-                    </Button>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Returned to the Target when it calls a tool, so the loop
-                  continues realistically.
-                </p>
-                <Textarea
-                  value={prompt.mockResponses}
-                  onChange={(e) =>
-                    updatePrompt(
-                      prompts,
-                      setPrompts,
-                      idx,
-                      "mockResponses",
-                      e.target.value,
-                    )
-                  }
-                  placeholder='{"tool_name": {"mock_result": "..."}}'
-                  className="font-mono text-xs min-h-32 max-h-80 overflow-y-auto"
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  });
 }
 
 function ChooseModels({
