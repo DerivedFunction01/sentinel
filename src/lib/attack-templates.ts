@@ -990,7 +990,7 @@ export function renderAttack(
   thingName?: string | string[],
   thingDescription?: string | string[],
 ): string {
-  return renderAttackV2(pattern, thingName, thingDescription).join(" ");
+  return renderAttackV2(pattern, thingName, thingDescription);
 }
 
 /**
