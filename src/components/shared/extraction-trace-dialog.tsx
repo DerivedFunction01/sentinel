@@ -64,7 +64,7 @@ export function ExtractionTraceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="dark max-w-6xl h-[95vh] flex flex-col p-6 overflow-hidden border-border bg-slate-900 text-slate-100">
+      <DialogContent className="dark min-w-4xl lg:min-w-6xl h-[95vh] flex flex-col p-6 overflow-hidden border-border bg-slate-900 text-slate-100">
         <DialogHeader className="mb-2">
           <DialogTitle className="flex items-center gap-2 text-lg font-bold">
             <Settings className="w-5 h-5 text-blue-400" />
