@@ -43,7 +43,11 @@ import {
 interface ToolManagerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (toolsToAdd: any[], toolsToRemove: string[]) => void;
+  onConfirm: (
+    toolsToAdd: any[],
+    toolsToRemove: string[],
+    localMocks: Record<string, any>,
+  ) => void;
   recommendedTools: any[];
   existingTools: any[];
   existingMockKeys: string[];
@@ -448,7 +452,7 @@ export function ToolManagerDialog({
       .filter((t) => selectedToAdd.has(t.name))
       .map((t) => t.toolJson);
 
-    onConfirm(activeToolsToAdd, toolsToRemove);
+    onConfirm(activeToolsToAdd, toolsToRemove, localMocks);
     onOpenChange(false);
   };
 

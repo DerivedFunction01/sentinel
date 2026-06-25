@@ -265,20 +265,10 @@ export function ReportView({ scan }: ReportViewProps) {
   const handleApplyFromDialog = (
     toolsToAdd: any[],
     toolsToRemove: string[],
+    localMocks: Record<string, any>,
   ) => {
     if (!currentHardenedPrompt?.toolRecommendation) return;
     const rec = currentHardenedPrompt.toolRecommendation;
-
-    let recommendedMocks: any = {};
-    if (Array.isArray(rec.tools)) {
-      recommendedMocks = rec.tools.reduce((acc: any, t: any) => {
-        const name = t.name || t.toolJson?.function?.name;
-        if (name) acc[name] = t.mockResponse || {};
-        return acc;
-      }, {});
-    } else {
-      recommendedMocks = rec.mockToolResponses || {};
-    }
 
     let existingTools: any[] = [];
     if (Array.isArray(scan.tools)) {
@@ -322,10 +312,10 @@ export function ReportView({ scan }: ReportViewProps) {
     for (const [key, val] of Object.entries(existingMocks)) {
       if (keepNames.has(key)) mockResponsesDict[key] = val;
     }
+    // Use localMocks (edited in dialog) for added/recommended tools, fallback to original rec mocks
     for (const tool of toolsToAdd) {
       const name = tool.function?.name;
-      if (name && recommendedMocks[name])
-        mockResponsesDict[name] = recommendedMocks[name];
+      if (name && localMocks[name]) mockResponsesDict[name] = localMocks[name];
     }
 
     const preset = {
@@ -442,6 +432,20 @@ export function ReportView({ scan }: ReportViewProps) {
                   }
                 })()
               : []
+        }
+        existingMocks={
+          typeof scan.mockToolResponses === "object" &&
+          scan.mockToolResponses !== null
+            ? scan.mockToolResponses
+            : typeof scan.mockToolResponses === "string"
+              ? (() => {
+                  try {
+                    return JSON.parse(scan.mockToolResponses);
+                  } catch {
+                    return {};
+                  }
+                })()
+              : {}
         }
       />
     </div>

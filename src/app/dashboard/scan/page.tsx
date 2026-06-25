@@ -564,7 +564,11 @@ export default function PenTestScanPage() {
     setToolManagerOpen(true);
   };
 
-  const applyToolChanges = (toolsToAdd: any[], toolsToRemove: string[]) => {
+  const applyToolChanges = (
+    toolsToAdd: any[],
+    toolsToRemove: string[],
+    localMocks: Record<string, any>,
+  ) => {
     const prompt = prompts[managedPromptIdx];
     let currentTools: any[] = [];
     try {
@@ -588,12 +592,18 @@ export default function PenTestScanPage() {
     }
 
     // Add selected new tools (avoid duplicates by name)
+    const keepNames = new Set<string>();
     for (const tool of toolsToAdd) {
       const name = tool.function?.name;
       if (!name) continue;
       const exists = currentTools.some((t: any) => t.function?.name === name);
       if (!exists) currentTools.push(tool);
-      // Also add mock if dialog didn't supply one via props (dialog only adds mocks for recommended tools)
+      keepNames.add(name);
+    }
+
+    // Merge in localMocks for the tools being added
+    for (const name of keepNames) {
+      if (localMocks[name]) currentMocks[name] = localMocks[name];
     }
 
     updatePrompt(
