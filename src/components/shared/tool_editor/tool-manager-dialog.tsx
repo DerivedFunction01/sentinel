@@ -149,6 +149,16 @@ export function ToolEditorDialog({
 
   const canSave = !mockError && validationErrors.length === 0 && name.trim();
 
+  const handlePrettifyMock = () => {
+    try {
+      const parsed = JSON.parse(mockString);
+      setMockString(JSON.stringify(parsed, null, 2));
+      setMockError(null);
+    } catch {
+      // already showing error
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="dark min-3xl  md:min-w-4xl lg:min-w-6xl h-[90vh] flex flex-col p-6 border-border bg-slate-900 text-slate-100 overflow-hidden">
@@ -256,9 +266,22 @@ export function ToolEditorDialog({
               <TabsContent value="mock" className="flex-1 overflow-hidden">
                 <div className="space-y-2 h-full flex flex-col">
                   <div className="flex items-center justify-between px-2 py-1">
-                    <span className="text-[10px] font-semibold text-slate-400">
-                      Mock Response (JSON)
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-semibold text-slate-400">
+                        Mock Response (JSON)
+                      </span>
+                      {!mockError && mockString.trim() && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handlePrettifyMock}
+                          className="h-5 text-[9px] text-slate-400400 px-1.5"
+                        >
+                          <Code2 className="w-2.5 h-2.5 mr-0.5" />
+                          Prettify
+                        </Button>
+                      )}
+                    </div>
                     {mockError && (
                       <div className="flex items-center gap-1 text-red-400 text-[10px]">
                         <AlertCircle className="w-3 h-3" />
