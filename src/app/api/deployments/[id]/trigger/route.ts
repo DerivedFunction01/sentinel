@@ -5,7 +5,12 @@ import { ScanStatus } from "@/lib/enums";
 import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
 import { type ToolDef } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
-import { executeScanPipeline } from "@/lib/scan-pipeline";
+import {
+  generateAttackSet,
+  generateReportId,
+  runSingleScanPipeline,
+  RunSingleScanPipelineConfig,
+} from "@/lib/scan-pipeline";
 
 export async function POST(
   req: Request,
@@ -95,7 +100,7 @@ export async function POST(
       data: { lastUsedAt: new Date() },
     });
 
-    // 6. Run the parallelized scanning pipeline
+    // 6. Fetch dbModels and build config
     const dbModels = await db.model.findMany({
       orderBy: [{ isRecommended: "desc" }, { popularityRank: "asc" }],
     });
@@ -124,8 +129,51 @@ export async function POST(
         : {};
     } catch {}
 
-    // Execute the scan pipeline
-    const result = await executeScanPipeline({
+    // 7. Generate the attack set
+    const attackSet = await generateAttackSet({
+      systemPrompt,
+      forbiddenTask,
+      judgeInstructions,
+      tools,
+      mockToolResponses,
+      attackerModel,
+      seedExtractorModel,
+      extractorModel,
+    });
+
+    const reportId = generateReportId();
+
+    // 8. Create the Scan record with RUNNING status (shared pipeline expects it to exist)
+    await db.scan.create({
+      data: {
+        reportId,
+        userId: user.id,
+        targetModel: deployment.targetModel,
+        attackerModel,
+        judgeModel,
+        hardenerModel,
+        systemPrompt,
+        forbiddenTask,
+        judgeInstructions,
+        tools: JSON.stringify(tools),
+        mockToolResponses: JSON.stringify(mockToolResponses),
+        trials: "[]",
+        score: 0,
+        riskLevel: "UNKNOWN" as any,
+        totalTrials: 0,
+        breaches: 0,
+        breachRate: 0,
+        summary: "",
+        summaryDetail: "",
+        apiCost: 0,
+        status: ScanStatus.Running,
+        currentStep: 0,
+        totalSteps: 0,
+      },
+    });
+
+    // 9. Execute the shared pipeline (synchronous — caller waits for result)
+    const pipelineConfig: RunSingleScanPipelineConfig = {
       systemPrompt,
       forbiddenTask,
       judgeInstructions,
@@ -139,59 +187,31 @@ export async function POST(
       mockToolResponses,
       userId: user.id,
       granularity: Granularity.Compact,
-      includeToolRecommendation: false, // Deployment trigger doesn't include tool recommendations
+      includeToolRecommendation: false,
+      enableHardening: true,
+    };
+
+    await runSingleScanPipeline(pipelineConfig, reportId, attackSet, dbModels);
+
+    // 10. Fetch the completed Scan record to return results
+    const completedScan = await db.scan.findUnique({
+      where: { reportId },
     });
 
-    const modelShort =
-      deployment.targetModel.split("/").pop() || deployment.targetModel;
-
-    const hardeningModelId = result.hardeningModelId;
-    const hardeningDbModel = dbModels.find((m) => m.id === hardeningModelId);
-    const hardeningModelName =
-      hardeningDbModel?.name ||
-      hardeningModelId.split("/").pop() ||
-      hardeningModelId;
-
-    await db.scan.create({
-      data: {
-        reportId: result.reportId,
-        userId: user.id,
-        targetModel: deployment.targetModel,
-        attackerModel,
-        judgeModel,
-        hardenerModel,
-        systemPrompt,
-        forbiddenTask,
-        judgeInstructions,
-        tools: JSON.stringify(tools),
-        mockToolResponses: JSON.stringify(mockToolResponses),
-        trials: JSON.stringify(result.trials),
-        score: result.score,
-        riskLevel: result.riskLevel,
-        totalTrials: result.totalTrials,
-        breaches: result.breaches,
-        breachRate: result.breachRate,
-        summary: `Adversarial pressure on ${modelShort}.`,
-        summaryDetail: `${result.totalTrials} adversarial trials probed a ${modelShort} deployment. ${result.breaches} landed (${result.breachRate}% breach rate).`,
-        hardenedPrompts: {
-          create: {
-            modelId: hardeningModelId,
-            modelName: hardeningModelName,
-            prompt: result.hardenedPrompt,
-          },
-        },
-        apiCost: result.apiCost,
-        status: ScanStatus.Completed,
-      },
-    });
+    if (!completedScan) {
+      return NextResponse.json(
+        { error: "Scan record not found after pipeline execution" },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      reportId: result.reportId,
-      score: result.score,
-      riskLevel: result.riskLevel,
-      breaches: result.breaches,
-      totalTrials: result.totalTrials,
+      reportId: completedScan.reportId,
+      score: completedScan.score,
+      riskLevel: completedScan.riskLevel,
+      breaches: completedScan.breaches,
+      totalTrials: completedScan.totalTrials,
     });
   } catch (error: any) {
     console.error("Error triggering deployment scan:", error);

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authenticateRequest } from "@/lib/auth-utils";
 import { db } from "@/lib/db";
-import { RiskLevel, ScanStatus, TrialVerdict } from "@/lib/enums";
+import { RiskLevel, ScanStatus } from "@/lib/enums";
 import {
   DEFAULT_MODEL,
   findDefaultModel,
@@ -12,12 +11,11 @@ import { type ToolDef } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
 import {
   generateAttackSet,
-  executeTargetJudgePipeline,
   generateReportId,
   generateBatchId,
-  summarizeBreachedAttacks,
+  runSingleScanPipeline,
+  RunSingleScanPipelineConfig,
 } from "@/lib/scan-pipeline";
-import { callOpenRouter } from "@/lib/model-utils";
 
 /** Shape of a prompt config received from the frontend. */
 interface PromptPayload {
@@ -29,13 +27,14 @@ interface PromptPayload {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  // Authenticate via session OR Bearer API key
+  const authUser = await authenticateRequest(req);
+  if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const user = await db.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: authUser.userId },
     select: { id: true, scanTokens: true },
   });
   if (!user) {
@@ -221,24 +220,26 @@ export async function POST(req: Request) {
       });
 
       // Start pipeline asynchronously with shared attack set
-      runModelPromptPipeline(
-        {
-          systemPrompt: prompt.systemPrompt,
-          forbiddenTask: prompt.forbiddenTask,
-          judgeInstructions: prompt.judgeInstructions,
-          targetModel,
-          attackerModel: attackGeneratorModel,
-          judgeModel,
-          hardenerModel,
-          seedExtractorModel,
-          extractorModel,
-          tools: prompt.tools,
-          mockToolResponses: prompt.mockToolResponses,
-          userId: user.id,
-          granularity: Granularity.Compact,
-          includeToolRecommendation: true,
-          enableHardening: body.enableHardening !== false,
-        },
+      const pipelineConfig: RunSingleScanPipelineConfig = {
+        systemPrompt: prompt.systemPrompt,
+        forbiddenTask: prompt.forbiddenTask,
+        judgeInstructions: prompt.judgeInstructions,
+        targetModel,
+        attackerModel: attackGeneratorModel,
+        judgeModel,
+        hardenerModel,
+        seedExtractorModel,
+        extractorModel,
+        tools: prompt.tools,
+        mockToolResponses: prompt.mockToolResponses,
+        userId: user.id,
+        granularity: Granularity.Compact,
+        includeToolRecommendation: true,
+        enableHardening: body.enableHardening !== false,
+      };
+
+      runSingleScanPipeline(
+        pipelineConfig,
         reportId,
         attackSets[promptIdx],
         dbModels,
@@ -254,149 +255,4 @@ export async function POST(req: Request) {
     tokensRemaining: user.scanTokens - totalScans,
     totalScans,
   });
-}
-
-/**
- * Run target+judge pipeline for one (model × prompt) combo using a pre-generated attack set.
- */
-async function runModelPromptPipeline(
-  options: {
-    systemPrompt: string;
-    forbiddenTask: string;
-    judgeInstructions: string;
-    targetModel: string;
-    attackerModel: string;
-    judgeModel: string;
-    hardenerModel: string;
-    seedExtractorModel: string;
-    extractorModel: string;
-    tools: ToolDef[];
-    mockToolResponses: Record<string, unknown>;
-    userId: string;
-    granularity: Granularity;
-    includeToolRecommendation: boolean;
-    enableHardening: boolean;
-  },
-  reportId: string,
-  attackSet: Awaited<ReturnType<typeof generateAttackSet>>,
-  dbModels: any[],
-) {
-  const tracker: UsageTracker = { totalCost: 0, dbModels };
-
-  try {
-    const modelShort =
-      options.targetModel.split("/").pop() || options.targetModel;
-
-    // Calculate total steps: target+judge × number of attacks
-    const totalSteps = attackSet.attacks.length * 2;
-    let currentStep = 0;
-
-    const updateProgress = async (step: number, total: number) => {
-      await db.scan.update({
-        where: { reportId },
-        data: { currentStep: step, totalSteps: total },
-      });
-    };
-
-    // Call initial progress
-    await updateProgress(0, totalSteps);
-
-    // Execute target+judge pipeline with shared attacks
-    const result = await executeTargetJudgePipeline(
-      {
-        systemPrompt: options.systemPrompt,
-        forbiddenTask: options.forbiddenTask,
-        judgeInstructions: options.judgeInstructions,
-        targetModel: options.targetModel,
-        judgeModel: options.judgeModel,
-        tools: options.tools,
-        mockToolResponses: options.mockToolResponses,
-      },
-      attackSet,
-      tracker,
-      async (step, total) => {
-        currentStep = step;
-        await updateProgress(step, total);
-      },
-    );
-
-    // Generate attack summary
-    const breachedAttacksWithVerdicts = result.trials
-      .filter((t) => t.verdict === TrialVerdict.Breached)
-      .map((t) => ({
-        attack: t.attack,
-        judgeReasoning: t.judgeVerdict,
-        verdict: t.verdict,
-      }));
-
-    let attackSummaryText = "";
-    try {
-      attackSummaryText = await summarizeBreachedAttacks(async (promptText) => {
-        const response = await callOpenRouter(
-          options.hardenerModel,
-          [{ role: "user", content: promptText }],
-          undefined,
-          tracker,
-        );
-        return response.content || "";
-      }, breachedAttacksWithVerdicts);
-    } catch (err) {
-      console.error("Attack summarization failed:", err);
-    }
-
-    const finalSummary = `Adversarial pressure on ${modelShort}.`;
-    const finalSummaryDetail = `${result.totalTrials} adversarial trials probed a ${modelShort} deployment. ${result.breaches} landed (${result.breachRate}% breach rate).`;
-
-    // Build metadata from attack set and results
-    const metadata = {
-      seedExtraction: {
-        thingName: attackSet.seedInfo.thingName,
-        thingDescription: attackSet.seedInfo.thingDescription,
-        thingNameVariants: attackSet.seedInfo.thingNameVariants,
-        thingDescriptionVariants: attackSet.seedInfo.thingDescriptionVariants,
-        personaDescription: attackSet.seedInfo.personaDescription,
-        businessFeatures: attackSet.seedInfo.businessFeatures,
-        businessScenarios: attackSet.seedInfo.businessScenarios,
-        businessCategories: attackSet.seedInfo.businessCategories,
-        isGenerative: attackSet.seedInfo.isGenerative,
-        extractorModel: options.seedExtractorModel,
-        extractedAt: new Date().toISOString(),
-      },
-      attackSummary: {
-        summarizedPatterns: attackSummaryText,
-        breachedAttacks: breachedAttacksWithVerdicts,
-        summarizedAt: new Date().toISOString(),
-      },
-    };
-
-    // Update scan record with final results
-    await db.scan.update({
-      where: { reportId },
-      data: {
-        trials: JSON.stringify(result.trials),
-        score: result.score,
-        riskLevel: result.riskLevel,
-        totalTrials: result.totalTrials,
-        breaches: result.breaches,
-        breachRate: result.breachRate,
-        summary: finalSummary,
-        summaryDetail: finalSummaryDetail,
-        apiCost: result.apiCost,
-        metadata: JSON.stringify(metadata),
-        status: ScanStatus.Completed,
-        currentStep: totalSteps,
-        totalSteps,
-      },
-    });
-  } catch (error) {
-    console.error(`Pipeline failed for ${reportId}:`, error);
-    await db.scan.update({
-      where: { reportId },
-      data: {
-        status: ScanStatus.Failed,
-        summary: "Scan pipeline execution failed.",
-        summaryDetail: `An unexpected error occurred: ${(error as Error).message || "Unknown error"}`,
-      },
-    });
-  }
 }

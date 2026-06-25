@@ -3,6 +3,7 @@ import {
   CredentialMode,
   JudgeLabel,
   RiskLevel,
+  ScanStatus,
   TrialVerdict,
 } from "@/lib/enums";
 import {
@@ -818,6 +819,160 @@ export async function executeTargetJudgePipeline(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Shared single-model pipeline (used by both Web UI and API trigger)
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface RunSingleScanPipelineConfig {
+  systemPrompt: string;
+  forbiddenTask: string;
+  judgeInstructions: string;
+  targetModel: string;
+  attackerModel: string;
+  judgeModel: string;
+  hardenerModel: string;
+  seedExtractorModel: string;
+  extractorModel: string;
+  tools: ToolDef[];
+  mockToolResponses: Record<string, unknown>;
+  userId: string;
+  granularity: Granularity;
+  includeToolRecommendation: boolean;
+  enableHardening: boolean;
+}
+
+/**
+ * Run the full single-model pipeline using a pre-generated attack set.
+ * Creates/updates the Scan record with Running → Completed/Failed transitions.
+ * This is extracted from the old runModelPromptPipeline so both
+ * /api/scan/launch and /api/deployments/[id]/trigger share the same logic.
+ */
+export async function runSingleScanPipeline(
+  options: RunSingleScanPipelineConfig,
+  reportId: string,
+  attackSet: Awaited<ReturnType<typeof generateAttackSet>>,
+  dbModels: any[],
+): Promise<void> {
+  const tracker: UsageTracker = { totalCost: 0, dbModels };
+
+  try {
+    const modelShort =
+      options.targetModel.split("/").pop() || options.targetModel;
+
+    // Calculate total steps: target+judge × number of attacks
+    const totalSteps = attackSet.attacks.length * 2;
+    let currentStep = 0;
+
+    const updateProgress = async (step: number, total: number) => {
+      await db.scan.update({
+        where: { reportId },
+        data: { currentStep: step, totalSteps: total },
+      });
+    };
+
+    // Call initial progress
+    await updateProgress(0, totalSteps);
+
+    // Execute target+judge pipeline with shared attacks
+    const result = await executeTargetJudgePipeline(
+      {
+        systemPrompt: options.systemPrompt,
+        forbiddenTask: options.forbiddenTask,
+        judgeInstructions: options.judgeInstructions,
+        targetModel: options.targetModel,
+        judgeModel: options.judgeModel,
+        tools: options.tools,
+        mockToolResponses: options.mockToolResponses,
+      },
+      attackSet,
+      tracker,
+      async (step, total) => {
+        currentStep = step;
+        await updateProgress(step, total);
+      },
+    );
+
+    // Generate attack summary
+    const breachedAttacksWithVerdicts = result.trials
+      .filter((t) => t.verdict === TrialVerdict.Breached)
+      .map((t) => ({
+        attack: t.attack,
+        judgeReasoning: t.judgeVerdict,
+        verdict: t.verdict,
+      }));
+
+    let attackSummaryText = "";
+    try {
+      attackSummaryText = await summarizeBreachedAttacks(async (promptText) => {
+        const response = await callOpenRouter(
+          options.hardenerModel,
+          [{ role: "user", content: promptText }],
+          undefined,
+          tracker,
+        );
+        return response.content || "";
+      }, breachedAttacksWithVerdicts);
+    } catch (err) {
+      console.error("Attack summarization failed:", err);
+    }
+
+    const finalSummary = `Adversarial pressure on ${modelShort}.`;
+    const finalSummaryDetail = `${result.totalTrials} adversarial trials probed a ${modelShort} deployment. ${result.breaches} landed (${result.breachRate}% breach rate).`;
+
+    // Build metadata from attack set and results
+    const metadata = {
+      seedExtraction: {
+        thingName: attackSet.seedInfo.thingName,
+        thingDescription: attackSet.seedInfo.thingDescription,
+        thingNameVariants: attackSet.seedInfo.thingNameVariants,
+        thingDescriptionVariants: attackSet.seedInfo.thingDescriptionVariants,
+        personaDescription: attackSet.seedInfo.personaDescription,
+        businessFeatures: attackSet.seedInfo.businessFeatures,
+        businessScenarios: attackSet.seedInfo.businessScenarios,
+        businessCategories: attackSet.seedInfo.businessCategories,
+        isGenerative: attackSet.seedInfo.isGenerative,
+        extractorModel: options.seedExtractorModel,
+        extractedAt: new Date().toISOString(),
+      },
+      attackSummary: {
+        summarizedPatterns: attackSummaryText,
+        breachedAttacks: breachedAttacksWithVerdicts,
+        summarizedAt: new Date().toISOString(),
+      },
+    };
+
+    // Update scan record with final results
+    await db.scan.update({
+      where: { reportId },
+      data: {
+        trials: JSON.stringify(result.trials),
+        score: result.score,
+        riskLevel: result.riskLevel,
+        totalTrials: result.totalTrials,
+        breaches: result.breaches,
+        breachRate: result.breachRate,
+        summary: finalSummary,
+        summaryDetail: finalSummaryDetail,
+        apiCost: result.apiCost,
+        metadata: JSON.stringify(metadata),
+        status: ScanStatus.Completed,
+        currentStep: totalSteps,
+        totalSteps,
+      },
+    });
+  } catch (error) {
+    console.error(`Pipeline failed for ${reportId}:`, error);
+    await db.scan.update({
+      where: { reportId },
+      data: {
+        status: ScanStatus.Failed,
+        summary: "Scan pipeline execution failed.",
+        summaryDetail: `An unexpected error occurred: ${(error as Error).message || "Unknown error"}`,
+      },
+    });
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Full pipeline execution (legacy API + for deployments/[id]/trigger)
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -826,6 +981,7 @@ export async function executeTargetJudgePipeline(
  * This is the original monolithic function kept for backward compatibility.
  * For new multi-model × multi-prompt usage, use generateAttackSet() +
  * executeTargetJudgePipeline() separately.
+ * @deprecated Use runSingleScanPipeline() + generateAttackSet() instead.
  */
 export async function executeScanPipeline(
   options: ScanPipelineOptions,
