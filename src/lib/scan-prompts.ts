@@ -93,13 +93,12 @@ export const SHARED_WRITER_STRICT_RULES = `- You are editing/drafting a document
 # OUTPUT FORMAT
 Your entire response must strictly follow this template. Do not add any extra text or conversational formatting:
 
-[REASONING]
-your reasoning here
-
 [OUTPUT]
 your final output in first person here
 
 [END]`;
+// [REASONING]
+// your reasoning here
 
 // export const ATTACK_GENERATOR_SYSTEM_TEMPLATE = (
 //   thingName: string,
