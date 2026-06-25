@@ -107,15 +107,8 @@ export async function syncModels(db: PrismaClient): Promise<void> {
 // CLI entry point — run with: bun run prisma/sync-models-impl.ts
 // Using dynamic import to avoid require() which is forbidden by ESLint.
 if (import.meta.url === `file://${process.argv[1]}`) {
-  Promise.all([
-    import("./generated/client.js"),
-    import("@prisma/adapter-better-sqlite3"),
-  ])
-    .then(([{ PrismaClient }, { PrismaBetterSqlite3 }]) => {
-      const adapter = new PrismaBetterSqlite3({ url: "db/custom.db" });
-      const db = new PrismaClient({ adapter });
-      return syncModels(db).finally(() => db.$disconnect());
-    })
+  import("../src/lib/db")
+    .then(({ db }) => syncModels(db).finally(() => db.$disconnect()))
     .catch((e) => {
       console.error("Model sync failed:", e);
       process.exit(1);
