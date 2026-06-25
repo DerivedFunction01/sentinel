@@ -1,15 +1,41 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Brain, Target, Gavel, Shield, Loader2 } from "lucide-react";
+import {
+  Brain,
+  Target,
+  Gavel,
+  Shield,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Clock,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ScanStatus } from "@/lib/enums";
+import { ProgressStepStatus, ScanStatus } from "@/lib/enums";
 
 /**
  * The three pipeline stages, in execution order. Each trial cycles through
  * all three, so the active stage rotates as steps advance.
  */
 type Stage = "attacker" | "target" | "judge";
+
+interface ProgressDetail {
+  seed: string;
+  attacks: Array<{ idx: number; status: string; retries: number }>;
+  trials: Array<{
+    idx: number;
+    target: { status: string; retries: number };
+    judge: { status: string; retries: number };
+  }>;
+  hardening: string;
+  summary: {
+    attackCount: number;
+    completedAttacks: number;
+    completedTargets: number;
+    completedJudges: number;
+  };
+}
 
 interface ScanProgressPanelProps {
   /** Total number of steps (trials × 3 stages). Can be externally controlled or simulated. */
@@ -18,6 +44,8 @@ interface ScanProgressPanelProps {
   currentStep?: number;
   /** Scan status - "running", "completed", "failed", etc. */
   scanStatus?: ScanStatus;
+  /** Granular progress detail from the progress endpoint. */
+  detail?: ProgressDetail | null;
   /** Called when the simulated scan reaches the final step. */
   onComplete: () => void;
 }
@@ -55,6 +83,7 @@ export function ScanProgressPanel({
   totalSteps: externalTotalSteps,
   currentStep: externalCurrentStep,
   scanStatus,
+  detail,
   onComplete,
 }: ScanProgressPanelProps) {
   // Use external values if provided, otherwise use internal simulation
@@ -112,13 +141,60 @@ export function ScanProgressPanel({
   const progress = noProgressData
     ? 0
     : Math.min((currentStep / totalSteps) * 100, 100);
-  const stage: Stage =
-    noProgressData || currentStep >= totalSteps
-      ? "judge"
-      : (["attacker", "target", "judge"] as Stage[])[currentStep % 3];
+  // Derive stage from granular detail if available, else fall back to modulo
+  let stage: Stage = "judge";
+  if (!noProgressData && currentStep < totalSteps && detail) {
+    // Check which steps are still pending to determine current stage
+    const firstPendingTarget = detail.trials.find(
+      (t) => t.target.status === ProgressStepStatus.Pending,
+    );
+    const firstPendingJudge = detail.trials.find(
+      (t) => t.judge.status === ProgressStepStatus.Pending,
+    );
+
+    // Count how many phases are incomplete
+    const seedDone = detail.seed === ProgressStepStatus.Completed;
+    const attacksDone =
+      detail.summary.completedAttacks === detail.summary.attackCount;
+    const targetsDone =
+      detail.summary.completedTargets === detail.summary.attackCount;
+    const judgesDone =
+      detail.summary.completedJudges === detail.summary.attackCount;
+
+    if (!seedDone) {
+      stage = "attacker";
+    } else if (!attacksDone || !targetsDone) {
+      // Attack generation or target simulation still running
+      if (firstPendingTarget && firstPendingTarget.idx > 0) {
+        stage = "judge"; // we're in the overlapping phase
+      } else {
+        stage = "target";
+      }
+    } else if (!judgesDone) {
+      stage = "judge";
+    }
+  } else if (!noProgressData && currentStep < totalSteps) {
+    stage = (["attacker", "target", "judge"] as Stage[])[currentStep % 3];
+  }
   const stageInfo = STAGE_INFO[stage];
   const StageIcon = stageInfo.icon;
   const isDone = !noProgressData && currentStep >= totalSteps;
+
+  /** Helper to render a status icon for each step. */
+  const stepStatusIcon = (status: string) => {
+    switch (status) {
+      case ProgressStepStatus.Completed:
+        return <CheckCircle2 className="h-3 w-3 text-emerald-400" />;
+      case ProgressStepStatus.Running:
+        return <Loader2 className="h-3 w-3 animate-spin text-blue-400" />;
+      case ProgressStepStatus.Failed:
+        return <XCircle className="h-3 w-3 text-red-400" />;
+      case ProgressStepStatus.Pending:
+        return <Clock className="h-3 w-3 text-muted-foreground" />;
+      default:
+        return <Clock className="h-3 w-3 text-muted-foreground" />;
+    }
+  };
 
   if (noProgressData) {
     return (
@@ -322,6 +398,125 @@ export function ScanProgressPanel({
           );
         })}
       </div>
+
+      {/* Granular per-step breakdown */}
+      {detail && (
+        <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+          <h4 className="text-xs font-semibold text-foreground">
+            Phase Breakdown
+          </h4>
+
+          {/* Seed */}
+          <div className="flex items-center gap-2">
+            <div className="flex h-5 w-5 items-center justify-center">
+              {stepStatusIcon(detail.seed)}
+            </div>
+            <span className="text-xs text-muted-foreground">
+              Seed Extraction
+            </span>
+            {detail.seed === ProgressStepStatus.Failed && (
+              <span className="text-[10px] text-red-400">
+                (will use defaults)
+              </span>
+            )}
+          </div>
+
+          {/* Attack generation */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              {stepStatusIcon(
+                detail.summary.completedAttacks === detail.summary.attackCount
+                  ? ProgressStepStatus.Completed
+                  : detail.attacks.some(
+                        (a) => a.status === ProgressStepStatus.Running,
+                      )
+                    ? ProgressStepStatus.Running
+                    : detail.attacks.some(
+                          (a) => a.status === ProgressStepStatus.Failed,
+                        )
+                      ? ProgressStepStatus.Failed
+                      : ProgressStepStatus.Pending,
+              )}
+              <span className="text-xs text-muted-foreground">
+                Attack Generation ({detail.summary.completedAttacks}/
+                {detail.summary.attackCount})
+              </span>
+            </div>
+            {/* Attack mini-progress bars */}
+            <div className="grid grid-cols-2 gap-1 pl-7">
+              {detail.attacks.map((a) => (
+                <div
+                  key={a.idx}
+                  className="flex items-center gap-1 text-[10px] text-muted-foreground"
+                >
+                  {stepStatusIcon(a.status)}
+                  <span>Atk {a.idx + 1}</span>
+                  {a.retries > 0 && (
+                    <span className="text-amber-400">(retry)</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Target + Judge trials */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              {stepStatusIcon(
+                detail.summary.completedTargets ===
+                  detail.summary.attackCount &&
+                  detail.summary.completedJudges === detail.summary.attackCount
+                  ? ProgressStepStatus.Completed
+                  : detail.trials.some(
+                        (t) =>
+                          t.target.status === ProgressStepStatus.Running ||
+                          t.judge.status === ProgressStepStatus.Running,
+                      )
+                    ? ProgressStepStatus.Running
+                    : detail.trials.some(
+                          (t) =>
+                            t.target.status === ProgressStepStatus.Failed ||
+                            t.judge.status === ProgressStepStatus.Failed,
+                        )
+                      ? ProgressStepStatus.Failed
+                      : ProgressStepStatus.Pending,
+              )}
+              <span className="text-xs text-muted-foreground">
+                Trials (T:{detail.summary.completedTargets}/
+                {detail.summary.attackCount} J:{detail.summary.completedJudges}/
+                {detail.summary.attackCount})
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1 pl-7">
+              {detail.trials.map((t) => (
+                <div
+                  key={t.idx}
+                  className="flex items-center gap-1 text-[10px] text-muted-foreground"
+                >
+                  <span className="font-medium">#{t.idx + 1}</span>
+                  {stepStatusIcon(t.target.status)}
+                  {stepStatusIcon(t.judge.status)}
+                  {(t.target.retries > 0 || t.judge.retries > 0) && (
+                    <span className="text-amber-400">(retry)</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Hardening */}
+          {detail.hardening && (
+            <div className="flex items-center gap-2">
+              <div className="flex h-5 w-5 items-center justify-center">
+                {stepStatusIcon(detail.hardening)}
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Prompt Hardening
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

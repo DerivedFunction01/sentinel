@@ -45,6 +45,13 @@ export enum ScanStatus {
   PartialFailure = "partial_failure",
   Unknown = "unknown",
 }
+export enum ProgressStepStatus {
+  Completed = "completed",
+  Running = "running",
+  Pending = "pending",
+  Failed = "failed",
+  Unknown = "unknown",
+}
 
 /** Filter applied to the trial-by-trial breakdown in the report view. */
 export enum TrialFilter {

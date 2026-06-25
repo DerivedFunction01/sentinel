@@ -7,14 +7,31 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import {
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  FileText,
   ArrowRight,
+  CheckCircle2,
+  Clock,
   ExternalLink,
+  Loader2,
+  XCircle,
 } from "lucide-react";
-import { formatModelName, ScanStatus } from "@/lib/enums";
+import { formatModelName, ProgressStepStatus, ScanStatus } from "@/lib/enums";
+
+interface ProgressDetail {
+  seed: string;
+  attacks: Array<{ idx: number; status: string; retries: number }>;
+  trials: Array<{
+    idx: number;
+    target: { status: string; retries: number };
+    judge: { status: string; retries: number };
+  }>;
+  hardening: string;
+  summary: {
+    attackCount: number;
+    completedAttacks: number;
+    completedTargets: number;
+    completedJudges: number;
+  };
+}
 
 interface ScanTile {
   reportId: string;
@@ -29,6 +46,7 @@ interface ScanTile {
   breachRate: number;
   summary: string;
   summaryDetail: string;
+  detail?: ProgressDetail | null;
 }
 
 interface BatchProgress {
@@ -103,6 +121,22 @@ export function MultiScanProgress({
   const allDone =
     data.status === ScanStatus.Completed ||
     data.status === ScanStatus.CompletedWithFailures;
+
+  /** Helper to render a status icon for each step. */
+  const stepStatusIcon = (status: string) => {
+    switch (status) {
+      case ProgressStepStatus.Completed:
+        return <CheckCircle2 className="h-3 w-3 text-emerald-400" />;
+      case ProgressStepStatus.Running:
+        return <Loader2 className="h-3 w-3 animate-spin text-blue-400" />;
+      case ProgressStepStatus.Failed:
+        return <XCircle className="h-3 w-3 text-red-400" />;
+      case ProgressStepStatus.Pending:
+        return <Clock className="h-3 w-3 text-muted-foreground" />;
+      default:
+        return <Clock className="h-3 w-3 text-muted-foreground" />;
+    }
+  };
 
   const statusBadge = (status: ScanStatus) => {
     if (status === ScanStatus.Completed)
@@ -287,6 +321,67 @@ export function MultiScanProgress({
                   <p className="text-xs text-muted-foreground">
                     {selected.currentStep}/{selected.totalSteps} steps completed
                   </p>
+                </div>
+              )}
+
+              {/* Granular per-step breakdown */}
+              {selected.detail && selected.status !== ScanStatus.Completed && (
+                <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3 mt-3">
+                  <h4 className="text-xs font-semibold text-foreground">
+                    Phase Breakdown
+                  </h4>
+                  {/* Seed */}
+                  <div className="flex items-center gap-2">
+                    {stepStatusIcon(selected.detail.seed)}
+                    <span className="text-xs text-muted-foreground">Seed</span>
+                  </div>
+                  {/* Attacks */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      {stepStatusIcon(
+                        selected.detail.summary.completedAttacks ===
+                          selected.detail.summary.attackCount
+                          ? ProgressStepStatus.Completed
+                          : selected.detail.attacks.some(
+                                (a) => a.status === ProgressStepStatus.Running,
+                              )
+                            ? ProgressStepStatus.Running
+                            : ProgressStepStatus.Pending,
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        Attacks ({selected.detail.summary.completedAttacks}/
+                        {selected.detail.summary.attackCount})
+                      </span>
+                    </div>
+                  </div>
+                  {/* Trials */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      {stepStatusIcon(
+                        selected.detail.summary.completedTargets ===
+                          selected.detail.summary.attackCount &&
+                          selected.detail.summary.completedJudges ===
+                            selected.detail.summary.attackCount
+                          ? ProgressStepStatus.Completed
+                          : ProgressStepStatus.Running,
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        T:{selected.detail.summary.completedTargets}/
+                        {selected.detail.summary.attackCount} J:
+                        {selected.detail.summary.completedJudges}/
+                        {selected.detail.summary.attackCount}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Hardening */}
+                  {selected.detail.hardening && (
+                    <div className="flex items-center gap-2">
+                      {stepStatusIcon(selected.detail.hardening)}
+                      <span className="text-xs text-muted-foreground">
+                        Hardening
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

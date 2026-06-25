@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ScanStatus } from "@/lib/enums";
+import { ProgressStepStatus, ScanStatus } from "@/lib/enums";
 
 /**
  * GET /api/scan/progress/batch/[batchId]
@@ -36,6 +36,7 @@ export async function GET(
         summary: true,
         summaryDetail: true,
         createdAt: true,
+        progressMeta: true,
       },
       orderBy: [{ promptIndex: "asc" }, { createdAt: "asc" }],
     });
@@ -83,6 +84,50 @@ export async function GET(
       batchStatus = ScanStatus.PartialFailure;
     }
 
+    // Parse granular progress detail per scan
+    const parseDetail = (meta: string | null) => {
+      if (!meta) return null;
+      try {
+        const parsed = JSON.parse(meta);
+        const attacks = (parsed.attacks || []).map((a: any, i: number) => ({
+          idx: i,
+          status: a.status || ProgressStepStatus.Pending,
+          retries: a.retries || 0,
+        }));
+        const trials = (parsed.trials || []).map((t: any, i: number) => ({
+          idx: i,
+          target: {
+            status: t.target?.status || ProgressStepStatus.Pending,
+            retries: t.target?.retries || 0,
+          },
+          judge: {
+            status: t.judge?.status || ProgressStepStatus.Pending,
+            retries: t.judge?.retries || 0,
+          },
+        }));
+        return {
+          seed: parsed.seed?.status || ProgressStepStatus.Pending,
+          attacks,
+          trials,
+          hardening: parsed.hardening?.status || ProgressStepStatus.Pending,
+          summary: {
+            attackCount: attacks.length,
+            completedAttacks: attacks.filter(
+              (a: any) => a.status === ProgressStepStatus.Completed,
+            ).length,
+            completedTargets: trials.filter(
+              (t: any) => t.target.status === ProgressStepStatus.Completed,
+            ).length,
+            completedJudges: trials.filter(
+              (t: any) => t.judge.status === ProgressStepStatus.Completed,
+            ).length,
+          },
+        };
+      } catch {
+        return null;
+      }
+    };
+
     // Map scans to a serializable format
     const scanList = scans.map((s) => ({
       reportId: s.reportId,
@@ -97,6 +142,7 @@ export async function GET(
       breachRate: s.breachRate,
       summary: s.summary,
       summaryDetail: s.summaryDetail,
+      detail: parseDetail(s.progressMeta),
     }));
 
     return NextResponse.json({

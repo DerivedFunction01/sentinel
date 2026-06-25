@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { ProgressStepStatus } from "@/lib/enums";
 
 /**
  * GET /api/scan/progress/[reportId]
@@ -31,6 +32,7 @@ export async function GET(
         breaches: true,
         score: true,
         createdAt: true,
+        progressMeta: true,
       },
     });
 
@@ -44,6 +46,57 @@ export async function GET(
         ? Math.round((scan.currentStep / scan.totalSteps) * 100)
         : 0;
 
+    // Parse granular progress meta
+    let detail = {};
+    if (scan.progressMeta) {
+      try {
+        const meta = JSON.parse(scan.progressMeta);
+        const attackCount = meta.attacks?.length || 0;
+        const completedAttacks =
+          meta.attacks?.filter(
+            (a: any) => a.status === ProgressStepStatus.Completed,
+          ).length || 0;
+        const completedTargets =
+          meta.trials?.filter(
+            (t: any) => t.target?.status === ProgressStepStatus.Completed,
+          ).length || 0;
+        const completedJudges =
+          meta.trials?.filter(
+            (t: any) => t.judge?.status === ProgressStepStatus.Completed,
+          ).length || 0;
+        detail = {
+          seed: meta.seed?.status || ProgressStepStatus.Pending,
+          attacks:
+            meta.attacks?.map((a: any, i: number) => ({
+              idx: i,
+              status: a.status,
+              retries: a.retries || 0,
+            })) || [],
+          trials:
+            meta.trials?.map((t: any, i: number) => ({
+              idx: i,
+              target: {
+                status: t.target?.status || ProgressStepStatus.Pending,
+                retries: t.target?.retries || 0,
+              },
+              judge: {
+                status: t.judge?.status || ProgressStepStatus.Pending,
+                retries: t.judge?.retries || 0,
+              },
+            })) || [],
+          hardening: meta.hardening?.status || ProgressStepStatus.Pending,
+          summary: {
+            attackCount,
+            completedAttacks,
+            completedTargets,
+            completedJudges,
+          },
+        };
+      } catch {
+        // ignore parse errors
+      }
+    }
+
     return NextResponse.json({
       reportId: scan.reportId,
       status: scan.status,
@@ -54,6 +107,7 @@ export async function GET(
       breaches: scan.breaches,
       score: scan.score,
       createdAt: scan.createdAt,
+      detail,
     });
   } catch (error) {
     console.error("Error fetching scan progress:", error);
