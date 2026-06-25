@@ -708,6 +708,13 @@ export default function PenTestScanPage() {
             return [];
           }
         })()}
+        existingMocks={(() => {
+          try {
+            return JSON.parse(prompts[managedPromptIdx]?.mockResponses || "{}");
+          } catch {
+            return {};
+          }
+        })()}
       />
 
       {/* Info card */}

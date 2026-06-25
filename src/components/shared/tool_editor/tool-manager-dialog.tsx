@@ -47,6 +47,7 @@ interface ToolManagerDialogProps {
   recommendedTools: any[];
   existingTools: any[];
   existingMockKeys: string[];
+  existingMocks?: Record<string, any>;
 }
 
 interface RecommendedTool {
@@ -95,11 +96,12 @@ export function ToolEditorDialog({
       const nodes = parseSchemaToNodes(props, requiredList);
       setParameterNodes(nodes);
 
+      console.log("[ToolEditorDialog] init mockResponse:", mockResponse);
       setMockString(JSON.stringify(mockResponse || {}, null, 2));
       setMockError(null);
       setValidationErrors([]);
     }
-  }, [open, tool, mockResponse]);
+  }, [open, tool]);
 
   // Sanitize tool name
   const handleNameChange = (val: string) => {
@@ -330,6 +332,7 @@ export function ToolManagerDialog({
   recommendedTools,
   existingTools,
   existingMockKeys,
+  existingMocks = {},
 }: ToolManagerDialogProps) {
   const parsedRecommended = useMemo(
     () => parseRecommendedTools(recommendedTools),
@@ -445,6 +448,12 @@ export function ToolManagerDialog({
     updatedMockResponse: any,
   ) => {
     const targetName = updatedToolJson.function?.name;
+    console.log("[ToolManagerDialog] handleToolFormSave:", {
+      targetName,
+      editingSource,
+      editingIndex,
+      updatedMockResponse,
+    });
 
     if (editingSource === "recommended") {
       setLocalRecommended((prev) =>
@@ -561,6 +570,7 @@ export function ToolManagerDialog({
             existingTools,
             expandedRemove,
             existingMockKeys,
+            existingMocks,
             toggleRemove,
             toggleExpandedRemove,
             setEditingTool,
@@ -630,6 +640,7 @@ function CurrentTools(
   existingTools: any[],
   expandedRemove: Set<number>,
   existingMockKeys: string[],
+  existingMocks: Record<string, any>,
   toggleRemove: (name: string) => void,
   toggleExpandedRemove: (idx: number) => void,
   setEditingTool: (tool: any) => void,
@@ -741,8 +752,16 @@ function CurrentTools(
                           variant="outline"
                           size="sm"
                           onClick={() => {
+                            console.log(
+                              "[CurrentTools] opening editor for:",
+                              tool.function?.name,
+                              "mockResponse:",
+                              tool.mockResponse,
+                            );
                             setEditingTool(tool.toolJson || tool);
-                            setEditingMock(tool.mockResponse || {});
+                            setEditingMock(
+                              existingMocks[name] || tool.mockResponse || {},
+                            );
                             setEditingIndex(idx);
                             setEditingSource("current"); // or "current"
                             setIsEditorOpen(true);
@@ -895,6 +914,12 @@ function Recommended(
                             variant="outline"
                             size="sm"
                             onClick={() => {
+                              console.log(
+                                "[Recommended] opening editor for:",
+                                tool.name,
+                                "mockResponse:",
+                                tool.mockResponse,
+                              );
                               setEditingTool(tool.toolJson || tool);
                               setEditingMock(tool.mockResponse || {});
                               setEditingIndex(idx);
