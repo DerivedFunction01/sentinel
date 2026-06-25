@@ -272,7 +272,6 @@ export function ReportView({ scan }: ReportViewProps) {
     toolsToRemove: string[],
     localMocks: Record<string, any>,
   ) => {
-
     if (!currentHardenedPrompt?.toolRecommendation) return;
     const rec = currentHardenedPrompt.toolRecommendation;
 
@@ -769,9 +768,10 @@ function hardenedPrompt(
                             <span className="text-[11px] font-semibold text-slate-400">
                               Tool Logic & Rationale
                             </span>
-                            <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/30 p-2.5 rounded border border-white/5 whitespace-pre-wrap">
-                              {toolRationale}
-                            </p>
+                            <MarkdownRenderer
+                              content={toolRationale}
+                              className="text-xs text-slate-300 leading-relaxed bg-slate-900/30 p-2.5 rounded border border-white/5 whitespace-pre-wrap"
+                            />
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
