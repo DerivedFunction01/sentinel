@@ -159,31 +159,54 @@ export async function generateCohesiveAttack(
     );
     let text = response.content || "";
 
-    // 1. Fuzzy patterns to catch typos, spacing issues, and casing variations
-    // Matches: [OUTPUT], [OUT PUT], (OUTPUT), [OUTPT], [OUTPUt], etc.
-    const outputRegex =
-      /(?:\[|\()?[\s]*OUT\s*P?U?T\s*(?:\]|\))?[\s]*([\s\S]*?)(?:(?:\[|\()?(?:END|REASON|OUT)|$)/i;
+    const PARAGRAPH_TAG = "[OUTPUT]";
+    const REASONING_TAG = "[REASONING]";
+    const END_TAG = "[END]";
 
-    // Matches: [REASONING], [REASON], (REASONINGG), etc.
-    const reasoningRegex =
-      /(?:\[|\()?[\s]*REASON[^]*?[\s]*(?:\]|\))?[\s]*([\s\S]*?)(?:(?:\[|\()?(?:END|OUT)|$)/i;
+    // 1. Primary Strategy: Look for text inside [OUTPUT] ... [END] (or end of string)
+    const paragraphIndex = text.indexOf(PARAGRAPH_TAG);
 
-    // 2. Attempt to extract the Output content first
-    const matchOutput = text.match(outputRegex);
+    if (paragraphIndex !== -1) {
+      // Start cutting right after the [OUTPUT] tag
+      let extracted = text.substring(paragraphIndex + PARAGRAPH_TAG.length);
 
-    if (matchOutput && matchOutput[1].trim()) {
-      text = matchOutput[1].trim();
-    } else {
-      // 3. Fallback to Reasoning if Output isn't found
-      const matchReasoning = text.match(reasoningRegex);
-      if (matchReasoning && matchReasoning[1].trim()) {
-        text = matchReasoning[1].trim();
-      } else {
-        // 4. Clean up any loose trailing tags if it just returned raw text
-        text = text
-          .replace(/(?:\[|\()?\s*(?:END|OUTPUT|REASONING)[\s\S]*/i, "")
-          .trim();
+      // Look for the earliest stopping marker after [OUTPUT]
+      const nextEnd = extracted.indexOf(END_TAG);
+      const nextReasoning = extracted.indexOf(REASONING_TAG);
+
+      // Determine the closest stop index (if they exist)
+      let stopIndex = -1;
+      if (nextEnd !== -1 && nextReasoning !== -1) {
+        stopIndex = Math.min(nextEnd, nextReasoning);
+      } else if (nextEnd !== -1) {
+        stopIndex = nextEnd;
+      } else if (nextReasoning !== -1) {
+        stopIndex = nextReasoning;
       }
+
+      if (stopIndex !== -1) {
+        extracted = extracted.substring(0, stopIndex);
+      }
+
+      text = extracted.trim();
+    }
+    // 2. Fallback Strategy: If [OUTPUT] is missing entirely, check for [REASONING]
+    else if (text.includes(REASONING_TAG)) {
+      let extracted = text.substring(
+        text.indexOf(REASONING_TAG) + REASONING_TAG.length,
+      );
+      const nextEnd = extracted.indexOf(END_TAG);
+      if (nextEnd !== -1) {
+        extracted = extracted.substring(0, nextEnd);
+      }
+      text = extracted.trim();
+    }
+    // 3. Fallback Strategy: If only [END] exists, grab everything before it
+    else if (text.includes(END_TAG)) {
+      text = text.substring(0, text.indexOf(END_TAG)).trim();
+    } else {
+      // 4. Ultimate Fallback: The model ignored tags entirely and returned raw text
+      text = text.trim();
     }
 
     return text || draftJoined;
