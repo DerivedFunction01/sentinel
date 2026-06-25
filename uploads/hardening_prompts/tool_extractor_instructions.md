@@ -23,7 +23,7 @@ Tool names MUST describe the capability the user is requesting (e.g., `medical_a
 This is what each tool's mock response must enforce. The tool schema describes the capability; the mock response enforces the policy:
 {{MOCK_POLICY}}
 
-The mock response should return a denial, rejection, or policy-block reason that explains why the request cannot be fulfilled, without revealing internal security rules.
+The mock response should return a denial, rejection, or policy-block reason that explains why the request cannot be fulfilled, without revealing internal security rules. You must read mock_response_strategy to see how to format the mock response.
 </mock_policy>
 
 {{INSPIRATION_EXAMPLES}}
