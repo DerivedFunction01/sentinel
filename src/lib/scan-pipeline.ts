@@ -1018,8 +1018,17 @@ export async function runSingleScanPipeline(
   // Phase 3: Target + Judge per trial — ALL TARGETS IN PARALLEL, then ALL JUDGES IN PARALLEL
   // Each attack is independent (different prompt to the same target model),
   // so we can fire all targets at once for massive throughput improvement.
+  //
+  // CRITICAL: We build trialResults from IN-MEMORY data, NOT from re-reading
+  // progressMeta from the DB. The progressMeta writes are only for the progress
+  // UI polling endpoint — they're NOT the source of truth for final output.
+  // This avoids race conditions where parallel writes clobber each other.
   const trialResults: Trial[] = [];
   const attackCount = attackSet.attacks.length;
+
+  // In-memory store for results (avoids race conditions from parallel DB writes)
+  const targetResponses: Map<number, string> = new Map();
+  const judgeVerdicts: Map<number, { verdict: TrialVerdict; reasoning: string }> = new Map();
 
   // Step A: Launch all target simulations in parallel
   // Use allSettled so one failure doesn't cancel the entire batch.
@@ -1027,7 +1036,7 @@ export async function runSingleScanPipeline(
   // to handle unexpected rejections (e.g. readProgressMeta returning null).
   const safeRetry = (promise: Promise<any>) =>
     promise.catch((err) => {
-      console.error(`Parallel target step rejected unexpectedly:`, err);
+      console.error(`Parallel step rejected unexpectedly:`, err);
       return null;
     });
 
@@ -1050,21 +1059,20 @@ export async function runSingleScanPipeline(
               options.mockToolResponses,
               tracker,
             );
-            return { idx, result };
+            // Store in memory for later use (avoids DB race)
+            targetResponses.set(idx, result.responseText);
+            return result.responseText;
           },
-          (m, payload) => {
-            m.trials[payload.idx].target = {
-              ...m.trials[payload.idx].target,
+          (m, responseText) => {
+            m.trials[idx].target = {
+              ...m.trials[idx].target,
               status: ProgressStepStatus.Completed,
-              response: payload.result.responseText,
+              response: responseText,
             };
           },
         ),
       ),
     ),
-  );
-  const targetResults = targetSettled.map((r) =>
-    r.status === "fulfilled" ? r.value : null,
   );
 
   // Update coarse progress for all targets at once
@@ -1077,9 +1085,14 @@ export async function runSingleScanPipeline(
   // Use allSettled so one failure doesn't cancel the entire batch.
   const judgeSettled = await Promise.allSettled(
     attackSet.attacks.map((entry, idx) => {
-      const targetResult = targetResults[idx];
-      if (!targetResult) {
-        // Target failed — mark judge as failed
+      const targetResponse = targetResponses.get(idx);
+      if (!targetResponse) {
+        // Target failed — mark judge as failed in progressMeta
+        // Store a failure in-memory too
+        judgeVerdicts.set(idx, {
+          verdict: TrialVerdict.Unknown,
+          reasoning: "Target failed, judge skipped",
+        });
         return safeRetry(
           withRetry(
             `judge-${idx}`,
@@ -1105,7 +1118,6 @@ export async function runSingleScanPipeline(
         );
       }
 
-      const targetResponse = targetResult.result?.responseText || "";
       return safeRetry(
         withRetry(
           `judge-${idx}`,
@@ -1126,6 +1138,11 @@ export async function runSingleScanPipeline(
               tracker,
               attackSet.seedInfo.isGenerative,
             );
+            // Store in memory for later use (avoids DB race)
+            judgeVerdicts.set(idx, {
+              verdict: evaluation.verdict,
+              reasoning: evaluation.reasoning,
+            });
             return { idx, evaluation };
           },
           (m, payload) => {
@@ -1143,7 +1160,6 @@ export async function runSingleScanPipeline(
       );
     }),
   );
-  // We don't need results from judges since they write to progressMeta directly
 
   // Update coarse progress for all judges at once
   await db.scan.update({
@@ -1151,50 +1167,43 @@ export async function runSingleScanPipeline(
     data: { currentStep: { increment: attackCount } },
   });
 
-  // Step C: Build trial results from progress meta (all done)
-  const finalMeta = await readProgressMeta(reportId);
-  if (finalMeta) {
-    for (let idx = 0; idx < attackCount; idx++) {
-      const entry = attackSet.attacks[idx];
-      const t = finalMeta.trials[idx];
-      const isBreached =
-        t.judge.status === ProgressStepStatus.Completed &&
-        t.judge.verdict === TrialVerdict.Breached;
-      const pattern =
-        patterns.find((p) => p.patternId === entry.patternId) || patterns[0];
-      const variantIdx =
-        idx % (attackSet.seedInfo.thingNameVariants.length || 1);
-      const selectedThingName =
-        attackSet.seedInfo.thingNameVariants[variantIdx] ||
-        attackSet.seedInfo.thingName;
-      const selectedThingDesc =
-        attackSet.seedInfo.thingDescriptionVariants[variantIdx] ||
-        attackSet.seedInfo.thingDescription;
+  // Step C: Build trial results from IN-MEMORY data (not re-reading from DB)
+  // This avoids the race condition where parallel withRetry writes to
+  // progressMeta overwrite each other.
+  for (let idx = 0; idx < attackCount; idx++) {
+    const entry = attackSet.attacks[idx];
+    const judgeResult = judgeVerdicts.get(idx);
+    const targetResponse = targetResponses.get(idx) || "";
+    const isBreached = judgeResult?.verdict === TrialVerdict.Breached;
+    const pattern =
+      patterns.find((p) => p.patternId === entry.patternId) || patterns[0];
+    const variantIdx =
+      idx % (attackSet.seedInfo.thingNameVariants.length || 1);
+    const selectedThingName =
+      attackSet.seedInfo.thingNameVariants[variantIdx] ||
+      attackSet.seedInfo.thingName;
+    const selectedThingDesc =
+      attackSet.seedInfo.thingDescriptionVariants[variantIdx] ||
+      attackSet.seedInfo.thingDescription;
 
-      trialResults.push({
-        number: idx + 1,
-        verdict:
-          t.judge.status === ProgressStepStatus.Completed
-            ? isBreached
-              ? TrialVerdict.Breached
-              : TrialVerdict.Defended
-            : TrialVerdict.Unknown,
-        attack: entry.attackText,
-        response: t.target.response || "",
-        judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
-        judgeVerdict: t.judge.reasoning || "",
-        taskTag: "forbidden_task_1",
-        entropyLabel: entry.entropyLabel,
-        framingLabel: entry.framingLabel,
-        patternId: entry.patternId,
-        targetThing: selectedThingName,
-        seedTemplate: renderAttack(
-          pattern,
-          selectedThingName,
-          selectedThingDesc,
-        ),
-      });
-    }
+    trialResults.push({
+      number: idx + 1,
+      verdict: judgeResult?.verdict || TrialVerdict.Unknown,
+      attack: entry.attackText,
+      response: targetResponse,
+      judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
+      judgeVerdict: judgeResult?.reasoning || "",
+      taskTag: "forbidden_task_1",
+      entropyLabel: entry.entropyLabel,
+      framingLabel: entry.framingLabel,
+      patternId: entry.patternId,
+      targetThing: selectedThingName,
+      seedTemplate: renderAttack(
+        pattern,
+        selectedThingName,
+        selectedThingDesc,
+      ),
+    });
   }
 
   // Phase 4: Compute final scores
