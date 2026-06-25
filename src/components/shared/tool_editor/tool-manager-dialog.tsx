@@ -397,9 +397,9 @@ export function ToolManagerDialog({
       setLocalRecommended([...recommendedTools]);
       setLocalExisting([...existingTools]);
       // Synthesize active mock objects list payload maps
-      setLocalMocks({});
+      setLocalMocks({ ...existingMocks });
     }
-  }, [open, recommendedTools, existingTools]);
+  }, [open, recommendedTools, existingTools, existingMocks]);
 
   const toggleAdd = (name: string) => {
     setSelectedToAdd((prev) => {
