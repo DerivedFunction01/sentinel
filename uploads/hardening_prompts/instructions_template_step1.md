@@ -54,4 +54,4 @@ REWRITTEN:
 
 </CHANGED_SENTENCES>
 
-Do NOT output a full rewritten system prompt. Do NOT include any introduction, explanations, preambles, or markdown formatting outside the tags.
+Do NOT output a full rewritten system prompt. Do NOT include any introduction, explanations, preambles, or markdown formatting outside the tags. You are proposing a diff, not a rewrite.
