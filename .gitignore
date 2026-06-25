@@ -34,7 +34,9 @@ yarn-error.log*
 .env*
 # Database files
 prisma/generated/*
+/generated
 *.db
+generated/prisma/*
 # vercel
 .vercel
 

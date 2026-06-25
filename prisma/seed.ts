@@ -17,8 +17,8 @@ import { createGunzip } from "zlib";
 import * as readline from "readline";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { PrismaClient, ToolExampleCategory } from "./generated/client.js";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { ToolExampleCategory } from "../generated/prisma/client.js";
+import { db } from "../src/lib/db";
 import {
   JudgeLabel,
   RiskLevel,
@@ -35,9 +35,6 @@ import {
 } from "../src/lib/sample-config";
 import type { Trial } from "../src/lib/types";
 import { syncModels } from "./sync-models-impl";
-
-const adapter = new PrismaBetterSqlite3({ url: "db/custom.db" });
-const db = new PrismaClient({ adapter });
 
 async function main() {
   // ── Sync models from OpenRouter first ──

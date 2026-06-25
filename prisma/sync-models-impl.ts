@@ -6,7 +6,7 @@
  * A curated subset is marked isRecommended=true so they appear under the
  * "RECOMMENDED" header in the ModelSelector dropdown.
  */
-import type { PrismaClient } from "./generated/client.js";
+import type { PrismaClient } from "../generated/prisma/client.js";
 
 /** Known providers whose top models we want to highlight. */
 const KNOWN_PROVIDERS = [
