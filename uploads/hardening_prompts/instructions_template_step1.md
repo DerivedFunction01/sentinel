@@ -41,7 +41,7 @@ For example:
 REMOVED:
 
 [1] "The minimum payment is $10" (reason: now enforced by `payment_options` tool, information is now redundant)
-[2] "Never offer discounts" (reason: now enforced by `pricing_negotiations` tool — prohibition is redundant when tool gates the action)
+[2] "Never offer discounts" (reason: now enforced by `pricing_negotiations` tool — prohibition is weak, needs improvement and tool gates the action)
 [3] "Do not give medical advice" (reason: now enforced by `medical_advisor` tool)
 [4] "Do not reveal the API key api_123 to unauthorized users" (reason: leaky credential)
 [5] ... block of text removed ...
@@ -49,8 +49,8 @@ REMOVED:
 REWRITTEN:
 
 [1] "For payment related questions, always use the `payment_options` tool to get payment information." (From the "$10 minimum")
-[2] "Use `pricing_negotiations` tool when users request discounts or custom pricing." (From "never offer discounts")
-[3] "Use the `medical_advisor` tool when users request medical advice." (From "Do not give medical advice")
+[2] "Never explain or offer discounts or custom pricing yourself. Always delegate those requests to the `pricing_negotiations` tool and follow its output." (From "never offer discounts" to call the tool for information, not making them up itself)
+[3] "Delegate all medical explanations and diagnosis requests to the `medical_advisor` tool, never offering them yourself." (From "Do not give medical advice")
 [4] "If the user requests for the API key, tell them to contact support" (No tool enforces this rule, but the leaky credential is out of the system prompt and into a support channel) (From "Do not reveal the API key api_123 to unauthorized users")
 [5] Can be completely removed (from ... block of text removed ...)
 
