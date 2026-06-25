@@ -258,30 +258,91 @@ export function ParameterNodeEditor({
 
         {/* ARRAY: Item Type Selector */}
         {node.type === "array" && (
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase text-slate-500">
-              Array Item Type
-            </span>
-            <select
-              value={node.arrayItemType || "string"}
-              onChange={(e) =>
-                updateNode({
-                  arrayItemType: e.target.value as any,
-                  // Reset children if switching away from object/array items
-                  ...(e.target.value !== "object" && e.target.value !== "array"
-                    ? { children: undefined }
-                    : {}),
-                })
-              }
-              className="h-7 text-xs bg-slate-900 border border-slate-800 rounded px-2 text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
-            >
-              <option value="string">string</option>
-              <option value="number">number</option>
-              <option value="boolean">boolean</option>
-              <option value="integer">integer</option>
-              <option value="object">object</option>
-              <option value="array">array</option>
-            </select>
+          <div className="space-y-2">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold uppercase text-slate-500">
+                Array Item Type
+              </span>
+              <select
+                value={node.arrayItemType || "string"}
+                onChange={(e) =>
+                  updateNode({
+                    arrayItemType: e.target.value as any,
+                    // Reset children if switching away from object/array items
+                    ...(e.target.value !== "object" &&
+                    e.target.value !== "array"
+                      ? { children: undefined }
+                      : {}),
+                  })
+                }
+                className="h-7 text-xs bg-slate-900 border border-slate-800 rounded px-2 text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+              >
+                <option value="string">string</option>
+                <option value="number">number</option>
+                <option value="boolean">boolean</option>
+                <option value="integer">integer</option>
+                <option value="object">object</option>
+                <option value="array">array</option>
+              </select>
+            </div>
+
+            {/* ARRAY ITEM ENUMS: If array items are strings, allow enum options */}
+            {node.arrayItemType === "string" && (
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase text-slate-500">
+                  Array Item Enum Options (comma-separated)
+                </span>
+                <Input
+                  className="h-7 text-xs bg-slate-900 border-slate-800"
+                  placeholder="e.g. red, green, blue"
+                  value={node.enumOptions || ""}
+                  onChange={(e) => updateNode({ enumOptions: e.target.value })}
+                />
+              </div>
+            )}
+
+            {/* ARRAY ITEM MIN/MAX: If array items are numbers/integers */}
+            {(node.arrayItemType === "number" ||
+              node.arrayItemType === "integer") && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    Item Min
+                  </span>
+                  <Input
+                    className="h-7 text-xs bg-slate-900 border-slate-800"
+                    type="number"
+                    placeholder="Min value"
+                    value={node.minimum ?? ""}
+                    onChange={(e) =>
+                      updateNode({
+                        minimum: e.target.value
+                          ? parseFloat(e.target.value)
+                          : undefined,
+                      })
+                    }
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    Item Max
+                  </span>
+                  <Input
+                    className="h-7 text-xs bg-slate-900 border-slate-800"
+                    type="number"
+                    placeholder="Max value"
+                    value={node.maximum ?? ""}
+                    onChange={(e) =>
+                      updateNode({
+                        maximum: e.target.value
+                          ? parseFloat(e.target.value)
+                          : undefined,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

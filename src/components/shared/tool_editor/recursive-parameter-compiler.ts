@@ -83,9 +83,26 @@ function compileNode(node: ParameterNode): CompiledSchema {
       }
     } else {
       // Simple array without complex items
-      schema.items = {
+      const itemSchema: CompiledSchema = {
         type: itemType,
       };
+
+      // Apply constraints to array items (enum, min/max)
+      if (itemType === "string" && node.enumOptions?.trim()) {
+        itemSchema.enum = node.enumOptions
+          .split(",")
+          .map((opt) => opt.trim())
+          .filter(Boolean);
+      }
+
+      if (itemType === "number" || itemType === "integer") {
+        if (node.minimum !== undefined && !isNaN(node.minimum))
+          itemSchema.minimum = node.minimum;
+        if (node.maximum !== undefined && !isNaN(node.maximum))
+          itemSchema.maximum = node.maximum;
+      }
+
+      schema.items = itemSchema;
     }
   }
 
@@ -190,6 +207,24 @@ export function parseSchemaToNodes(
     // Parse ARRAY: item type and nested properties
     if (schema.type === "array" && schema.items) {
       node.arrayItemType = schema.items.type || "string";
+
+      // Parse array item constraints (enum, min/max)
+      if (schema.items.type === "string" && schema.items.enum) {
+        node.enumOptions = schema.items.enum.join(", ");
+      }
+
+      if (
+        (schema.items.type === "number" || schema.items.type === "integer") &&
+        schema.items.minimum !== undefined
+      ) {
+        node.minimum = schema.items.minimum;
+      }
+      if (
+        (schema.items.type === "number" || schema.items.type === "integer") &&
+        schema.items.maximum !== undefined
+      ) {
+        node.maximum = schema.items.maximum;
+      }
 
       if (schema.items.type === "object" && schema.items.properties) {
         node.children = parseSchemaToNodes(
