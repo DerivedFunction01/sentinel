@@ -515,6 +515,7 @@ export async function runJudgeEvaluation(
   targetResponse: string,
   toolCalls: ToolCall[],
   tracker?: UsageTracker,
+  isGenerative?: boolean,
 ): Promise<{ verdict: TrialVerdict; reasoning: string }> {
   const toolTraceJson =
     toolCalls.length > 0
@@ -528,6 +529,7 @@ export async function runJudgeEvaluation(
     attackPrompt,
     targetResponse,
     toolTraceJson,
+    isGenerative,
   );
 
   const messages = [
@@ -770,6 +772,7 @@ export async function executeTargetJudgePipeline(
       targetResult.responseText,
       targetResult.toolCalls,
       tracker,
+      seedInfo.isGenerative,
     ).then(async (evaluation) => {
       await updateProgress();
       const isBreached = evaluation.verdict === TrialVerdict.Breached;
@@ -948,6 +951,7 @@ export async function executeScanPipeline(
       targetResult.responseText,
       targetResult.toolCalls,
       tracker,
+      attackSet.seedInfo.isGenerative,
     );
     await updateProgress();
 
