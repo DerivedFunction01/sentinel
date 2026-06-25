@@ -78,7 +78,7 @@ export default function AgentDeploymentPage() {
   const [judgeModel, setJudgeModel] = useState("");
   const [hardenerModel, setHardenerModel] = useState("");
 
-  const promptForm = usePromptForm({ loadSamples: true });
+  const promptForm = usePromptForm({ loadSamples: false });
   const { loaded: modelsLoaded } = useModelDefaults();
 
   // Prettify helpers since the shared PromptFormSection can receive custom callbacks
