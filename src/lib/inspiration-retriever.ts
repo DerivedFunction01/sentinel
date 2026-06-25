@@ -237,7 +237,7 @@ Overlap scoring guidelines:
 Tool Requirements (what users request from the assistant):
 ${toolRequirements}
 Target Granularity: ${granularity}
-Business Categories: ${(businessCategories || []).join(", ") || "N/A"}
+Business Categories: ${(metadata.seedExtraction?.businessCategories || []).join(", ") || "N/A"}
 
 Examples:
 ${candidates
@@ -343,7 +343,7 @@ Output ONLY valid JSON with no preamble:
         query,
         tags,
         retrievedExamples: candidates,
-        usedBusinessCategories: businessCategories,
+        usedBusinessCategories: metadata.seedExtraction?.businessCategories,
       };
     }
     return candidates;
