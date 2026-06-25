@@ -36,16 +36,9 @@ export async function retrieveInspirationExamples(
   existingTools?: ToolDef[],
 ): Promise<InspirationExample[]> {
   try {
-    const businessCategories = metadata.seedExtraction?.businessCategories;
     const personaDescription = metadata.seedExtraction?.personaDescription;
     const businessFeatures = metadata.seedExtraction?.businessFeatures;
     const businessScenarios = metadata.seedExtraction?.businessScenarios;
-
-    // Build rich business context for the prompt
-    const businessCategoryContext =
-      businessCategories && businessCategories.length > 0
-        ? `\nTarget Business Categories: ${businessCategories.join(", ")}\nFocus on examples that match these business domains.`
-        : `\nPredict it from these Enums: ${Object.values(BusinessCategory)}`;
 
     const personaContext = personaDescription
       ? `\nAssistant Persona: ${personaDescription}\nTailor search toward examples relevant to this role.`
@@ -64,7 +57,7 @@ export async function retrieveInspirationExamples(
     const prompt = `You are a search query generator. Your task is to analyze the following security constraint/forbidden task of an AI assistant and generate search tags and a keyword query to find relevant tool schema templates in our database.
 
 Forbidden Task: "${forbiddenTask}"
-Target Granularity: ${granularity}${businessCategoryContext}${personaContext}${featuresContext}${scenariosContext}
+Target Granularity: ${granularity}${personaContext}${featuresContext}${scenariosContext}
 
 DO NOT use adversarial language like "refusal" in the the tags or query. There will be no results, since the tool schema does not have these tags or words.
 
@@ -141,7 +134,7 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
 
       // Calculate business category match bonus using metadata categories directly
       let categoryBonus = 0;
-      const categoriesToMatch = businessCategories;
+      const categoriesToMatch = metadata.seedExtraction?.businessCategories;
       if (categoriesToMatch && categoriesToMatch.length > 0) {
         try {
           const exampleCategories = JSON.parse(
