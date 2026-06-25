@@ -247,7 +247,7 @@ export function ReportView({ scan }: ReportViewProps) {
         },
       ],
     };
-    localStorage.setItem("sentinelprompt_scan_preset", JSON.stringify(preset));
+    localStorage.setItem("ToolRegistry_scan_preset", JSON.stringify(preset));
     toast.success("Applied to scan configuration. Redirecting...");
     router.push("/dashboard/scan");
   };
@@ -338,7 +338,7 @@ export function ReportView({ scan }: ReportViewProps) {
         },
       ],
     };
-    localStorage.setItem("sentinelprompt_scan_preset", JSON.stringify(preset));
+    localStorage.setItem("ToolRegistry_scan_preset", JSON.stringify(preset));
     toast.success("Tools applied to scan configuration. Redirecting...");
     router.push("/dashboard/scan");
   };
@@ -395,7 +395,7 @@ export function ReportView({ scan }: ReportViewProps) {
         {/* Report footer */}
         <Separator />
         <div className="flex items-center justify-between pb-8 text-xs text-muted-foreground">
-          <span>SentinelPrompt · Security Insights Report · Confidential</span>
+          <span>ToolRegistry · Security Insights Report · Confidential</span>
         </div>
       </div>
 

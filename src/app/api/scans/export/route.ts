@@ -50,7 +50,7 @@ export async function GET() {
   const gzipped = gzipSync(jsonl);
 
   const date = new Date().toISOString().slice(0, 10);
-  const filename = `sentinelprompt-scans-${date}.jsonl.gz`;
+  const filename = `ToolRegistry-scans-${date}.jsonl.gz`;
 
   return new NextResponse(gzipped, {
     headers: {

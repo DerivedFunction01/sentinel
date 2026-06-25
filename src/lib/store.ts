@@ -21,7 +21,7 @@ export const useAppStore = create<AppState>()(
         set({ openrouterConnected: connected }),
     }),
     {
-      name: "sentinelprompt-store",
+      name: "ToolRegistry-store",
     },
   ),
 );

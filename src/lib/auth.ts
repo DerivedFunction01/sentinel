@@ -1,5 +1,5 @@
 /**
- * SentinelPrompt — NextAuth.js v4 configuration.
+ * ToolRegistry — NextAuth.js v4 configuration.
  *
  * Credentials provider backed by Prisma. Passwords are bcrypt-hashed.
  * JWT session strategy (works with SQLite, no session table needed).

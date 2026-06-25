@@ -47,7 +47,7 @@ export async function GET() {
   const gzipped = gzipSync(jsonl);
 
   const date = new Date().toISOString().slice(0, 10);
-  const filename = `sentinelprompt-tool-examples-${date}.jsonl.gz`;
+  const filename = `ToolRegistry-tool-examples-${date}.jsonl.gz`;
 
   return new NextResponse(gzipped, {
     headers: {

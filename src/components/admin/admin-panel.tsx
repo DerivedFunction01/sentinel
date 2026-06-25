@@ -143,7 +143,7 @@ export function AdminPanel({
           <Link href="/" className="flex items-center gap-2">
             <LogoIcon size="sm" />
             <span className="text-base font-bold text-sidebar-foreground">
-              SentinelPrompt
+              ToolRegistry
             </span>
           </Link>
         </div>
@@ -241,7 +241,14 @@ export function AdminPanel({
 
           {/* Filter */}
           <div className="flex flex-wrap items-center gap-2">
-            {(["ALL", TokenRequestStatus.Pending, TokenRequestStatus.Approved, TokenRequestStatus.Denied] as Filter[]).map((f) => (
+            {(
+              [
+                "ALL",
+                TokenRequestStatus.Pending,
+                TokenRequestStatus.Approved,
+                TokenRequestStatus.Denied,
+              ] as Filter[]
+            ).map((f) => (
               <Button
                 key={f}
                 variant={filter === f ? "default" : "outline"}

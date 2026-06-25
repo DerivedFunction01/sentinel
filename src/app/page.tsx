@@ -51,7 +51,7 @@ function LandingHeader() {
         <Link href="/" className="flex items-center gap-2">
           <LogoIcon size="sm" />
           <span className="text-lg font-bold tracking-tight text-slate-900">
-            SentinelPrompt
+            ToolRegistry
           </span>
         </Link>
         <nav className="hidden items-center gap-8 md:flex">
@@ -112,7 +112,7 @@ function Hero() {
             Pentest your AI the way a real attacker would.
           </h1>
           <p className="mt-6 max-w-xl text-lg text-slate-300">
-            SentinelPrompt puts your system prompt under sustained adversarial
+            ToolRegistry puts your system prompt under sustained adversarial
             pressure, scores it, and hands you back a hardened version — all in
             minutes. Here&apos;s what happens behind the scenes:
           </p>
@@ -154,7 +154,7 @@ function HeroDashboardPreview() {
           <div className="h-3 w-3 rounded-full bg-amber-500/70" />
           <div className="h-3 w-3 rounded-full bg-emerald-500/70" />
           <span className="ml-3 text-xs text-slate-500">
-            sentinelprompt.app/dashboard
+            ToolRegistry.app/dashboard
           </span>
         </div>
         <div className="p-5">
@@ -220,7 +220,7 @@ function Guardrails() {
           say, and what it must never reveal. Traditional security tools scan
           code and infrastructure. None of them inspect the natural language
           instructions that actually control your AI&apos;s behavior.
-          SentinelPrompt closes that gap.
+          ToolRegistry closes that gap.
         </p>
       </div>
     </section>
@@ -292,11 +292,11 @@ function Methodology() {
     <section className="bg-slate-950 py-20 sm:py-24">
       <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-blue-400">
-          What makes SentinelPrompt different
+          What makes ToolRegistry different
         </p>
         <p className="text-xl leading-relaxed text-slate-300">
           The specific attack library, evaluation criteria, and scoring
-          methodology are SentinelPrompt&apos;s secret sauce. We&apos;re
+          methodology are ToolRegistry&apos;s secret sauce. We&apos;re
           constantly refining our techniques to stay ahead of the curve, so the
           test stays effective against the latest threats.
         </p>
@@ -379,7 +379,7 @@ function Research() {
           Grounded in research.
         </h2>
         <p className="mt-6 text-lg leading-relaxed text-slate-300">
-          SentinelPrompt reflects Lehigh University's mission to translate
+          ToolRegistry reflects Lehigh University's mission to translate
           cutting-edge research into practical innovation. Our platform combines
           insights from behavioral science and AI security to advance safer,
           more resilient generative AI systems.
@@ -504,7 +504,7 @@ function LandingFooter() {
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-4 sm:px-6 md:flex-row">
         <Link href="/" className="flex items-center gap-2">
           <LogoIcon size="sm" />
-          <span className="text-lg font-bold text-white">SentinelPrompt</span>
+          <span className="text-lg font-bold text-white">ToolRegistry</span>
         </Link>
         <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-400">
           <a href="#how-it-works" className="hover:text-white">
@@ -524,7 +524,7 @@ function LandingFooter() {
           </a>
         </nav>
         <p className="text-xs text-slate-600">
-          © 2026 SentinelPrompt. All rights reserved.
+          © 2026 ToolRegistry. All rights reserved.
         </p>
       </div>
     </footer>

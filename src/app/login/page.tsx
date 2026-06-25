@@ -56,7 +56,7 @@ function LoginPageContent() {
           {/* Logo */}
           <Link href="/" className="mb-10 flex items-center gap-2">
             <LogoIcon size="md" />
-            <span className="text-xl font-bold text-white">SentinelPrompt</span>
+            <span className="text-xl font-bold text-white">ToolRegistry</span>
           </Link>
 
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -149,7 +149,7 @@ function LoginPageContent() {
             href="/"
             className="mt-8 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
           >
-            Learn more about SentinelPrompt
+            Learn more about ToolRegistry
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>

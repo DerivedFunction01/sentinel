@@ -42,7 +42,7 @@ const PLANS: PricingPlan[] = [
     name: "Starter",
     price: 0,
     tokens: 10,
-    description: "For trying out SentinelPrompt",
+    description: "For trying out ToolRegistry",
     icon: Zap,
     features: [
       "10 scan tokens",

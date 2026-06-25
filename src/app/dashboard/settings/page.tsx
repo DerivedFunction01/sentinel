@@ -192,7 +192,7 @@ export default function SettingsPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `sentinelprompt-scans-${new Date().toISOString().slice(0, 10)}.jsonl.gz`;
+      a.download = `ToolRegistry-scans-${new Date().toISOString().slice(0, 10)}.jsonl.gz`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -263,26 +263,40 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">First Name</Label>
-                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                <Input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Last Name</Label>
-                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                <Input
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-medium">Company Name</Label>
-              <Input value={company} onChange={(e) => setCompany(e.target.value)} />
+              <Input
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-medium">Email</Label>
               <Input value={user.email} disabled className="bg-muted/50" />
               <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Lock className="mt-0.5 h-3 w-3 shrink-0" />
-                Email cannot be changed. Contact an administrator for assistance.
+                Email cannot be changed. Contact an administrator for
+                assistance.
               </p>
             </div>
-            <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -309,7 +323,9 @@ export default function SettingsPage() {
           <CardContent className="space-y-5">
             <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-4">
               <div>
-                <p className="text-sm font-medium text-foreground">Scan Tokens</p>
+                <p className="text-sm font-medium text-foreground">
+                  Scan Tokens
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {user.scanTokens} scans remaining
                 </p>
@@ -419,7 +435,8 @@ export default function SettingsPage() {
             ) : (
               <div className="max-h-72 space-y-2 overflow-y-auto scrollbar-thin">
                 {requests.map((req) => {
-                  const style = STATUS_STYLES[req.status] || STATUS_STYLES["PENDING"];
+                  const style =
+                    STATUS_STYLES[req.status] || STATUS_STYLES["PENDING"];
                   return (
                     <div
                       key={req.id}
@@ -444,9 +461,15 @@ export default function SettingsPage() {
                         )}
                       </div>
                       <Badge variant="outline" className={style.cls}>
-                        {req.status === "APPROVED" && <CheckCircle2 className="mr-1 h-3 w-3" />}
-                        {req.status === "DENIED" && <XCircle className="mr-1 h-3 w-3" />}
-                        {req.status === "PENDING" && <Clock className="mr-1 h-3 w-3" />}
+                        {req.status === "APPROVED" && (
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                        )}
+                        {req.status === "DENIED" && (
+                          <XCircle className="mr-1 h-3 w-3" />
+                        )}
+                        {req.status === "PENDING" && (
+                          <Clock className="mr-1 h-3 w-3" />
+                        )}
                         {style.label}
                       </Badge>
                     </div>

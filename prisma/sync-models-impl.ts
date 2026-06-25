@@ -1,5 +1,5 @@
 /**
- * SentinelPrompt — Model sync implementation.
+ * ToolRegistry — Model sync implementation.
  *
  * Fetches the full model catalog from OpenRouter's public
  * /api/v1/models endpoint and upserts each into the Model table.

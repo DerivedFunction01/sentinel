@@ -226,7 +226,7 @@ export async function generateScanReport(
                           new Paragraph({
                             children: [
                               new TextRun({
-                                text: "SENTINELPROMPT   ·   SECURITY   INSIGHTS   REPORT   ·   ",
+                                text: "ToolRegistry   ·   SECURITY   INSIGHTS   REPORT   ·   ",
                                 size: 14,
                                 color: "999999",
                               }),

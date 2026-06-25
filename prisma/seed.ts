@@ -1,12 +1,12 @@
 /**
- * SentinelPrompt — Database seed script.
+ * ToolRegistry — Database seed script.
  *
  * Creates a demo regular user, a demo admin user, and one seed scan with
  * minimal data: 1 tool, 1 mock tool response, judge instructions, and 3
  * trials (1 breached, 2 defended).
  *
  * Tool schema examples are seeded from:
- *   uploads/seed/sentinelprompt-tool-examples.jsonl.gz
+ *   uploads/seed/ToolRegistry-tool-examples.jsonl.gz
  * (falls back to an empty set if the file is missing).
  *
  * Run with: bun run db:seed
@@ -47,23 +47,23 @@ async function main() {
   const customerAdminPassword = await bcrypt.hash("cadmin123", 10);
 
   const admin = await db.user.upsert({
-    where: { email: "admin@sentinelprompt.app" },
+    where: { email: "admin@ToolRegistry.app" },
     update: {},
     create: {
-      email: "admin@sentinelprompt.app",
+      email: "admin@ToolRegistry.app",
       name: "Super Admin",
       password: adminPassword,
       role: UserRole.SuperAdmin,
-      company: "SentinelPrompt",
+      company: "ToolRegistry",
       scanTokens: 9999,
     },
   });
 
   const customerAdmin = await db.user.upsert({
-    where: { email: "cadmin@sentinelprompt.app" },
+    where: { email: "cadmin@ToolRegistry.app" },
     update: {},
     create: {
-      email: "cadmin@sentinelprompt.app",
+      email: "cadmin@ToolRegistry.app",
       name: "Customer Admin",
       password: customerAdminPassword,
       role: UserRole.CustomerAdmin,
@@ -73,15 +73,15 @@ async function main() {
   });
 
   await db.user.update({
-    where: { email: "cadmin@sentinelprompt.app" },
+    where: { email: "cadmin@ToolRegistry.app" },
     data: { company: "cadmin-company-id" },
   });
 
   const user = await db.user.upsert({
-    where: { email: "denny@sentinelprompt.app" },
+    where: { email: "denny@ToolRegistry.app" },
     update: {},
     create: {
-      email: "denny@sentinelprompt.app",
+      email: "denny@ToolRegistry.app",
       name: "Denny Li",
       password: userPassword,
       role: UserRole.User,
@@ -91,7 +91,7 @@ async function main() {
   });
 
   await db.user.update({
-    where: { email: "denny@sentinelprompt.app" },
+    where: { email: "denny@ToolRegistry.app" },
     data: { company: "cadmin-company-id" },
   });
 
@@ -229,7 +229,7 @@ Would you like assistance with product inquiries or order status?`,
   const __dirname = path.dirname(__filename);
   const seedFilePath = path.resolve(
     __dirname,
-    "../uploads/seed/sentinelprompt-tool-examples.jsonl.gz",
+    "../uploads/seed/ToolRegistry-tool-examples.jsonl.gz",
   );
 
   interface ToolExampleRow {

@@ -1,5 +1,5 @@
 /**
- * SentinelPrompt — Shared helpers for risk levels, scores, and styling.
+ * ToolRegistry — Shared helpers for risk levels, scores, and styling.
  */
 import { RiskLevel, TrialVerdict, JudgeLabel } from "@/lib/enums";
 

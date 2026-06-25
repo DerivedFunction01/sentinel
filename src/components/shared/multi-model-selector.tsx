@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Check, ChevronsUpDown, Search, Loader2, X, Plus } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -29,7 +33,7 @@ interface MultiModelSelectorProps {
   onChange: (ids: string[]) => void;
 }
 
-const RECENT_MODELS_KEY = "sentinelprompt_recent_models";
+const RECENT_MODELS_KEY = "ToolRegistry_recent_models";
 
 function getRecentModels(): string[] {
   if (typeof window === "undefined") return [];
@@ -51,7 +55,10 @@ function saveRecentModel(modelId: string) {
   } catch {}
 }
 
-export function MultiModelSelector({ value, onChange }: MultiModelSelectorProps) {
+export function MultiModelSelector({
+  value,
+  onChange,
+}: MultiModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,20 +67,24 @@ export function MultiModelSelector({ value, onChange }: MultiModelSelectorProps)
   // Load models on mount and whenever the dropdown opens or search changes.
   useEffect(() => {
     let active = true;
-    const t = setTimeout(async () => {
-      if (open) setLoading(true);
-      const params = search.length >= 2 ? `?q=${encodeURIComponent(search)}` : "";
-      try {
-        const res = await fetch(`/api/models${params}`);
-        const data = await res.json();
-        if (active) {
-          setModels(data.models || []);
-          setLoading(false);
+    const t = setTimeout(
+      async () => {
+        if (open) setLoading(true);
+        const params =
+          search.length >= 2 ? `?q=${encodeURIComponent(search)}` : "";
+        try {
+          const res = await fetch(`/api/models${params}`);
+          const data = await res.json();
+          if (active) {
+            setModels(data.models || []);
+            setLoading(false);
+          }
+        } catch {
+          if (active) setLoading(false);
         }
-      } catch {
-        if (active) setLoading(false);
-      }
-    }, open ? 250 : 0);
+      },
+      open ? 250 : 0,
+    );
     return () => {
       active = false;
       clearTimeout(t);
@@ -164,9 +175,7 @@ export function MultiModelSelector({ value, onChange }: MultiModelSelectorProps)
           >
             <span className="flex items-center gap-2">
               <Plus className="h-4 w-4 text-muted-foreground" />
-              {value.length === 0
-                ? "Select models…"
-                : "Add another model…"}
+              {value.length === 0 ? "Select models…" : "Add another model…"}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>

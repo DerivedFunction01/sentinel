@@ -157,7 +157,7 @@ export default function PenTestScanPage() {
   }, []);
 
   useEffect(() => {
-    const presetStr = localStorage.getItem("sentinelprompt_scan_preset");
+    const presetStr = localStorage.getItem("ToolRegistry_scan_preset");
     if (presetStr) {
       try {
         const preset = JSON.parse(presetStr);
@@ -167,7 +167,7 @@ export default function PenTestScanPage() {
         if (preset.hardenerModel) setHardenerModel(preset.hardenerModel);
         if (preset.prompts) setPrompts(preset.prompts);
 
-        localStorage.removeItem("sentinelprompt_scan_preset");
+        localStorage.removeItem("ToolRegistry_scan_preset");
         toast.success("Hardened system prompt preset loaded!", {
           description:
             "Review and click 'Launch Agent Scan' to run the new scan.",
@@ -310,7 +310,7 @@ export default function PenTestScanPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sentinelprompt-scan-config-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `ToolRegistry-scan-config-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -546,7 +546,7 @@ export default function PenTestScanPage() {
               </h4>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 Paste your system prompt and select target models. The
-                SentinelPrompt multi-agent workflow uses adversarial attack
+                ToolRegistry multi-agent workflow uses adversarial attack
                 prompts, tests them against the target, and has a Judge
                 determine if secrets leaked. Run up as many prompts in parallel
                 across multiple models — use "Copy from" to test variations of

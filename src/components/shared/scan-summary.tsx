@@ -56,7 +56,9 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
       : "Moderate posture — some vulnerabilities detected. Review breached trials.";
 
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [selectedExportPrompts, setSelectedExportPrompts] = useState<string[]>([]);
+  const [selectedExportPrompts, setSelectedExportPrompts] = useState<string[]>(
+    [],
+  );
   const router = useRouter();
 
   // Initialize selected prompts when dialog opens
@@ -74,9 +76,10 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
   };
 
   const executeExport = () => {
-    const query = selectedExportPrompts.length > 0
-      ? `?prompts=${selectedExportPrompts.map(encodeURIComponent).join(",")}`
-      : "";
+    const query =
+      selectedExportPrompts.length > 0
+        ? `?prompts=${selectedExportPrompts.map(encodeURIComponent).join(",")}`
+        : "";
     window.location.href = `/api/scan/${scan.id}/export${query}`;
     setExportDialogOpen(false);
   };
@@ -86,8 +89,10 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
       toast.error("No hardened prompt selected.");
       return;
     }
-    
-    const blob = new Blob([activeHardenedPrompt.prompt], { type: "text/plain" });
+
+    const blob = new Blob([activeHardenedPrompt.prompt], {
+      type: "text/plain",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -117,11 +122,11 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
           tools: JSON.stringify(scan.tools),
           mockResponses: JSON.stringify(scan.mockToolResponses),
           judgeInstructions: scan.judgeInstructions,
-        }
-      ]
+        },
+      ],
     };
-    
-    localStorage.setItem("sentinelprompt_scan_preset", JSON.stringify(preset));
+
+    localStorage.setItem("ToolRegistry_scan_preset", JSON.stringify(preset));
     toast.success("Hardened prompt applied. Redirecting to scanner...");
     router.push("/dashboard/scan");
   };
@@ -135,7 +140,9 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
         <div className="flex items-center gap-3">
           <Sparkles className="h-4 w-4 text-purple-400" />
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-            {hasPrompt ? `Active Version: ${activeHardenedPrompt.modelName}` : "Harden prompt below to enable actions"}
+            {hasPrompt
+              ? `Active Version: ${activeHardenedPrompt.modelName}`
+              : "Harden prompt below to enable actions"}
           </span>
         </div>
 
@@ -446,9 +453,16 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
                       checked={checked}
                       onChange={() => {
                         if (checked) {
-                          setSelectedExportPrompts(selectedExportPrompts.filter((id) => id !== hp.modelId));
+                          setSelectedExportPrompts(
+                            selectedExportPrompts.filter(
+                              (id) => id !== hp.modelId,
+                            ),
+                          );
                         } else {
-                          setSelectedExportPrompts([...selectedExportPrompts, hp.modelId]);
+                          setSelectedExportPrompts([
+                            ...selectedExportPrompts,
+                            hp.modelId,
+                          ]);
                         }
                       }}
                       className="h-4 w-4 rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"

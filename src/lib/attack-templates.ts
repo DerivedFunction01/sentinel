@@ -1,5 +1,5 @@
 /**
- * SentinelPrompt — Adversarial Attack Templates
+ * ToolRegistry — Adversarial Attack Templates
  *
  * Ported from the Python DynamicFramingPattern framework. Generates
  * adversarial prompts using 9 framing strategies with a dynamic lexical

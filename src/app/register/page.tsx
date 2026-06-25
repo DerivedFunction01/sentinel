@@ -57,7 +57,7 @@ export default function RegisterPage() {
         <div className="mx-auto w-full max-w-sm">
           <Link href="/" className="mb-10 flex items-center gap-2">
             <LogoIcon size="md" />
-            <span className="text-xl font-bold text-white">SentinelPrompt</span>
+            <span className="text-xl font-bold text-white">ToolRegistry</span>
           </Link>
 
           <h1 className="text-3xl font-bold tracking-tight text-white">

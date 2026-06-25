@@ -1,5 +1,5 @@
 /**
- * SentinelPrompt — Domain Types
+ * ToolRegistry — Domain Types
  */
 import type {
   BusinessCategory,

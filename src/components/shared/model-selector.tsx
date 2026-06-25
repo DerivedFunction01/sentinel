@@ -31,7 +31,7 @@ interface ModelSelectorProps {
   onChange: (modelId: string) => void;
 }
 
-const RECENT_MODELS_KEY = "sentinelprompt_recent_models";
+const RECENT_MODELS_KEY = "ToolRegistry_recent_models";
 
 function getRecentModels(): string[] {
   if (typeof window === "undefined") return [];

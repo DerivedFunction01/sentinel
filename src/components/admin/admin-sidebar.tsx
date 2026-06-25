@@ -89,7 +89,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
         <Link href="/" className="flex items-center gap-2">
           <LogoIcon size="sm" />
           <span className="text-base font-bold text-sidebar-foreground">
-            SentinelPrompt
+            ToolRegistry
           </span>
         </Link>
       </div>

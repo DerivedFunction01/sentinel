@@ -1,4 +1,4 @@
-// SentinelPrompt — Prisma schema
+// ToolRegistry — Prisma schema
 
 generator client {
   provider = "prisma-client"

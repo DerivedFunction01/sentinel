@@ -1,8 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound, Plus, Trash2, Copy, Loader2, CheckCircle2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  KeyRound,
+  Plus,
+  Trash2,
+  Copy,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -86,9 +99,12 @@ export function ApiAdminClient({ initialKeys }: ApiAdminClientProps) {
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">API Admin</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          API Admin
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Generate API keys for programmatic access to the SentinelPrompt scan API.
+          Generate API keys for programmatic access to the ToolRegistry scan
+          API.
         </p>
       </div>
 
@@ -109,8 +125,16 @@ export function ApiAdminClient({ initialKeys }: ApiAdminClientProps) {
               placeholder="e.g. CI Pipeline, Production Scanner"
             />
           </div>
-          <Button onClick={handleCreate} disabled={creating} className="bg-blue-600 hover:bg-blue-700">
-            {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+          <Button
+            onClick={handleCreate}
+            disabled={creating}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {creating ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <KeyRound className="mr-2 h-4 w-4" />
+            )}
             Generate Key
           </Button>
         </CardContent>
@@ -125,7 +149,8 @@ export function ApiAdminClient({ initialKeys }: ApiAdminClientProps) {
               API Key Created — Copy Now
             </CardTitle>
             <CardDescription>
-              This is the only time you&apos;ll see the full key. Store it securely.
+              This is the only time you&apos;ll see the full key. Store it
+              securely.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -148,7 +173,9 @@ export function ApiAdminClient({ initialKeys }: ApiAdminClientProps) {
       {/* Existing keys */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Existing API Keys ({keys.length})</CardTitle>
+          <CardTitle className="text-base">
+            Existing API Keys ({keys.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {keys.length === 0 ? (
@@ -164,14 +191,20 @@ export function ApiAdminClient({ initialKeys }: ApiAdminClientProps) {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-foreground">{key.name}</span>
-                      <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {key.name}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-xs text-muted-foreground"
+                      >
                         {key.keyPrefix}…
                       </Badge>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       Created {new Date(key.createdAt).toLocaleDateString()}
-                      {key.lastUsedAt && ` · Last used ${new Date(key.lastUsedAt).toLocaleDateString()}`}
+                      {key.lastUsedAt &&
+                        ` · Last used ${new Date(key.lastUsedAt).toLocaleDateString()}`}
                     </p>
                   </div>
                   <Button
@@ -181,7 +214,11 @@ export function ApiAdminClient({ initialKeys }: ApiAdminClientProps) {
                     onClick={() => handleDelete(key.id)}
                     disabled={deleting === key.id}
                   >
-                    {deleting === key.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    {deleting === key.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
                   </Button>
                 </div>
               ))}
@@ -191,7 +228,9 @@ export function ApiAdminClient({ initialKeys }: ApiAdminClientProps) {
       </Card>
 
       {/* Programmatic SDK Docs */}
-      <SdkDocs apiKey={newKey || (keys.length > 0 ? `${keys[0].keyPrefix}...` : "")} />
+      <SdkDocs
+        apiKey={newKey || (keys.length > 0 ? `${keys[0].keyPrefix}...` : "")}
+      />
     </div>
   );
 }

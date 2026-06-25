@@ -35,7 +35,7 @@ export function SdkDocs({
 }: SdkDocsProps) {
   const [activeLang, setActiveLang] = useState<Lang>("curl");
   const [activeOp, setActiveOp] = useState<Op>("trigger");
-  const [origin, setOrigin] = useState("https://sentinelprompt.app");
+  const [origin, setOrigin] = useState("https://ToolRegistry.app");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -347,7 +347,7 @@ console.log(result);`;
           Tool Recommendation & Extraction API
         </h3>
         <p className="text-xs text-muted-foreground">
-          When hardening a system prompt, SentinelPrompt can analyze the prompt
+          When hardening a system prompt, ToolRegistry can analyze the prompt
           for embedded business logic (such as discount rules, role-based access
           checks, or plan pricing) and recommend moving them into structured
           OpenRouter-compatible tool definitions and mock responses.

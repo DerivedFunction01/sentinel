@@ -1,5 +1,5 @@
 /**
- * SentinelPrompt — Server-side auth helpers.
+ * ToolRegistry — Server-side auth helpers.
  */
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";

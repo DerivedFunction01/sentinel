@@ -16,25 +16,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SentinelPrompt — Pentest your AI the way a real attacker would",
+  title: "ToolRegistry — Pentest your AI the way a real attacker would",
   description:
-    "SentinelPrompt puts your system prompt under sustained adversarial pressure, scores it, and hands you back a hardened version — all in minutes.",
+    "ToolRegistry puts your system prompt under sustained adversarial pressure, scores it, and hands you back a hardened version — all in minutes.",
   keywords: [
-    "SentinelPrompt",
+    "ToolRegistry",
     "AI security",
     "prompt pentest",
     "adversarial testing",
     "system prompt",
     "LLM security",
   ],
-  authors: [{ name: "SentinelPrompt" }],
+  authors: [{ name: "ToolRegistry" }],
   icons: {
     icon: "/logo.svg",
   },
   openGraph: {
-    title: "SentinelPrompt",
+    title: "ToolRegistry",
     description: "Pentest your AI the way a real attacker would.",
-    siteName: "SentinelPrompt",
+    siteName: "ToolRegistry",
     type: "website",
   },
 };

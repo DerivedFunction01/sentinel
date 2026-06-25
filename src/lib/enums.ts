@@ -1,5 +1,5 @@
 /**
- * SentinelPrompt — Central Enum Registry
+ * ToolRegistry — Central Enum Registry
  *
  * All categorical values live here as string enums so new additions are
  * single-line enum extensions rather than scattered string literals.
