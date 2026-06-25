@@ -272,6 +272,7 @@ export function ReportView({ scan }: ReportViewProps) {
     toolsToRemove: string[],
     localMocks: Record<string, any>,
   ) => {
+
     if (!currentHardenedPrompt?.toolRecommendation) return;
     const rec = currentHardenedPrompt.toolRecommendation;
 

@@ -404,6 +404,7 @@ export function ToolManagerDialog({
           recommendedMocks[name] = t.mockResponse;
         }
       }
+
       setLocalMocks({ ...existingMocks, ...recommendedMocks });
     }
   }, [open, recommendedTools, existingTools, existingMocks]);

@@ -60,6 +60,15 @@ interface ParameterNodeEditorProps {
   maxDepth?: number;
 }
 
+const VALID_TYPES = [
+  "string",
+  "number",
+  "boolean",
+  "integer",
+  "array",
+  "object",
+] as const;
+
 /**
  * Single Parameter Node Editor
  * Handles one parameter with recursive children
@@ -110,6 +119,11 @@ export function ParameterNodeEditor({
 
   const hasChildren = node.children && node.children.length > 0;
 
+  // Ensure type is a valid scalar value for the select element
+  const safeType = VALID_TYPES.includes(node.type as any)
+    ? node.type
+    : "string";
+
   return (
     <div
       className="group border border-slate-800 bg-slate-950/30 rounded-lg p-3 space-y-2 relative transition-all hover:border-slate-700"
@@ -143,10 +157,10 @@ export function ParameterNodeEditor({
 
         {/* Type Selector */}
         <select
-          value={node.type}
+          value={safeType}
           onChange={(e) =>
             updateNode({
-              type: e.target.value as any,
+              type: e.target.value as ParameterNode["type"],
               // Reset children if switching away from object/array
               ...(e.target.value !== "object" && e.target.value !== "array"
                 ? { children: undefined, arrayItemType: undefined }
@@ -264,10 +278,15 @@ export function ParameterNodeEditor({
                 Array Item Type
               </span>
               <select
-                value={node.arrayItemType || "string"}
+                value={
+                  VALID_TYPES.includes(node.arrayItemType as any)
+                    ? node.arrayItemType
+                    : "string"
+                }
                 onChange={(e) =>
                   updateNode({
-                    arrayItemType: e.target.value as any,
+                    arrayItemType: e.target
+                      .value as ParameterNode["arrayItemType"],
                     // Reset children if switching away from object/array items
                     ...(e.target.value !== "object" &&
                     e.target.value !== "array"
