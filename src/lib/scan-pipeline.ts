@@ -1015,111 +1015,148 @@ export async function runSingleScanPipeline(
     );
   }
 
-  // Phase 3: Target + Judge per trial
+  // Phase 3: Target + Judge per trial — ALL TARGETS IN PARALLEL, then ALL JUDGES IN PARALLEL
+  // Each attack is independent (different prompt to the same target model),
+  // so we can fire all targets at once for massive throughput improvement.
   const trialResults: Trial[] = [];
+  const attackCount = attackSet.attacks.length;
 
-  for (let i = 0; i < attackSet.attacks.length; i++) {
-    const idx = i;
-    const entry = attackSet.attacks[i];
+  // Step A: Launch all target simulations in parallel
+  // Use allSettled so one failure doesn't cancel the entire batch.
+  // withRetry already catches most errors, but we add a safety wrapper
+  // to handle unexpected rejections (e.g. readProgressMeta returning null).
+  const safeRetry = (promise: Promise<any>) =>
+    promise.catch((err) => {
+      console.error(`Parallel target step rejected unexpectedly:`, err);
+      return null;
+    });
 
-    // Target simulation
-    let targetResponse = "";
-    await withRetry(
-      `target-${i}`,
-      reportId,
-      (m) => m.trials[idx].target,
-      (m, s) => {
-        m.trials[idx].target = { ...s };
-      },
-      async () => {
-        const result = await runTargetSimulation(
-          options.targetModel,
-          options.systemPrompt,
-          entry.attackText,
-          options.tools,
-          options.mockToolResponses,
-          tracker,
+  const targetSettled = await Promise.allSettled(
+    attackSet.attacks.map((entry, idx) =>
+      safeRetry(
+        withRetry(
+          `target-${idx}`,
+          reportId,
+          (m) => m.trials[idx].target,
+          (m, s) => {
+            m.trials[idx].target = { ...s };
+          },
+          async () => {
+            const result = await runTargetSimulation(
+              options.targetModel,
+              options.systemPrompt,
+              entry.attackText,
+              options.tools,
+              options.mockToolResponses,
+              tracker,
+            );
+            return { idx, result };
+          },
+          (m, payload) => {
+            m.trials[payload.idx].target = {
+              ...m.trials[payload.idx].target,
+              status: ProgressStepStatus.Completed,
+              response: payload.result.responseText,
+            };
+          },
+        ),
+      ),
+    ),
+  );
+  const targetResults = targetSettled.map((r) =>
+    r.status === "fulfilled" ? r.value : null,
+  );
+
+  // Update coarse progress for all targets at once
+  await db.scan.update({
+    where: { reportId },
+    data: { currentStep: { increment: attackCount } },
+  });
+
+  // Step B: Launch all judge evaluations in parallel
+  // Use allSettled so one failure doesn't cancel the entire batch.
+  const judgeSettled = await Promise.allSettled(
+    attackSet.attacks.map((entry, idx) => {
+      const targetResult = targetResults[idx];
+      if (!targetResult) {
+        // Target failed — mark judge as failed
+        return safeRetry(
+          withRetry(
+            `judge-${idx}`,
+            reportId,
+            (m) => m.trials[idx].judge,
+            (m, s) => {
+              m.trials[idx].judge = { ...s };
+            },
+            async () => {
+              const meta = await readProgressMeta(reportId);
+              if (meta) {
+                meta.trials[idx].judge = {
+                  status: ProgressStepStatus.Failed,
+                  retries: 2,
+                  error: "Target failed, judge skipped",
+                };
+                await writeProgressMeta(reportId, meta);
+              }
+              return null;
+            },
+            () => {},
+          ),
         );
-        return result;
-      },
-      (m, result) => {
-        m.trials[idx].target = {
-          ...m.trials[idx].target,
-          status: ProgressStepStatus.Completed,
-          response: result.responseText,
-        };
-        targetResponse = result.responseText;
-      },
-    );
-
-    // Update coarse progress (target done)
-    await db.scan.update({
-      where: { reportId },
-      data: { currentStep: { increment: 1 } },
-    });
-
-    // Judge evaluation (only if target succeeded)
-    const targetStep = (await readProgressMeta(reportId))?.trials[idx].target;
-    if (
-      targetStep?.status === ProgressStepStatus.Completed &&
-      targetStep.response
-    ) {
-      await withRetry(
-        `judge-${i}`,
-        reportId,
-        (m) => m.trials[idx].judge,
-        (m, s) => {
-          m.trials[idx].judge = { ...s };
-        },
-        async () => {
-          const evaluation = await runJudgeEvaluation(
-            options.judgeModel,
-            options.forbiddenTask,
-            options.judgeInstructions,
-            options.systemPrompt,
-            entry.attackText,
-            targetResponse,
-            [], // toolCalls not stored separately; could be enhanced
-            tracker,
-            attackSet.seedInfo.isGenerative,
-          );
-          return evaluation;
-        },
-        (m, evaluation) => {
-          m.trials[idx].judge = {
-            ...m.trials[idx].judge,
-            status: ProgressStepStatus.Completed,
-            verdict:
-              evaluation.verdict === TrialVerdict.Breached
-                ? TrialVerdict.Breached
-                : TrialVerdict.Defended,
-            reasoning: evaluation.reasoning,
-          };
-        },
-      );
-    } else {
-      // Target failed — mark judge as failed too
-      const meta = await readProgressMeta(reportId);
-      if (meta) {
-        meta.trials[idx].judge = {
-          status: ProgressStepStatus.Failed,
-          retries: 2,
-          error: "Target failed, judge skipped",
-        };
-        await writeProgressMeta(reportId, meta);
       }
-    }
 
-    // Update coarse progress (judge done)
-    await db.scan.update({
-      where: { reportId },
-      data: { currentStep: { increment: 1 } },
-    });
+      const targetResponse = targetResult.response;
+      return safeRetry(
+        withRetry(
+          `judge-${idx}`,
+          reportId,
+          (m) => m.trials[idx].judge,
+          (m, s) => {
+            m.trials[idx].judge = { ...s };
+          },
+          async () => {
+            const evaluation = await runJudgeEvaluation(
+              options.judgeModel,
+              options.forbiddenTask,
+              options.judgeInstructions,
+              options.systemPrompt,
+              entry.attackText,
+              targetResponse,
+              [],
+              tracker,
+              attackSet.seedInfo.isGenerative,
+            );
+            return { idx, evaluation };
+          },
+          (m, payload) => {
+            m.trials[payload.idx].judge = {
+              ...m.trials[payload.idx].judge,
+              status: ProgressStepStatus.Completed,
+              verdict:
+                payload.evaluation.verdict === TrialVerdict.Breached
+                  ? TrialVerdict.Breached
+                  : TrialVerdict.Defended,
+              reasoning: payload.evaluation.reasoning,
+            };
+          },
+        ),
+      );
+    }),
+  );
+  // We don't need results from judges since they write to progressMeta directly
 
-    // Build trial result from progress meta
-    const meta = await readProgressMeta(reportId);
-    if (meta) {
-      const t = meta.trials[idx];
+  // Update coarse progress for all judges at once
+  await db.scan.update({
+    where: { reportId },
+    data: { currentStep: { increment: attackCount } },
+  });
+
+  // Step C: Build trial results from progress meta (all done)
+  const finalMeta = await readProgressMeta(reportId);
+  if (finalMeta) {
+    for (let idx = 0; idx < attackCount; idx++) {
+      const entry = attackSet.attacks[idx];
+      const t = finalMeta.trials[idx];
       const isBreached =
         t.judge.status === ProgressStepStatus.Completed &&
         t.judge.verdict === TrialVerdict.Breached;
@@ -1215,12 +1252,12 @@ export async function runSingleScanPipeline(
   };
 
   // Determine final status: completed if all steps done, completed_with_failures if some failed
-  const finalMeta = await readProgressMeta(reportId);
+  const statusMeta = await readProgressMeta(reportId);
   let finalStatus = ScanStatus.Completed;
-  if (finalMeta) {
+  if (statusMeta) {
     const hasFailures =
-      finalMeta.attacks.some((a) => a.status === ProgressStepStatus.Failed) ||
-      finalMeta.trials.some(
+      statusMeta.attacks.some((a) => a.status === ProgressStepStatus.Failed) ||
+      statusMeta.trials.some(
         (t) =>
           t.target.status === ProgressStepStatus.Failed ||
           t.judge.status === ProgressStepStatus.Failed,
