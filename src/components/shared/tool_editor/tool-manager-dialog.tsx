@@ -151,7 +151,7 @@ export function ToolEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="dark min-w-3xl lg:min-w-5xl h-[90vh] flex flex-col p-6 border-border bg-slate-900 text-slate-100 overflow-hidden">
+      <DialogContent className="dark min-3xl  md:min-w-4xl lg:min-w-6xl h-[90vh] flex flex-col p-6 border-border bg-slate-900 text-slate-100 overflow-hidden">
         <DialogHeader className="pb-2 border-b border-slate-800">
           <DialogTitle className="text-lg font-bold flex items-center gap-2">
             <Wrench className="h-5 w-5 text-blue-400" />
