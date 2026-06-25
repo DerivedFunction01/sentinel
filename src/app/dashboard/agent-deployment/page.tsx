@@ -33,18 +33,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ModelSelector } from "@/components/shared/model-selector";
-import { FieldBlock } from "@/components/shared/field-block";
+import { PromptFormSection } from "@/components/shared/prompt-form-section";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { SdkDocs } from "@/components/shared/sdk-docs";
 import { toast } from "sonner";
 import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
-import {
-  sampleForbiddenTask,
-  sampleJudgeInstructions,
-  sampleMockToolResponses,
-  sampleSystemPrompt,
-  sampleTools,
-} from "@/lib/sample-config";
+import { usePromptForm } from "@/hooks/use-prompt-form";
+import { useModelDefaults } from "@/hooks/use-model-defaults";
 
 interface Deployment {
   id: string;
@@ -82,11 +77,23 @@ export default function AgentDeploymentPage() {
   const [attackerModel, setAttackerModel] = useState("");
   const [judgeModel, setJudgeModel] = useState("");
   const [hardenerModel, setHardenerModel] = useState("");
-  const [systemPrompt, setSystemPrompt] = useState("");
-  const [forbiddenTask, setForbiddenTask] = useState("");
-  const [judgeInstructions, setJudgeInstructions] = useState("");
-  const [tools, setTools] = useState("");
-  const [mockResponses, setMockResponses] = useState("");
+
+  const promptForm = usePromptForm({ loadSamples: true });
+  const { loaded: modelsLoaded } = useModelDefaults();
+
+  // Prettify helpers since the shared PromptFormSection can receive custom callbacks
+  const prettifyTools = () => {
+    try {
+      const parsed = JSON.parse(promptForm.values.tools);
+      promptForm.setValue("tools", JSON.stringify(parsed, null, 2));
+    } catch {}
+  };
+  const prettifyMocks = () => {
+    try {
+      const parsed = JSON.parse(promptForm.values.mockResponses);
+      promptForm.setValue("mockResponses", JSON.stringify(parsed, null, 2));
+    } catch {}
+  };
 
   const [deploying, setDeploying] = useState(false);
   const [triggeringId, setTriggeringId] = useState<string | null>(null);
@@ -130,8 +137,9 @@ export default function AgentDeploymentPage() {
     fetchApiKeys();
   }, []);
 
-  // Pick default models on mount
+  // Pick default models on mount when the shared hook signals ready
   useEffect(() => {
+    if (!modelsLoaded) return;
     fetch("/api/models")
       .then((r) => r.json())
       .then((d) => {
@@ -144,7 +152,7 @@ export default function AgentDeploymentPage() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [modelsLoaded]);
 
   const handleStartEdit = (dep: Deployment) => {
     setEditingId(dep.id);
@@ -153,11 +161,11 @@ export default function AgentDeploymentPage() {
     setAttackerModel(dep.attackerModel);
     setJudgeModel(dep.judgeModel);
     setHardenerModel(dep.hardenerModel || "");
-    setSystemPrompt(dep.systemPrompt);
-    setForbiddenTask(dep.forbiddenTask);
-    setJudgeInstructions(dep.judgeInstructions);
-    setTools(dep.tools);
-    setMockResponses(dep.mockToolResponses);
+    promptForm.setValue("systemPrompt", dep.systemPrompt);
+    promptForm.setValue("forbiddenTask", dep.forbiddenTask);
+    promptForm.setValue("judgeInstructions", dep.judgeInstructions);
+    promptForm.setValue("tools", dep.tools);
+    promptForm.setValue("mockResponses", dep.mockToolResponses);
     toast.info(`Editing deployment profile: "${dep.name}"`);
   };
 
@@ -165,11 +173,7 @@ export default function AgentDeploymentPage() {
     setEditingId(null);
     setName("");
     setHardenerModel("");
-    setSystemPrompt("");
-    setForbiddenTask("");
-    setJudgeInstructions("");
-    setTools("");
-    setMockResponses("");
+    promptForm.reset();
     toast.info("Cancelled editing mode");
   };
 
@@ -179,44 +183,37 @@ export default function AgentDeploymentPage() {
       return;
     }
 
-    // Basic JSON validation for tools and mock responses
-    try {
-      if (tools.trim()) JSON.parse(tools);
-    } catch {
-      toast.error("Invalid Tools JSON format");
-      return;
-    }
-
-    try {
-      if (mockResponses.trim()) JSON.parse(mockResponses);
-    } catch {
-      toast.error("Invalid Mock Tool Responses JSON format");
-      return;
-    }
+    if (!promptForm.validate()) return;
 
     setDeploying(true);
 
-    if (editingId) {
-      toast.info("Saving changes to deployment profile…");
-      try {
-        const res = await fetch(`/api/deployments/${editingId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+    const payload = promptForm.toPayload();
+
+    const sendRequest = async (url: string, method: string, body: any) => {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return res.json().then((data) => ({ res, data }));
+    };
+
+    try {
+      if (editingId) {
+        toast.info("Saving changes to deployment profile…");
+        const { res, data } = await sendRequest(
+          `/api/deployments/${editingId}`,
+          "PATCH",
+          {
             name: name.trim(),
             targetModel,
             attackerModel,
             judgeModel,
             hardenerModel,
-            systemPrompt,
-            forbiddenTask,
-            judgeInstructions,
-            tools,
-            mockToolResponses: mockResponses,
-          }),
-        });
+            ...payload,
+          },
+        );
 
-        const data = await res.json();
         if (!res.ok) {
           toast.error(data.error || "Failed to update deployment");
           return;
@@ -225,11 +222,6 @@ export default function AgentDeploymentPage() {
         toast.success("Deployment profile updated successfully!");
         setEditingId(null);
         setName("");
-        setSystemPrompt("");
-        setForbiddenTask("");
-        setJudgeInstructions("");
-        setTools("");
-        setMockResponses("");
 
         // Refresh list
         const updatedRes = await fetch("/api/deployments");
@@ -239,36 +231,19 @@ export default function AgentDeploymentPage() {
           const currentDep = updatedData.deployments.find(
             (d: any) => d.id === editingId,
           );
-          if (currentDep) {
-            setSelectedDeployment(currentDep);
-          }
+          if (currentDep) setSelectedDeployment(currentDep);
         }
-      } catch {
-        toast.error("Something went wrong");
-      } finally {
-        setDeploying(false);
-      }
-    } else {
-      toast.info("Creating deployment profile…");
-      try {
-        const res = await fetch("/api/deployments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: name.trim(),
-            targetModel,
-            attackerModel,
-            judgeModel,
-            hardenerModel,
-            systemPrompt,
-            forbiddenTask,
-            judgeInstructions,
-            tools,
-            mockToolResponses: mockResponses,
-          }),
+      } else {
+        toast.info("Creating deployment profile…");
+        const { res, data } = await sendRequest("/api/deployments", "POST", {
+          name: name.trim(),
+          targetModel,
+          attackerModel,
+          judgeModel,
+          hardenerModel,
+          ...payload,
         });
 
-        const data = await res.json();
         if (!res.ok) {
           toast.error(data.error || "Failed to create deployment");
           return;
@@ -276,6 +251,7 @@ export default function AgentDeploymentPage() {
 
         toast.success("Deployment profile created successfully!");
         setName("");
+
         // Refresh list
         const updatedRes = await fetch("/api/deployments");
         const updatedData = await updatedRes.json();
@@ -284,15 +260,13 @@ export default function AgentDeploymentPage() {
           const newDep = updatedData.deployments.find(
             (d: any) => d.id === data.deployment.id,
           );
-          if (newDep) {
-            setSelectedDeployment(newDep);
-          }
+          if (newDep) setSelectedDeployment(newDep);
         }
-      } catch {
-        toast.error("Something went wrong");
-      } finally {
-        setDeploying(false);
       }
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setDeploying(false);
     }
   };
 
@@ -631,78 +605,17 @@ export default function AgentDeploymentPage() {
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <FieldBlock
-                  icon={FileText}
-                  title="System Prompt"
-                  value={systemPrompt}
-                  onChange={setSystemPrompt}
-                  placeholder="Paste target system prompt..."
-                  minHeight="min-h-32"
-                  onUseSample={() => {
-                    setSystemPrompt(sampleSystemPrompt);
-                    toast.success("Sample system prompt loaded");
-                  }}
-                />
-
-                <FieldBlock
-                  icon={Ban}
-                  title="Forbidden Task"
-                  value={forbiddenTask}
-                  onChange={setForbiddenTask}
-                  placeholder="What the AI must never do..."
-                  minHeight="min-h-24"
-                  onUseSample={() => {
-                    setForbiddenTask(sampleForbiddenTask);
-                    toast.success("Sample forbidden task loaded");
-                  }}
-                />
-
-                <FieldBlock
-                  icon={Gavel}
-                  title="Judge Instructions"
-                  value={judgeInstructions}
-                  onChange={setJudgeInstructions}
-                  placeholder="How the judge should evaluate..."
-                  minHeight="min-h-24"
-                  onUseSample={() => {
-                    setJudgeInstructions(sampleJudgeInstructions);
-                    toast.success("Sample judge instructions loaded");
-                  }}
-                />
-
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <FieldBlock
-                    icon={Braces}
-                    title="Tools (JSON)"
-                    value={tools}
-                    onChange={setTools}
-                    placeholder="[]"
-                    minHeight="min-h-32"
-                    monospace
-                    onUseSample={() => {
-                      setTools(JSON.stringify(sampleTools, null, 2));
-                      toast.success("Sample tools loaded");
-                    }}
-                  />
-
-                  <FieldBlock
-                    icon={Code2}
-                    title="Mock Responses (JSON)"
-                    value={mockResponses}
-                    onChange={setMockResponses}
-                    placeholder="{}"
-                    minHeight="min-h-32"
-                    monospace
-                    onUseSample={() => {
-                      setMockResponses(
-                        JSON.stringify(sampleMockToolResponses, null, 2),
-                      );
-                      toast.success("Sample mock responses loaded");
-                    }}
-                  />
-                </div>
-              </div>
+              <PromptFormSection
+                values={promptForm.values}
+                onChange={promptForm.setValue}
+                onUseSample={promptForm.loadSample}
+                options={{
+                  showCharCount: true,
+                  showPrettify: true,
+                  onPrettifyTools: prettifyTools,
+                  onPrettifyMocks: prettifyMocks,
+                }}
+              />
 
               <div className="flex justify-end gap-3 pt-4">
                 {editingId && (

@@ -39,6 +39,7 @@ import { MultiScanProgress } from "@/components/shared/multi-scan-progress";
 import { MultiModelSelector } from "@/components/shared/multi-model-selector";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { FieldBlock } from "@/components/shared/field-block";
+import { PromptFormSection } from "@/components/shared/prompt-form-section";
 import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-dialog";
 import { toast } from "sonner";
 import { DEFAULT_MOCK_RESPONSE, findDefaultModel } from "@/lib/model-utils";
@@ -49,6 +50,10 @@ import {
   sampleSystemPrompt,
   sampleTools,
 } from "@/lib/sample-config";
+import {
+  validateToolsAgainstMocks,
+  type ToolValidationResult,
+} from "@/lib/scan-validation";
 import type { ToolDef } from "@/lib/types";
 
 /** One prompt's full configuration. */
@@ -58,132 +63,6 @@ interface PromptConfig {
   tools: string;
   mockResponses: string;
   judgeInstructions: string;
-}
-
-/** Result of validating tools against mock responses. */
-interface ToolValidationResult {
-  missingMockResponses: string[];
-  extraMockResponses: string[];
-  toolsParseError: string | null;
-  mockResponsesParseError: string | null;
-  toolsSchemaErrors: string[];
-  isValid: boolean;
-}
-
-function validateToolsAgainstMocks(
-  toolsJson: string,
-  mockResponsesJson: string,
-): ToolValidationResult {
-  const result: ToolValidationResult = {
-    missingMockResponses: [],
-    extraMockResponses: [],
-    toolsParseError: null,
-    mockResponsesParseError: null,
-    toolsSchemaErrors: [],
-    isValid: false,
-  };
-
-  let tools: ToolDef[] | null = null;
-  if (toolsJson.trim()) {
-    try {
-      const parsed = JSON.parse(toolsJson);
-      if (Array.isArray(parsed)) {
-        tools = parsed.filter(
-          (t): t is ToolDef =>
-            t !== null &&
-            typeof t === "object" &&
-            t.type === "function" &&
-            typeof t.function?.name === "string",
-        );
-      } else if (typeof parsed === "object" && parsed !== null) {
-        tools = Object.entries(parsed).map(([name, fn]) => ({
-          type: "function" as const,
-          function: { name, description: "", parameters: {} },
-        }));
-      } else {
-        result.toolsParseError =
-          "Tools must be an array of OpenRouter function definitions.";
-      }
-    } catch {
-      result.toolsParseError =
-        "Invalid JSON — tools field could not be parsed.";
-    }
-  }
-
-  let mockResponses: Record<string, unknown> | null = null;
-  if (mockResponsesJson.trim()) {
-    try {
-      const parsed = JSON.parse(mockResponsesJson);
-      if (
-        typeof parsed === "object" &&
-        parsed !== null &&
-        !Array.isArray(parsed)
-      ) {
-        mockResponses = parsed as Record<string, unknown>;
-      } else {
-        result.mockResponsesParseError =
-          "Mock responses must be a JSON object mapping tool names to responses.";
-      }
-    } catch {
-      result.mockResponsesParseError =
-        "Invalid JSON — mock responses field could not be parsed.";
-    }
-  }
-
-  if (result.toolsParseError || result.mockResponsesParseError) {
-    result.isValid = false;
-    return result;
-  }
-
-  const toolNames = new Set(tools?.map((t) => t.function.name) ?? []);
-  const mockKeys = Object.keys(mockResponses ?? {});
-
-  for (const name of toolNames) {
-    if (!(name in (mockResponses ?? {}))) {
-      result.missingMockResponses.push(name);
-    }
-  }
-
-  for (const key of mockKeys) {
-    if (!toolNames.has(key)) {
-      result.extraMockResponses.push(key);
-    }
-  }
-
-  if (!result.toolsParseError) {
-    for (const [index, t] of (tools ?? []).entries()) {
-      if (
-        !t.function.description ||
-        typeof t.function.description !== "string"
-      ) {
-        result.toolsSchemaErrors.push(
-          `Tool #${index + 1} ("${t.function.name}") is missing a string "description" field.`,
-        );
-      }
-      const params = t.function.parameters;
-      if (!params || typeof params !== "object" || Array.isArray(params)) {
-        result.toolsSchemaErrors.push(
-          `Tool #${index + 1} ("${t.function.name}") has an invalid "parameters" field — expected a JSON object.`,
-        );
-      } else if (Object.keys(params).length > 0) {
-        if (params.type !== "object") {
-          result.toolsSchemaErrors.push(
-            `Tool #${index + 1} ("${t.function.name}") parameters.type should be "object".`,
-          );
-        } else if (!params.properties) {
-          result.toolsSchemaErrors.push(
-            `Tool #${index + 1} ("${t.function.name}") is missing "parameters.properties".`,
-          );
-        }
-      }
-    }
-  }
-
-  result.isValid =
-    result.missingMockResponses.length === 0 &&
-    result.extraMockResponses.length === 0 &&
-    result.toolsSchemaErrors.length === 0;
-  return result;
 }
 
 function makeEmptyPrompt(): PromptConfig {
@@ -703,32 +582,28 @@ function PromptSectionItem({
   removePrompt: (idx: number) => void;
   openToolManager: (idx: number) => void;
 }) {
-  const validation = useMemo(
-    () => validateToolsAgainstMocks(prompt.tools, prompt.mockResponses),
-    [prompt.tools, prompt.mockResponses],
-  );
-
-  const handlePopulateMocks = () => {
-    const populated: Record<string, unknown> = {};
-    for (const name of validation.missingMockResponses) {
-      populated[name] = DEFAULT_MOCK_RESPONSE;
-    }
-    const currentMocks =
-      prompt.mockResponses.trim() === ""
-        ? {}
-        : JSON.parse(prompt.mockResponses);
-    const updated = { ...currentMocks, ...populated };
-    updatePrompt(
-      prompts,
-      setPrompts,
-      idx,
-      "mockResponses",
-      JSON.stringify(updated, null, 2),
-    );
-    toast.success(
-      `Added mock responses for ${validation.missingMockResponses.length} tool(s)`,
-    );
+  const handleChange = (field: keyof PromptConfig, value: string) => {
+    updatePrompt(prompts, setPrompts, idx, field, value);
   };
+
+  const handleUseSample = (field: keyof PromptConfig) => {
+    const sampleMap: Partial<Record<keyof PromptConfig, string>> = {
+      systemPrompt: sampleSystemPrompt,
+      forbiddenTask: sampleForbiddenTask,
+      judgeInstructions: sampleJudgeInstructions,
+      tools: JSON.stringify(sampleTools, null, 2),
+      mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
+    };
+    const sample = sampleMap[field];
+    if (sample) {
+      updatePrompt(prompts, setPrompts, idx, field, sample);
+      toast.success(`Sample ${field} loaded`);
+    }
+  };
+
+  const prettifyTools = () => prettifyJson(prompts, setPrompts, idx, "tools");
+  const prettifyMocks = () =>
+    prettifyJson(prompts, setPrompts, idx, "mockResponses");
 
   return (
     <Card>
@@ -770,214 +645,19 @@ function PromptSectionItem({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Left column */}
-          <div className="space-y-6">
-            <FieldBlock
-              icon={FileText}
-              title="System Prompt"
-              value={prompt.systemPrompt}
-              onChange={(v) =>
-                updatePrompt(prompts, setPrompts, idx, "systemPrompt", v)
-              }
-              placeholder="Paste your system prompt here."
-              minHeight="min-h-40"
-              monospace
-              showCharCount
-              onUseSample={() => {
-                updatePrompt(
-                  prompts,
-                  setPrompts,
-                  idx,
-                  "systemPrompt",
-                  sampleSystemPrompt,
-                );
-                toast.success("Sample system prompt loaded");
-              }}
-            />
-            <FieldBlock
-              icon={Gavel}
-              title="Judge Instructions"
-              badge="NEW"
-              description="How the Judge evaluates each response — separate from the forbidden task."
-              value={prompt.judgeInstructions}
-              onChange={(v) =>
-                updatePrompt(prompts, setPrompts, idx, "judgeInstructions", v)
-              }
-              placeholder="e.g. Only mark LEAKED if the forbidden content appears verbatim in the response."
-              minHeight="min-h-32"
-              onUseSample={() => {
-                updatePrompt(
-                  prompts,
-                  setPrompts,
-                  idx,
-                  "judgeInstructions",
-                  sampleJudgeInstructions,
-                );
-                toast.success("Sample judge instructions loaded");
-              }}
-            />
-          </div>
-
-          {/* Right column */}
-          <div className="space-y-6">
-            <FieldBlock
-              icon={Ban}
-              title="Forbidden Task"
-              value={prompt.forbiddenTask}
-              onChange={(v) =>
-                updatePrompt(prompts, setPrompts, idx, "forbiddenTask", v)
-              }
-              placeholder="Describe what the AI must never do or reveal."
-              minHeight="min-h-32"
-              showCharCount
-              onUseSample={() => {
-                updatePrompt(
-                  prompts,
-                  setPrompts,
-                  idx,
-                  "forbiddenTask",
-                  sampleForbiddenTask,
-                );
-                toast.success("Sample forbidden task loaded");
-              }}
-            />
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Braces className="h-4 w-4 text-blue-400" />
-                  <span className="text-sm font-semibold text-foreground">
-                    Tools (JSON)
-                  </span>
-                  <span className="rounded bg-blue-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">
-                    NEW
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      updatePrompt(
-                        prompts,
-                        setPrompts,
-                        idx,
-                        "tools",
-                        JSON.stringify(sampleTools, null, 2),
-                      )
-                    }
-                    className="h-7 text-xs text-slate-400 hover:text-white"
-                  >
-                    Use sample
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openToolManager(idx)}
-                    className="h-7 text-xs text-slate-400 hover:text-white"
-                  >
-                    Manage tools
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      prettifyJson(prompts, setPrompts, idx, "tools")
-                    }
-                    className="h-7 text-xs text-slate-400 hover:text-white"
-                  >
-                    <Code2 className="mr-1 h-3 w-3" />
-                    Prettify
-                  </Button>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                OpenRouter tool definitions, appended as the tools payload on
-                every Target call.
-              </p>
-              <Textarea
-                value={prompt.tools}
-                onChange={(e) =>
-                  updatePrompt(
-                    prompts,
-                    setPrompts,
-                    idx,
-                    "tools",
-                    e.target.value,
-                  )
-                }
-                placeholder='[{"type":"function","function":{"name":"..."}}]'
-                className="font-mono text-xs min-h-40 max-h-80 overflow-y-auto"
-              />
-            </div>
-
-            <ToolValidationBanner
-              result={validation}
-              onPopulateMocks={handlePopulateMocks}
-            />
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Code2 className="h-4 w-4 text-purple-400" />
-                  <span className="text-sm font-semibold text-foreground">
-                    Mock Tool Responses (JSON)
-                  </span>
-                  <span className="rounded bg-purple-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-400">
-                    NEW
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      updatePrompt(
-                        prompts,
-                        setPrompts,
-                        idx,
-                        "mockResponses",
-                        JSON.stringify(sampleMockToolResponses, null, 2),
-                      )
-                    }
-                    className="h-7 text-xs text-slate-400 hover:text-white"
-                  >
-                    Use sample
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      prettifyJson(prompts, setPrompts, idx, "mockResponses")
-                    }
-                    className="h-7 text-xs text-slate-400 hover:text-white"
-                  >
-                    <Code2 className="mr-1 h-3 w-3" />
-                    Prettify
-                  </Button>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Returned to the Target when it calls a tool, so the loop
-                continues realistically.
-              </p>
-              <Textarea
-                value={prompt.mockResponses}
-                onChange={(e) =>
-                  updatePrompt(
-                    prompts,
-                    setPrompts,
-                    idx,
-                    "mockResponses",
-                    e.target.value,
-                  )
-                }
-                placeholder='{"tool_name": {"mock_result": "..."}}'
-                className="font-mono text-xs min-h-32 max-h-80 overflow-y-auto"
-              />
-            </div>
-          </div>
-        </div>
+        <PromptFormSection
+          values={prompt}
+          onChange={handleChange}
+          onUseSample={handleUseSample}
+          options={{
+            showCharCount: true,
+            showToolManager: true,
+            onOpenToolManager: () => openToolManager(idx),
+            showPrettify: true,
+            onPrettifyTools: prettifyTools,
+            onPrettifyMocks: prettifyMocks,
+          }}
+        />
       </CardContent>
     </Card>
   );
