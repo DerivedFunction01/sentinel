@@ -95,8 +95,6 @@ export function ToolEditorDialog({
       const requiredList = func.parameters?.required || [];
       const nodes = parseSchemaToNodes(props, requiredList);
       setParameterNodes(nodes);
-
-      console.log("[ToolEditorDialog] init mockResponse:", mockResponse);
       setMockString(JSON.stringify(mockResponse || {}, null, 2));
       setMockError(null);
       setValidationErrors([]);
@@ -448,12 +446,6 @@ export function ToolManagerDialog({
     updatedMockResponse: any,
   ) => {
     const targetName = updatedToolJson.function?.name;
-    console.log("[ToolManagerDialog] handleToolFormSave:", {
-      targetName,
-      editingSource,
-      editingIndex,
-      updatedMockResponse,
-    });
 
     if (editingSource === "recommended") {
       setLocalRecommended((prev) =>
@@ -752,12 +744,6 @@ function CurrentTools(
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            console.log(
-                              "[CurrentTools] opening editor for:",
-                              tool.function?.name,
-                              "mockResponse:",
-                              tool.mockResponse,
-                            );
                             setEditingTool(tool.toolJson || tool);
                             setEditingMock(
                               existingMocks[name] || tool.mockResponse || {},
@@ -914,12 +900,6 @@ function Recommended(
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              console.log(
-                                "[Recommended] opening editor for:",
-                                tool.name,
-                                "mockResponse:",
-                                tool.mockResponse,
-                              );
                               setEditingTool(tool.toolJson || tool);
                               setEditingMock(tool.mockResponse || {});
                               setEditingIndex(idx);
