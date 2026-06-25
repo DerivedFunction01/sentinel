@@ -576,7 +576,7 @@ Output ONLY valid JSON in the EXACT format below (no preamble, no markdown):
   const messages: any[] = [{ role: "user", content: prompt }];
   let extractContent = "";
   let loopCount = 0;
-  const maxLoops = 6;
+  const maxLoops = 12;
 
   while (loopCount < maxLoops) {
     loopCount++;
