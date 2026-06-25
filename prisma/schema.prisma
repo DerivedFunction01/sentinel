@@ -69,6 +69,7 @@ model Scan {
   status            String   @default("COMPLETED") // ScanStatus enum
   currentStep       Int      @default(0) // Current progress step
   totalSteps        Int      @default(0) // Total steps for progress calculation
+  progressMeta      String?  // JSON: granular per-attack/target/judge progress with retry state
   createdAt         DateTime @default(now())
   metadata          String?  // JSON: ScanMetadata - stores seed extraction results, attack summaries, etc.
 

@@ -26,6 +26,7 @@ export enum RiskLevel {
 export enum TrialVerdict {
   Breached = "breached",
   Defended = "defended",
+  Unknown = "unknown",
 }
 
 /** Label the Judge assigns to its own verdict. */
