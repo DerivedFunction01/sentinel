@@ -159,27 +159,33 @@ export async function generateCohesiveAttack(
     );
     let text = response.content || "";
 
-    // The format is [REASONING] ... [OUTPUT] ... [END]
-    const REASONING = "[REASONING]";
-    const PARAGRAPH = "[OUTPUT]";
-    const END = "[END]";
+    // 1. Fuzzy patterns to catch typos, spacing issues, and casing variations
+    // Matches: [OUTPUT], [OUT PUT], (OUTPUT), [OUTPT], [OUTPUt], etc.
+    const outputRegex =
+      /(?:\[|\()?[\s]*OUT\s*P?U?T\s*(?:\]|\))?[\s]*([\s\S]*?)(?:(?:\[|\()?(?:END|REASON|OUT)|$)/i;
 
-    // extract the paragraph text
-    const reasoningIndex = text.indexOf(REASONING);
-    const paragraphIndex = text.indexOf(PARAGRAPH);
-    const endIndex = text.indexOf(END);
+    // Matches: [REASONING], [REASON], (REASONINGG), etc.
+    const reasoningRegex =
+      /(?:\[|\()?[\s]*REASON[^]*?[\s]*(?:\]|\))?[\s]*([\s\S]*?)(?:(?:\[|\()?(?:END|OUT)|$)/i;
 
-    if (paragraphIndex !== -1) {
-      text = text.substring(
-        paragraphIndex + PARAGRAPH.length,
-        endIndex !== -1 ? endIndex : undefined,
-      );
-    } else if (reasoningIndex !== -1) {
-      text = text.substring(reasoningIndex + REASONING.length);
-    } else if (endIndex !== -1) {
-      text = text.substring(0, endIndex);
+    // 2. Attempt to extract the Output content first
+    const matchOutput = text.match(outputRegex);
+
+    if (matchOutput && matchOutput[1].trim()) {
+      text = matchOutput[1].trim();
+    } else {
+      // 3. Fallback to Reasoning if Output isn't found
+      const matchReasoning = text.match(reasoningRegex);
+      if (matchReasoning && matchReasoning[1].trim()) {
+        text = matchReasoning[1].trim();
+      } else {
+        // 4. Clean up any loose trailing tags if it just returned raw text
+        text = text
+          .replace(/(?:\[|\()?\s*(?:END|OUTPUT|REASONING)[\s\S]*/i, "")
+          .trim();
+      }
     }
-    text = text.trim();
+
     return text || draftJoined;
   } catch (error) {
     console.error("Error generating cohesive attack:", error);
