@@ -16,7 +16,7 @@ Here is the hardened system prompt to analyze:
 This is what users will request from the assistant. Design a tool for each of these user-facing capabilities:
 {{TOOL_REQUIREMENTS}}
 
-Tool names MUST describe the capability the user is requesting (e.g., `medical_advice`, `apply_discount`), NOT the restriction (e.g., `no_medical_advice`, `pricing_no_discounts`).
+Tool names MUST describe the capability the user is requesting (e.g., `medical_advice`, `apply_discount`), NOT the restriction (e.g., `no_medical_advice`, `pricing_no_discounts`). If two tools will collide (e.g. `view_menu`, `get_catalog`), then remove or consolidate them.
 </tool_requirements>
 
 <mock_policy>
