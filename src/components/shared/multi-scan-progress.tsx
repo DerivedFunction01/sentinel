@@ -85,7 +85,7 @@ export function MultiScanProgress({
     };
 
     poll();
-    const interval = setInterval(poll, 1500);
+    const interval = setInterval(poll, 5000);
     return () => clearInterval(interval);
   }, [batchId, onComplete]);
 
