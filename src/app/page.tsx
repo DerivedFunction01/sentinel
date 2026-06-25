@@ -20,8 +20,8 @@ import { LandingSection } from "@/lib/enums";
 const navLinks: { label: string; href: string }[] = [
   { label: "How it works", href: `#${LandingSection.HowItWorks}` },
   { label: "What you get", href: `#${LandingSection.WhatYouGet}` },
-  { label: "Research", href: `#${LandingSection.Research}` },
-  { label: "Docs", href: `#${LandingSection.Products}` },
+  // { label: "Research", href: `#${LandingSection.Research}` },
+  // { label: "Docs", href: `#${LandingSection.Products}` },
 ];
 
 export default function LandingPage() {
@@ -34,9 +34,9 @@ export default function LandingPage() {
         <ThreeAgents />
         <Methodology />
         <WhatYouGet />
-        <Research />
+        {/* <Research /> */}
         <Products />
-        <FinalCTA />
+        {/* <FinalCTA /> */}
       </main>
       <LandingFooter />
     </div>
@@ -133,9 +133,7 @@ function Hero() {
               variant="outline"
               className="border-slate-700 bg-transparent text-blue-400 hover:bg-slate-900 hover:text-blue-300"
             >
-              <Link href="/dashboard/reports/SP-26-0617-3Q91">
-                See latest report
-              </Link>
+              <Link href="/dashboard/reports">See your reports</Link>
             </Button>
           </div>
         </div>
@@ -511,21 +509,21 @@ function LandingFooter() {
             How it works
           </a>
           <Link href="/dashboard/reports" className="hover:text-white">
-            Benchmark Reports
+            Reports
           </Link>
-          <a href="#research" className="hover:text-white">
+          {/* <a href="#research" className="hover:text-white">
             Resources
-          </a>
+          </a> */}
           <a href="#products" className="hover:text-white">
             Docs
           </a>
-          <a href="#cta" className="hover:text-white">
+          {/* <a href="#cta" className="hover:text-white">
             Reach Out
-          </a>
+          </a> */}
         </nav>
-        <p className="text-xs text-slate-600">
+        {/* <p className="text-xs text-slate-600">
           © 2026 ToolRegistry. All rights reserved.
-        </p>
+        </p> */}
       </div>
     </footer>
   );
