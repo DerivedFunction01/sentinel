@@ -34,11 +34,14 @@ export async function retrieveInspirationExamples(
   tracker?: any,
   trace?: HardeningTrace,
   existingTools?: ToolDef[],
+  toolRequirements?: string,
 ): Promise<InspirationExample[]> {
   try {
     const personaDescription = metadata.seedExtraction?.personaDescription;
     const businessFeatures = metadata.seedExtraction?.businessFeatures;
     const businessScenarios = metadata.seedExtraction?.businessScenarios;
+    const businessCategories =
+      metadata.seedExtraction?.businessCategories || [];
 
     const personaContext = personaDescription
       ? `\nAssistant Persona: ${personaDescription}\nTailor search toward examples relevant to this role.`
@@ -54,10 +57,22 @@ export async function retrieveInspirationExamples(
         ? `\nBusiness Scenarios: ${businessScenarios.slice(0, 2).join(", ")}\nPrioritize examples that handle similar real-world use cases.`
         : "";
 
+    // Get all available tags from the database, then filter to relevant ones
+    const allAvailableTags = await getAvailableExampleTags(businessCategories);
+
+    const tagsContext =
+      allAvailableTags.length > 0
+        ? `\nAvailable tags in the database (choose from these): ${allAvailableTags.join(", ")}`
+        : "";
+
+    const toolRequirementsContext = toolRequirements
+      ? `\nTool Requirements (user-facing capabilities the assistant needs to handle): ${toolRequirements}\nUse these to guide tag selection.`
+      : "";
+
     const prompt = `You are a search query generator. Your task is to analyze the following security constraint/forbidden task of an AI assistant and generate search tags and a keyword query to find relevant tool schema templates in our database.
 
 Forbidden Task: "${forbiddenTask}"
-Target Granularity: ${granularity}${personaContext}${featuresContext}${scenariosContext}
+Target Granularity: ${granularity}${personaContext}${featuresContext}${scenariosContext}${toolRequirementsContext}${tagsContext}
 
 DO NOT use adversarial language like "refusal" in the the tags or query. There will be no results, since the tool schema does not have these tags or words.
 
@@ -348,6 +363,71 @@ Output ONLY valid JSON with no preamble:
     }
     return candidates;
   } catch (err) {
+    return [];
+  }
+}
+
+/**
+ * Get all unique tags from the database, filtered to include only
+ * general/universal tags and tags relevant to the target business categories.
+ */
+async function getAvailableExampleTags(
+  targetCategories: BusinessCategory[],
+): Promise<string[]> {
+  try {
+    const examples = await db.toolSchemaExample.findMany({
+      select: { tags: true, businessCategories: true },
+    });
+
+    const tagToCategories = new Map<string, Set<string>>();
+    const universalTags = new Set<string>();
+
+    for (const ex of examples) {
+      let parsedTags: string[] = [];
+      try {
+        parsedTags = JSON.parse(ex.tags) as string[];
+      } catch {
+        continue;
+      }
+
+      let exCategories: string[] = [];
+      try {
+        exCategories = JSON.parse(ex.businessCategories || "[]");
+      } catch {
+        // If no business categories, treat as universal
+      }
+
+      for (const tag of parsedTags) {
+        const lowerTag = tag.toLowerCase();
+        if (!tagToCategories.has(lowerTag)) {
+          tagToCategories.set(lowerTag, new Set());
+        }
+        if (exCategories.length === 0) {
+          universalTags.add(lowerTag);
+        } else {
+          for (const cat of exCategories) {
+            tagToCategories.get(lowerTag)?.add(cat);
+          }
+        }
+      }
+    }
+
+    // Filter: keep tags that are universal OR relevant to the target categories
+    const relevantTags: string[] = [];
+    for (const [tag, categories] of tagToCategories) {
+      if (universalTags.has(tag)) {
+        relevantTags.push(tag);
+        continue;
+      }
+      // Check if this tag is associated with any of the target categories
+      const isRelevant = targetCategories.some((tc) => categories.has(tc));
+      if (isRelevant) {
+        relevantTags.push(tag);
+      }
+    }
+
+    return relevantTags;
+  } catch {
     return [];
   }
 }

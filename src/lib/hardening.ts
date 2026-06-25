@@ -9,6 +9,7 @@
 import {
   generateToolRecommendation,
   parseSectionedRecommendation,
+  rephraseRestrictions,
 } from "@/lib/tool-extractor";
 import {
   retrieveInspirationExamples,
@@ -59,11 +60,12 @@ export interface GenerateHardenedPromptResult {
  * on-demand /api/scan/[id]/harden POST handler.
  *
  * Steps:
- *   1. Tool recommendation (if includeToolRecommendation is true)
- *   2. Parse recommended tools
- *   3. Retrieve inspiration examples from the database
- *   4. Multi-step prompt hardening via executeMultiStepHardening
- *   5. Fallback to deterministic hardening on error
+ *   1. Rephrase restrictions into tool requirements (for inspiration search)
+ *   2. Get inspiration examples from the database (shared between tool extractor and hardening)
+ *   3. Tool recommendation (if includeToolRecommendation is true)
+ *   4. Parse recommended tools
+ *   5. Multi-step prompt hardening via executeMultiStepHardening
+ *   6. Fallback to deterministic hardening on error
  *
  * @param params  All inputs required for hardening
  * @param callModel  A function that sends a prompt to an LLM and returns its text
@@ -89,7 +91,16 @@ export async function generateHardenedPrompt(
     includeToolRecommendation = true,
   } = params;
 
-  // Step 1: Get inspiration examples from the database (shared between tool extractor and hardening)
+  // Step 1: Rephrase restrictions into tool requirements (cached on metadata)
+  const rephrased = await rephraseRestrictions(
+    forbiddenTask,
+    extractorModel || DEFAULT_MODEL,
+    metadata,
+    tracker,
+  );
+  const toolRequirements = rephrased.toolRequirements;
+
+  // Step 2: Get inspiration examples from the database (shared between tool extractor and hardening)
   const inspirationExamples: InspirationExample[] =
     await retrieveInspirationExamples(
       forbiddenTask,
@@ -99,11 +110,12 @@ export async function generateHardenedPrompt(
       tracker,
       trace,
       tools, // pass existing tools for overlap assessment
+      toolRequirements, // pass rephrased requirements for better tag generation
     );
   const inspirationExamplesBlock =
     formatInspirationExamplesBlock(inspirationExamples);
 
-  // Step 2: Run tool extraction (pass pre-fetched examples to avoid a second fetch)
+  // Step 3: Run tool extraction (pass pre-fetched examples to avoid a second fetch)
   let toolRecommendation = "";
   let compatibilityScore = 0;
 
@@ -126,12 +138,12 @@ export async function generateHardenedPrompt(
     compatibilityScore = result.compatibilityScore || 0;
   }
 
-  // Step 3: Parse recommended tools
+  // Step 4: Parse recommended tools
   const recommendedToolsList = toolRecommendation
     ? parseSectionedRecommendation(toolRecommendation)
     : [];
 
-  // Step 4: Multi-step prompt hardening
+  // Step 5: Multi-step prompt hardening
   let hardenedPrompt = "";
   try {
     hardenedPrompt = await executeMultiStepHardening(
@@ -149,7 +161,7 @@ export async function generateHardenedPrompt(
     hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt);
   }
 
-  // Step 5: Resolve model ID/name
+  // Step 6: Resolve model ID/name
   const hardeningModelId = hardenerModel;
   const hardeningModelName = hardenerModel.split("/").pop() || hardenerModel;
 
