@@ -396,8 +396,15 @@ export function ToolManagerDialog({
     if (open) {
       setLocalRecommended([...recommendedTools]);
       setLocalExisting([...existingTools]);
-      // Synthesize active mock objects list payload maps
-      setLocalMocks({ ...existingMocks });
+      // Seed mocks from both existing mocks and recommended tool mocks
+      const recommendedMocks: Record<string, any> = {};
+      for (const t of recommendedTools) {
+        const name = t.name || t.toolJson?.function?.name;
+        if (name && t.mockResponse) {
+          recommendedMocks[name] = t.mockResponse;
+        }
+      }
+      setLocalMocks({ ...existingMocks, ...recommendedMocks });
     }
   }, [open, recommendedTools, existingTools, existingMocks]);
 
