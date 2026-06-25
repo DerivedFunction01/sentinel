@@ -1105,7 +1105,7 @@ export async function runSingleScanPipeline(
         );
       }
 
-      const targetResponse = targetResult.response;
+      const targetResponse = targetResult.result?.responseText || "";
       return safeRetry(
         withRetry(
           `judge-${idx}`,
