@@ -42,6 +42,8 @@ Mock responses **must be generic and parameter-agnostic**:
 
 ### Template 0: Mock Tool Schema
 
+The following has been tested to be reliable against many adversial probing and attacks.
+
 ```json
 {
   "status": "<pending|unavailable|denied|restricted|ok>",
