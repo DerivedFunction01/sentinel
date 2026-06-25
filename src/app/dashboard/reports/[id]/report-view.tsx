@@ -77,7 +77,12 @@ export function ReportView({ scan }: ReportViewProps) {
   const [extracting, setExtracting] = useState(false);
   const [trace, setTrace] = useState<HardeningTrace | null>(null);
   const [traceOpen, setTraceOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [activeToolIdx, setActiveToolIdx] = useState(0);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleModelChange = (modelId: string) => {
     setSelectedHardenedModel(modelId);
@@ -355,7 +360,7 @@ export function ReportView({ scan }: ReportViewProps) {
         <Separator />
 
         {/* ── 01 Scan Configuration ── */}
-        {scanConfiguration(scan)}
+        {scanConfiguration(scan, mounted)}
 
         <Separator />
 
@@ -874,7 +879,7 @@ function hardenedPrompt(
   );
 }
 
-function scanConfiguration(scan: Scan) {
+function scanConfiguration(scan: Scan, mounted: boolean) {
   return (
     <section id="scan-configuration" className="space-y-6">
       <div>
@@ -1005,7 +1010,8 @@ function scanConfiguration(scan: Scan) {
           </div>
 
           {/* Seed extraction details from metadata */}
-          {scan.metadata?.seedExtraction &&
+          {mounted &&
+            scan.metadata?.seedExtraction &&
             (() => {
               const seed = scan.metadata.seedExtraction!;
               return (
