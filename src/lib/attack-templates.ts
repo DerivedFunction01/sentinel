@@ -970,9 +970,10 @@ export function renderAttackV2(
   thingDescription?: string | string[],
 ): string[] {
   const context: Record<string, string | string[]> = {};
-  if (thingName !== undefined) context.thing_name = thingName;
-  if (thingDescription !== undefined)
-    context.thing_description = thingDescription;
+  // Comment out; let the LLM fill in the blanks
+  // if (thingName !== undefined) context.thing_name = thingName;
+  // if (thingDescription !== undefined)
+  //   context.thing_description = thingDescription;
 
   const justifications = pattern.justifications ?? [];
   const parts = [
@@ -990,7 +991,7 @@ export function renderAttack(
   thingName?: string | string[],
   thingDescription?: string | string[],
 ): string {
-  return renderAttackV2(pattern, thingName, thingDescription);
+  return renderAttackV2(pattern, thingName, thingDescription).join(" ");
 }
 
 /**
