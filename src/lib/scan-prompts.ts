@@ -568,7 +568,10 @@ ${JSON.stringify(
   const hasTools = recommendedTools && recommendedTools.length > 0;
   const step2Text = hasTools
     ? loadPromptFile("step2_with_tools.md")
-    : loadPromptFile("step2_without_tools.md");
+    : loadPromptFile("step2_without_tools.md").replace(
+        "{{OPTIMIZATION_PROMPT}}",
+        OPTIMIZATION_PROMPT,
+      );
 
   const sharedRules = loadPromptFile("shared_guardrail_rules.md");
   const template = loadPromptFile("instructions_template_step2.md");
