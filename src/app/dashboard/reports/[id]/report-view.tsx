@@ -1054,6 +1054,64 @@ function scanConfiguration(scan: Scan) {
                           </span>
                         </>
                       )}
+
+                    {seed.thingDescription && (
+                      <>
+                        <span className="text-muted-foreground">
+                          Thing Description
+                        </span>
+                        <span className="text-foreground text-right col-span-2">
+                          {seed.thingDescription}
+                        </span>
+                      </>
+                    )}
+
+                    {seed.thingNameVariants &&
+                      seed.thingNameVariants.length > 0 && (
+                        <>
+                          <span className="text-muted-foreground">
+                            Thing Name Variants
+                          </span>
+                          <span className="text-foreground text-right col-span-2">
+                            {seed.thingNameVariants.join(", ")}
+                          </span>
+                        </>
+                      )}
+
+                    {seed.thingDescriptionVariants &&
+                      seed.thingDescriptionVariants.length > 0 && (
+                        <>
+                          <span className="text-muted-foreground">
+                            Thing Description Variants
+                          </span>
+                          <span className="text-foreground text-right col-span-2">
+                            {seed.thingDescriptionVariants.join(", ")}
+                          </span>
+                        </>
+                      )}
+
+                    {seed.businessScenarios &&
+                      seed.businessScenarios.length > 0 && (
+                        <>
+                          <span className="text-muted-foreground">
+                            Business Scenarios
+                          </span>
+                          <span className="text-foreground text-right col-span-2">
+                            {seed.businessScenarios.slice(0, 3).join("; ")}
+                          </span>
+                        </>
+                      )}
+
+                    {seed.credentials && seed.credentials.length > 0 && (
+                      <>
+                        <span className="text-muted-foreground">
+                          Credentials Found
+                        </span>
+                        <span className="text-foreground text-right col-span-2 font-mono text-[10px]">
+                          {seed.credentials.join(", ")}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               );
