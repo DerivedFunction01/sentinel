@@ -455,7 +455,6 @@ export function getHardenedPromptStep1Instructions(
   forbiddenTask: string,
   breachedAttacks: BreachedAttack[],
   recommendedTools?: any[],
-  inspirationExamplesBlock?: string,
   summarizedPatterns?: string,
 ): string {
   let toolsBlock = "";
@@ -509,7 +508,6 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
     .replace("{{TOOLS_BLOCK}}", toolsBlock)
     .replace("{{FORBIDDEN_TASK}}", forbiddenTask)
     .replace("{{SUCCESSFUL_ATTACKS_BLOCK}}", successfulAttacksBlock)
-    .replace("{{INSPIRATION_EXAMPLES}}", inspirationExamplesBlock || "")
     .replace("{{STEP_1_TEXT}}", step1Text);
 }
 
@@ -628,7 +626,6 @@ export async function executeMultiStepHardening(
     forbiddenTask,
     breachedAttacks,
     recommendedTools,
-    inspirationExamplesBlock,
     summarizedPatterns,
   );
 
