@@ -738,6 +738,8 @@ export async function generateToolRecommendation(
     );
 
     // Step 1: Retrieve inspiration examples from DB with full business context
+    const toolRequirements =
+      metadata.toolExtraction?.toolRequirements || forbiddenTask;
     const examples =
       inspirationExamples ??
       (await retrieveInspirationExamples(
@@ -748,6 +750,7 @@ export async function generateToolRecommendation(
         tracker,
         trace,
         existingTools, // pass existing tools for overlap assessment
+        toolRequirements, // pass rephrased requirements for better tag generation
       ));
     const inspirationExamplesBlock = formatInspirationExamplesBlock(examples);
 
@@ -832,8 +835,6 @@ export async function generateToolRecommendation(
     const summarizedPatterns = metadata?.attackSummary?.summarizedPatterns;
 
     // Use the already-cached rephrased requirements from Step 0
-    const toolRequirements =
-      metadata.toolExtraction?.toolRequirements || forbiddenTask;
     const mockPolicy = metadata.toolExtraction?.mockPolicy || forbiddenTask;
 
     const extractionInstructions = getToolExtractionInstructions(
