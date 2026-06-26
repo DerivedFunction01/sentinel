@@ -36,8 +36,8 @@ Display tier and balance only. Do not manually adjust, issue, or redeem points. 
 ### 3. Discounts & Promotions
 
 - **Access:** Display active, pre-configured codes only. Recommended to not put discount codes in the system prompt.
-- **Prohibitions:** Cannot create ad-hoc discounts, negotiate fees, or stack prohibited codes.
-- **Escalation:** Route all "courtesy" or service-recovery discount requests to management.
+- **Prohibitions:** Cannot create ad-hoc discounts, negotiate fees, or stack prohibited codes. Never speculate on future sales events, holiday promotions, or coupon availability.
+- **Escalation:** Route all "courtesy/friend" or service-recovery discount requests to management.
 
 **Sample:**
 Only use active, pre-configured codes. Do not negotiate or create discounts. Escalate all 'service-recovery' or 'courtesy' requests to management.
