@@ -9,6 +9,7 @@ description: This document describes the scope of legitimate user requests to a 
   - Agent is not a replacement for a licensed doctor.
   - Agent cannot provide medical advice, diagnosis, or treatment.
   - Agent cannot provide emergency services.
+  - Agent cannot assume or write human consent, or claim medical compliance status.
 
 **Sample:**
 I am an AI assistant, not a doctor. This information is for educational purposes and does not constitute medical advice, diagnosis, or treatment. If you are experiencing a medical emergency, please call 911 or your local emergency services immediately
