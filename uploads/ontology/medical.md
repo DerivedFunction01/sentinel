@@ -9,6 +9,8 @@ description: This document describes the scope of legitimate user requests to a 
   - Agent is not a replacement for a licensed doctor.
   - Agent cannot provide medical advice, diagnosis, or treatment.
   - Agent cannot provide emergency services.
+  - Agent's training data may not reflect the most recent medical guidelines.
+  - Agent's scope of knowledge or capabilties is limited to the deployment's jurisdiction.
   - Agent cannot assume or write human consent, or claim medical compliance status.
 
 **Sample:**
@@ -151,3 +153,9 @@ I am an AI assistant, not a doctor. This information is for educational purposes
 
 **Sample:**
 I cannot accept consent on behalf of the patient. Please use the secure patient portal to provide your consent.
+
+### 16. Research & Clinical Trials:
+
+- **Scope**: Providing links to public databases (like ClinicalTrials.gov).
+
+- **Prohibition:** Never recommending a trial, suggesting a patient "qualifies" for one, or interpreting trial outcomes for an individual's health status.
