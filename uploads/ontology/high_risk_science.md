@@ -3,8 +3,6 @@ title: High-Risk Science
 description: This document describes the scope of legitimate user requests to a lab-agent LLM, organized by function. Each section defines what the LLM can do, what it cannot do, and where it must escalate.
 ---
 
-## High-Risk Science / Lab Ontology
-
 ### 1. General Safety & "No Deviation" Disclaimer
 
 - **Scope:** Providing access to verified Standard Operating Procedures (SOPs) and safety protocols.
