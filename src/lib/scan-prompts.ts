@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { HardeningTrace, BreachedAttack, SeedInfo } from "./types";
+import { HardeningTrace, BreachedAttack, SeedInfo, ScanMetadata } from "./types";
 import { CredentialMode } from "./enums";
 import { ONTOLOGY_CATEGORY_VALUES } from "./ontology-categories";
 import { TrialVerdict } from "@/lib/enums";
@@ -477,6 +477,7 @@ export function getHardenedPromptStep1Instructions(
   breachedAttacks: BreachedAttack[],
   recommendedTools?: any[],
   summarizedPatterns?: string,
+  metadata?: ScanMetadata,
 ): string {
   let toolsBlock = "";
   if (recommendedTools && recommendedTools.length > 0) {
@@ -524,7 +525,32 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
     successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies: social engineering, role-play reframings, hypothetical framings, and emotional appeals.`;
   }
 
-  return template
+  // Load matched ontology files content for ideas
+  let ontologyContent = "";
+  if (metadata?.seedExtraction?.relevantFiles) {
+    const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
+    for (const file of metadata.seedExtraction.relevantFiles) {
+      const filePath = path.join(ONTOLOGY_DIR, file);
+      if (fs.existsSync(filePath)) {
+        try {
+          const content = fs.readFileSync(filePath, "utf-8");
+          const match = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/m);
+          const body = match ? match[1].trim() : content.trim();
+          ontologyContent += `\n--- Policy Guidelines from ${file} ---\n${body}\n`;
+        } catch {}
+      }
+    }
+  }
+
+  let finalTemplate = template;
+  if (!hasTools && ontologyContent) {
+    finalTemplate = template.replace(
+      "</forbidden_task>",
+      `</forbidden_task>\n\nMatched Domain Policy Guidelines:\n<domain_policies>\n${ontologyContent}\n</domain_policies>`
+    );
+  }
+
+  return finalTemplate
     .replace("{{SYSTEM_PROMPT}}", systemPrompt)
     .replace("{{TOOLS_BLOCK}}", toolsBlock)
     .replace("{{FORBIDDEN_TASK}}", forbiddenTask)
@@ -538,6 +564,7 @@ export function getHardenedPromptStep2Instructions(
   breachedAttacks: BreachedAttack[],
   recommendedTools?: any[],
   summarizedPatterns?: string,
+  metadata?: ScanMetadata,
 ): string {
   let toolsBlock = "";
   if (recommendedTools && recommendedTools.length > 0) {
@@ -586,7 +613,32 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a.judgeReasoning}"`).join("\n")}
     successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies.`;
   }
 
-  return template
+  // Load matched ontology files content for ideas
+  let ontologyContent = "";
+  if (metadata?.seedExtraction?.relevantFiles) {
+    const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
+    for (const file of metadata.seedExtraction.relevantFiles) {
+      const filePath = path.join(ONTOLOGY_DIR, file);
+      if (fs.existsSync(filePath)) {
+        try {
+          const content = fs.readFileSync(filePath, "utf-8");
+          const match = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/m);
+          const body = match ? match[1].trim() : content.trim();
+          ontologyContent += `\n--- Policy Guidelines from ${file} ---\n${body}\n`;
+        } catch {}
+      }
+    }
+  }
+
+  let finalTemplate = template;
+  if (!hasTools && ontologyContent) {
+    finalTemplate = template.replace(
+      "</forbidden_task>",
+      `</forbidden_task>\n\nMatched Domain Policy Guidelines:\n<domain_policies>\n${ontologyContent}\n</domain_policies>`
+    );
+  }
+
+  return finalTemplate
     .replace("{{SYSTEM_PROMPT}}", intermediatePrompt)
     .replace("{{TOOLS_BLOCK}}", toolsBlock)
     .replace("{{FORBIDDEN_TASK}}", forbiddenTask)
@@ -631,6 +683,7 @@ export async function executeMultiStepHardening(
   inspirationExamplesBlock?: string,
   trace?: HardeningTrace,
   summarizedPatterns?: string,
+  metadata?: ScanMetadata,
 ): Promise<string> {
   // ── Pre-step: Optimization Prompt Detection & Language Identification ──
   // DISABLED: Commented out to reduce token costs. Can be re-enabled later if needed.
@@ -651,6 +704,7 @@ export async function executeMultiStepHardening(
     breachedAttacks,
     recommendedTools,
     summarizedPatterns,
+    metadata,
   );
 
   let changedSentences = "";
@@ -709,6 +763,7 @@ export async function executeMultiStepHardening(
       breachedAttacks,
       recommendedTools,
       summarizedPatterns,
+      metadata,
     );
 
     let step2FinalPrompt = "";

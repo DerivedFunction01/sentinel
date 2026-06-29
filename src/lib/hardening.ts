@@ -173,6 +173,7 @@ export async function generateHardenedPrompt(
       inspirationExamplesBlock,
       trace,
       metadata?.attackSummary?.summarizedPatterns,
+      metadata,
     );
   } catch (err) {
     console.error("Error generating hardened prompt:", err);

@@ -277,6 +277,7 @@ ${ontologyContent || "No specific ontologies loaded."}
         typeof parsed.isGenerative === "boolean" ? parsed.isGenerative : false,
       extractorModel,
       extractedAt: new Date().toISOString(),
+      relevantFiles,
     };
   } catch (error) {
     console.error("Error extracting seed info:", error);
@@ -284,6 +285,7 @@ ${ontologyContent || "No specific ontologies loaded."}
       ...defaultSeed,
       extractorModel,
       extractedAt: new Date().toISOString(),
+      relevantFiles,
     };
   }
 }

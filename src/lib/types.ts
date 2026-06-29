@@ -78,6 +78,7 @@ export interface SeedInfo {
   isGenerative: boolean;
   extractorModel?: string;
   extractedAt?: string;
+  relevantFiles?: string[];
 }
 
 export interface AttackEntry {
