@@ -68,6 +68,7 @@ export interface RestrictionThing {
   credentials: string[];
   businessScenarios: string[];
   ontologySection?: string;
+  isPresent: boolean;
 }
 
 export interface SeedInfo {
