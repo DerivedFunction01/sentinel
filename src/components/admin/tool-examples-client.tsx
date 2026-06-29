@@ -59,6 +59,7 @@ interface ToolExample {
   isBuiltIn: boolean;
   createdAt: string;
   businessCategories?: string; // JSON string of BusinessCategory[]
+  ontologySections?: string; // JSON string of string[]
 }
 
 interface ToolExamplesClientProps {
@@ -415,7 +416,6 @@ const ExampleCard = ({
             </p>
             <TagBadges tags={tags} />
 
-            {/* Business categories display - THIS IS WHERE YOU ADD IT */}
             {businessCategories.length > 0 && (
               <div className="pt-2">
                 <span className="text-xs font-semibold text-muted-foreground block mb-2">
@@ -424,6 +424,27 @@ const ExampleCard = ({
                 <BusinessCategoryBadges
                   businessCategories={businessCategories}
                 />
+              </div>
+            )}
+
+            {/* Ontology sections display */}
+            {getParsedTags(example.ontologySections || "[]").length > 0 && (
+              <div className="pt-2">
+                <span className="text-xs font-semibold text-muted-foreground block mb-2">
+                  Ontology Sections
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {getParsedTags(example.ontologySections || "[]").map(
+                    (sec, i) => (
+                      <span
+                        key={i}
+                        className="rounded bg-purple-500/20 border border-purple-500/35 px-1.5 py-0.5 text-[10px] text-purple-300 font-medium"
+                      >
+                        {sec}
+                      </span>
+                    ),
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -564,6 +585,8 @@ function EditableForm({
   setBusinessCategoriesStr,
   businessCategoriesDropdownOpen,
   setBusinessCategoriesDropdownOpen,
+  ontologySectionsStr,
+  setOntologySectionsStr,
   toolJson,
   setToolJson,
   validateJson,
@@ -592,6 +615,8 @@ function EditableForm({
   setBusinessCategoriesStr;
   businessCategoriesDropdownOpen: boolean;
   setBusinessCategoriesDropdownOpen;
+  ontologySectionsStr: string;
+  setOntologySectionsStr: (val: string) => void;
   toolJson: string;
   setToolJson;
   validateJson: (
@@ -652,6 +677,19 @@ function EditableForm({
               placeholder="e.g., weather, forecast, api"
               value={tagsStr}
               onChange={(e) => setTagsStr(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="ontologySections" className="text-xs">
+              Ontology Sections (comma-separated)
+            </Label>
+            <Input
+              id="ontologySections"
+              placeholder="e.g., Payments & Billing, Loyalty Programs"
+              value={ontologySectionsStr}
+              onChange={(e) => setOntologySectionsStr(e.target.value)}
               className="mt-1"
             />
           </div>
@@ -861,6 +899,7 @@ export function ToolExamplesClient({
   );
   const [toolJson, setToolJson] = useState("");
   const [mockResponse, setMockResponse] = useState("");
+  const [ontologySectionsStr, setOntologySectionsStr] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -880,6 +919,14 @@ export function ToolExamplesClient({
     setMockResponse(JSON.stringify(JSON.parse(ex.mockResponse), null, 2));
     setToolJsonError(null);
     setMockResponseError(null);
+
+    let ontList: string[] = [];
+    if (ex.ontologySections) {
+      try {
+        ontList = JSON.parse(ex.ontologySections);
+      } catch {}
+    }
+    setOntologySectionsStr(ontList.join(", "));
 
     // Parse business categories from JSON to comma-separated format
     let catStr = "";
@@ -907,6 +954,7 @@ export function ToolExamplesClient({
     setMockResponseError(null);
     setBusinessCategoriesStr("");
     setBusinessCategoriesDropdownOpen(false);
+    setOntologySectionsStr("");
   };
 
   // JSON Validation States
@@ -986,6 +1034,11 @@ export function ToolExamplesClient({
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
+      const ontologySections = ontologySectionsStr
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
       const body = {
         id: editingId,
         name,
@@ -997,6 +1050,7 @@ export function ToolExamplesClient({
         mockResponse,
         businessCategories:
           businessCategories.length > 0 ? businessCategories : [],
+        ontologySections,
       };
 
       const url = editingId
@@ -1126,6 +1180,8 @@ export function ToolExamplesClient({
               setBusinessCategoriesDropdownOpen={
                 setBusinessCategoriesDropdownOpen
               }
+              ontologySectionsStr={ontologySectionsStr}
+              setOntologySectionsStr={setOntologySectionsStr}
               toolJson={toolJson}
               setToolJson={setToolJson}
               validateJson={validateJson}

@@ -6,6 +6,7 @@ import {
   ScanMetadata,
   OverlapInfo,
   ToolDef,
+  RestrictionThing,
 } from "./types";
 import { Granularity } from "./enums";
 import { BusinessCategory } from "./enums";
@@ -18,6 +19,7 @@ export interface InspirationExample {
   toolJson: any;
   mockResponse: any;
   businessCategories?: BusinessCategory[];
+  ontologySections?: string[];
   requirementScore?: number; // 0-100: how well the example matches the forbidden task requirement
   granularityScore?: number; // 0-100: how well the example's granularity matches the target
   rationale?: string; // LLM explanation of the scores
@@ -26,20 +28,39 @@ export interface InspirationExample {
   overlap?: OverlapInfo; // overlap assessment with existing tools
 }
 
-export async function retrieveInspirationExamples(
-  forbiddenTask: string,
+export async function generateInspirationSearchQuery(
+  targetThing: RestrictionThing,
   extractorModel: string,
   granularity: Granularity,
   metadata: ScanMetadata,
   tracker?: any,
-  trace?: HardeningTrace,
-  existingTools?: ToolDef[],
   toolRequirements?: string,
-): Promise<InspirationExample[]> {
+): Promise<{ query: string; tags: string[] }> {
   try {
+    const forbiddenTask = targetThing.forbiddenTask;
+    const businessScenarios = targetThing.businessScenarios || [];
+    const targetOntologySection = targetThing.ontologySection;
+
+    // Check database first if we have matching ontology section templates
+    if (targetOntologySection) {
+      const matchingCount = await db.toolSchemaExample.count({
+        where: {
+          ontologySections: {
+            contains: targetOntologySection,
+          },
+        },
+      });
+      if (matchingCount > 0) {
+        console.log(`[Inspiration] Mapped ontology section '${targetOntologySection}' found in DB. Bypassing LLM query generation.`);
+        return {
+          query: targetOntologySection.toLowerCase(),
+          tags: [],
+        };
+      }
+    }
+
     const personaDescription = metadata.seedExtraction?.personaDescription;
     const businessFeatures = metadata.seedExtraction?.businessFeatures;
-    const businessScenarios = metadata.seedExtraction?.businessScenarios;
     const businessCategories =
       metadata.seedExtraction?.businessCategories || [];
 
@@ -102,6 +123,32 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
       query = forbiddenTask.split(/\s+/)[0]?.toLowerCase() || "";
     }
 
+    return { query, tags };
+  } catch (err) {
+    console.error("Error generating inspiration search query:", err);
+    return {
+      query: targetThing.forbiddenTask.split(/\s+/)[0]?.toLowerCase() || "",
+      tags: [],
+    };
+  }
+}
+
+export async function searchInspirationCandidates(
+  query: string,
+  tags: string[],
+  targetThing: RestrictionThing,
+  extractorModel: string,
+  granularity: Granularity,
+  metadata: ScanMetadata,
+  tracker?: any,
+  trace?: HardeningTrace,
+  existingTools?: ToolDef[],
+  toolRequirements?: string,
+): Promise<InspirationExample[]> {
+  try {
+    const forbiddenTask = targetThing.forbiddenTask;
+    const targetOntologySection = targetThing.ontologySection;
+
     const allExamples = await db.toolSchemaExample.findMany();
 
     const searchWords: string[] = [];
@@ -147,7 +194,6 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
 
       const granularityBonus = ex.granularity === granularity ? 1 : 0;
 
-      // Calculate business category match bonus using metadata categories directly
       let categoryBonus = 0;
       const categoriesToMatch = metadata.seedExtraction?.businessCategories;
       if (categoriesToMatch && categoriesToMatch.length > 0) {
@@ -159,13 +205,31 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
             Array.isArray(exampleCategories) &&
             exampleCategories.length > 0
           ) {
-            // Count how many target categories match the example's categories
             const matchingCategories = categoriesToMatch.filter((cat) =>
               exampleCategories.includes(cat),
             );
-            // Bonus proportional to match ratio (0 to 2 points)
             categoryBonus =
               (matchingCategories.length / categoriesToMatch.length) * 2;
+          }
+        } catch {}
+      }
+
+      let ontologyBonus = 0;
+      if (targetOntologySection) {
+        try {
+          const exampleSections = JSON.parse(
+            ex.ontologySections || "[]"
+          ) as string[];
+          if (
+            Array.isArray(exampleSections) &&
+            exampleSections.length > 0
+          ) {
+            const isMatch = exampleSections.some(
+              (sec) => sec.toLowerCase() === targetOntologySection.toLowerCase()
+            );
+            if (isMatch) {
+              ontologyBonus = 3.0;
+            }
           }
         } catch {}
       }
@@ -175,11 +239,11 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
         matchingWordsCount,
         granularityBonus,
         categoryBonus,
+        ontologyBonus,
       };
     });
 
     const afterFilter = scoredExamples.filter((item) => {
-      // If there are search words, only keep examples that match at least one search word
       if (searchWords.length > 0) {
         return item.matchingWordsCount > 0;
       }
@@ -187,21 +251,20 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
     });
 
     const sortedExamples = afterFilter.sort((a, b) => {
-      // Sort by match count first (descending)
       if (b.matchingWordsCount !== a.matchingWordsCount) {
         return b.matchingWordsCount - a.matchingWordsCount;
       }
-      // Then sort by category bonus (descending)
+      if (b.ontologyBonus !== a.ontologyBonus) {
+        return b.ontologyBonus - a.ontologyBonus;
+      }
       if (b.categoryBonus !== a.categoryBonus) {
         return b.categoryBonus - a.categoryBonus;
       }
-      // Then sort by granularity match bonus (descending)
       return b.granularityBonus - a.granularityBonus;
     });
 
     const filtered = sortedExamples.map((item) => item.ex);
 
-    // Return the top N examples, then have the LLM score them
     const numberOfExamples = 4;
     const candidates: InspirationExample[] = [];
     for (const ex of filtered.slice(0, numberOfExamples)) {
@@ -214,11 +277,11 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
           toolJson: JSON.parse(ex.toolJson),
           mockResponse: JSON.parse(ex.mockResponse),
           businessCategories: JSON.parse(ex.businessCategories || "[]"),
+          ontologySections: JSON.parse(ex.ontologySections || "[]"),
         });
       } catch {}
     }
 
-    // NEW: LLM scoring of candidates for requirement + granularity match
     if (candidates.length > 0) {
       try {
         let existingToolsBlock = "";
@@ -233,9 +296,6 @@ ${existingTools
   .join("\n\n")}
 
 For each candidate example, also evaluate overlap with these existing tools by adding an "overlap" field per candidate:
-- overlap: {"score": <0-100>, "replaceExisting": <tool name or null>, "merge": <bool>, "rationale": "<one-sentence>"}
-
-Overlap scoring guidelines:
 - score 0-30: No meaningful overlap → brand new tool candidate
 - score 31-69: Partial overlap → may need parameter merging or splitting
 - score 70+: Direct overlap → this example replaces the existing tool
@@ -243,64 +303,61 @@ Overlap scoring guidelines:
 - Set "merge": true if the example should be merged INTO the existing tool (same name, expanded parameters)\n`;
         }
 
-        // Use rephrased capabilities from metadata if available, fall back to raw forbidden task
-        const toolRequirements =
-          metadata.toolExtraction?.toolRequirements || forbiddenTask;
+        const scoringToolRequirements = toolRequirements || forbiddenTask;
 
         const scoringPrompt = `You are a scoring evaluator. Analyze how well each database tool schema example matches the required user-facing capabilities and target granularity.
 
 Tool Requirements (what users request from the assistant):
-${toolRequirements}
+${scoringToolRequirements}
 Target Granularity: ${granularity}
 Business Categories: ${(metadata.seedExtraction?.businessCategories || []).join(", ") || "N/A"}
 
 Examples:
 ${candidates
   .map(
-    (c, i) => `[${i}] Name: ${c.name}
+    (c, i) => `--- Example #${i} ---
+Name: "${c.name}"
 Description: ${c.description}
 Tags: ${c.tags.join(", ")}
-Granularity: ${c.granularity}
-Business Categories: ${(c.businessCategories || []).join(", ")}`,
+Tool JSON: ${JSON.stringify(c.toolJson)}`,
   )
   .join("\n\n")}
 ${existingToolsBlock}
-For each example, output an array of scoring objects with:
-- "requirementScore" (0-100): How well this tool's purpose matches the user-facing capability the assistant needs to handle. A high score means this tool is a natural one for the assistant to call when a user makes a request in this domain.
-- "granularityScore" (0-100): How well the granularity level matches. If the target is "compact" but the example is "detailed", this should be low.
-- "rationale": A one-sentence explanation of both scores.
-- "bestMatchingCandidate" (boolean): Set to true ONLY if this example is the single best choice for addressing a specific user capability. If multiple examples address the same capability (e.g., two tools for "discount management"), mark only the highest-scoring one as true. Mark all others as false.
-- "overlap" (object | null): Overlap assessment with existing tools. Include fields: "score" (0-100), "replaceExisting" (the tool ref like "T0" or null), "merge" (boolean), "rationale" (one sentence). Set to null if no existing tools were provided.
+Return ONLY a JSON array of objects representing the scores for each example:
+[
+  {
+    "requirementScore": <0-100>,
+    "granularityScore": <0-100>,
+    "bestMatchingCandidate": <boolean: true if this candidate is the single best match for its role/action among all candidates>,
+    "rationale": "<one-sentence reasoning>",
+    "overlap": { "score": <0-100>, "replaceExisting": "<existing tool name or null>", "merge": <bool>, "rationale": "<one-sentence>" }
+  }
+]
+Output ONLY the raw JSON array. Do not wrap in markdown or include preambles.`;
 
-The tool requirements may describe multiple distinct user capabilities (e.g., "discount policy, refund requests, corporate policy info"). Each distinct capability should have exactly one bestMatchingCandidate set to true if possible.
-
-Output ONLY valid JSON with no preamble:
-{"scores":[{"index":0,"requirementScore":85,"granularityScore":70,"rationale":"...","bestMatchingCandidate":true,"overlap":{"score":0,"replaceExisting":null,"merge":false,"rationale":"..."}}]}`;
-
-        const scoringResponse = await callOpenRouter(
+        const scoreResponse = await callOpenRouter(
           extractorModel,
           [{ role: "user", content: scoringPrompt }],
           undefined,
           tracker,
         );
 
-        const cleaned = (scoringResponse.content || "")
+        const cleanScores = (scoreResponse.content || "")
           .replace(/^```[a-zA-Z]*\n/g, "")
           .replace(/\n```$/g, "")
           .trim();
-        const parsed = JSON.parse(cleaned);
 
-        if (parsed.scores && Array.isArray(parsed.scores)) {
-          for (const s of parsed.scores) {
-            const idx = s.index as number;
-            if (idx >= 0 && idx < candidates.length) {
+        const scores = JSON.parse(cleanScores);
+        if (Array.isArray(scores)) {
+          for (let idx = 0; idx < candidates.length; idx++) {
+            const s = scores[idx];
+            if (s) {
               candidates[idx].requirementScore = s.requirementScore as number;
               candidates[idx].granularityScore = s.granularityScore as number;
               candidates[idx].rationale = s.rationale as string;
               candidates[idx].bestMatchingCandidate =
                 s.bestMatchingCandidate === true;
 
-              // Parse overlap info
               if (s.overlap && typeof s.overlap === "object") {
                 let replaceExisting: string | undefined;
                 if (
@@ -308,7 +365,6 @@ Output ONLY valid JSON with no preamble:
                   typeof s.overlap.replaceExisting === "string" &&
                   existingTools
                 ) {
-                  // Convert "T0", "T1" ref back to actual tool function name
                   const refMatch = s.overlap.replaceExisting.match(/^T(\d+)$/);
                   if (refMatch) {
                     const toolIdx = parseInt(refMatch[1], 10);
@@ -316,7 +372,6 @@ Output ONLY valid JSON with no preamble:
                       replaceExisting = existingTools[toolIdx].function.name;
                     }
                   } else {
-                    // Already a tool name
                     replaceExisting = s.overlap.replaceExisting;
                   }
                 }
@@ -332,11 +387,8 @@ Output ONLY valid JSON with no preamble:
         }
       } catch (e) {
         console.error("LLM scoring of inspiration examples failed:", e);
-        // Fall through with unscored examples — still usable as context
       }
 
-      // Mark direct matches: requirementScore >= 70 means we can skip the heavy agentic loop
-      // Suppress directMatch if there's high unresolved overlap (conflict without a replacement decision)
       for (const ex of candidates) {
         if (ex.requirementScore !== undefined && ex.requirementScore >= 70) {
           if (
@@ -344,7 +396,6 @@ Output ONLY valid JSON with no preamble:
             ex.overlap.score >= 70 &&
             !ex.overlap.replaceExisting
           ) {
-            // High overlap but LLM didn't identify a specific tool to replace — fall through to slow path
             ex.directMatch = false;
           } else {
             ex.directMatch = true;
@@ -365,6 +416,38 @@ Output ONLY valid JSON with no preamble:
   } catch (err) {
     return [];
   }
+}
+
+export async function retrieveInspirationExamples(
+  targetThing: RestrictionThing,
+  extractorModel: string,
+  granularity: Granularity,
+  metadata: ScanMetadata,
+  tracker?: any,
+  trace?: HardeningTrace,
+  existingTools?: ToolDef[],
+  toolRequirements?: string,
+): Promise<InspirationExample[]> {
+  const { query, tags } = await generateInspirationSearchQuery(
+    targetThing,
+    extractorModel,
+    granularity,
+    metadata,
+    tracker,
+    toolRequirements,
+  );
+  return searchInspirationCandidates(
+    query,
+    tags,
+    targetThing,
+    extractorModel,
+    granularity,
+    metadata,
+    tracker,
+    trace,
+    existingTools,
+    toolRequirements,
+  );
 }
 
 /**

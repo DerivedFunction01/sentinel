@@ -89,6 +89,7 @@ export async function POST(req: Request) {
       toolJson,
       mockResponse,
       businessCategories,
+      ontologySections,
     } = await req.json();
 
     const missingFields: string[] = [];
@@ -142,6 +143,19 @@ export async function POST(req: Request) {
       }
     }
 
+    // ontologySections must be a string (JSON array of strings)
+    let ontologySectionsStr = "[]";
+    if (Array.isArray(ontologySections)) {
+      ontologySectionsStr = JSON.stringify(ontologySections);
+    } else if (typeof ontologySections === "string") {
+      try {
+        JSON.parse(ontologySections);
+        ontologySectionsStr = ontologySections;
+      } catch {
+        ontologySectionsStr = JSON.stringify([ontologySections]);
+      }
+    }
+
     // Parse and validate business categories
     const businessCategoriesStr = parseBusinessCategories(businessCategories);
 
@@ -155,6 +169,7 @@ export async function POST(req: Request) {
         toolJson,
         mockResponse,
         businessCategories: businessCategoriesStr,
+        ontologySections: ontologySectionsStr,
         isBuiltIn: false,
       },
     });
@@ -221,6 +236,7 @@ export async function PUT(req: Request) {
       toolJson,
       mockResponse,
       businessCategories,
+      ontologySections,
     } = await req.json();
 
     const missingFields: string[] = [];
@@ -275,6 +291,19 @@ export async function PUT(req: Request) {
       }
     }
 
+    // ontologySections must be a string (JSON array of strings)
+    let ontologySectionsStr = "[]";
+    if (Array.isArray(ontologySections)) {
+      ontologySectionsStr = JSON.stringify(ontologySections);
+    } else if (typeof ontologySections === "string") {
+      try {
+        JSON.parse(ontologySections);
+        ontologySectionsStr = ontologySections;
+      } catch {
+        ontologySectionsStr = JSON.stringify([ontologySections]);
+      }
+    }
+
     // Parse and validate business categories
     const businessCategoriesStr = parseBusinessCategories(businessCategories);
 
@@ -289,6 +318,7 @@ export async function PUT(req: Request) {
         toolJson,
         mockResponse,
         businessCategories: businessCategoriesStr,
+        ontologySections: ontologySectionsStr,
       },
     });
 

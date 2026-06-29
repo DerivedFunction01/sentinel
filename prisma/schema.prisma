@@ -127,6 +127,7 @@ model ToolSchemaExample {
   toolJson     String               // JSON string
   mockResponse String               // JSON string
   businessCategories String         @default("[GENERAL]")
+  ontologySections   String         @default("[]")
   isBuiltIn    Boolean              @default(true)
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt

@@ -8,6 +8,7 @@ import {
   HardeningTrace,
   ScanMetadata,
   RephrasedRestrictionPair,
+  RestrictionThing,
 } from "./types";
 import { Granularity } from "./enums";
 import { BusinessCategory } from "./enums";
@@ -740,10 +741,24 @@ export async function generateToolRecommendation(
     // Step 1: Retrieve inspiration examples from DB with full business context
     const toolRequirements =
       metadata.toolExtraction?.toolRequirements || forbiddenTask;
+    const targetThing = metadata.seedExtraction?.things?.find(
+      (t: any) => t.forbiddenTask === forbiddenTask
+    ) || ({
+      forbiddenTask,
+      thingName: "",
+      thingDescription: "",
+      thingNameVariants: [],
+      thingDescriptionVariants: [],
+      vulnerabilities: [],
+      credentials: [],
+      businessScenarios: [],
+      ontologySection: undefined
+    } as RestrictionThing);
+
     const examples =
       inspirationExamples ??
       (await retrieveInspirationExamples(
-        forbiddenTask,
+        targetThing,
         extractorModel,
         granularity,
         metadata,
