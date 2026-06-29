@@ -67,6 +67,7 @@ export interface RestrictionThing {
   vulnerabilities: string[];
   credentials: string[];
   businessScenarios: string[];
+  ontologySection?: string;
 }
 
 export interface SeedInfo {

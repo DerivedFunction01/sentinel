@@ -1058,9 +1058,16 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                           key={idx}
                           className="col-span-3 border-t border-white/5 pt-2 mt-2 space-y-2"
                         >
-                          <p className="text-xs font-semibold text-purple-400">
-                            Restriction #{idx + 1}: {t.thingName}
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-purple-400">
+                              Restriction #{idx + 1}: {t.thingName}
+                            </p>
+                            {t.ontologySection && (
+                              <span className="rounded bg-purple-500/25 border border-purple-500/35 px-1.5 py-0.5 text-[9px] font-medium text-purple-300">
+                                Section: {t.ontologySection}
+                              </span>
+                            )}
+                          </div>
                           <div className="grid grid-cols-3 gap-2 text-xs">
                             <span className="text-muted-foreground">
                               Description
