@@ -143,14 +143,14 @@ export const ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2 = (
   },
   credentialMode?: CredentialMode,
 ) => {
+  const firstThing = seedInfo.things?.[0] || {};
   const {
-    thingName,
-    thingDescription,
-    personaDescription,
-    businessFeatures,
-    businessScenarios,
-    credentials,
-  } = seedInfo;
+    thingName = "",
+    thingDescription = "",
+    businessScenarios = [],
+    credentials = [],
+  } = firstThing;
+  const { personaDescription = "", businessFeatures = [] } = seedInfo;
   const { attackDescription } = layout;
 
   const draftParts = renderAttackV2(

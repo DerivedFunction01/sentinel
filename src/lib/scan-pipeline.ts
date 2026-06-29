@@ -63,7 +63,8 @@ export async function generateCohesiveAttack(
   credentialMode?: CredentialMode,
   tracker?: UsageTracker,
 ): Promise<string> {
-  const { thingName, thingDescription } = seedInfo;
+  const firstThing = seedInfo.things?.[0] || {};
+  const { thingName = "", thingDescription = "" } = firstThing;
 
   const draftParts = renderAttack(pattern, thingName, thingDescription);
   const draftJoined = Array.isArray(draftParts)

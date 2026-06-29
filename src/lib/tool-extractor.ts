@@ -752,7 +752,8 @@ export async function generateToolRecommendation(
       vulnerabilities: [],
       credentials: [],
       businessScenarios: [],
-      ontologySection: undefined
+      ontologySection: undefined,
+      isPresent: true
     } as RestrictionThing);
 
     const examples =

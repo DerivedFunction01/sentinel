@@ -28,6 +28,7 @@ import {
   type ScanMetadata,
   type BreachedAttack,
   type HardeningTrace,
+  RestrictionThing,
 } from "@/lib/types";
 import { Granularity } from "./enums";
 
@@ -101,9 +102,26 @@ export async function generateHardenedPrompt(
   const toolRequirements = rephrased.toolRequirements;
 
   // Step 2: Get inspiration examples from the database (shared between tool extractor and hardening)
+  // Find the matching RestrictionThing from seed extraction metadata
+  const targetThing =
+    metadata.seedExtraction?.things?.find(
+      (t: any) => t.forbiddenTask === forbiddenTask,
+    ) ||
+    ({
+      forbiddenTask,
+      thingName: "",
+      thingDescription: "",
+      thingNameVariants: [],
+      thingDescriptionVariants: [],
+      vulnerabilities: [],
+      credentials: [],
+      businessScenarios: [],
+      ontologySection: undefined,
+      isPresent: true,
+    } as RestrictionThing);
   const inspirationExamples: InspirationExample[] =
     await retrieveInspirationExamples(
-      forbiddenTask,
+      targetThing,
       extractorModel || DEFAULT_MODEL,
       granularity,
       metadata,
