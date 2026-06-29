@@ -25,7 +25,6 @@ export async function POST(req: Request) {
       mockResponses,
     );
 
-    const suggestedTasks = seedInfo.things.map((t) => t.forbiddenTask);
     const vulnerabilities = Array.from(
       new Set(seedInfo.things.flatMap((t) => t.vulnerabilities))
     );
@@ -34,7 +33,6 @@ export async function POST(req: Request) {
       success: true,
       seedInfo,
       things: seedInfo.things,
-      suggestedTasks,
       vulnerabilities,
       categories: seedInfo.businessCategories,
     });

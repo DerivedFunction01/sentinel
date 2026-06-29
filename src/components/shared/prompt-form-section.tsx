@@ -132,14 +132,20 @@ export const PromptFormSection = memo(function PromptFormSection({
 
       if (
         data.success &&
-        Array.isArray(data.suggestedTasks) &&
-        data.suggestedTasks.length > 0
+        Array.isArray(data.things) &&
+        data.things.length > 0
       ) {
-        console.log(
-          "[AI Suggest] Updating forbiddenTask to:",
-          data.suggestedTasks.join("\n\n"),
-        );
-        onChange("forbiddenTask", data.suggestedTasks.join("\n\n"));
+        const forbiddenTasks = data.things
+          .filter((t: any) => t.isPresent !== false)
+          .map((t: any) => t.forbiddenTask)
+          .filter(Boolean);
+        if (forbiddenTasks.length > 0) {
+          console.log(
+            "[AI Suggest] Updating forbiddenTask to:",
+            forbiddenTasks.join("\n\n"),
+          );
+          onChange("forbiddenTask", forbiddenTasks.join("\n\n"));
+        }
         if (data.seedInfo) {
           console.log(
             "[AI Suggest] Updating cachedSeedInfo to:",
@@ -163,9 +169,7 @@ export const PromptFormSection = memo(function PromptFormSection({
           "[AI Suggest] API success but no tasks suggested or parsed:",
           data,
         );
-        alert(
-          "Could not identify any specific forbidden tasks in the system prompt.",
-        );
+        alert(" any specific forbidden tasks in the system prompt.");
       }
     } catch (err) {
       console.error("[AI Suggest] Error in fetch workflow:", err);
