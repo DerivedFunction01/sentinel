@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState, useEffect } from "react";
 import {
   FileText,
   Ban,
@@ -12,6 +12,8 @@ import {
   Sparkles,
   Copy,
   Trash2,
+  Loader2,
+  Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldBlock } from "@/components/shared/field-block";
@@ -20,6 +22,7 @@ import {
   validateToolsAgainstMocks,
   type ToolValidationResult,
 } from "@/lib/scan-validation";
+import { SeedInfo } from "@/lib/types";
 
 export interface PromptFormSectionValues {
   systemPrompt: string;
@@ -27,6 +30,7 @@ export interface PromptFormSectionValues {
   judgeInstructions: string;
   tools: string;
   mockResponses: string;
+  cachedSeedInfo?: SeedInfo;
 }
 
 export interface PromptFormSectionOptions {
@@ -57,7 +61,7 @@ export interface PromptFormSectionOptions {
 
 export interface PromptFormSectionProps {
   values: PromptFormSectionValues;
-  onChange: (field: keyof PromptFormSectionValues, value: string) => void;
+  onChange: (field: keyof PromptFormSectionValues, value: any) => void;
   onUseSample?: (field: keyof PromptFormSectionValues) => void;
   options?: PromptFormSectionOptions;
 }
@@ -81,6 +85,90 @@ export const PromptFormSection = memo(function PromptFormSection({
   onUseSample,
   options = {},
 }: PromptFormSectionProps) {
+  const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+  const [cachedConfig, setCachedConfig] = useState<{
+    systemPrompt: string;
+    tools: string;
+    mockResponses: string;
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("seed_extractor_last_config");
+      if (stored) {
+        setCachedConfig(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const handleAiSuggest = async () => {
+    if (!values.systemPrompt.trim()) {
+      alert("Please enter a System Prompt first so the AI can analyze it.");
+      return;
+    }
+    setAiSuggestLoading(true);
+    try {
+      const res = await fetch("/api/scan/suggest-forbidden", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemPrompt: values.systemPrompt,
+          tools: values.tools,
+          mockResponses: values.mockResponses,
+        }),
+      });
+      const data = await res.json();
+      if (
+        data.success &&
+        Array.isArray(data.suggestedTasks) &&
+        data.suggestedTasks.length > 0
+      ) {
+        onChange("forbiddenTask", data.suggestedTasks.join("\n\n"));
+        if (data.seedInfo) {
+          onChange("cachedSeedInfo", data.seedInfo);
+        }
+        const newConfig = {
+          systemPrompt: values.systemPrompt,
+          tools: values.tools,
+          mockResponses: values.mockResponses,
+        };
+        localStorage.setItem(
+          "seed_extractor_last_config",
+          JSON.stringify(newConfig),
+        );
+        setCachedConfig(newConfig);
+      } else {
+        alert(
+          "Could not identify any specific forbidden tasks in the system prompt.",
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while analyzing the prompt.");
+    } finally {
+      setAiSuggestLoading(false);
+    }
+  };
+
+  const promptChangedSinceExtraction = useMemo(() => {
+    if (!cachedConfig) return false;
+    // Only warn if forbiddenTask is populated (indicating we have some configuration already set)
+    if (!values.forbiddenTask.trim()) return false;
+    return (
+      cachedConfig.systemPrompt !== values.systemPrompt ||
+      cachedConfig.tools !== values.tools ||
+      cachedConfig.mockResponses !== values.mockResponses
+    );
+  }, [
+    cachedConfig,
+    values.systemPrompt,
+    values.tools,
+    values.mockResponses,
+    values.forbiddenTask,
+  ]);
+
   const validation: ToolValidationResult = useMemo(
     () => validateToolsAgainstMocks(values.tools, values.mockResponses),
     [values.tools, values.mockResponses],
@@ -189,6 +277,8 @@ export const PromptFormSection = memo(function PromptFormSection({
             onUseSample={
               onUseSample ? () => onUseSample("forbiddenTask") : undefined
             }
+            onAiSuggest={handleAiSuggest}
+            aiSuggestLoading={aiSuggestLoading}
           />
 
           {/* Tools (JSON) */}
@@ -258,6 +348,41 @@ export const PromptFormSection = memo(function PromptFormSection({
             result={validation}
             onPopulateMocks={handlePopulateMocks}
           />
+
+          {/* AI Suggest Out-of-Sync Warning */}
+          {promptChangedSinceExtraction && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-amber-200">
+                      AI Suggest guidelines may be out of date
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-slate-300">
+                      The system prompt, tools, or mock responses have changed
+                      since the last AI suggest execution. The current forbidden
+                      tasks might not match the new configuration.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs border-amber-500/35 hover:bg-amber-950/20 text-amber-300 hover:text-amber-200 shrink-0"
+                  onClick={handleAiSuggest}
+                  disabled={aiSuggestLoading}
+                >
+                  {aiSuggestLoading ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Wand2 className="mr-1 h-3 w-3" />
+                  )}
+                  {aiSuggestLoading ? "Analyzing..." : "Update Suggestion"}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Mock Tool Responses (JSON) */}
           <div className="space-y-2">

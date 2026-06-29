@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,6 +30,10 @@ export interface FieldBlockProps {
   showCharCount?: boolean;
   /** When provided, a "Use sample" button is rendered. */
   onUseSample?: () => void;
+  /** When provided, an "AI Suggest" button is rendered. */
+  onAiSuggest?: () => void;
+  /** Loading state for AI suggestion. */
+  aiSuggestLoading?: boolean;
 }
 
 /**
@@ -50,6 +54,8 @@ export function FieldBlock({
   monospace,
   showCharCount,
   onUseSample,
+  onAiSuggest,
+  aiSuggestLoading,
 }: FieldBlockProps) {
   const [tab, setTab] = useState<"write" | "preview">("write");
 
@@ -126,16 +132,37 @@ export function FieldBlock({
         />
       )}
 
-      {onUseSample && tab === "write" && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs"
-          onClick={onUseSample}
-        >
-          <Sparkles className="mr-1 h-3 w-3" />
-          Use sample
-        </Button>
+      {tab === "write" && (onUseSample || onAiSuggest) && (
+        <div className="flex gap-2">
+          {onUseSample && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={onUseSample}
+            >
+              <Sparkles className="mr-1 h-3 w-3" />
+              Use sample
+            </Button>
+          )}
+
+          {onAiSuggest && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs border-purple-500/35 hover:bg-purple-950/20 text-purple-300 hover:text-purple-200"
+              onClick={onAiSuggest}
+              disabled={aiSuggestLoading}
+            >
+              {aiSuggestLoading ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <Wand2 className="mr-1 h-3 w-3" />
+              )}
+              {aiSuggestLoading ? "Analyzing..." : "AI Suggest"}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );

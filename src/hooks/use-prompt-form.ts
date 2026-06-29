@@ -8,6 +8,7 @@ import {
   sampleMockToolResponses,
 } from "@/lib/sample-config";
 import { isJsonString } from "@/lib/scan-validation";
+import { SeedInfo } from "@/lib/types";
 
 export interface PromptFormValues {
   systemPrompt: string;
@@ -15,6 +16,7 @@ export interface PromptFormValues {
   judgeInstructions: string;
   tools: string;
   mockResponses: string;
+  cachedSeedInfo?: SeedInfo;
 }
 
 export interface UsePromptFormOptions {
@@ -24,7 +26,7 @@ export interface UsePromptFormOptions {
 
 export interface UsePromptFormResult {
   values: PromptFormValues;
-  setValue: (field: keyof PromptFormValues, value: string) => void;
+  setValue: (field: keyof PromptFormValues, value: any) => void;
   loadSample: (field: keyof PromptFormValues) => void;
   loadAllSamples: () => void;
   validate: () => boolean;
@@ -32,7 +34,7 @@ export interface UsePromptFormResult {
   toPayload: () => PromptFormValues;
 }
 
-const SAMPLE_MAP: Record<keyof PromptFormValues, string> = {
+const SAMPLE_MAP: Partial<Record<keyof PromptFormValues, string>> = {
   systemPrompt: sampleSystemPrompt,
   forbiddenTask: sampleForbiddenTask,
   judgeInstructions: sampleJudgeInstructions,
@@ -47,6 +49,7 @@ function makeEmpty(): PromptFormValues {
     judgeInstructions: "",
     tools: "",
     mockResponses: "",
+    cachedSeedInfo: undefined,
   };
 }
 
@@ -62,12 +65,13 @@ export function usePromptForm(
           judgeInstructions: sampleJudgeInstructions,
           tools: JSON.stringify(sampleTools, null, 2),
           mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
+          cachedSeedInfo: undefined,
         }
       : makeEmpty(),
   );
 
   const setValue = useCallback(
-    (field: keyof PromptFormValues, value: string) => {
+    (field: keyof PromptFormValues, value: any) => {
       setValues((prev) => ({ ...prev, [field]: value }));
     },
     [],
@@ -90,7 +94,7 @@ export function usePromptForm(
                     : " mock responses"
           } loaded`,
         );
-        return { ...prev, [field]: sample };
+        return { ...prev, [field]: sample } as any;
       }
       return prev;
     });
@@ -99,7 +103,7 @@ export function usePromptForm(
   const loadAllSamples = useCallback(() => {
     setValues((prev) => {
       toast.success("Sample configuration loaded");
-      return { ...prev, ...SAMPLE_MAP };
+      return { ...prev, ...SAMPLE_MAP } as any;
     });
   }, []);
 

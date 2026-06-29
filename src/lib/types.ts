@@ -58,16 +58,22 @@ export type BreachedAttack = {
   verdict: TrialVerdict;
 };
 
-export interface SeedInfo {
+export interface RestrictionThing {
+  forbiddenTask: string;
   thingName: string;
   thingDescription: string;
   thingNameVariants: string[];
   thingDescriptionVariants: string[];
+  vulnerabilities: string[];
+  credentials: string[];
+  businessScenarios: string[];
+}
+
+export interface SeedInfo {
+  things: RestrictionThing[];
   personaDescription: string;
   businessFeatures: string[];
-  businessScenarios: string[];
   businessCategories: BusinessCategory[];
-  credentials: string[];
   isGenerative: boolean;
   extractorModel?: string;
   extractedAt?: string;
@@ -79,6 +85,7 @@ export interface AttackEntry {
   entropyLabel: string;
   framingLabel: string;
   attackText: string;
+  targetForbiddenTask?: string;
   credentialContext?: {
     credential: string;
     instruction: CredentialMode;

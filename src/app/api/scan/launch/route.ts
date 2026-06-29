@@ -7,7 +7,7 @@ import {
   findDefaultModel,
   UsageTracker,
 } from "@/lib/model-utils";
-import { type ToolDef } from "@/lib/types";
+import { type ToolDef, type SeedInfo } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
 import {
   generateAttackSet,
@@ -24,6 +24,7 @@ interface PromptPayload {
   judgeInstructions: string;
   tools: string;
   mockResponses: string;
+  cachedSeedInfo?: SeedInfo;
 }
 
 export async function POST(req: Request) {
@@ -68,6 +69,7 @@ export async function POST(req: Request) {
           judgeInstructions: (body.judgeInstructions as string) || "",
           tools: (body.tools as string) || "",
           mockResponses: (body.mockResponses as string) || "",
+          cachedSeedInfo: body.cachedSeedInfo as any,
         },
       ];
 
@@ -130,6 +132,7 @@ export async function POST(req: Request) {
       judgeInstructions: p.judgeInstructions,
       tools,
       mockToolResponses,
+      cachedSeedInfo: p.cachedSeedInfo,
     };
   });
 
@@ -165,6 +168,7 @@ export async function POST(req: Request) {
         attackerModel: attackGeneratorModel,
         seedExtractorModel,
         extractorModel,
+        cachedSeedInfo: prompt.cachedSeedInfo,
       },
       tracker,
     );

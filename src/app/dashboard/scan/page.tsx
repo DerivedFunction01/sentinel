@@ -54,7 +54,7 @@ import {
   validateToolsAgainstMocks,
   type ToolValidationResult,
 } from "@/lib/scan-validation";
-import type { ToolDef } from "@/lib/types";
+import type { ToolDef, SeedInfo } from "@/lib/types";
 
 /** One prompt's full configuration. */
 interface PromptConfig {
@@ -63,6 +63,7 @@ interface PromptConfig {
   tools: string;
   mockResponses: string;
   judgeInstructions: string;
+  cachedSeedInfo?: SeedInfo;
 }
 
 function makeEmptyPrompt(): PromptConfig {
@@ -72,6 +73,7 @@ function makeEmptyPrompt(): PromptConfig {
     tools: "",
     mockResponses: "",
     judgeInstructions: "",
+    cachedSeedInfo: undefined,
   };
 }
 
@@ -80,7 +82,7 @@ function updatePrompt(
   setPrompts: (prompts: PromptConfig[]) => void,
   idx: number,
   field: keyof PromptConfig,
-  value: string,
+  value: any,
 ) {
   setPrompts(prompts.map((p, i) => (i === idx ? { ...p, [field]: value } : p)));
 }
@@ -582,7 +584,7 @@ function PromptSectionItem({
   removePrompt: (idx: number) => void;
   openToolManager: (idx: number) => void;
 }) {
-  const handleChange = (field: keyof PromptConfig, value: string) => {
+  const handleChange = (field: keyof PromptConfig, value: any) => {
     updatePrompt(prompts, setPrompts, idx, field, value);
   };
 

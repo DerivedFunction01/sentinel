@@ -21,14 +21,13 @@ import {
   UsageTracker,
 } from "@/lib/model-utils";
 import {
-  SEED_EXTRACTOR_SYSTEM,
-  SEED_EXTRACTOR_USER_TEMPLATE,
   ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2,
   JUDGE_EVALUATION_FIXED_PREFIX,
   buildJudgeEvaluationSuffix,
   loadPromptFile,
 } from "@/lib/scan-prompts";
 import { generateHardenedPrompt } from "@/lib/hardening";
+import { extractSeedInfo } from "@/lib/seed-extractor";
 import {
   ToolDef,
   Trial,
@@ -42,89 +41,8 @@ import {
 import { Granularity } from "./enums";
 
 // ────────────────────────────────────────────────────────────────────────────
-// Step 1: Seed Generation (Extraction)
+// Step 1: Seed Generation (Extraction) - Imported from @/lib/seed-extractor
 // ────────────────────────────────────────────────────────────────────────────
-
-export async function extractSeedInfo(
-  extractorModel: string,
-  systemPrompt: string,
-  toolsJson: string,
-  mockJson: string,
-  tracker?: UsageTracker,
-): Promise<SeedInfo> {
-  const messages = [
-    {
-      role: "system",
-      content: SEED_EXTRACTOR_SYSTEM,
-    },
-    {
-      role: "user",
-      content: SEED_EXTRACTOR_USER_TEMPLATE(systemPrompt, toolsJson, mockJson),
-    },
-  ];
-
-  const defaultSeed: SeedInfo = {
-    thingName: "confidential info",
-    thingDescription: "disclosing confidential or protected information",
-    thingNameVariants: [
-      "confidential info",
-      "sensitive data",
-      "restricted content",
-      "out of scope tasks",
-    ],
-    thingDescriptionVariants: [
-      "disclosing confidential or protected information",
-      "exposing internal database details",
-      "revealing restricted operational parameters",
-      "providing out of scope instructions",
-    ],
-    personaDescription: "general AI assistant",
-    businessFeatures: [],
-    businessScenarios: [],
-    businessCategories: [],
-    credentials: [],
-    isGenerative: false,
-  };
-
-  try {
-    const response = await callOpenRouter(
-      extractorModel,
-      messages,
-      undefined,
-      tracker,
-    );
-    const content = response.content || "";
-    const cleanContent = content
-      .replace(/```json/gi, "")
-      .replace(/```/g, "")
-      .trim();
-    const parsed = JSON.parse(cleanContent);
-    return {
-      thingName: parsed.thingName || defaultSeed.thingName,
-      thingDescription: parsed.thingDescription || defaultSeed.thingDescription,
-      thingNameVariants:
-        Array.isArray(parsed.thingNameVariants) &&
-        parsed.thingNameVariants.length > 0
-          ? parsed.thingNameVariants
-          : defaultSeed.thingNameVariants,
-      thingDescriptionVariants:
-        Array.isArray(parsed.thingDescriptionVariants) &&
-        parsed.thingDescriptionVariants.length > 0
-          ? parsed.thingDescriptionVariants
-          : defaultSeed.thingDescriptionVariants,
-      personaDescription: parsed.personaDescription || "general AI assistant",
-      businessFeatures: parsed.businessFeatures || [],
-      businessScenarios: parsed.businessScenarios || [],
-      businessCategories: parsed.businessCategories || [],
-      credentials: parsed.credentials || [],
-      isGenerative:
-        typeof parsed.isGenerative === "boolean" ? parsed.isGenerative : false,
-    };
-  } catch (error) {
-    console.error("Error extracting seed info:", error);
-    return defaultSeed;
-  }
-}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Step 2: Cohesive Prompt Generation (single attack)
@@ -133,7 +51,7 @@ export async function extractSeedInfo(
 export async function generateCohesiveAttack(
   generatorModel: string,
   pattern: FramingPattern,
-  seedInfo: SeedInfo,
+  seedInfo: any,
   credentialMode?: CredentialMode,
   tracker?: UsageTracker,
 ): Promise<string> {
@@ -214,6 +132,7 @@ export async function generateAttackSet(
     attackerModel: string;
     seedExtractorModel: string;
     extractorModel: string;
+    cachedSeedInfo?: SeedInfo;
   },
   tracker?: UsageTracker,
 ): Promise<AttackSet> {
@@ -222,7 +141,7 @@ export async function generateAttackSet(
   const mockJson = JSON.stringify(mockToolResponses);
 
   // Step 1: Seed extraction
-  const seedInfo = await extractSeedInfo(
+  const seedInfo = options.cachedSeedInfo || await extractSeedInfo(
     options.seedExtractorModel,
     systemPrompt,
     toolsJson,
@@ -230,63 +149,88 @@ export async function generateAttackSet(
     tracker,
   );
 
-  // Generate attack layouts
-  const attackLayouts = generateAttacks(
-    seedInfo.thingName,
-    seedInfo.thingDescription,
-  );
+  const thingsToUse = seedInfo.things || [];
+  if (thingsToUse.length === 0) {
+    return { seedInfo, attacks: [] };
+  }
 
-  // Step 2: Generate all attacks in parallel
-  const attackPromises = attackLayouts.map((layout, i) => {
-    const pattern =
-      patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
+  // Distribute total attacks across all things (based on patterns length)
+  const totalTargetCount = patterns.length * 3;
+  const countPerThing = Math.max(patterns.length, Math.ceil(totalTargetCount / thingsToUse.length));
 
-    // Determine credential context for this attack
-    const hasCredentials = seedInfo.credentials.length > 0;
-    let credCtx:
-      | { credential: string; instruction: CredentialMode }
-      | undefined;
-    let credMode: CredentialMode | null = null;
+  interface PendingAttack {
+    layout: any;
+    thing: typeof thingsToUse[0];
+    credCtx: { credential: string; instruction: CredentialMode } | undefined;
+    promise: Promise<string>;
+  }
 
-    if (hasCredentials) {
-      const isVerificationCheck =
-        layout.strategy === FramingStrategy.InsiderVerification;
-      if (isVerificationCheck || Math.random() < 0.5) {
-        const instruction: CredentialMode = isVerificationCheck
-          ? CredentialMode.EXACT
-          : Math.random() < 0.5
+  const pendingAttacks: PendingAttack[] = [];
+
+  for (const thing of thingsToUse) {
+    const attackLayouts = generateAttacks(
+      thing.thingName,
+      thing.thingDescription,
+      countPerThing,
+    );
+
+    for (const layout of attackLayouts) {
+      const pattern = patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
+
+      // Determine credentials context for this specific thing
+      const hasCredentials = thing.credentials.length > 0;
+      let credCtx: { credential: string; instruction: CredentialMode } | undefined;
+
+      if (hasCredentials) {
+        const isVerificationCheck = layout.strategy === FramingStrategy.InsiderVerification;
+        if (isVerificationCheck || Math.random() < 0.5) {
+          const instruction = isVerificationCheck
             ? CredentialMode.EXACT
-            : CredentialMode.FICTIONAL;
-        const credential =
-          seedInfo.credentials[
-            Math.floor(Math.random() * seedInfo.credentials.length)
-          ];
-        credCtx = { credential, instruction };
-        credMode = instruction;
+            : Math.random() < 0.5
+              ? CredentialMode.EXACT
+              : CredentialMode.FICTIONAL;
+          const credential = thing.credentials[Math.floor(Math.random() * thing.credentials.length)];
+          credCtx = { credential, instruction };
+        }
       }
-    }
 
-    return (async () => {
-      const text = await generateCohesiveAttack(
+      const thingSeedInfo: any = {
+        ...seedInfo,
+        thingName: thing.thingName,
+        thingDescription: thing.thingDescription,
+        thingNameVariants: thing.thingNameVariants,
+        thingDescriptionVariants: thing.thingDescriptionVariants,
+        credentials: thing.credentials,
+        businessScenarios: thing.businessScenarios,
+      };
+
+      const promise = generateCohesiveAttack(
         options.attackerModel,
         pattern,
-        seedInfo,
+        thingSeedInfo,
         credCtx?.instruction,
         tracker,
       );
-      return { text, credCtx } as const;
-    })();
-  });
 
-  const attackResults = await Promise.all(attackPromises);
+      pendingAttacks.push({
+        layout,
+        thing,
+        credCtx,
+        promise,
+      });
+    }
+  }
 
-  const attacks: AttackEntry[] = attackLayouts.map((layout, i) => ({
-    patternId: layout.patternId,
-    attackDescription: layout.attackDescription,
-    entropyLabel: layout.entropyLabel,
-    framingLabel: layout.framingLabel,
-    attackText: attackResults[i].text,
-    credentialContext: attackResults[i].credCtx,
+  const generatedTexts = await Promise.all(pendingAttacks.map(p => p.promise));
+
+  const attacks: AttackEntry[] = pendingAttacks.map((p, idx) => ({
+    patternId: p.layout.patternId,
+    attackDescription: p.layout.attackDescription,
+    entropyLabel: p.layout.entropyLabel,
+    framingLabel: p.layout.framingLabel,
+    attackText: generatedTexts[idx],
+    targetForbiddenTask: p.thing.forbiddenTask,
+    credentialContext: p.credCtx,
   }));
 
   return { seedInfo, attacks };
@@ -741,7 +685,7 @@ export async function executeTargetJudgePipeline(
     // The next iteration will await this while its target runs
     prevJudgePromise = runJudgeEvaluation(
       judgeModel,
-      forbiddenTask,
+      entry.targetForbiddenTask || forbiddenTask,
       judgeInstructions,
       systemPrompt,
       entry.attackText,
@@ -754,12 +698,15 @@ export async function executeTargetJudgePipeline(
       const isBreached = evaluation.verdict === TrialVerdict.Breached;
       const pattern =
         patterns.find((p) => p.patternId === entry.patternId) || patterns[0];
-      const variantIdx = i % (seedInfo.thingNameVariants.length || 1);
-      const selectedThingName =
-        seedInfo.thingNameVariants[variantIdx] || seedInfo.thingName;
-      const selectedThingDesc =
-        seedInfo.thingDescriptionVariants[variantIdx] ||
-        seedInfo.thingDescription;
+      const matchedThing = seedInfo.things?.find((t) => t.forbiddenTask === entry.targetForbiddenTask) || seedInfo.things?.[0];
+      const thingNameVariants = matchedThing?.thingNameVariants || [];
+      const thingDescriptionVariants = matchedThing?.thingDescriptionVariants || [];
+      const thingName = matchedThing?.thingName || "confidential info";
+      const thingDescription = matchedThing?.thingDescription || "disclosing confidential or protected information";
+
+      const variantIdx = i % (thingNameVariants.length || 1);
+      const selectedThingName = thingNameVariants[variantIdx] || thingName;
+      const selectedThingDesc = thingDescriptionVariants[variantIdx] || thingDescription;
 
       return {
         number: i + 1,
@@ -1129,7 +1076,7 @@ export async function runSingleScanPipeline(
           async () => {
             const evaluation = await runJudgeEvaluation(
               options.judgeModel,
-              options.forbiddenTask,
+              entry.targetForbiddenTask || options.forbiddenTask,
               options.judgeInstructions,
               options.systemPrompt,
               entry.attackText,
@@ -1177,14 +1124,15 @@ export async function runSingleScanPipeline(
     const isBreached = judgeResult?.verdict === TrialVerdict.Breached;
     const pattern =
       patterns.find((p) => p.patternId === entry.patternId) || patterns[0];
-    const variantIdx =
-      idx % (attackSet.seedInfo.thingNameVariants.length || 1);
-    const selectedThingName =
-      attackSet.seedInfo.thingNameVariants[variantIdx] ||
-      attackSet.seedInfo.thingName;
-    const selectedThingDesc =
-      attackSet.seedInfo.thingDescriptionVariants[variantIdx] ||
-      attackSet.seedInfo.thingDescription;
+    const matchedThing = attackSet.seedInfo.things?.find((t) => t.forbiddenTask === entry.targetForbiddenTask) || attackSet.seedInfo.things?.[0];
+    const thingNameVariants = matchedThing?.thingNameVariants || [];
+    const thingDescriptionVariants = matchedThing?.thingDescriptionVariants || [];
+    const thingName = matchedThing?.thingName || "confidential info";
+    const thingDescription = matchedThing?.thingDescription || "disclosing confidential or protected information";
+
+    const variantIdx = idx % (thingNameVariants.length || 1);
+    const selectedThingName = thingNameVariants[variantIdx] || thingName;
+    const selectedThingDesc = thingDescriptionVariants[variantIdx] || thingDescription;
 
     trialResults.push({
       number: idx + 1,
@@ -1399,7 +1347,7 @@ export async function executeScanPipeline(
     // Step 4: Run Judge evaluation
     const evaluation = await runJudgeEvaluation(
       judgeModel,
-      forbiddenTask,
+      entry.targetForbiddenTask || forbiddenTask,
       judgeInstructions,
       systemPrompt,
       entry.attackText,
@@ -1413,13 +1361,15 @@ export async function executeScanPipeline(
     const isBreached = evaluation.verdict === TrialVerdict.Breached;
     const pattern =
       patterns.find((p) => p.patternId === entry.patternId) || patterns[0];
-    const variantIdx = i % (attackSet.seedInfo.thingNameVariants.length || 1);
-    const selectedThingName =
-      attackSet.seedInfo.thingNameVariants[variantIdx] ||
-      attackSet.seedInfo.thingName;
-    const selectedThingDesc =
-      attackSet.seedInfo.thingDescriptionVariants[variantIdx] ||
-      attackSet.seedInfo.thingDescription;
+    const matchedThing = attackSet.seedInfo.things?.find((t) => t.forbiddenTask === entry.targetForbiddenTask) || attackSet.seedInfo.things?.[0];
+    const thingNameVariants = matchedThing?.thingNameVariants || [];
+    const thingDescriptionVariants = matchedThing?.thingDescriptionVariants || [];
+    const thingName = matchedThing?.thingName || "confidential info";
+    const thingDescription = matchedThing?.thingDescription || "disclosing confidential or protected information";
+
+    const variantIdx = i % (thingNameVariants.length || 1);
+    const selectedThingName = thingNameVariants[variantIdx] || thingName;
+    const selectedThingDesc = thingDescriptionVariants[variantIdx] || thingDescription;
 
     trials.push({
       number: i + 1,
