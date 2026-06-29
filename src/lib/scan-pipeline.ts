@@ -158,7 +158,47 @@ export async function generateAttackSet(
     tracker,
   );
 
-  const thingsToUse = seedInfo.things || [];
+  let thingsToUse = [...(seedInfo.things || [])];
+
+  if (options.forbiddenTask && options.forbiddenTask.trim()) {
+    const individualTasks = options.forbiddenTask
+      .split(/\n\s*\n/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    for (const task of individualTasks) {
+      const hasMatch = thingsToUse.some(
+        (t) => t.forbiddenTask.toLowerCase().trim() === task.toLowerCase().trim()
+      );
+      if (!hasMatch) {
+        let matchedSection: string | undefined = undefined;
+        const lowerTask = task.toLowerCase();
+        if (lowerTask.includes("discount") || lowerTask.includes("coupon") || lowerTask.includes("promotion")) {
+          matchedSection = "Payments & Billing";
+        } else if (lowerTask.includes("medical") || lowerTask.includes("health") || lowerTask.includes("diagnose")) {
+          matchedSection = "Medical & Health Support";
+        } else if (lowerTask.includes("legal") || lowerTask.includes("law") || lowerTask.includes("advice")) {
+          matchedSection = "Legal & Contract Advice";
+        } else if (lowerTask.includes("credentials") || lowerTask.includes("api key") || lowerTask.includes("password") || lowerTask.includes("token")) {
+          matchedSection = "Credentials & Secrets";
+        }
+
+        thingsToUse.push({
+          forbiddenTask: task,
+          thingName: task.split(/\s+/).slice(0, 3).join(" ") || "custom task",
+          thingDescription: task,
+          thingNameVariants: [task.split(/\s+/).slice(0, 3).join(" ")],
+          thingDescriptionVariants: [task],
+          vulnerabilities: [],
+          credentials: [],
+          businessScenarios: [task],
+          ontologySection: matchedSection,
+          isPresent: true,
+        });
+      }
+    }
+  }
+
   if (thingsToUse.length === 0) {
     return { seedInfo, attacks: [] };
   }

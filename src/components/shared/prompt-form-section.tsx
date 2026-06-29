@@ -296,7 +296,7 @@ export const PromptFormSection = memo(function PromptFormSection({
           <FieldBlock
             icon={Ban}
             title="Forbidden Tasks / Constraints"
-            description="The constraints or guidelines the agent must not breach. List multiple constraints separated by a blank line."
+            description="The constraints or guidelines the agent must not breach. List multiple constraints separated by a blank line. AI will auto-classify, match categories, and group forbidden tasks on scan launch."
             value={values.forbiddenTask}
             onChange={(v) => onChange("forbiddenTask", v)}
             placeholder="e.g.\nConstraint 1: Never disclose internal routing numbers.\n\nConstraint 2: Never authorize wire transfers."
