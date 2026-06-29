@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Crosshair,
@@ -78,18 +78,20 @@ function makeEmptyPrompt(): PromptConfig {
 }
 
 function updatePrompt(
-  prompts: PromptConfig[],
-  setPrompts: (prompts: PromptConfig[]) => void,
+  _prompts: PromptConfig[],
+  setPrompts: React.Dispatch<React.SetStateAction<PromptConfig[]>>,
   idx: number,
   field: keyof PromptConfig,
   value: any,
 ) {
-  setPrompts(prompts.map((p, i) => (i === idx ? { ...p, [field]: value } : p)));
+  setPrompts((prev) =>
+    prev.map((p, i) => (i === idx ? { ...p, [field]: value } : p)),
+  );
 }
 
 function prettifyJson(
   prompts: PromptConfig[],
-  setPrompts: (prompts: PromptConfig[]) => void,
+  setPrompts: React.Dispatch<React.SetStateAction<PromptConfig[]>>,
   idx: number,
   field: "tools" | "mockResponses",
 ) {
@@ -156,7 +158,9 @@ export default function PenTestScanPage() {
           setAttackerModel((prev) => (prev === "" ? defaultModelId : prev));
           setJudgeModel((prev) => (prev === "" ? defaultModelId : prev));
           setHardenerModel((prev) => (prev === "" ? defaultModelId : prev));
-          setSeedExtractorModel((prev) => (prev === "" ? defaultModelId : prev));
+          setSeedExtractorModel((prev) =>
+            prev === "" ? defaultModelId : prev,
+          );
           setExtractorModel((prev) => (prev === "" ? defaultModelId : prev));
         }
       })
@@ -594,14 +598,18 @@ function PromptSectionItem({
   prompt: PromptConfig;
   idx: number;
   prompts: PromptConfig[];
-  setPrompts: (prompts: PromptConfig[]) => void;
+  setPrompts: React.Dispatch<React.SetStateAction<PromptConfig[]>>;
   copyFromPrevious: (idx: number) => void;
   removePrompt: (idx: number) => void;
   openToolManager: (idx: number) => void;
   seedExtractorModel: string;
 }) {
   const handleChange = (field: keyof PromptConfig, value: any) => {
-    console.log("[scan/page.tsx] handleChange calling updatePrompt:", field, value);
+    console.log(
+      "[scan/page.tsx] handleChange calling updatePrompt:",
+      field,
+      value,
+    );
     updatePrompt(prompts, setPrompts, idx, field, value);
   };
 
@@ -1062,9 +1070,11 @@ function ChooseModels({
             className="flex items-center gap-1 text-xs text-slate-400 hover:text-white px-2 h-7"
             onClick={() => setShowAdvancedModels(!showAdvancedModels)}
           >
-            {showAdvancedModels ? "Hide Advanced Options" : "Show Advanced Options"}
+            {showAdvancedModels
+              ? "Hide Advanced Options"
+              : "Show Advanced Options"}
           </Button>
-          
+
           {showAdvancedModels && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4 pt-2">
               <div className="space-y-2">
@@ -1072,9 +1082,13 @@ function ChooseModels({
                   <Sparkles className="h-3.5 w-3.5 text-blue-400" />
                   Seed Extractor Model
                 </Label>
-                <ModelSelector value={seedExtractorModel} onChange={setSeedExtractorModel} />
+                <ModelSelector
+                  value={seedExtractorModel}
+                  onChange={setSeedExtractorModel}
+                />
                 <p className="text-[10px] text-muted-foreground">
-                  Custom model used to auto-suggest forbidden tasks and analyze prompt ontologies.
+                  Custom model used to auto-suggest forbidden tasks and analyze
+                  prompt ontologies.
                 </p>
               </div>
 
@@ -1083,9 +1097,13 @@ function ChooseModels({
                   <Braces className="h-3.5 w-3.5 text-purple-400" />
                   Tool Extractor Model
                 </Label>
-                <ModelSelector value={extractorModel} onChange={setExtractorModel} />
+                <ModelSelector
+                  value={extractorModel}
+                  onChange={setExtractorModel}
+                />
                 <p className="text-[10px] text-muted-foreground">
-                  Custom model used to extract tools and analyze mock responses during hardening.
+                  Custom model used to extract tools and analyze mock responses
+                  during hardening.
                 </p>
               </div>
             </div>

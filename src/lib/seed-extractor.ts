@@ -239,9 +239,18 @@ ${ontologyContent || "No specific ontologies loaded."}
       .trim();
 
     const parsed = JSON.parse(cleanContent);
+    console.log("[SeedExtractor] raw cleanContent:", cleanContent);
+    console.log(
+      "[SeedExtractor] parsed.things:",
+      JSON.stringify(parsed.things, null, 2),
+    );
     const things: RestrictionThing[] = (
       Array.isArray(parsed.things) ? parsed.things : []
-    ).filter((t: any) => t.isPresent === true || t.isPresent === "true");
+    ).filter((t: any) => t.isPresent !== false && t.isPresent !== "false");
+    console.log(
+      "[SeedExtractor] things after filter:",
+      JSON.stringify(things, null, 2),
+    );
 
     return {
       things,
