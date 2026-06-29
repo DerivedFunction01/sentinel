@@ -42,15 +42,19 @@ export async function generateInspirationSearchQuery(
 
     // Check database first if we have matching ontology section templates
     if (targetOntologySection) {
+      const category = targetOntologySection.split("/")[0];
+      const wildcardSection = category ? `${category}/ALL` : undefined;
+
       const matchingCount = await db.toolSchemaExample.count({
         where: {
-          ontologySections: {
-            contains: targetOntologySection,
-          },
+          OR: [
+            { ontologySections: { contains: targetOntologySection } },
+            ...(wildcardSection ? [{ ontologySections: { contains: wildcardSection } }] : []),
+          ],
         },
       });
       if (matchingCount > 0) {
-        console.log(`[Inspiration] Mapped ontology section '${targetOntologySection}' found in DB. Bypassing LLM query generation.`);
+        console.log(`[Inspiration] Mapped ontology section '${targetOntologySection}' (or wildcard) found in DB. Bypassing LLM query generation.`);
         return {
           query: targetOntologySection.toLowerCase(),
           tags: [],
@@ -223,8 +227,13 @@ export async function searchInspirationCandidates(
             Array.isArray(exampleSections) &&
             exampleSections.length > 0
           ) {
+            const category = targetOntologySection.split("/")[0];
+            const wildcardSection = category ? `${category}/ALL` : undefined;
+
             const isMatch = exampleSections.some(
-              (sec) => sec.toLowerCase() === targetOntologySection.toLowerCase()
+              (sec) =>
+                sec.toLowerCase() === targetOntologySection.toLowerCase() ||
+                (wildcardSection && sec.toLowerCase() === wildcardSection.toLowerCase())
             );
             if (isMatch) {
               ontologyBonus = 3.0;

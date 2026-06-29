@@ -30,16 +30,18 @@ function getOntologySections(filePath: string, category: string): Section[] {
     const content = fs.readFileSync(filePath, "utf-8");
     const matches = content.match(/^###\s+(\d+)\.\s+(.+)$/gm);
     if (!matches) return [];
-    return matches.map((m) => {
-      const numMatch = m.match(/^###\s+(\d+)\.\s+(.+)$/);
-      if (!numMatch) return null;
-      const num = numMatch[1];
-      const label = numMatch[2].trim();
-      return {
-        id: `${category}/${num}`,
-        label: `${num}. ${label}`,
-      };
-    }).filter((s): s is Section => s !== null);
+    return matches
+      .map((m) => {
+        const numMatch = m.match(/^###\s+(\d+)\.\s+(.+)$/);
+        if (!numMatch) return null;
+        const num = numMatch[1];
+        const label = numMatch[2].trim();
+        return {
+          id: `${category}/${num}`,
+          label: `${num}. ${label}`,
+        };
+      })
+      .filter((s): s is Section => s !== null);
   } catch {
     return [];
   }
@@ -72,7 +74,13 @@ export async function GET() {
 
       const sections = getOntologySections(filePath, category);
       if (sections.length > 0) {
-        result[category] = sections;
+        result[category] = [
+          {
+            id: `${category}/ALL`,
+            label: "★ All of the above / Universal Section Policy",
+          },
+          ...sections,
+        ];
       }
     }
   } catch (error) {
