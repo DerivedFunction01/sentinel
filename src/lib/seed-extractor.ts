@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { callOpenRouter, UsageTracker } from "@/lib/model-utils";
 import { SeedInfo, RestrictionThing } from "@/lib/types";
-import { BusinessCategory } from "@/lib/enums";
+import { parseFrontmatter } from "@/lib/tool-extractor";
 
 const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
 
@@ -19,14 +19,14 @@ function getOntologySections(filePath: string): string[] {
 
 /**
  * Step 1: LLM-based Domain Classifier
- * Analyzes the system prompt and tools, and decides which ontology markdown files are relevant.
+ * Asks LLM to select relevant ontology files; derives categories from frontmatter.
  */
 async function classifyDomain(
   extractorModel: string,
   systemPrompt: string,
   toolsJson: string,
   tracker?: UsageTracker,
-): Promise<{ categories: BusinessCategory[]; relevantFiles: string[] }> {
+): Promise<{ categories: string[]; relevantFiles: string[] }> {
   try {
     // Get all available markdown files in uploads/ontology (excluding main_agent.md)
     let filesWithSections: string[] = [];
@@ -46,9 +46,7 @@ async function classifyDomain(
       }
     }
 
-    const availableCategories = Object.values(BusinessCategory).join(", ");
-
-    const systemMessage = `You are a security architect. Your task is to analyze an AI agent's system prompt and tools to classify its domain and select the most relevant policy ontology files from the available list.
+    const systemMessage = `You are a security architect. Your task is to analyze an AI agent's system prompt and tools to select the most relevant policy ontology files from the available list.
     
 The policy sections listed next to each file are semantic hints. Use these hints to identify which ontology files align with the topics or functionalities mentioned in the agent's prompt (e.g. if the prompt mentions 'loyalty points' or 'discounts', select 'commerce.md').
 
@@ -57,11 +55,10 @@ ${filesWithSections.join("\n")}
 
 Rules:
 - "main_agent.md" is ALWAYS loaded by default (do not select it).
-- If the agent performs commercial, corporate, customer service, sales, or business operations, classify it as business-related and include "general_business.md" in your relevantFiles.
+- If the agent performs commercial, corporate, customer service, sales, or business operations, include "general_business.md" in your relevantFiles.
 - Select any other domain-specific files that apply (e.g., "hiring.md" for recruitment/admissions, "medical.md" for clinical/health support, "law_enforcement.md" for investigations, etc.) based on the matching topics/sections.
-- Categorize the system prompt into appropriate BusinessCategory values: ${availableCategories}.
 
-Return ONLY a raw JSON object with keys "categories" (array of strings matching BusinessCategory) and "relevantFiles" (array of filenames from the list above). Do not include markdown wraps or preambles.`;
+Return ONLY a raw JSON object with key "relevantFiles" (array of filenames from the list above). Do not include markdown wraps or preambles.`;
 
     const userMessage = `<system_prompt>\n${systemPrompt}\n</system_prompt>\n\n<tools>\n${toolsJson}\n</tools>`;
 
@@ -82,17 +79,35 @@ Return ONLY a raw JSON object with keys "categories" (array of strings matching 
       .trim();
 
     const parsed = JSON.parse(cleanContent);
-    return {
-      categories: Array.isArray(parsed.categories)
-        ? parsed.categories
-        : [BusinessCategory.GENERAL],
-      relevantFiles: Array.isArray(parsed.relevantFiles)
-        ? parsed.relevantFiles
-        : [],
-    };
+    const relevantFiles: string[] = Array.isArray(parsed.relevantFiles)
+      ? parsed.relevantFiles
+      : [];
+
+    // Derive categories from frontmatter of each selected file
+    const categories: string[] = [];
+    for (const file of relevantFiles) {
+      const filePath = path.join(ONTOLOGY_DIR, file);
+      if (fs.existsSync(filePath)) {
+        try {
+          const fileContent = fs.readFileSync(filePath, "utf-8");
+          const { businessCategory } = parseFrontmatter(fileContent);
+          if (businessCategory && !categories.includes(businessCategory)) {
+            categories.push(businessCategory);
+          }
+        } catch {
+          // skip unparseable files
+        }
+      }
+    }
+
+    if (categories.length === 0) {
+      categories.push("GENERAL");
+    }
+
+    return { categories, relevantFiles };
   } catch (error) {
     console.error("Error in classifyDomain:", error);
-    return { categories: [BusinessCategory.GENERAL], relevantFiles: [] };
+    return { categories: ["GENERAL"], relevantFiles: [] };
   }
 }
 

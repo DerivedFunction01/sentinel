@@ -102,20 +102,6 @@ enum ToolExampleCategory {
   meta
 }
 
-enum BusinessCategory {
-  BUSINESS_UNIVERSAL
-  RETAIL_HOSPITALITY_RESTAURANT
-  LAW_FIRM
-  BANKING_FINANCE
-  MEDICAL_HOSPITAL
-  ACCOUNTING_FIRM
-  CYBER_FIRM
-  CIVICS_VOTING
-  PRIVACY
-  ROLEPLAY_FICTION
-  SWE
-  GENERAL
-}
 
 model ToolSchemaExample {
   id           String               @id @default(cuid())

@@ -1,6 +1,7 @@
 ---
 title: General Business
 description: This document describes the scope of legitimate user requests that applies to a general business, whether it is commerce, law firm, bank, or hospital
+businessCategory: BUSINESS_UNIVERSAL
 ---
 
 ### 1. User Identity

@@ -1,6 +1,7 @@
 ---
 title: Software Engineering (Non-Coding Agent) Ontology
 description: "This document defines the scope of legitimate developer requests to SWE LLM, organized by function. Each section defines what the LLM can do, what it cannot do, and where it must escalate. Not meant for coding agents that are meant to write code"
+businessCategory: SWE
 ---
 
 ### 1. File & Database Operations

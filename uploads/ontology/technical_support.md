@@ -1,6 +1,7 @@
 ---
 title: Technical Support Ontology
 description: This document describes the scope of legitimate user requests to a technical support LLM, organized by function. Each section defines what the LLM can do, what it cannot do, and where it must escalate.
+businessCategory: TECHNICAL_SUPPORT
 ---
 
 ### 1. Account Management

@@ -1,6 +1,7 @@
 ---
 title: Cybersecurity Ontology
 description: This document describes the scope of legitimate user requests to a cybersecurity LLM, organized by function. Each section defines what the LLM can do, what it cannot do, and where it must escalate, since this is a Dual-Use capability.
+businessCategory: CYBER_FIRM
 ---
 
 ### 1. General Security Disclaimer

@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Granularity } from "@/lib/enums";
-import { BusinessCategory } from "@/lib/enums";
+import { ONTOLOGY_CATEGORY_VALUES } from "@/lib/ontology-categories";
 import { Check } from "lucide-react";
 import { ToolExampleCategory } from "@/lib/enums";
 
@@ -79,7 +79,7 @@ const getParsedTags = (jsonStr: string): string[] => {
   }
 };
 
-const getParsedBusinessCategories = (jsonStr?: string): BusinessCategory[] => {
+const getParsedBusinessCategories = (jsonStr?: string): string[] => {
   try {
     if (!jsonStr) return [];
     const parsed = JSON.parse(jsonStr);
@@ -119,11 +119,8 @@ const TagBadges = ({ tags }: TagBadgesProps) => {
   );
 };
 
-/**
- * Display business category badges
- */
 interface BusinessCategoryBadgesProps {
-  businessCategories: BusinessCategory[];
+  businessCategories: string[];
 }
 
 const BusinessCategoryBadges = ({
@@ -151,8 +148,8 @@ const BusinessCategoryBadges = ({
  * Multi-select dropdown for business categories
  */
 interface BusinessCategoryMultiSelectProps {
-  selectedCategories: BusinessCategory[];
-  onSelectChange: (categories: BusinessCategory[]) => void;
+  selectedCategories: string[];
+  onSelectChange: (categories: string[]) => void;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -163,10 +160,9 @@ const BusinessCategoryMultiSelect = ({
   isOpen,
   onOpenChange,
 }: BusinessCategoryMultiSelectProps) => {
-  // Get all BusinessCategory enum values
-  const allCategories = Object.values(BusinessCategory) as BusinessCategory[];
+  const allCategories = ONTOLOGY_CATEGORY_VALUES;
 
-  const toggleCategory = (category: BusinessCategory) => {
+  const toggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {
       onSelectChange(selectedCategories.filter((c) => c !== category));
     } else {
@@ -745,7 +741,7 @@ function EditableForm({
                 businessCategoriesStr
                   .split(",")
                   .map((c) => c.trim())
-                  .filter((c) => c.length > 0) as BusinessCategory[]
+                  .filter((c) => c.length > 0)
               }
               onSelectChange={(categories) => {
                 setBusinessCategoriesStr(categories.join(","));
@@ -932,7 +928,7 @@ export function ToolExamplesClient({
     let catStr = "";
     if (ex.businessCategories) {
       try {
-        const parsed = JSON.parse(ex.businessCategories) as BusinessCategory[];
+        const parsed = JSON.parse(ex.businessCategories) as string[];
         catStr = parsed.join(",");
       } catch {}
     }
@@ -988,18 +984,16 @@ export function ToolExamplesClient({
     const isMockValid = validateJson(mockResponse, setMockResponseError);
 
     // Parse business categories from comma-separated string
-    let businessCategories: BusinessCategory[] = [];
+    let businessCategories: string[] = [];
     if (businessCategoriesStr.trim()) {
       businessCategories = businessCategoriesStr
         .split(",")
         .map((c) => c.trim())
-        .filter((c) => c.length > 0) as BusinessCategory[];
+        .filter((c) => c.length > 0);
 
-      // Validate each item is a valid BusinessCategory
+      // Validate each item is a known category value
       for (const cat of businessCategories) {
-        if (
-          !Object.values(BusinessCategory).includes(cat as BusinessCategory)
-        ) {
+        if (!ONTOLOGY_CATEGORY_VALUES.includes(cat)) {
           toast.error(`Invalid business category: ${cat}`);
           return;
         }
@@ -1137,7 +1131,7 @@ export function ToolExamplesClient({
     let catStr = "";
     if (ex.businessCategories) {
       try {
-        const parsed = JSON.parse(ex.businessCategories) as BusinessCategory[];
+        const parsed = JSON.parse(ex.businessCategories) as string[];
         catStr = parsed.join(",");
       } catch {}
     }

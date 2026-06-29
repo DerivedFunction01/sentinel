@@ -9,7 +9,6 @@ import {
   RestrictionThing,
 } from "./types";
 import { Granularity } from "./enums";
-import { BusinessCategory } from "./enums";
 
 export interface InspirationExample {
   name: string;
@@ -18,7 +17,7 @@ export interface InspirationExample {
   granularity: string;
   toolJson: any;
   mockResponse: any;
-  businessCategories?: BusinessCategory[];
+  businessCategories?: string[];
   ontologySections?: string[];
   requirementScore?: number; // 0-100: how well the example matches the forbidden task requirement
   granularityScore?: number; // 0-100: how well the example's granularity matches the target
@@ -200,7 +199,7 @@ export async function searchInspirationCandidates(
         try {
           const exampleCategories = JSON.parse(
             ex.businessCategories || "[]",
-          ) as BusinessCategory[];
+          ) as string[];
           if (
             Array.isArray(exampleCategories) &&
             exampleCategories.length > 0
@@ -455,7 +454,7 @@ export async function retrieveInspirationExamples(
  * general/universal tags and tags relevant to the target business categories.
  */
 async function getAvailableExampleTags(
-  targetCategories: BusinessCategory[],
+  targetCategories: string[],
 ): Promise<string[]> {
   try {
     const examples = await db.toolSchemaExample.findMany({

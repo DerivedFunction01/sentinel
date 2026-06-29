@@ -11,7 +11,7 @@ import {
   RestrictionThing,
 } from "./types";
 import { Granularity } from "./enums";
-import { BusinessCategory } from "./enums";
+
 import {
   retrieveInspirationExamples,
   formatInspirationExamplesBlock,
@@ -159,10 +159,12 @@ export interface PatternPage {
 export function parseFrontmatter(content: string): {
   title: string;
   description: string;
+  businessCategory: string;
   body: string;
 } {
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/m);
-  if (!match) return { title: "", description: "", body: content.trim() };
+  if (!match)
+    return { title: "", description: "", businessCategory: "", body: content.trim() };
 
   const meta = match[1];
   const body = match[2].trim();
@@ -172,7 +174,12 @@ export function parseFrontmatter(content: string): {
     return line ? line[1].trim() : "";
   };
 
-  return { title: get("title"), description: get("description"), body };
+  return {
+    title: get("title"),
+    description: get("description"),
+    businessCategory: get("businessCategory"),
+    body,
+  };
 }
 
 /**
@@ -513,7 +520,7 @@ export function parseSectionedRecommendation(
 
     if (name && toolJson) {
       // Extract business categories if present in the output
-      let businessCategories: BusinessCategory[] | undefined = undefined;
+      let businessCategories: string[] | undefined = undefined;
       const bizCatMatch = body.match(/BUSINESS_CATEGORIES:\s*\[([^\]]+)\]/i);
       if (bizCatMatch) {
         try {
@@ -522,7 +529,7 @@ export function parseSectionedRecommendation(
             .map((c) => c.trim().replace(/"/g, ""))
             .filter((c) => c.length > 0);
           if (cats.length > 0) {
-            businessCategories = cats as BusinessCategory[];
+            businessCategories = cats;
           }
         } catch {}
       }

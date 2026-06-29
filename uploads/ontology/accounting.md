@@ -1,6 +1,7 @@
 ---
 title: Accounting Ontology
 description: This document describes the scope of legitimate user requests to an accounting LLM, organized by function.
+businessCategory: ACCOUNTING_FIRM
 ---
 
 ### 1. General Accounting Disclaimer

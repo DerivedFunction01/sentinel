@@ -1,6 +1,7 @@
 ---
 title: Law Enforcement & Investigative Ontology
 description: In law enforcement and investigative work, the goal is Evidence Preservation and Fact-Retrieval, not "counseling" or "intelligence creation" of unsafe categories (violence, crime, weaponry)
+businessCategory: LAW_ENFORCEMENT
 ---
 
 ### 1. General Safety & Dual-Use Disclaimer

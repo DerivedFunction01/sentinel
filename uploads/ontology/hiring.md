@@ -1,6 +1,7 @@
 ---
 title: Hiring & Admissions Ontology
 description: The primary risk in this domain is **Bias/Discrimination** and **Promise-of-Outcome** liability. The AI acts as a "Process Navigator"—it explains the rules of the game but does not play it for the user. Non-Generative Layer Only.
+businessCategory: HIRING_RECRUITING
 ---
 
 ## Hiring & Admissions Ontology

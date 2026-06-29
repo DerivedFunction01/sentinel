@@ -1,6 +1,7 @@
 ---
 title: Law Firm Ontology
 description: This document describes the scope of legitimate user requests to a law firm LLM, organized by function. Each section defines what the LLM can do, what it cannot do, and where it must escalate.
+businessCategory: LAW_FIRM
 ---
 
 ### 1. General Legal Disclaimer

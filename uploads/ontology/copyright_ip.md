@@ -1,5 +1,6 @@
 ---
 title: Copyright & IP Management Ontology
+businessCategory: COPYRIGHT_IP
 ---
 
 ### 1. General IP Disclaimer

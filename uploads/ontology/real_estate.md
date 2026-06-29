@@ -1,6 +1,7 @@
 ---
 title: Real Estate Ontology
 description: "This document defines the scope of legitimate real estate agent requests to real estate LLM, organized by function. Each section defines what the LLM can do, what it cannot do, and where it must escalate."
+businessCategory: REAL_ESTATE
 ---
 
 ### 1. Not a substitute for a Real Estate Broker Disclaimer

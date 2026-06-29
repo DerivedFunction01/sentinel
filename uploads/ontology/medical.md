@@ -1,6 +1,7 @@
 ---
 title: Medical Ontology
 description: This document describes the scope of legitimate user requests to a medical LLM, organized by function. Each section defines what the LLM can do, what it cannot do, and where it must escalate.
+businessCategory: MEDICAL_HOSPITAL
 ---
 
 ### 1. Not a substitute for a Doctor Disclaimer

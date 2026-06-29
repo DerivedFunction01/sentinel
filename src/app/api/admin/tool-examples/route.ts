@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ToolExampleCategory, UserRole } from "@/lib/enums";
-import { BusinessCategory } from "@/lib/enums";
+import { ONTOLOGY_CATEGORY_VALUES } from "@/lib/ontology-categories";
 
 /** GET /api/admin/tool-examples - Fetch all examples */
 export async function GET() {
@@ -24,12 +24,12 @@ export async function GET() {
 
 /**
  * Validate and parse business categories
- * Returns a JSON string of valid BusinessCategory values
- * Falls back to ["GENERAL"] if invalid or empty
+ * Returns a JSON string of valid category string values.
+ * Falls back to ["GENERAL"] if invalid or empty.
  */
 function parseBusinessCategories(input: any): string {
   if (!input) {
-    return JSON.stringify([BusinessCategory.GENERAL]);
+    return JSON.stringify(["GENERAL"]);
   }
 
   let categoriesArray: string[] = [];
@@ -55,15 +55,14 @@ function parseBusinessCategories(input: any): string {
     categoriesArray = input;
   }
 
-  // Validate each category against the enum
-  const validValues = Object.values(BusinessCategory);
+  // Validate each category against the known list
   const validatedCategories = categoriesArray.filter((cat) =>
-    validValues.includes(cat as BusinessCategory),
+    ONTOLOGY_CATEGORY_VALUES.includes(cat),
   );
 
   // If no valid categories, default to GENERAL
   if (validatedCategories.length === 0) {
-    return JSON.stringify([BusinessCategory.GENERAL]);
+    return JSON.stringify(["GENERAL"]);
   }
 
   return JSON.stringify(validatedCategories);

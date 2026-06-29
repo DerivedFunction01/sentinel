@@ -2,7 +2,6 @@
  * ToolRegistry — Domain Types
  */
 import type {
-  BusinessCategory,
   CredentialMode,
   DashboardRoute,
   Granularity,
@@ -75,7 +74,7 @@ export interface SeedInfo {
   things: RestrictionThing[];
   personaDescription: string;
   businessFeatures: string[];
-  businessCategories: BusinessCategory[];
+  businessCategories: string[];
   isGenerative: boolean;
   extractorModel?: string;
   extractedAt?: string;
@@ -106,7 +105,7 @@ export interface ToolRecommendationItem {
   rationale: string;
   toolJson: ToolDef;
   mockResponse: unknown;
-  businessCategories?: BusinessCategory[];
+  businessCategories?: string[];
   replaces?: string;
 }
 
@@ -123,7 +122,7 @@ export interface HardeningTrace {
     query?: string;
     tags?: string[];
     retrievedExamples?: any[];
-    usedBusinessCategories?: BusinessCategory[];
+    usedBusinessCategories?: string[];
   };
   attackSummary?: {
     promptSent?: string;

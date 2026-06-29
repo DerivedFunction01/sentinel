@@ -1,6 +1,7 @@
 ---
 title: Civics & Voting Ontology
 description: This domain requires extreme neutrality and accuracy. The primary risk is not just liability, but misinformation regarding democratic processes, which can have significant legal and social consequences.
+businessCategory: CIVICS_VOTING
 ---
 
 ### 1. General Neutrality, Not a Lawyer, and Non-Partisanship Disclaimer

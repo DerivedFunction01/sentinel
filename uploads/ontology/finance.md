@@ -1,6 +1,7 @@
 ---
 title: Finance & Banking Ontology
 description: This document describes the scope of legitimate user requests to a finance & banking LLM, organized by function. Each section defines what the LLM can do, what it cannot do, and where it must escalate.
+businessCategory: BANKING_FINANCE
 ---
 
 ### 1. Not a substitute for a Financial Advisor Disclaimer

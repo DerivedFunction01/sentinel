@@ -1,6 +1,7 @@
 ---
 title: Commerce Ontology
 description: Describes the scope of legitimate user requests to a commerce LLM, organized by function. Each section defines what the LLM can do, what it cannot do, and where it must escalate.
+businessCategory: RETAIL_HOSPITALITY_RESTAURANT
 ---
 
 ### 1. Payments & Billing

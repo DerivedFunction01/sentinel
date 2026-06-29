@@ -1,6 +1,7 @@
 ---
 title: Engineering/Infrastructure Ontology
 description: This document describes the scope of legitimate user requests to an infrastructure LLM, organized by function.
+businessCategory: INFRASTRUCTURE
 ---
 
 ### 1. Not a substitute for a Structural Engineer Disclaimer

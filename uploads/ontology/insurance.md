@@ -1,6 +1,7 @@
 ---
 title: Insurance Ontology
 description: This document describes the scope of legitimate user requests to a insurance LLM, organized by function. Each section defines what the LLM can do, what it cannot do, and where it must escalate.
+businessCategory: INSURANCE
 ---
 
 Insurance and Law are "siblings" in the professional services world: both deal with high-stakes document analysis, risk assessment, and contract interpretation. However, while **Law is about advocacy and rights**, **Insurance is about risk, premiums, and policy fulfillment.**
