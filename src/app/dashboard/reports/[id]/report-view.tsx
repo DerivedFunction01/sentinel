@@ -998,7 +998,7 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  {scan.forbiddenTask || "forbidden_task_1"}
+                  {scan.forbiddenTask || "Forbidden Task"}
                 </p>
               </div>
               <Badge
@@ -1040,85 +1040,84 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                           </span>
                         </>
                       )}
-                    {seed.thingName && (
-                      <>
-                        <span className="text-muted-foreground">
-                          Thing Name
-                        </span>
-                        <span className="text-foreground text-right">
-                          {seed.thingName}
-                        </span>
-                      </>
-                    )}
                     {seed.businessFeatures &&
                       seed.businessFeatures.length > 0 && (
                         <>
                           <span className="text-muted-foreground">
                             Features
                           </span>
-                          <span className="text-foreground text-right">
+                          <span className="text-foreground text-right col-span-2">
                             {seed.businessFeatures.slice(0, 3).join(", ")}
                           </span>
                         </>
                       )}
 
-                    {seed.thingDescription && (
-                      <>
-                        <span className="text-muted-foreground">
-                          Thing Description
-                        </span>
-                        <span className="text-foreground text-right col-span-2">
-                          {seed.thingDescription}
-                        </span>
-                      </>
-                    )}
+                    {seed.things &&
+                      seed.things.map((t: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="col-span-3 border-t border-white/5 pt-2 mt-2 space-y-2"
+                        >
+                          <p className="text-xs font-semibold text-purple-400">
+                            Restriction #{idx + 1}: {t.thingName}
+                          </p>
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <span className="text-muted-foreground">
+                              Description
+                            </span>
+                            <span className="text-foreground col-span-2">
+                              {t.thingDescription}
+                            </span>
 
-                    {seed.thingNameVariants &&
-                      seed.thingNameVariants.length > 0 && (
-                        <>
-                          <span className="text-muted-foreground">
-                            Thing Name Variants
-                          </span>
-                          <span className="text-foreground text-right col-span-2">
-                            {seed.thingNameVariants.join(", ")}
-                          </span>
-                        </>
-                      )}
+                            {t.thingNameVariants &&
+                              t.thingNameVariants.length > 0 && (
+                                <>
+                                  <span className="text-muted-foreground">
+                                    Name Variants
+                                  </span>
+                                  <span className="text-foreground col-span-2">
+                                    {t.thingNameVariants.join(", ")}
+                                  </span>
+                                </>
+                              )}
 
-                    {seed.thingDescriptionVariants &&
-                      seed.thingDescriptionVariants.length > 0 && (
-                        <>
-                          <span className="text-muted-foreground">
-                            Thing Description Variants
-                          </span>
-                          <span className="text-foreground text-right col-span-2">
-                            {seed.thingDescriptionVariants.join(", ")}
-                          </span>
-                        </>
-                      )}
+                            {t.thingDescriptionVariants &&
+                              t.thingDescriptionVariants.length > 0 && (
+                                <>
+                                  <span className="text-muted-foreground">
+                                    Description Variants
+                                  </span>
+                                  <span className="text-foreground col-span-2">
+                                    {t.thingDescriptionVariants.join("; ")}
+                                  </span>
+                                </>
+                              )}
 
-                    {seed.businessScenarios &&
-                      seed.businessScenarios.length > 0 && (
-                        <>
-                          <span className="text-muted-foreground">
-                            Business Scenarios
-                          </span>
-                          <span className="text-foreground text-right col-span-2">
-                            {seed.businessScenarios.slice(0, 3).join("; ")}
-                          </span>
-                        </>
-                      )}
+                            {t.credentials && t.credentials.length > 0 && (
+                              <>
+                                <span className="text-muted-foreground">
+                                  Credentials
+                                </span>
+                                <span className="text-foreground col-span-2 font-mono text-[10px]">
+                                  {t.credentials.join(", ")}
+                                </span>
+                              </>
+                            )}
 
-                    {seed.credentials && seed.credentials.length > 0 && (
-                      <>
-                        <span className="text-muted-foreground">
-                          Credentials Found
-                        </span>
-                        <span className="text-foreground text-right col-span-2 font-mono text-[10px]">
-                          {seed.credentials.join(", ")}
-                        </span>
-                      </>
-                    )}
+                            {t.businessScenarios &&
+                              t.businessScenarios.length > 0 && (
+                                <>
+                                  <span className="text-muted-foreground">
+                                    Scenarios
+                                  </span>
+                                  <span className="text-foreground col-span-2">
+                                    {t.businessScenarios.slice(0, 3).join("; ")}
+                                  </span>
+                                </>
+                              )}
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 </div>
               );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   RotateCw,
@@ -42,6 +42,65 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
     scan.totalTrials > 0 ? Math.round((defended / scan.totalTrials) * 100) : 0;
   const isWeak = defenseRate < 50;
   const riskStyle = getRiskStyle(scan.riskLevel);
+
+  const metadata = useMemo(() => {
+    if (!scan.metadata) return null;
+    if (typeof scan.metadata === "object") return scan.metadata as any;
+    try {
+      return JSON.parse(scan.metadata);
+    } catch {
+      return null;
+    }
+  }, [scan.metadata]);
+
+  const things = useMemo(() => {
+    return metadata?.seedExtraction?.things || [];
+  }, [metadata]);
+
+  const trials = useMemo(() => {
+    if (!scan.trials) return [];
+    try {
+      return typeof scan.trials === "string" ? JSON.parse(scan.trials) : scan.trials;
+    } catch {
+      return [];
+    }
+  }, [scan.trials]);
+
+  const thingsWithStats = useMemo(() => {
+    if (things.length === 0) {
+      return [{
+        name: "Confidential Info",
+        description: scan.forbiddenTask,
+        breaches: scan.breaches,
+        totalTrials: scan.totalTrials,
+        breachRate: scan.breachRate,
+      }];
+    }
+
+    const list = things.map((thing: any) => {
+      const slug = thing.thingName
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/[\s_-]+/g, "_")
+        .trim();
+      const thingTrials = trials.filter((t: any) => t.taskTag === slug || t.targetThing === thing.thingName);
+      const thingBreaches = thingTrials.filter((t: any) => t.verdict === "BREACHED" || t.verdict === "Breached").length;
+      const thingTotal = thingTrials.length || 1;
+      const rate = Math.round((thingBreaches / thingTotal) * 100);
+
+      return {
+        name: thing.thingName,
+        description: thing.forbiddenTask || thing.thingDescription,
+        breaches: thingBreaches,
+        totalTrials: thingTotal,
+        breachRate: rate,
+      };
+    });
+
+    return list.sort((a, b) => b.breachRate - a.breachRate);
+  }, [things, trials, scan.forbiddenTask, scan.breachRate, scan.breaches, scan.totalTrials]);
+
+  const topVulnerability = thingsWithStats[0];
 
   // Circular gauge calculation
   const radius = 52;
@@ -283,13 +342,13 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
             <div className="space-y-3">
               <div>
                 <p className="font-mono text-sm text-foreground">
-                  forbidden_task_1
+                  {topVulnerability?.name || "Confidential Info"}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   <span className="font-medium text-red-400">
-                    {scan.breachRate}% breach rate
+                    {topVulnerability?.breachRate || 0}% breach rate
                   </span>{" "}
-                  · {scan.breaches} of {scan.totalTrials} attacks succeeded
+                  · {topVulnerability?.breaches || 0} of {topVulnerability?.totalTrials || 0} attacks succeeded
                 </p>
               </div>
               <div className="rounded-md border border-white/5 bg-background/40 p-3">
@@ -297,8 +356,14 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
                   Target Phrase
                 </p>
                 <p className="mt-1 truncate text-sm text-foreground">
-                  {scan.forbiddenTask.slice(0, 80)}
-                  {scan.forbiddenTask.length > 80 ? "…" : ""}
+                  {topVulnerability?.description ? (
+                    <>
+                      {topVulnerability.description.slice(0, 80)}
+                      {topVulnerability.description.length > 80 ? "…" : ""}
+                    </>
+                  ) : (
+                    scan.forbiddenTask.slice(0, 80)
+                  )}
                 </p>
               </div>
               <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -399,26 +464,28 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex items-center justify-between rounded-md border border-white/5 bg-background/40 p-3">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-400" />
-                  <div>
-                    <p className="font-mono text-xs text-foreground">
-                      forbidden_task_1
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Target: {scan.forbiddenTask.slice(0, 40)}
-                      {scan.forbiddenTask.length > 40 ? "…" : ""}
-                    </p>
+              {thingsWithStats.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between rounded-md border border-white/5 bg-background/40 p-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className={`h-4 w-4 ${item.breachRate > 0 ? "text-red-400" : "text-emerald-400"}`} />
+                    <div>
+                      <p className="font-mono text-xs text-foreground">
+                        {item.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Target: {item.description.slice(0, 40)}
+                        {item.description.length > 40 ? "…" : ""}
+                      </p>
+                    </div>
                   </div>
+                  <Badge
+                    variant="outline"
+                    className={item.breachRate > 0 ? "border-red-500/30 bg-red-500/10 text-red-400" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"}
+                  >
+                    {item.breaches}/{item.totalTrials}
+                  </Badge>
                 </div>
-                <Badge
-                  variant="outline"
-                  className="border-red-500/30 bg-red-500/10 text-red-400"
-                >
-                  {scan.breaches}/{scan.totalTrials}
-                </Badge>
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>

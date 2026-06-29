@@ -1037,22 +1037,31 @@ function createConfigurationSection(scan: Scan): any[] {
  * Helper to create a premium styled card for Adversarial Coverage
  */
 function createAdversarialCoverageCard(scan: Scan): Table {
-  const hasBreaches = scan.breaches > 0;
-  const statusColor = hasBreaches ? "E74C3C" : "2E75B6";
+  const metadata = (() => {
+    if (!scan.metadata) return null;
+    if (typeof scan.metadata === "object") return scan.metadata as any;
+    try {
+      return JSON.parse(scan.metadata);
+    } catch {
+      return null;
+    }
+  })();
 
-  return new Table({
-    width: { size: 9360, type: WidthType.DXA },
-    borders: {
-      left: {
-        style: BorderStyle.SINGLE,
-        size: 24, // 3pt
-        color: statusColor,
-      },
-      top: { style: BorderStyle.NONE },
-      right: { style: BorderStyle.NONE },
-      bottom: { style: BorderStyle.NONE },
-    },
-    rows: [
+  const things = metadata?.seedExtraction?.things || [];
+  const trials = (() => {
+    if (!scan.trials) return [];
+    try {
+      return typeof scan.trials === "string" ? JSON.parse(scan.trials) : scan.trials;
+    } catch {
+      return [];
+    }
+  })();
+
+  const rows: TableRow[] = [];
+
+  if (things.length === 0) {
+    const hasBreaches = scan.breaches > 0;
+    rows.push(
       new TableRow({
         children: [
           new TableCell({
@@ -1085,8 +1094,80 @@ function createAdversarialCoverageCard(scan: Scan): Table {
             ],
           }),
         ],
-      }),
-    ],
+      })
+    );
+  } else {
+    for (const thing of things) {
+      const slug = thing.thingName
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/[\s_-]+/g, "_")
+        .trim();
+      const thingTrials = trials.filter((t: any) => t.taskTag === slug || t.targetThing === thing.thingName);
+      const thingBreaches = thingTrials.filter((t: any) => t.verdict === "BREACHED" || t.verdict === "Breached").length;
+      const thingTotal = thingTrials.length || 1;
+      const rate = Math.round((thingBreaches / thingTotal) * 100);
+      const hasBreaches = thingBreaches > 0;
+
+      rows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 9360, type: WidthType.DXA },
+              shading: { fill: "F8F9FA", type: ShadingType.CLEAR },
+              margins: { top: 150, bottom: 150, left: 200, right: 200 },
+              children: [
+                new Paragraph({
+                  spacing: { before: 0, after: 50 },
+                  children: [
+                    new TextRun({
+                      text: `${thing.thingName}`,
+                      size: 20,
+                      color: "1A1A1A",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: `   —   ${thingBreaches} / ${thingTotal} breached (${rate}%)`,
+                      size: 20,
+                      color: hasBreaches ? "E74C3C" : "2E75B6",
+                      bold: true,
+                    }),
+                  ],
+                }),
+                new Paragraph({
+                  spacing: { before: 0, after: 0 },
+                  children: [
+                    new TextRun({
+                      text: `Description: ${thing.thingDescription || thing.forbiddenTask}`,
+                      size: 16,
+                      color: "555555",
+                      italics: true,
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        })
+      );
+    }
+  }
+
+  const primaryStatusColor = scan.breaches > 0 ? "E74C3C" : "2E75B6";
+
+  return new Table({
+    width: { size: 9360, type: WidthType.DXA },
+    borders: {
+      left: {
+        style: BorderStyle.SINGLE,
+        size: 24, // 3pt
+        color: primaryStatusColor,
+      },
+      top: { style: BorderStyle.NONE },
+      right: { style: BorderStyle.NONE },
+      bottom: { style: BorderStyle.NONE },
+    },
+    rows,
   });
 }
 

@@ -44,6 +44,14 @@ import { Granularity } from "./enums";
 // Step 1: Seed Generation (Extraction) - Imported from @/lib/seed-extractor
 // ────────────────────────────────────────────────────────────────────────────
 
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "_")
+    .trim();
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Step 2: Cohesive Prompt Generation (single attack)
 // ────────────────────────────────────────────────────────────────────────────
@@ -715,7 +723,7 @@ export async function executeTargetJudgePipeline(
         response: targetResult.responseText,
         judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
         judgeVerdict: evaluation.reasoning,
-        taskTag: "forbidden_task_1",
+        taskTag: matchedThing ? slugify(matchedThing.thingName) : "forbidden_task_1",
         entropyLabel: entry.entropyLabel,
         framingLabel: entry.framingLabel,
         patternId: entry.patternId,
@@ -1141,7 +1149,7 @@ export async function runSingleScanPipeline(
       response: targetResponse,
       judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
       judgeVerdict: judgeResult?.reasoning || "",
-      taskTag: "forbidden_task_1",
+      taskTag: matchedThing ? slugify(matchedThing.thingName) : "forbidden_task_1",
       entropyLabel: entry.entropyLabel,
       framingLabel: entry.framingLabel,
       patternId: entry.patternId,
@@ -1378,7 +1386,7 @@ export async function executeScanPipeline(
       response: targetResult.responseText,
       judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
       judgeVerdict: evaluation.reasoning,
-      taskTag: "forbidden_task_1",
+      taskTag: matchedThing ? slugify(matchedThing.thingName) : "forbidden_task_1",
       entropyLabel: entry.entropyLabel,
       framingLabel: entry.framingLabel,
       patternId: entry.patternId,
