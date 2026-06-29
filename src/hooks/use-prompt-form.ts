@@ -72,6 +72,7 @@ export function usePromptForm(
 
   const setValue = useCallback(
     (field: keyof PromptFormValues, value: any) => {
+      console.log("[use-prompt-form.ts] setValue calling setValues:", field, value);
       setValues((prev) => ({ ...prev, [field]: value }));
     },
     [],

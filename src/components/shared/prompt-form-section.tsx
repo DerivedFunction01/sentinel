@@ -57,6 +57,8 @@ export interface PromptFormSectionOptions {
   description?: string;
   /** Extra action buttons rendered in the top-right (e.g. copy/remove). */
   extraActions?: React.ReactNode;
+  /** Custom model to use for seed extraction suggestions. */
+  extractorModel?: string;
 }
 
 export interface PromptFormSectionProps {
@@ -109,6 +111,11 @@ export const PromptFormSection = memo(function PromptFormSection({
       return;
     }
     setAiSuggestLoading(true);
+    console.log("[AI Suggest] Triggering API call with values:", {
+      systemPrompt: values.systemPrompt,
+      tools: values.tools,
+      mockResponses: values.mockResponses,
+    });
     try {
       const res = await fetch("/api/scan/suggest-forbidden", {
         method: "POST",
@@ -117,16 +124,27 @@ export const PromptFormSection = memo(function PromptFormSection({
           systemPrompt: values.systemPrompt,
           tools: values.tools,
           mockResponses: values.mockResponses,
+          extractorModel: options.extractorModel,
         }),
       });
       const data = await res.json();
+      console.log("[AI Suggest] API response data:", data);
+
       if (
         data.success &&
         Array.isArray(data.suggestedTasks) &&
         data.suggestedTasks.length > 0
       ) {
+        console.log(
+          "[AI Suggest] Updating forbiddenTask to:",
+          data.suggestedTasks.join("\n\n"),
+        );
         onChange("forbiddenTask", data.suggestedTasks.join("\n\n"));
         if (data.seedInfo) {
+          console.log(
+            "[AI Suggest] Updating cachedSeedInfo to:",
+            data.seedInfo,
+          );
           onChange("cachedSeedInfo", data.seedInfo);
         }
         const newConfig = {
@@ -134,18 +152,23 @@ export const PromptFormSection = memo(function PromptFormSection({
           tools: values.tools,
           mockResponses: values.mockResponses,
         };
+        console.log("[AI Suggest] Saving config to localStorage:", newConfig);
         localStorage.setItem(
           "seed_extractor_last_config",
           JSON.stringify(newConfig),
         );
         setCachedConfig(newConfig);
       } else {
+        console.warn(
+          "[AI Suggest] API success but no tasks suggested or parsed:",
+          data,
+        );
         alert(
           "Could not identify any specific forbidden tasks in the system prompt.",
         );
       }
     } catch (err) {
-      console.error(err);
+      console.error("[AI Suggest] Error in fetch workflow:", err);
       alert("An error occurred while analyzing the prompt.");
     } finally {
       setAiSuggestLoading(false);
@@ -268,10 +291,11 @@ export const PromptFormSection = memo(function PromptFormSection({
         <div className="space-y-6">
           <FieldBlock
             icon={Ban}
-            title="Forbidden Task"
+            title="Forbidden Tasks / Constraints"
+            description="The constraints or guidelines the agent must not breach. List multiple constraints separated by a blank line."
             value={values.forbiddenTask}
             onChange={(v) => onChange("forbiddenTask", v)}
-            placeholder="Describe what the AI must never do or reveal."
+            placeholder="e.g.\nConstraint 1: Never disclose internal routing numbers.\n\nConstraint 2: Never authorize wire transfers."
             minHeight="min-h-32"
             showCharCount={options.showCharCount}
             onUseSample={

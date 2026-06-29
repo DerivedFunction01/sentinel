@@ -120,6 +120,9 @@ export default function PenTestScanPage() {
   const [attackerModel, setAttackerModel] = useState<string>("");
   const [judgeModel, setJudgeModel] = useState<string>("");
   const [hardenerModel, setHardenerModel] = useState<string>("");
+  const [seedExtractorModel, setSeedExtractorModel] = useState<string>("");
+  const [extractorModel, setExtractorModel] = useState<string>("");
+  const [showAdvancedModels, setShowAdvancedModels] = useState<boolean>(false);
   const [enableHardening, setEnableHardening] = useState<boolean>(false);
   const [prompts, setPrompts] = useState<PromptConfig[]>([makeEmptyPrompt()]);
   const [launching, setLaunching] = useState(false);
@@ -153,6 +156,8 @@ export default function PenTestScanPage() {
           setAttackerModel((prev) => (prev === "" ? defaultModelId : prev));
           setJudgeModel((prev) => (prev === "" ? defaultModelId : prev));
           setHardenerModel((prev) => (prev === "" ? defaultModelId : prev));
+          setSeedExtractorModel((prev) => (prev === "" ? defaultModelId : prev));
+          setExtractorModel((prev) => (prev === "" ? defaultModelId : prev));
         }
       })
       .catch(() => {});
@@ -209,6 +214,8 @@ export default function PenTestScanPage() {
           attackerModel,
           judgeModel,
           hardenerModel,
+          seedExtractorModel,
+          extractorModel,
           prompts,
           enableHardening,
         }),
@@ -453,6 +460,12 @@ export default function PenTestScanPage() {
           setHardenerModel={setHardenerModel}
           setEnableHardening={setEnableHardening}
           tokens={tokens}
+          seedExtractorModel={seedExtractorModel}
+          setSeedExtractorModel={setSeedExtractorModel}
+          extractorModel={extractorModel}
+          setExtractorModel={setExtractorModel}
+          showAdvancedModels={showAdvancedModels}
+          setShowAdvancedModels={setShowAdvancedModels}
         />
 
         <Card>
@@ -477,6 +490,7 @@ export default function PenTestScanPage() {
             copyFromPrevious={copyFromPrevious}
             removePrompt={removePrompt}
             openToolManager={openToolManager}
+            seedExtractorModel={seedExtractorModel}
           />
         ))}
 
@@ -575,6 +589,7 @@ function PromptSectionItem({
   copyFromPrevious,
   removePrompt,
   openToolManager,
+  seedExtractorModel,
 }: {
   prompt: PromptConfig;
   idx: number;
@@ -583,8 +598,10 @@ function PromptSectionItem({
   copyFromPrevious: (idx: number) => void;
   removePrompt: (idx: number) => void;
   openToolManager: (idx: number) => void;
+  seedExtractorModel: string;
 }) {
   const handleChange = (field: keyof PromptConfig, value: any) => {
+    console.log("[scan/page.tsx] handleChange calling updatePrompt:", field, value);
     updatePrompt(prompts, setPrompts, idx, field, value);
   };
 
@@ -658,6 +675,7 @@ function PromptSectionItem({
             showPrettify: true,
             onPrettifyTools: prettifyTools,
             onPrettifyMocks: prettifyMocks,
+            extractorModel: seedExtractorModel,
           }}
         />
       </CardContent>
@@ -923,6 +941,12 @@ function ChooseModels({
   setHardenerModel,
   setEnableHardening,
   tokens,
+  seedExtractorModel,
+  setSeedExtractorModel,
+  extractorModel,
+  setExtractorModel,
+  showAdvancedModels,
+  setShowAdvancedModels,
 }: {
   targetModels: string[];
   setTargetModels: (models: string[]) => void;
@@ -935,6 +959,12 @@ function ChooseModels({
   setHardenerModel: (model: string) => void;
   setEnableHardening: (enabled: boolean) => void;
   tokens: number | null;
+  seedExtractorModel: string;
+  setSeedExtractorModel: (model: string) => void;
+  extractorModel: string;
+  setExtractorModel: (model: string) => void;
+  showAdvancedModels: boolean;
+  setShowAdvancedModels: (show: boolean) => void;
 }) {
   return (
     <Card className="lg:col-span-2">
@@ -1021,6 +1051,45 @@ function ChooseModels({
           <p className="text-xs text-muted-foreground">
             Each scan consumes 1 token. Request more in Settings.
           </p>
+        </div>
+
+        {/* Advanced Options Toggle */}
+        <div className="col-span-full border-t border-white/5 pt-4 mt-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-white px-2 h-7"
+            onClick={() => setShowAdvancedModels(!showAdvancedModels)}
+          >
+            {showAdvancedModels ? "Hide Advanced Options" : "Show Advanced Options"}
+          </Button>
+          
+          {showAdvancedModels && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4 pt-2">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                  <Sparkles className="h-3.5 w-3.5 text-blue-400" />
+                  Seed Extractor Model
+                </Label>
+                <ModelSelector value={seedExtractorModel} onChange={setSeedExtractorModel} />
+                <p className="text-[10px] text-muted-foreground">
+                  Custom model used to auto-suggest forbidden tasks and analyze prompt ontologies.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                  <Braces className="h-3.5 w-3.5 text-purple-400" />
+                  Tool Extractor Model
+                </Label>
+                <ModelSelector value={extractorModel} onChange={setExtractorModel} />
+                <p className="text-[10px] text-muted-foreground">
+                  Custom model used to extract tools and analyze mock responses during hardening.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

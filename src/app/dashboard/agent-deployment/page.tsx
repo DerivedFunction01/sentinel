@@ -20,6 +20,7 @@ import {
   ExternalLink,
   CheckCircle2,
   Settings as SettingsIcon,
+  Sparkles,
 } from "lucide-react";
 import {
   Card,
@@ -48,6 +49,7 @@ interface Deployment {
   attackerModel: string;
   judgeModel: string;
   hardenerModel: string;
+  extractorModel: string;
   systemPrompt: string;
   forbiddenTask: string;
   judgeInstructions: string;
@@ -77,6 +79,9 @@ export default function AgentDeploymentPage() {
   const [attackerModel, setAttackerModel] = useState("");
   const [judgeModel, setJudgeModel] = useState("");
   const [hardenerModel, setHardenerModel] = useState("");
+  const [seedExtractorModel, setSeedExtractorModel] = useState("");
+  const [extractorModel, setExtractorModel] = useState("");
+  const [showAdvancedModels, setShowAdvancedModels] = useState(false);
 
   const promptForm = usePromptForm({ loadSamples: false });
   const { loaded: modelsLoaded } = useModelDefaults();
@@ -149,6 +154,8 @@ export default function AgentDeploymentPage() {
           setAttackerModel(defaultModelId);
           setJudgeModel(defaultModelId);
           setHardenerModel(defaultModelId);
+          setSeedExtractorModel(defaultModelId);
+          setExtractorModel(defaultModelId);
         }
       })
       .catch(() => {});
@@ -161,6 +168,7 @@ export default function AgentDeploymentPage() {
     setAttackerModel(dep.attackerModel);
     setJudgeModel(dep.judgeModel);
     setHardenerModel(dep.hardenerModel || "");
+    setExtractorModel(dep.extractorModel || "");
     promptForm.setValue("systemPrompt", dep.systemPrompt);
     promptForm.setValue("forbiddenTask", dep.forbiddenTask);
     promptForm.setValue("judgeInstructions", dep.judgeInstructions);
@@ -173,6 +181,7 @@ export default function AgentDeploymentPage() {
     setEditingId(null);
     setName("");
     setHardenerModel("");
+    setExtractorModel("");
     promptForm.reset();
     toast.info("Cancelled editing mode");
   };
@@ -210,6 +219,7 @@ export default function AgentDeploymentPage() {
             attackerModel,
             judgeModel,
             hardenerModel,
+            extractorModel,
             ...payload,
           },
         );
@@ -241,6 +251,7 @@ export default function AgentDeploymentPage() {
           attackerModel,
           judgeModel,
           hardenerModel,
+          extractorModel,
           ...payload,
         });
 
@@ -331,6 +342,8 @@ export default function AgentDeploymentPage() {
           attackerModel: dep.attackerModel,
           judgeModel: dep.judgeModel,
           hardenerModel: dep.hardenerModel || DEFAULT_MODEL,
+          seedExtractorModel: seedExtractorModel,
+          extractorModel: dep.extractorModel || DEFAULT_MODEL,
           systemPrompt: dep.systemPrompt,
           forbiddenTask: dep.forbiddenTask,
           judgeInstructions: dep.judgeInstructions,
@@ -605,6 +618,45 @@ export default function AgentDeploymentPage() {
                 </div>
               </div>
 
+              {/* Advanced Options Toggle */}
+              <div className="border-t border-white/5 pt-4 mt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-white px-2 h-7"
+                  onClick={() => setShowAdvancedModels(!showAdvancedModels)}
+                >
+                  {showAdvancedModels ? "Hide Advanced Options" : "Show Advanced Options"}
+                </Button>
+                
+                {showAdvancedModels && (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4 pt-2">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                        <Sparkles className="h-3.5 w-3.5 text-blue-400" />
+                        Seed Extractor Model
+                      </Label>
+                      <ModelSelector value={seedExtractorModel} onChange={setSeedExtractorModel} />
+                      <p className="text-[10px] text-muted-foreground">
+                        Custom model used to auto-suggest forbidden tasks and analyze prompt ontologies.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                        <Braces className="h-3.5 w-3.5 text-purple-400" />
+                        Tool Extractor Model
+                      </Label>
+                      <ModelSelector value={extractorModel} onChange={setExtractorModel} />
+                      <p className="text-[10px] text-muted-foreground">
+                        Custom model used to extract tools and analyze mock responses during hardening.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <PromptFormSection
                 values={promptForm.values}
                 onChange={promptForm.setValue}
@@ -614,6 +666,7 @@ export default function AgentDeploymentPage() {
                   showPrettify: true,
                   onPrettifyTools: prettifyTools,
                   onPrettifyMocks: prettifyMocks,
+                  extractorModel: seedExtractorModel,
                 }}
               />
 
