@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   Code,
   Plus,
@@ -226,6 +226,134 @@ const BusinessCategoryMultiSelect = ({
               {cat.replace(/_/g, " ")}
             </Badge>
           ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Section picker for ontology sections — auto-populated from selected business categories.
+ * Stores stable CATEGORY/N IDs; displays full labels.
+ */
+interface OntologySection {
+  id: string;
+  label: string;
+}
+
+interface OntologySectionPickerProps {
+  /** Currently selected IDs (e.g. "RETAIL_HOSPITALITY_RESTAURANT/3") */
+  selectedIds: string[];
+  onSelectChange: (ids: string[]) => void;
+  /** Sections suggested from the selected business categories */
+  suggestedSections: OntologySection[];
+}
+
+const OntologySectionPicker = ({
+  selectedIds,
+  onSelectChange,
+  suggestedSections,
+}: OntologySectionPickerProps) => {
+  const toggleId = (id: string) => {
+    if (selectedIds.includes(id)) {
+      onSelectChange(selectedIds.filter((s) => s !== id));
+    } else {
+      onSelectChange([...selectedIds, id]);
+    }
+  };
+
+  const autoFillAll = () => {
+    const allIds = suggestedSections.map((s) => s.id);
+    const merged = Array.from(new Set([...selectedIds, ...allIds]));
+    onSelectChange(merged);
+  };
+
+  // IDs that are selected but not in the current suggestion list (e.g. from other categories or legacy)
+  const extraIds = selectedIds.filter(
+    (id) => !suggestedSections.some((s) => s.id === id)
+  );
+
+  return (
+    <div className="space-y-2">
+      {suggestedSections.length > 0 ? (
+        <div className="border border-input rounded-md">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-input bg-muted/20">
+            <span className="text-[11px] text-muted-foreground font-medium">
+              Sections for selected categories
+            </span>
+            <button
+              type="button"
+              className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
+              onClick={autoFillAll}
+            >
+              Auto-fill all
+            </button>
+          </div>
+          <div className="p-2 space-y-0.5 max-h-52 overflow-y-auto">
+            {suggestedSections.map((section) => {
+              const checked = selectedIds.includes(section.id);
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  className="w-full flex items-start gap-2 px-2 py-1.5 text-xs hover:bg-accent rounded transition-colors text-left"
+                  onClick={() => toggleId(section.id)}
+                >
+                  <div
+                    className={`mt-0.5 w-3.5 h-3.5 shrink-0 border border-input rounded flex items-center justify-center ${
+                      checked ? "bg-blue-600 border-blue-600" : ""
+                    }`}
+                  >
+                    {checked && <Check className="h-2.5 w-2.5 text-white" />}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-foreground">{section.label}</span>
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {section.id}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">
+          Select business categories above to see suggested sections.
+        </p>
+      )}
+
+      {/* Extra / legacy IDs not in suggestion list */}
+      {extraIds.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {extraIds.map((id) => (
+            <Badge
+              key={id}
+              variant="secondary"
+              className="text-[10px] bg-muted/40 text-muted-foreground cursor-pointer hover:bg-red-900/30 hover:text-red-400 transition-colors"
+              onClick={() => toggleId(id)}
+              title="Click to remove"
+            >
+              {id} ×
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Summary of selected */}
+      {selectedIds.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {selectedIds
+            .filter((id) => suggestedSections.some((s) => s.id === id))
+            .map((id) => (
+              <Badge
+                key={id}
+                variant="secondary"
+                className="text-[10px] bg-blue-900/30 text-blue-300"
+              >
+                {id}
+              </Badge>
+            ))}
         </div>
       )}
     </div>
@@ -583,6 +711,8 @@ function EditableForm({
   setBusinessCategoriesDropdownOpen,
   ontologySectionsStr,
   setOntologySectionsStr,
+  ontologySectionMap,
+  suggestedSections,
   toolJson,
   setToolJson,
   validateJson,
@@ -613,6 +743,10 @@ function EditableForm({
   setBusinessCategoriesDropdownOpen;
   ontologySectionsStr: string;
   setOntologySectionsStr: (val: string) => void;
+  /** Full section map from the API (category → sections) */
+  ontologySectionMap: Record<string, OntologySection[]>;
+  /** Suggested sections from the currently selected business categories */
+  suggestedSections: OntologySection[];
   toolJson: string;
   setToolJson;
   validateJson: (
@@ -678,16 +812,17 @@ function EditableForm({
           </div>
 
           <div>
-            <Label htmlFor="ontologySections" className="text-xs">
-              Ontology Sections (comma-separated)
-            </Label>
-            <Input
-              id="ontologySections"
-              placeholder="e.g., Payments & Billing, Loyalty Programs"
-              value={ontologySectionsStr}
-              onChange={(e) => setOntologySectionsStr(e.target.value)}
-              className="mt-1"
-            />
+            <Label className="text-xs">Ontology Sections</Label>
+            <div className="mt-1">
+              <OntologySectionPicker
+                selectedIds={ontologySectionsStr
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)}
+                onSelectChange={(ids) => setOntologySectionsStr(ids.join(", "))}
+                suggestedSections={suggestedSections}
+              />
+            </div>
           </div>
 
           <div>
@@ -836,6 +971,18 @@ export function ToolExamplesClient({
   const [businessCategoriesStr, setBusinessCategoriesStr] = useState("");
   const [businessCategoriesDropdownOpen, setBusinessCategoriesDropdownOpen] =
     useState(false);
+
+  // Ontology section map fetched once from the server
+  const [ontologySectionMap, setOntologySectionMap] = useState<
+    Record<string, OntologySection[]>
+  >({});
+
+  useEffect(() => {
+    fetch("/api/admin/ontology-sections")
+      .then((r) => r.ok ? r.json() : {})
+      .then((data) => setOntologySectionMap(data))
+      .catch(() => {/* silently ignore — picker degrades gracefully */});
+  }, []);
 
   const handleExport = () => {
     window.location.href = "/api/admin/tool-examples/export";
@@ -1176,6 +1323,12 @@ export function ToolExamplesClient({
               }
               ontologySectionsStr={ontologySectionsStr}
               setOntologySectionsStr={setOntologySectionsStr}
+              ontologySectionMap={ontologySectionMap}
+              suggestedSections={businessCategoriesStr
+                .split(",")
+                .map((c) => c.trim())
+                .filter(Boolean)
+                .flatMap((cat) => ontologySectionMap[cat] ?? [])}
               toolJson={toolJson}
               setToolJson={setToolJson}
               validateJson={validateJson}

@@ -1,6 +1,7 @@
 ---
 title: Main Agent Ontology
 description: It dictates how the LLM processes its own rules, protects itself from exploitation, and manages the boundaries of execution.
+businessCategory: GENERAL_AGENT
 ---
 
 ### 1. Identity & Capability Anchoring (Persona & Scope)
