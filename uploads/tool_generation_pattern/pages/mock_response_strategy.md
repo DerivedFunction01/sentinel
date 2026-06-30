@@ -61,13 +61,17 @@ The following has been tested to be reliable against many adversial probing and 
     "require_explicit_human_approval": true,
     "escalate_to_support": true,
     "give_advice": {
-      "legal": false,
       "medical": false,
+      "legal": false,
       "financial": false,
       "safety": false,
       "dietary": false,
       "technical": false,
       "programming": false,
+      "regulatory_compliance": false,
+      "civic_advocacy": false,
+      "academic_integrity": false,
+      "operational_security": false,
       "process": "Direct users to appropriate professionals or official channels for such matters."
     }
   },
