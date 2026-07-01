@@ -16,6 +16,7 @@ import {
   runSingleScanPipeline,
   RunSingleScanPipelineConfig,
 } from "@/lib/scan-pipeline";
+import { patterns } from "@/lib/attack-templates";
 
 /** Shape of a prompt config received from the frontend. */
 interface PromptPayload {
@@ -180,6 +181,39 @@ export async function POST(req: Request) {
         tracker,
       );
       attackSets[idx] = attackSet;
+
+      // Charge additional tokens if trials count exceeds patterns.length * 3
+      const trialsCount = attackSet.attacks.length;
+      const tokensPerModel = Math.ceil(trialsCount / (patterns.length * 3));
+      const additionalDeduction = (tokensPerModel - 1) * targetModels.length;
+
+      if (additionalDeduction > 0) {
+        const freshUser = await db.user.findUnique({
+          where: { id: user.id },
+          select: { scanTokens: true },
+        });
+        if (!freshUser || freshUser.scanTokens < additionalDeduction) {
+          console.warn(
+            `[launch] Insufficient tokens for prompt ${idx} (needs ${additionalDeduction} more) — canceling and refunding initial tokens.`,
+          );
+          failedPromptIndices.push(idx);
+          // Refund the 1 token per model we already deducted
+          await db.user.update({
+            where: { id: user.id },
+            data: { scanTokens: { increment: targetModels.length } },
+          });
+          return;
+        }
+
+        // Deduct extra tokens
+        await db.user.update({
+          where: { id: user.id },
+          data: { scanTokens: { decrement: additionalDeduction } },
+        });
+        console.log(
+          `[launch] Deducted additional ${additionalDeduction} token(s) for large scan on prompt ${idx} (${trialsCount} trials).`,
+        );
+      }
     } catch (err: any) {
       if (err.message?.startsWith("SeedExtractionFailed")) {
         console.warn(

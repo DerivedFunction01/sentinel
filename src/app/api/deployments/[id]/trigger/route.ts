@@ -11,6 +11,7 @@ import {
   runSingleScanPipeline,
   RunSingleScanPipelineConfig,
 } from "@/lib/scan-pipeline";
+import { patterns } from "@/lib/attack-templates";
 
 export async function POST(
   req: Request,
@@ -160,7 +161,43 @@ export async function POST(
           { status: 422 },
         );
       }
-      throw err; // rethrow unexpected errors
+    }
+
+    // Check dynamic cost based on generated trials count
+    const trialsCount = attackSet.attacks.length;
+    const tokensNeeded = Math.ceil(trialsCount / (patterns.length * 3));
+    const additionalDeduction = tokensNeeded - 1;
+
+    if (additionalDeduction > 0) {
+      const freshUser = await db.user.findUnique({
+        where: { id: user.id },
+        select: { scanTokens: true },
+      });
+      if (!freshUser || freshUser.scanTokens < additionalDeduction) {
+        // Refund initial token
+        await db.user.update({
+          where: { id: user.id },
+          data: { scanTokens: { increment: 1 } },
+        });
+        console.warn(
+          `[deploy-trigger] Insufficient tokens for dynamic pricing (needs ${additionalDeduction} more) — refunded initial token.`,
+        );
+        return NextResponse.json(
+          {
+            error: `Not enough scan tokens for this large deployment scan. It requires ${tokensNeeded} tokens (based on ${trialsCount} trials) but only 1 was available.`,
+          },
+          { status: 403 },
+        );
+      }
+
+      // Deduct extra tokens
+      await db.user.update({
+        where: { id: user.id },
+        data: { scanTokens: { decrement: additionalDeduction } },
+      });
+      console.log(
+        `[deploy-trigger] Deducted additional ${additionalDeduction} token(s) for large scan on deployment ${id} (${trialsCount} trials).`,
+      );
     }
 
     const reportId = generateReportId();
