@@ -16,6 +16,7 @@ export async function POST(req: Request) {
       tools = "[]",
       mockResponses = "{}",
       extractorModel = DEFAULT_MODEL,
+      forbiddenTask = "",
     } = body;
 
     const seedInfo = await extractSeedInfo(
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
       systemPrompt,
       tools,
       mockResponses,
+      forbiddenTask,
     );
 
     const vulnerabilities = Array.from(

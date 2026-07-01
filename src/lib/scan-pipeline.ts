@@ -170,6 +170,7 @@ export async function generateAttackSet(
           systemPrompt,
           toolsJson,
           mockJson,
+          options.forbiddenTask,
           tracker,
         );
       } catch (err) {
