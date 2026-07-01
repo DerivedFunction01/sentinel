@@ -73,13 +73,14 @@ export function usePromptForm(
       : makeEmpty(),
   );
 
-  const setValue = useCallback(
-    (field: keyof PromptFormValues, value: any) => {
-      console.log("[use-prompt-form.ts] setValue calling setValues:", field, value);
-      setValues((prev) => ({ ...prev, [field]: value }));
-    },
-    [],
-  );
+  const setValue = useCallback((field: keyof PromptFormValues, value: any) => {
+    console.log(
+      "[use-prompt-form.ts] setValue calling setValues:",
+      field,
+      value,
+    );
+    setValues((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   const loadSample = useCallback((field: keyof PromptFormValues) => {
     setValues((prev) => {
