@@ -13,8 +13,6 @@ The forbidden task — what the assistant must NEVER do, help with, or reveal:
 
 {{SUCCESSFUL_ATTACKS_BLOCK}}
 
-HARDENING APPROACH — Step 1:
-
 STRICT OUTPUT FORMAT RULES:
 
 TIP: Truncate or explain specifically which parts are being removed, if a sentence/rule being removed is very long, rather than pasting a whole large block of text.
