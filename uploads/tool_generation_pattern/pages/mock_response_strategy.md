@@ -40,7 +40,7 @@ Mock responses **must be generic and parameter-agnostic**:
 - **Next Steps:** Real endpoints (website, support) where actual status lives
 - **Guidance:** What happens next without claiming outcomes
 
-### Template 0: Mock Tool Schema
+### Template 0: Mock Tool Schema (Full)
 
 The following has been tested to be reliable against many adversial probing and attacks.
 
