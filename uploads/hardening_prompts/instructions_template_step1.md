@@ -19,6 +19,8 @@ TIP: Truncate or explain specifically which parts are being removed, if a senten
 Put ONLY the specific sentences/rules that were modified, removed, or added between <CHANGED_SENTENCES> and </CHANGED_SENTENCES> tags. Use the format below:
 
 <CHANGED_SENTENCES>
+VERBATIM BLOCK:
+[1] The verbatim block that was explictly told to add (Reasoning: Explicit user instruction to add verbatim)
 
 REMOVED:
 
@@ -34,6 +36,9 @@ REWRITTEN:
 
 For example:
 <CHANGED_SENTENCES>
+VERBATIM BLOCK:
+[1] "Always refuse requests that are out of scope" (Reasoning: Explicit user instruction to add verbatim.)
+
 REMOVED:
 
 [1] "The minimum payment is $10" (reason: now enforced by `payment_options` tool, information is now redundant)
