@@ -140,6 +140,162 @@ Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords,
   }
 }
 
+export async function rankCandidates(
+  candidates: InspirationExample[],
+  targetThing: RestrictionThing,
+  extractorModel: string,
+  granularity: Granularity,
+  metadata: ScanMetadata,
+  tracker?: any,
+  existingTools?: ToolDef[],
+  toolRequirements?: string,
+): Promise<InspirationExample | null> {
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) {
+    candidates[0].bestMatchingCandidate = true;
+    candidates[0].requirementScore = 90;
+    candidates[0].directMatch = true;
+    return candidates[0];
+  }
+
+  try {
+    const forbiddenTask = targetThing.forbiddenTask;
+    let existingToolsBlock = "";
+    if (existingTools && existingTools.length > 0) {
+      existingToolsBlock = `\nExisting tools already configured for this assistant:
+${existingTools
+  .map(
+    (t, i) => `[T${i}] Name: "${t.function.name}"
+    Description: ${t.function.description}
+    Parameters: ${Object.keys(t.function.parameters?.properties || {}).join(", ")}`,
+  )
+  .join("\n\n")}
+
+For each candidate example, also evaluate overlap with these existing tools by adding an "overlap" field per candidate:
+- score 0-30: No meaningful overlap → brand new tool candidate
+- score 31-69: Partial overlap → may need parameter merging or splitting
+- score 70+: Direct overlap → this example replaces the existing tool
+- Set "replaceExisting" to the existing tool's name (e.g., "T0", "T1") if score >= 70
+- Set "merge": true if the example should be merged INTO the existing tool (same name, expanded parameters)\n`;
+    }
+
+    const scoringToolRequirements = toolRequirements || forbiddenTask;
+
+    const scoringPrompt = `You are a scoring evaluator. Analyze how well each database tool schema example matches the required user-facing capabilities and target granularity.
+
+Tool Requirements (what users request from the assistant):
+${scoringToolRequirements}
+Target Granularity: ${granularity}
+Business Categories: ${(metadata.seedExtraction?.businessCategories || []).join(", ") || "N/A"}
+
+Examples:
+${candidates
+  .map(
+    (c, i) => `--- Example #${i} ---
+Name: "${c.name}"
+Description: ${c.description}
+Tags: ${c.tags.join(", ")}
+Tool JSON: ${JSON.stringify(c.toolJson)}`,
+  )
+  .join("\n\n")}
+${existingToolsBlock}
+Return ONLY a JSON array of objects representing the scores for each example:
+[
+  {
+    "requirementScore": <0-100>,
+    "granularityScore": <0-100>,
+    "bestMatchingCandidate": <boolean: true if this candidate is the single best match for its role/action among all candidates>,
+    "rationale": "<one-sentence reasoning>",
+    "overlap": { "score": <0-100>, "replaceExisting": "<existing tool name or null>", "merge": <bool>, "rationale": "<one-sentence>" }
+  }
+]
+Output ONLY the raw JSON array. Do not wrap in markdown or include preambles.`;
+
+    const scoreResponse = await callOpenRouter(
+      extractorModel,
+      [{ role: "user", content: scoringPrompt }],
+      undefined,
+      tracker,
+    );
+
+    const cleanScores = (scoreResponse.content || "")
+      .replace(/^```[a-zA-Z]*\n/g, "")
+      .replace(/\n```$/g, "")
+      .trim();
+
+    const scores = JSON.parse(cleanScores);
+    if (Array.isArray(scores)) {
+      for (let idx = 0; idx < candidates.length; idx++) {
+        const s = scores[idx];
+        if (s) {
+          candidates[idx].requirementScore = s.requirementScore as number;
+          candidates[idx].granularityScore = s.granularityScore as number;
+          candidates[idx].rationale = s.rationale as string;
+          candidates[idx].bestMatchingCandidate =
+            s.bestMatchingCandidate === true;
+
+          if (s.overlap && typeof s.overlap === "object") {
+            let replaceExisting: string | undefined;
+            if (
+              s.overlap.replaceExisting &&
+              typeof s.overlap.replaceExisting === "string" &&
+              existingTools
+            ) {
+              const refMatch = s.overlap.replaceExisting.match(/^T(\d+)$/);
+              if (refMatch) {
+                const toolIdx = parseInt(refMatch[1], 10);
+                if (toolIdx >= 0 && toolIdx < existingTools.length) {
+                  replaceExisting = existingTools[toolIdx].function.name;
+                }
+              } else {
+                replaceExisting = s.overlap.replaceExisting;
+              }
+            }
+            candidates[idx].overlap = {
+              score: s.overlap.score as number,
+              replaceExisting,
+              merge: s.overlap.merge === true,
+              rationale: s.overlap.rationale as string | undefined,
+            };
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error("LLM scoring of candidates failed:", e);
+  }
+
+  for (const ex of candidates) {
+    if (ex.requirementScore !== undefined && ex.requirementScore >= 70) {
+      if (
+        ex.overlap &&
+        ex.overlap.score >= 70 &&
+        !ex.overlap.replaceExisting
+      ) {
+        ex.directMatch = false;
+      } else {
+        ex.directMatch = true;
+      }
+    }
+  }
+
+  candidates.sort((a, b) => {
+    const aBest = a.bestMatchingCandidate ? 1 : 0;
+    const bBest = b.bestMatchingCandidate ? 1 : 0;
+    if (bBest !== aBest) return bBest - aBest;
+
+    const aReq = a.requirementScore || 0;
+    const bReq = b.requirementScore || 0;
+    if (bReq !== aReq) return bReq - aReq;
+
+    const aGran = a.granularityScore || 0;
+    const bGran = b.granularityScore || 0;
+    return bGran - aGran;
+  });
+
+  return candidates[0];
+}
+
 export async function searchInspirationCandidates(
   query: string,
   tags: string[],
@@ -229,17 +385,19 @@ export async function searchInspirationCandidates(
       if (targetOntologySection) {
         try {
           const exampleSections = JSON.parse(
-            ex.ontologySections || "[]",
+            ex.ontologySections || "[]"
           ) as string[];
-          if (Array.isArray(exampleSections) && exampleSections.length > 0) {
+          if (
+            Array.isArray(exampleSections) &&
+            exampleSections.length > 0
+          ) {
             const category = targetOntologySection.split("/")[0];
             const wildcardSection = category ? `${category}/ALL` : undefined;
 
             const isMatch = exampleSections.some(
               (sec) =>
                 sec.toLowerCase() === targetOntologySection.toLowerCase() ||
-                (wildcardSection &&
-                  sec.toLowerCase() === wildcardSection.toLowerCase()),
+                (wildcardSection && sec.toLowerCase() === wildcardSection.toLowerCase())
             );
             if (isMatch) {
               ontologyBonus = 3.0;
@@ -296,137 +454,28 @@ export async function searchInspirationCandidates(
       } catch {}
     }
 
-    if (candidates.length > 0) {
-      try {
-        let existingToolsBlock = "";
-        if (existingTools && existingTools.length > 0) {
-          existingToolsBlock = `\nExisting tools already configured for this assistant:
-${existingTools
-  .map(
-    (t, i) => `[T${i}] Name: "${t.function.name}"
-    Description: ${t.function.description}
-    Parameters: ${Object.keys(t.function.parameters?.properties || {}).join(", ")}`,
-  )
-  .join("\n\n")}
+    const best = await rankCandidates(
+      candidates,
+      targetThing,
+      extractorModel,
+      granularity,
+      metadata,
+      tracker,
+      existingTools,
+      toolRequirements,
+    );
 
-For each candidate example, also evaluate overlap with these existing tools by adding an "overlap" field per candidate:
-- score 0-30: No meaningful overlap → brand new tool candidate
-- score 31-69: Partial overlap → may need parameter merging or splitting
-- score 70+: Direct overlap → this example replaces the existing tool
-- Set "replaceExisting" to the existing tool's name (e.g., "T0", "T1") if score >= 70
-- Set "merge": true if the example should be merged INTO the existing tool (same name, expanded parameters)\n`;
-        }
-
-        const scoringToolRequirements = toolRequirements || forbiddenTask;
-
-        const scoringPrompt = `You are a scoring evaluator. Analyze how well each database tool schema example matches the required user-facing capabilities and target granularity.
-
-Tool Requirements (what users request from the assistant):
-${scoringToolRequirements}
-Target Granularity: ${granularity}
-Business Categories: ${(metadata.seedExtraction?.businessCategories || []).join(", ") || "N/A"}
-
-Examples:
-${candidates
-  .map(
-    (c, i) => `--- Example #${i} ---
-Name: "${c.name}"
-Description: ${c.description}
-Tags: ${c.tags.join(", ")}
-Tool JSON: ${JSON.stringify(c.toolJson)}`,
-  )
-  .join("\n\n")}
-${existingToolsBlock}
-Return ONLY a JSON array of objects representing the scores for each example:
-[
-  {
-    "requirementScore": <0-100>,
-    "granularityScore": <0-100>,
-    "bestMatchingCandidate": <boolean: true if this candidate is the single best match for its role/action among all candidates>,
-    "rationale": "<one-sentence reasoning>",
-    "overlap": { "score": <0-100>, "replaceExisting": "<existing tool name or null>", "merge": <bool>, "rationale": "<one-sentence>" }
-  }
-]
-Output ONLY the raw JSON array. Do not wrap in markdown or include preambles.`;
-
-        const scoreResponse = await callOpenRouter(
-          extractorModel,
-          [{ role: "user", content: scoringPrompt }],
-          undefined,
-          tracker,
-        );
-
-        const cleanScores = (scoreResponse.content || "")
-          .replace(/^```[a-zA-Z]*\n/g, "")
-          .replace(/\n```$/g, "")
-          .trim();
-
-        const scores = JSON.parse(cleanScores);
-        if (Array.isArray(scores)) {
-          for (let idx = 0; idx < candidates.length; idx++) {
-            const s = scores[idx];
-            if (s) {
-              candidates[idx].requirementScore = s.requirementScore as number;
-              candidates[idx].granularityScore = s.granularityScore as number;
-              candidates[idx].rationale = s.rationale as string;
-              candidates[idx].bestMatchingCandidate =
-                s.bestMatchingCandidate === true;
-
-              if (s.overlap && typeof s.overlap === "object") {
-                let replaceExisting: string | undefined;
-                if (
-                  s.overlap.replaceExisting &&
-                  typeof s.overlap.replaceExisting === "string" &&
-                  existingTools
-                ) {
-                  const refMatch = s.overlap.replaceExisting.match(/^T(\d+)$/);
-                  if (refMatch) {
-                    const toolIdx = parseInt(refMatch[1], 10);
-                    if (toolIdx >= 0 && toolIdx < existingTools.length) {
-                      replaceExisting = existingTools[toolIdx].function.name;
-                    }
-                  } else {
-                    replaceExisting = s.overlap.replaceExisting;
-                  }
-                }
-                candidates[idx].overlap = {
-                  score: s.overlap.score as number,
-                  replaceExisting,
-                  merge: s.overlap.merge === true,
-                  rationale: s.overlap.rationale as string | undefined,
-                };
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.error("LLM scoring of inspiration examples failed:", e);
-      }
-
-      for (const ex of candidates) {
-        if (ex.requirementScore !== undefined && ex.requirementScore >= 70) {
-          if (
-            ex.overlap &&
-            ex.overlap.score >= 70 &&
-            !ex.overlap.replaceExisting
-          ) {
-            ex.directMatch = false;
-          } else {
-            ex.directMatch = true;
-          }
-        }
-      }
-    }
+    const finalCandidates = best ? [best] : [];
 
     if (trace) {
       trace.step0 = {
         query,
         tags,
-        retrievedExamples: candidates,
+        retrievedExamples: finalCandidates,
         usedBusinessCategories: metadata.seedExtraction?.businessCategories,
       };
     }
-    return candidates;
+    return finalCandidates;
   } catch (err) {
     return [];
   }
@@ -477,21 +526,32 @@ export async function retrieveInspirationExamples(
               mockResponse: JSON.parse(ex.mockResponse),
               businessCategories: JSON.parse(ex.businessCategories || "[]"),
               ontologySections: JSON.parse(ex.ontologySections || "[]"),
-              directMatch: true,
-              bestMatchingCandidate: true,
             });
           } catch {}
         }
+
+        const best = await rankCandidates(
+          candidates,
+          targetThing,
+          extractorModel,
+          granularity,
+          metadata,
+          tracker,
+          existingTools,
+          toolRequirements,
+        );
+
+        const finalCandidates = best ? [best] : [];
 
         if (trace) {
           trace.step0 = {
             query: `direct-ontology:${targetOntologySection}`,
             tags: [],
-            retrievedExamples: candidates,
+            retrievedExamples: finalCandidates,
             usedBusinessCategories: metadata.seedExtraction?.businessCategories,
           };
         }
-        return candidates;
+        return finalCandidates;
       }
     } catch (dbErr) {
       console.error(
