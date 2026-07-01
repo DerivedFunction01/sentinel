@@ -106,6 +106,36 @@ export async function POST(req: Request) {
           }
         }
 
+        // businessCategories must be a string (JSON array of strings)
+        let businessCategoriesStr = "[GENERAL]";
+        if (data.businessCategories) {
+          if (Array.isArray(data.businessCategories)) {
+            businessCategoriesStr = JSON.stringify(data.businessCategories);
+          } else if (typeof data.businessCategories === "string") {
+            try {
+              JSON.parse(data.businessCategories);
+              businessCategoriesStr = data.businessCategories;
+            } catch {
+              businessCategoriesStr = JSON.stringify([data.businessCategories]);
+            }
+          }
+        }
+
+        // ontologySections must be a string (JSON array of strings)
+        let ontologySectionsStr = "[]";
+        if (data.ontologySections) {
+          if (Array.isArray(data.ontologySections)) {
+            ontologySectionsStr = JSON.stringify(data.ontologySections);
+          } else if (typeof data.ontologySections === "string") {
+            try {
+              JSON.parse(data.ontologySections);
+              ontologySectionsStr = data.ontologySections;
+            } catch {
+              ontologySectionsStr = JSON.stringify([data.ontologySections]);
+            }
+          }
+        }
+
         const validCategories = Object.values(ToolExampleCategory);
         const resolvedCategory = validCategories.includes(data.category)
           ? data.category
@@ -121,7 +151,8 @@ export async function POST(req: Request) {
             toolJson: data.toolJson,
             mockResponse: data.mockResponse,
             isBuiltIn: data.isBuiltIn ?? false,
-            businessCategories: data.businessCategories,
+            businessCategories: businessCategoriesStr,
+            ontologySections: ontologySectionsStr,
           },
         });
         imported++;
