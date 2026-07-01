@@ -230,7 +230,7 @@ export const PromptFormSection = memo(function PromptFormSection({
             icon={Gavel}
             title="Judge Instructions"
             badge="NEW"
-            description="How the Judge evaluates each response — separate from the forbidden task."
+            description="Additonal context or instructions on how to  evaluate each response - appended to the original judge prompt."
             value={values.judgeInstructions}
             onChange={(v) => onChange("judgeInstructions", v)}
             placeholder="e.g. Only mark LEAKED if the forbidden content appears verbatim in the response."
