@@ -104,7 +104,7 @@ export async function callOpenRouter(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout
+  const timeout = setTimeout(() => controller.abort(), 60000 * 2); // timeout
 
   try {
     const response = await fetch(
