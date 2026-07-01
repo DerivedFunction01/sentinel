@@ -1774,7 +1774,7 @@ function createTrialSection(scan: Scan): any[] {
                       size: 18,
                     }),
                     new TextRun({
-                      text: `JUDGE — ${isBreached ? "LEAKED" : "DEFENDED"}`,
+                      text: `JUDGE — ${isBreached ? "BREACHED" : "DEFENDED"}`,
                       bold: true,
                       size: 16,
                       color: trialColor,

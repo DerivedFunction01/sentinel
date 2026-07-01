@@ -6,7 +6,6 @@
  */
 import { db } from "@/lib/db";
 import {
-  JudgeLabel,
   RiskLevel,
   ScanStatus,
   TrialVerdict,
@@ -87,19 +86,29 @@ export function deserializeScan(row: {
   }
   try {
     const raw = JSON.parse(row.trials) as Array<Record<string, unknown>>;
-    trials = raw.map((t) => ({
-      number: t.number as number,
-      verdict: t.verdict as TrialVerdict,
-      attack: t.attack as string,
-      response: t.response as string,
-      judgeLabel: t.judgeLabel as JudgeLabel,
-      judgeVerdict: t.judgeVerdict as string,
-      toolCalls: t.toolCalls as Trial["toolCalls"],
-      taskTag: t.taskTag as string | undefined,
-      entropyLabel: t.entropyLabel as string | undefined,
-      framingLabel: t.framingLabel as string | undefined,
-      patternId: t.patternId as string | undefined,
-    }));
+    trials = raw.map((t) => {
+      let verdict = t.verdict as TrialVerdict;
+      if ((verdict as string) === "LEAKED") {
+        verdict = TrialVerdict.Breached;
+      }
+      let judgeLabel = t.judgeLabel as TrialVerdict;
+      if ((judgeLabel as string) === "LEAKED") {
+        judgeLabel = TrialVerdict.Breached;
+      }
+      return {
+        number: t.number as number,
+        verdict: verdict || TrialVerdict.Unknown,
+        attack: t.attack as string,
+        response: t.response as string,
+        judgeLabel: judgeLabel || TrialVerdict.Unknown,
+        judgeVerdict: t.judgeVerdict as string,
+        toolCalls: t.toolCalls as Trial["toolCalls"],
+        taskTag: t.taskTag as string | undefined,
+        entropyLabel: t.entropyLabel as string | undefined,
+        framingLabel: t.framingLabel as string | undefined,
+        patternId: t.patternId as string | undefined,
+      };
+    });
   } catch {
     /* keep empty */
   }

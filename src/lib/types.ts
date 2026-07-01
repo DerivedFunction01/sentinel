@@ -5,7 +5,6 @@ import type {
   CredentialMode,
   DashboardRoute,
   Granularity,
-  JudgeLabel,
   RiskLevel,
   ScanStatus,
   TrialVerdict,
@@ -34,7 +33,7 @@ export interface Trial {
   verdict: TrialVerdict;
   attack: string;
   response: string;
-  judgeLabel: JudgeLabel;
+  judgeLabel: TrialVerdict;
   judgeVerdict: string;
   toolCalls?: ToolCall[];
   /** The forbidden task this trial targeted, e.g. "forbidden_task_1". */

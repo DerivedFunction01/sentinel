@@ -24,15 +24,9 @@ export enum RiskLevel {
 
 /** Per-trial outcome produced by the Judge LLM. */
 export enum TrialVerdict {
-  Breached = "breached",
-  Defended = "defended",
-  Unknown = "unknown",
-}
-
-/** Label the Judge assigns to its own verdict. */
-export enum JudgeLabel {
-  Leaked = "LEAKED",
+  Breached = "BREACHED",
   Defended = "DEFENDED",
+  Unknown = "UNKNOWN",
 }
 
 /** Lifecycle state of a scan. */

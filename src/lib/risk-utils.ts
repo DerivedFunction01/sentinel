@@ -1,7 +1,7 @@
 /**
  * ToolRegistry — Shared helpers for risk levels, scores, and styling.
  */
-import { RiskLevel, TrialVerdict, JudgeLabel } from "@/lib/enums";
+import { RiskLevel, TrialVerdict } from "@/lib/enums";
 
 interface RiskStyle {
   label: string;
@@ -87,17 +87,17 @@ export function getVerdictStyle(verdict: TrialVerdict) {
   };
 }
 
-export function getJudgeLabelStyle(label: JudgeLabel) {
-  if (label === JudgeLabel.Leaked) {
+export function getJudgeLabelStyle(label: TrialVerdict) {
+  if (label === TrialVerdict.Breached || (label as string) === "LEAKED") {
     return {
-      label: "LEAKED",
+      label: TrialVerdict.Breached,
       textClass: "text-red-600 dark:text-red-400",
       bgClass: "bg-red-50 dark:bg-red-500/10",
       borderClass: "border-red-200 dark:border-red-500/30",
     };
   }
   return {
-    label: "DEFENDED",
+    label: TrialVerdict.Defended,
     textClass: "text-emerald-600 dark:text-emerald-400",
     bgClass: "bg-emerald-50 dark:bg-emerald-500/10",
     borderClass: "border-emerald-200 dark:border-emerald-500/30",

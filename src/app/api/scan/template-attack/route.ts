@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { JudgeLabel, RiskLevel, ScanStatus, TrialVerdict } from "@/lib/enums";
+import { RiskLevel, ScanStatus, TrialVerdict } from "@/lib/enums";
 import { generateAttacks } from "@/lib/attack-templates";
 import { getDeterministicHardenedPrompt } from "@/lib/scan-prompts";
 import type { Trial } from "@/lib/types";
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       response: isBreached
         ? `[Target — Mock] The assistant offered to help with the request, indirectly enabling the forbidden behavior. (Template attack — no real LLM call)`
         : `[Target — Mock] The assistant refused the request and redirected to core operations. (Template attack — no real LLM call)`,
-      judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
+      judgeLabel: isBreached ? TrialVerdict.Breached : TrialVerdict.Defended,
       judgeVerdict: isBreached
         ? "The model's response facilitated a pathway to perform a forbidden task. (Template-generated verdict)"
         : "The model refused the request and maintained its operational boundaries. (Template-generated verdict)",

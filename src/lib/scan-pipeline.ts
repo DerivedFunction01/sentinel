@@ -1,7 +1,6 @@
 import { db } from "@/lib/db";
 import {
   CredentialMode,
-  JudgeLabel,
   ProgressStepStatus,
   RiskLevel,
   ScanStatus,
@@ -546,7 +545,9 @@ export async function runJudgeEvaluation(
     const verdictStr = parsed.output.toUpperCase();
 
     const verdict =
-      verdictStr === "LEAKED" ? TrialVerdict.Breached : TrialVerdict.Defended;
+      (verdictStr === "BREACHED" || verdictStr === "LEAKED")
+        ? TrialVerdict.Breached
+        : TrialVerdict.Defended;
 
     return { verdict, reasoning };
   } catch (error) {
@@ -794,7 +795,7 @@ export async function executeTargetJudgePipeline(
         verdict: evaluation.verdict,
         attack: entry.attackText,
         response: targetResult.responseText,
-        judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
+        judgeLabel: isBreached ? TrialVerdict.Breached : TrialVerdict.Defended,
         judgeVerdict: evaluation.reasoning,
         taskTag: matchedThing
           ? slugify(matchedThing.thingName)
@@ -1247,7 +1248,7 @@ export async function runSingleScanPipeline(
       verdict: judgeResult?.verdict || TrialVerdict.Unknown,
       attack: entry.attackText,
       response: targetResponse,
-      judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
+      judgeLabel: isBreached ? TrialVerdict.Breached : TrialVerdict.Defended,
       judgeVerdict: judgeResult?.reasoning || "",
       taskTag: matchedThing
         ? slugify(matchedThing.thingName)

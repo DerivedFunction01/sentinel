@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { gunzipSync } from "zlib";
-import { JudgeLabel, RiskLevel, ScanStatus, TrialVerdict } from "@/lib/enums";
+import { RiskLevel, ScanStatus, TrialVerdict } from "@/lib/enums";
 import { OPTIMIZATION_PROMPT } from "@/lib/scan-prompts";
 
 /**
