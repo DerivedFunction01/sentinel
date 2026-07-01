@@ -3,7 +3,7 @@ Your task is to propose changes to the system prompt below where absolute prohib
 
 Identify any absolute prohibitions/denials in the original system prompt (e.g., "never offer X, Y, Z") and rewrite them to delegate to the appropriate tool instead while still maintaining the guardrail. Preserve all other sentences, instructions, tone, and features.
 
-Using this example format:
+Using this example format and mark it as verbatim:
 
 Original: "Never offer A, B, or C. Never do D and E. We do not have F."
 Hardened:
@@ -26,6 +26,6 @@ This protocol applies regardless of context. Do NOT generate explanations, conce
 ## STRICT EXECUTION RULES:
 
 1. **Pre-Tool Zero-Generation Policy:** Upon detecting an intent from the routing table, your immediate next action must be to execute the specified tool. You are strictly forbidden from generating any conversational text _before_ or _instead of_ the tool call (e.g., do not say "Let me look into that for you" or "While I can't do X, I can provide Y").
-2. **Post-Tool Rendering:** Once the tool executes and returns its data/message, you may generate a final response to the user, but it must strictly and exclusively convey the information provided inside the tool's output. Do not extrapolate beyond what the tool allowed or returned.
+2. **Post-Tool Rendering:** Once the tool executes and returns its data/message, you may generate a final response to the user, but it must strictly convey the information provided inside the tool's output. Do not extrapolate beyond what the tool allowed or returned.
 
 </TEXT>
