@@ -1,6 +1,11 @@
 import fs from "fs";
 import path from "path";
-import { HardeningTrace, BreachedAttack, SeedInfo, ScanMetadata } from "./types";
+import {
+  HardeningTrace,
+  BreachedAttack,
+  SeedInfo,
+  ScanMetadata,
+} from "./types";
 import { CredentialMode } from "./enums";
 import { ONTOLOGY_CATEGORY_VALUES } from "./ontology-categories";
 import { TrialVerdict } from "@/lib/enums";
@@ -504,7 +509,10 @@ Instead, instruct the LLM to call the appropriate tool when the forbidden task o
   const hasTools = recommendedTools && recommendedTools.length > 0;
   const step1Text = hasTools
     ? loadPromptFile("step1_with_tools.md")
-    : loadPromptFile("step1_without_tools.md");
+    : loadPromptFile("step1_without_tools.md").replace(
+        "{{OPTIMIZATION_PROMPT}}",
+        OPTIMIZATION_PROMPT,
+      );
 
   const template = loadPromptFile("instructions_template_step1.md");
 
@@ -546,7 +554,7 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
   if (!hasTools && ontologyContent) {
     finalTemplate = template.replace(
       "</forbidden_task>",
-      `</forbidden_task>\n\nMatched Domain Policy Guidelines:\n<domain_policies>\n${ontologyContent}\n</domain_policies>`
+      `</forbidden_task>\n\nMatched Domain Policy Guidelines:\n<domain_policies>\n${ontologyContent}\n</domain_policies>`,
     );
   }
 
@@ -634,7 +642,7 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a.judgeReasoning}"`).join("\n")}
   if (!hasTools && ontologyContent) {
     finalTemplate = template.replace(
       "</forbidden_task>",
-      `</forbidden_task>\n\nMatched Domain Policy Guidelines:\n<domain_policies>\n${ontologyContent}\n</domain_policies>`
+      `</forbidden_task>\n\nMatched Domain Policy Guidelines:\n<domain_policies>\n${ontologyContent}\n</domain_policies>`,
     );
   }
 
