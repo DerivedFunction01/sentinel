@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronsUpDown, Search, Loader2 } from "lucide-react";
+import { Check, ChevronsUpDown, Search, Loader2, Wrench } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -24,6 +24,7 @@ interface ModelOption {
   name: string;
   isRecommended: boolean;
   aiSuggest: boolean;
+  supportsTools: boolean;
 }
 
 interface ModelSelectorProps {
@@ -100,6 +101,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
       name: formatModelName(id),
       isRecommended: false,
       aiSuggest: false,
+      supportsTools: false,
     };
   });
 
@@ -218,7 +220,12 @@ function ModelItem({
       className="flex items-center justify-between gap-2 py-2"
     >
       <div className="flex min-w-0 flex-col">
-        <span className="text-sm text-foreground">{model.name}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm text-foreground truncate">{model.name}</span>
+          {model.supportsTools && (
+            <Wrench className="h-3 w-3 shrink-0 text-blue-400" />
+          )}
+        </div>
         {model.aiSuggest && (
           <span className="text-xs text-muted-foreground">AI Suggest</span>
         )}

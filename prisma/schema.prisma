@@ -135,6 +135,7 @@ model Model {
   isRecommended   Boolean  @default(false) // shown under "RECOMMENDED" header
   aiSuggest       Boolean  @default(false) // shows "AI Suggest" sub-label
   popularityRank  Int      @default(9999)
+  supportsTools   Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

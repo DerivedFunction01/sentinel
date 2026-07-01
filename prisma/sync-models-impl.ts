@@ -33,6 +33,7 @@ interface OpenRouterModel {
   context_length?: number | null;
   architecture?: { modality?: string | null } | null;
   pricing?: { prompt?: string | null; completion?: string | null } | null;
+  supported_parameters?: string[] | null;
 }
 
 /** Fetch all models from OpenRouter and upsert them into the DB. */
@@ -70,6 +71,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
 
     const aiSuggest = AI_SUGGEST_IDS.includes(m.id);
     const popularityRank = i + 1;
+    const supportsTools = m.supported_parameters?.includes("tools") ?? false;
 
     await db.model.upsert({
       where: { id: m.id },
@@ -84,6 +86,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
         isRecommended,
         aiSuggest,
         popularityRank,
+        supportsTools,
       },
       update: {
         name: m.name,
@@ -95,6 +98,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
         isRecommended,
         aiSuggest,
         popularityRank,
+        supportsTools,
       },
     });
     upserted++;
