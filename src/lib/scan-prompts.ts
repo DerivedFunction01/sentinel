@@ -499,6 +499,10 @@ ${toolTraceJson}
 ${isGenerative ?? false}
 </is_generative>
 
+<user_prompt>
+${attackPrompt}
+</user_prompt>
+
 <assistant_response>
 ${targetResponse}
 </assistant_response>
