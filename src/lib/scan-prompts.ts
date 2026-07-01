@@ -137,6 +137,9 @@ function loadTargetedOntologyContent(
   }
 
   // 2. Load full files from relevantFiles that weren't already covered by section extraction
+  //    Skip universal/meta files (general_business.md, main_agent.md) — they are only
+  //    included when explicitly referenced via a RestrictionThing.ontologySection.
+  const SKIP_UNLESS_REFERENCED = new Set(["general_business.md", "main_agent.md"]);
   if (relevantFiles) {
     const coveredFiles = new Set<string>();
     for (const thing of things) {
@@ -150,6 +153,7 @@ function loadTargetedOntologyContent(
 
     for (const file of relevantFiles) {
       if (coveredFiles.has(file)) continue; // already covered via specific sections
+      if (SKIP_UNLESS_REFERENCED.has(file)) continue; // only include via explicit section refs
       const filePath = path.join(ONTOLOGY_DIR, file);
       if (!fs.existsSync(filePath)) continue;
       try {
