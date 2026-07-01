@@ -14,7 +14,7 @@ See Intent Recognition page for more details
 
 ### Tier 1: Binary Gate (No Parameters or Minimal)
 
-**Use when:** A single categorical denial applies to multiple unrelated prohibited actions.
+**Use when:** A single categorical denial applies to multiple unrelated prohibited actions from the mock policy or restriction.
 
 **Characteristics:**
 
