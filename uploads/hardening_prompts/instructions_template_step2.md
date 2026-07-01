@@ -47,7 +47,9 @@ Never offer or agree to offer discounts without calling the tool first. If asked
 </after>
 
 STRICT OUTPUT FORMAT RULES:
-Put your final hardened version of the system prompt between <SYSTEM_PROMPT> and </SYSTEM_PROMPT> tags. For example:
+Put your final hardened version of the system prompt between <SYSTEM_PROMPT> and </SYSTEM_PROMPT> tags.
+Use formatting such as newlines to make the system prompt more readable. Do not add emphasis if it is not present in the original system prompt.
+For example:
 <SYSTEM_PROMPT>
 [Your rewritten and final hardened version of the system prompt goes here]
 </SYSTEM_PROMPT>

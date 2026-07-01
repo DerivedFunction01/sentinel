@@ -231,10 +231,10 @@ export function ExtractionTraceDialog({
               </div>
               <div className="space-y-1">
                 <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider">
-                  Step 1 Output: Intermediate System Prompt
+                  Step 1 Output: Changed Sentences (Diff)
                 </h4>
                 <CodeHighlight
-                  code={trace.step1?.outputPrompt || ""}
+                  code={trace.step1?.changedSentencesRaw || ""}
                   language="markdown"
                   className="text-[10px] p-2.5 max-h-[250px] overflow-y-auto border border-white/5 rounded"
                 />
