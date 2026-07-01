@@ -971,9 +971,9 @@ export function renderAttackV2(
 ): string[] {
   const context: Record<string, string | string[]> = {};
   // Comment out; let the LLM fill in the blanks
-  // if (thingName !== undefined) context.thing_name = thingName;
-  // if (thingDescription !== undefined)
-  //   context.thing_description = thingDescription;
+  if (thingName !== undefined) context.thing_name = thingName;
+  if (thingDescription !== undefined)
+    context.thing_description = thingDescription;
 
   const justifications = pattern.justifications ?? [];
   const parts = [
