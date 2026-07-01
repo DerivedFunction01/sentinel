@@ -968,12 +968,16 @@ export function renderAttackV2(
   pattern: FramingPattern,
   thingName?: string | string[],
   thingDescription?: string | string[],
+  options?: { fillInThing?: boolean },
 ): string[] {
   const context: Record<string, string | string[]> = {};
-  // Comment out; let the LLM fill in the blanks
-  if (thingName !== undefined) context.thing_name = thingName;
-  if (thingDescription !== undefined)
-    context.thing_description = thingDescription;
+
+  // if fillInThing is true, fill it
+  if (!options?.fillInThing) {
+    if (thingName !== undefined) context.thing_name = thingName;
+    if (thingDescription !== undefined)
+      context.thing_description = thingDescription;
+  }
 
   const justifications = pattern.justifications ?? [];
   const parts = [
