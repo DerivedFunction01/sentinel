@@ -266,6 +266,141 @@ export function deriveToolRequirements(
   };
 }
 
+/**
+ * Build the prompt for mock response generation.
+ * The LLM reads the mock_response_strategy document and determines the correct
+ * mock response based on the tool name, thing description, and forbidden task.
+ */
+function buildMockResponsePrompt(
+  thingName: string,
+  thingDescription: string,
+  forbiddenTask: string,
+  businessFeatures?: string[],
+): string {
+  const mockStrategyPath = path.join(
+    process.cwd(),
+    "uploads",
+    "tool_generation_pattern",
+    "pages",
+    "mock_response_strategy.md",
+  );
+  let mockStrategy = "";
+  try {
+    mockStrategy = fs.readFileSync(mockStrategyPath, "utf-8");
+  } catch {
+    mockStrategy = "No mock strategy document available.";
+  }
+
+  const featuresBlock = businessFeatures?.length
+    ? `\nBusiness Context (use these URLs and details in the mock response):\n${businessFeatures.slice(0, 5).join("\n")}`
+    : "";
+
+  return `You are a mock response designer for an AI security system.
+
+Your task: Given the tool's purpose and the policy restriction it enforces, produce a mock response following the strategy guidelines below.
+
+TOOL NAME: ${thingName}
+THING DESCRIPTION: ${thingDescription}
+POLICY RESTRICTION (forbidden task): ${forbiddenTask}${featuresBlock}
+
+=== MOCK RESPONSE STRATEGY DOCUMENT ===
+${mockStrategy}
+=== END DOCUMENT ===
+
+Output ONLY valid JSON with no preamble:
+{
+  "rationale": "One-sentence explanation of why you chose this response structure and status.",
+  "mockResponse": { ... }
+}
+
+The mockResponse must follow the strategy document: use the correct template (gate/action/inquiry), set appropriate status (denied/pending/ok), and include policy gating fields. Never reference tool arguments. Never include specific outcomes.
+`;
+}
+
+/**
+ * Use an LLM to determine the appropriate mock response for a direct-match tool.
+ * The LLM reads mock_response_strategy.md and the forbidden task context to produce
+ * a properly structured mock response with a reasoning sentence.
+ *
+ * @param thingName  The name of the tool/thing
+ * @param thingDescription  Description of what the thing/tool does
+ * @param forbiddenTask  The original restriction text (mockPolicy)
+ * @param extractorModel  The LLM model to use
+ * @param businessFeatures  Optional business context from seed extraction for realistic URLs
+ * @param tracker  Optional usage tracker
+ * @returns The mock response and a rationale sentence
+ */
+export async function selectMockResponseByPolicy(
+  thingName: string,
+  thingDescription: string,
+  forbiddenTask: string,
+  extractorModel: string,
+  businessFeatures?: string[],
+  tracker?: any,
+): Promise<{ mockResponse: Record<string, any>; rationale: string }> {
+  const prompt = buildMockResponsePrompt(thingName, thingDescription, forbiddenTask, businessFeatures);
+
+  try {
+    const response = await callOpenRouter(
+      extractorModel,
+      [{ role: "user", content: prompt }],
+      undefined,
+      tracker,
+    );
+
+    const cleaned = (response.content || "")
+      .replace(/^```[a-zA-Z]*\n/g, "")
+      .replace(/\n```$/g, "")
+      .trim();
+
+    const parsed = JSON.parse(cleaned);
+    const rationale: string = parsed.rationale || `Mock response adapted for restriction: ${forbiddenTask}`;
+    const mockResponse: Record<string, any> = parsed.mockResponse || {};
+
+    // Validate the mock response has at minimum a status field
+    if (!mockResponse.status) {
+      mockResponse.status = "denied";
+    }
+
+    return { mockResponse, rationale };
+  } catch (err) {
+    console.error(
+      "selectMockResponseByPolicy LLM call failed, using fallback:",
+      err,
+    );
+    // Fallback: deny with policy restriction
+    return {
+      mockResponse: {
+        status: "denied",
+        reason: "Policy Restriction",
+        message: `Service related to ${thingName || "the requested action"} is unavailable or restricted per current policy.`,
+        policy: {
+          allow_discussion: false,
+          describe_processing: false,
+          exceptions: false,
+          negotiation: false,
+          require_explicit_human_approval: true,
+          escalate_to_support: true,
+        },
+      },
+      rationale: `Fallback: Policy restriction enforced for ${thingName || "unknown tool"}.`,
+    };
+  }
+}
+
+/**
+ * Compare two tool definitions to determine if they are semantically identical
+ * (same name, same description, same parameters structure).
+ */
+function isToolIdentical(a: any, b: ToolDef): boolean {
+  if (!a || !b) return false;
+  const fnA = a.function || a;
+  const fnB = b.function || b;
+  if (fnA.name !== fnB.name) return false;
+  if (fnA.description !== fnB.description) return false;
+  return JSON.stringify(fnA.parameters) === JSON.stringify(fnB.parameters);
+}
+
 export function getToolExtractionInstructions(
   hardenedPrompt: string,
   granularity: Granularity,
@@ -732,13 +867,30 @@ export async function generateToolRecommendation(
         extractorModel.split("/").pop() ||
         extractorModel;
 
-      // Process each match: handle granularity conversion if needed
+      const businessFeatures = metadata.seedExtraction?.businessFeatures;
+
+      // Process each match: classify as old (skip), new (adapt mock), or edited (needs slow path)
       const tools: any[] = [];
       let totalScore = 0;
+      let needsRegeneration = false;
 
       for (const match of directMatches) {
         let toolJson = match.toolJson;
         let mockResponse = match.mockResponse;
+
+        // Check if this tool already exists (old/edited classification)
+        const existingTool = existingTools?.find(
+          (t) => t.function.name === match.name || t.function.name === match.overlap?.replaceExisting,
+        );
+        if (existingTool) {
+          // Compare schemas — identical tool, no changes needed → skip
+          if (isToolIdentical(toolJson, existingTool)) {
+            continue; // OLD: identical tool already configured → skip
+          }
+          // Schema differs but name matches → EDITED: needs LLM regeneration
+          needsRegeneration = true;
+          break;
+        }
 
         // If granularity doesn't match, run a lightweight conversion
         if (
@@ -755,6 +907,17 @@ export async function generateToolRecommendation(
           mockResponse = converted.mockResponse;
         }
 
+        // NEW tool: adapt mock response based on policy restriction
+        const { mockResponse: adaptedMock, rationale: mockRationale } = await selectMockResponseByPolicy(
+          match.name,
+          match.description || match.rationale || "",
+          forbiddenTask,
+          extractorModel,
+          businessFeatures,
+          tracker,
+        );
+        mockResponse = adaptedMock;
+
         const score = Math.round(
           ((match.requirementScore || 0) + (match.granularityScore || 0)) / 2,
         );
@@ -767,33 +930,48 @@ export async function generateToolRecommendation(
           rationale:
             match.rationale ||
             `Direct match from database: ${match.description}`,
+          mockRationale,
           toolJson,
           mockResponse,
           replaces: match.overlap?.replaceExisting,
         });
       }
 
-      const avgScore = Math.round(totalScore / tools.length);
+      // If any tool was edited (schema changed), fall through to slow path
+      if (needsRegeneration || tools.length === 0) {
+        // Either all were skipped (identical) or edited — fall through to slow path below
+        if (tools.length === 0 && !needsRegeneration) {
+          // All tools were old/identical — no new output needed
+          return {
+            toolRecommendation: null,
+            compatibilityScore: null,
+            slowPathHit: false,
+          };
+        }
+        // needsRegeneration → fall through to slow path below
+      } else {
+        const avgScore = Math.round(totalScore / tools.length);
 
-      const payload: any = {
-        tools,
-        compatibilityScore: avgScore,
-        extractorModel,
-        extractorModelName,
-      };
+        const payload: any = {
+          tools,
+          compatibilityScore: avgScore,
+          extractorModel,
+          extractorModelName,
+        };
 
-      if (trace) {
-        trace.toolExtraction = {
-          promptSent: `(fast path — ${directMatches.length} direct matches from inspiration examples)`,
-          rawOutput: JSON.stringify(payload, null, 2),
+        if (trace) {
+          trace.toolExtraction = {
+            promptSent: `(fast path — ${tools.length} new tools with policy-adapted mock responses)`,
+            rawOutput: JSON.stringify(payload, null, 2),
+          };
+        }
+
+        return {
+          toolRecommendation: JSON.stringify(payload),
+          compatibilityScore: avgScore,
+          slowPathHit: false, // direct-match fast path — no LLM extraction loop
         };
       }
-
-      return {
-        toolRecommendation: JSON.stringify(payload),
-        compatibilityScore: avgScore,
-        slowPathHit: false, // direct-match fast path — no LLM extraction loop
-      };
     }
 
     const summarizedPatterns = metadata?.attackSummary?.summarizedPatterns;
