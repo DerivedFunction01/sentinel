@@ -75,7 +75,7 @@ export function TrialCard({ trial }: TrialCardProps) {
               isBreached ? "text-red-400" : "text-emerald-400",
             )}
           >
-            {isBreached ? "BREACHED" : "DEFENDED"}
+            {isBreached ? TrialVerdict.Breached : TrialVerdict.Defended}
           </span>
           {expanded ? (
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
