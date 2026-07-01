@@ -156,30 +156,50 @@ export async function POST(req: Request) {
 
   // Phase 1: Pre-generate attack sets for each unique prompt
   // Attack generation uses the same attacker model + seedExtractor for all
+  // If seed extraction fails (returns zero things after retry), we refund
+  // tokens for that prompt and skip it.
   const attackSets: Record<
     number,
     Awaited<ReturnType<typeof generateAttackSet>>
   > = {};
+  const failedPromptIndices: number[] = [];
   const attackSetPromises = parsedPrompts.map(async (prompt, idx) => {
-    const attackSet = await generateAttackSet(
-      {
-        systemPrompt: prompt.systemPrompt,
-        forbiddenTask: prompt.forbiddenTask,
-        judgeInstructions: prompt.judgeInstructions,
-        tools: prompt.tools,
-        mockToolResponses: prompt.mockToolResponses,
-        attackerModel: attackGeneratorModel,
-        seedExtractorModel,
-        extractorModel,
-        cachedSeedInfo: prompt.cachedSeedInfo,
-      },
-      tracker,
-    );
-    attackSets[idx] = attackSet;
+    try {
+      const attackSet = await generateAttackSet(
+        {
+          systemPrompt: prompt.systemPrompt,
+          forbiddenTask: prompt.forbiddenTask,
+          judgeInstructions: prompt.judgeInstructions,
+          tools: prompt.tools,
+          mockToolResponses: prompt.mockToolResponses,
+          attackerModel: attackGeneratorModel,
+          seedExtractorModel,
+          extractorModel,
+          cachedSeedInfo: prompt.cachedSeedInfo,
+        },
+        tracker,
+      );
+      attackSets[idx] = attackSet;
+    } catch (err: any) {
+      if (err.message?.startsWith("SeedExtractionFailed")) {
+        console.warn(
+          `[launch] Seed extraction failed for prompt ${idx} — refunding ${targetModels.length} token(s) and skipping.`,
+        );
+        failedPromptIndices.push(idx);
+        // Refund tokens for this prompt (one per target model)
+        await db.user.update({
+          where: { id: user.id },
+          data: { scanTokens: { increment: targetModels.length } },
+        });
+      } else {
+        throw err; // rethrow unexpected errors
+      }
+    }
   });
   await Promise.all(attackSetPromises);
 
   // Phase 2: Create scan records and launch background pipelines
+  // Skip prompts whose seed extraction failed
   const scanInfos: Array<{
     reportId: string;
     targetModel: string;
@@ -188,6 +208,11 @@ export async function POST(req: Request) {
 
   for (const targetModel of targetModels) {
     for (let promptIdx = 0; promptIdx < parsedPrompts.length; promptIdx++) {
+      // Skip prompts that failed seed extraction
+      if (failedPromptIndices.includes(promptIdx)) {
+        continue;
+      }
+
       const prompt = parsedPrompts[promptIdx];
       const reportId = generateReportId();
       scanInfos.push({ reportId, targetModel, promptIndex: promptIdx });
@@ -263,5 +288,6 @@ export async function POST(req: Request) {
     scans: scanInfos,
     tokensRemaining: user.scanTokens - totalScans,
     totalScans,
+    failedPrompts: failedPromptIndices.length > 0 ? failedPromptIndices : undefined,
   });
 }

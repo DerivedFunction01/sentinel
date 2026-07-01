@@ -130,16 +130,38 @@ export async function POST(
     } catch {}
 
     // 7. Generate the attack set
-    const attackSet = await generateAttackSet({
-      systemPrompt,
-      forbiddenTask,
-      judgeInstructions,
-      tools,
-      mockToolResponses,
-      attackerModel,
-      seedExtractorModel,
-      extractorModel,
-    });
+    // If seed extraction fails (returns zero things after retry), refund the token and abort.
+    let attackSet;
+    try {
+      attackSet = await generateAttackSet({
+        systemPrompt,
+        forbiddenTask,
+        judgeInstructions,
+        tools,
+        mockToolResponses,
+        attackerModel,
+        seedExtractorModel,
+        extractorModel,
+      });
+    } catch (err: any) {
+      if (err.message?.startsWith("SeedExtractionFailed")) {
+        // Refund the scan token
+        await db.user.update({
+          where: { id: user.id },
+          data: { scanTokens: { increment: 1 } },
+        });
+        console.warn(
+          `[deploy-trigger] Seed extraction failed for deployment ${id} — refunded 1 token.`,
+        );
+        return NextResponse.json(
+          {
+            error: "Seed extraction failed: unable to extract restrictions from the system prompt. Token has been refunded.",
+          },
+          { status: 422 },
+        );
+      }
+      throw err; // rethrow unexpected errors
+    }
 
     const reportId = generateReportId();
 

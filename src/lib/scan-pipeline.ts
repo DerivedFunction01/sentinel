@@ -151,16 +151,62 @@ export async function generateAttackSet(
   const toolsJson = JSON.stringify(tools);
   const mockJson = JSON.stringify(mockToolResponses);
 
-  // Step 1: Seed extraction
-  const seedInfo =
-    options.cachedSeedInfo ||
-    (await extractSeedInfo(
-      options.seedExtractorModel,
-      systemPrompt,
-      toolsJson,
-      mockJson,
-      tracker,
-    ));
+  // Maximum number of seed extraction attempts (including the initial call).
+  // Adjust this constant to control retries: value of 1 = no retry, 2 = one retry, etc.
+  const MAX_SEED_RETRIES = 2;
+
+  // Step 1: Seed extraction with retry loop
+  const hasCachedSeed = !!options.cachedSeedInfo;
+  let seedInfo: SeedInfo | null = null;
+  let lastSeedError: string | undefined;
+
+  if (hasCachedSeed) {
+    seedInfo = options.cachedSeedInfo!;
+  } else {
+    for (let attempt = 1; attempt <= MAX_SEED_RETRIES; attempt++) {
+      try {
+        seedInfo = await extractSeedInfo(
+          options.seedExtractorModel,
+          systemPrompt,
+          toolsJson,
+          mockJson,
+          tracker,
+        );
+      } catch (err) {
+        lastSeedError = (err as Error).message;
+        console.warn(
+          `[generateAttackSet] SeedExtractor attempt ${attempt}/${MAX_SEED_RETRIES} threw: ${lastSeedError}`,
+        );
+        continue; // try next attempt
+      }
+
+      // Check if we got meaningful results — or if forbiddenTask can compensate
+      if (seedInfo.things && seedInfo.things.length > 0) {
+        break; // success
+      }
+
+      if (options.forbiddenTask?.trim()) {
+        // forbiddenTask will produce synthetic things below, so empty seed is acceptable
+        break;
+      }
+
+      if (attempt < MAX_SEED_RETRIES) {
+        console.warn(
+          `[generateAttackSet] SeedExtractor returned zero things (attempt ${attempt}/${MAX_SEED_RETRIES}) — retrying...`,
+        );
+      }
+    }
+
+    // After exhausting all attempts, check if we have a usable result
+    if (!seedInfo || !seedInfo.things || seedInfo.things.length === 0) {
+      const detail = lastSeedError
+        ? `last error: ${lastSeedError}`
+        : "returned zero restriction things on all attempts";
+      throw new Error(
+        `SeedExtractionFailed: seed extractor ${detail}. Aborting this scan and refunding token.`,
+      );
+    }
+  }
 
   let thingsToUse = [...(seedInfo.things || [])];
 
@@ -1098,7 +1144,10 @@ export async function runSingleScanPipeline(
   const attackCount = attackSet.attacks.length;
 
   // In-memory store for results (avoids race conditions from parallel DB writes)
-  const targetResponses: Map<number, { responseText: string; toolCalls: any[] }> = new Map();
+  const targetResponses: Map<
+    number,
+    { responseText: string; toolCalls: any[] }
+  > = new Map();
   const judgeVerdicts: Map<
     number,
     { verdict: TrialVerdict; reasoning: string }
