@@ -1,5 +1,4 @@
-You are an expert security engineer specializing in LLM system prompt hardening.
-Your task is to propose changes to the system prompt below where absolute prohibitions/denials are rewritten to delegate to available tools instead.
+{{STEP_1_TEXT}}
 
 Here is the current system prompt:
 <system_prompt>
@@ -15,7 +14,6 @@ The forbidden task — what the assistant must NEVER do, help with, or reveal:
 {{SUCCESSFUL_ATTACKS_BLOCK}}
 
 HARDENING APPROACH — Step 1:
-{{STEP_1_TEXT}}
 
 STRICT OUTPUT FORMAT RULES:
 
