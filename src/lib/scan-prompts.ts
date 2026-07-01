@@ -266,6 +266,9 @@ Before drafting the output, perform a mandatory double-check:
 # OUTPUT FORMAT
 Your entire response must strictly follow this template. Do not add any extra text or conversational formatting:
 
+[REASONING]
+the reasoning of your output, in less than three sentences.
+
 [OUTPUT]
 your final output in first person here
 
