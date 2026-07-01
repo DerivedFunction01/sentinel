@@ -21,7 +21,8 @@ import {
   UsageTracker,
 } from "@/lib/model-utils";
 import {
-  ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2,
+  ATTACK_GENERATOR_SYSTEM_PREFIX,
+  buildAttackGeneratorUserContent,
   JUDGE_EVALUATION_FIXED_PREFIX,
   buildJudgeEvaluationSuffix,
   loadPromptFile,
@@ -72,9 +73,10 @@ export async function generateCohesiveAttack(
     : draftParts;
 
   const messages = [
+    { role: "system", content: ATTACK_GENERATOR_SYSTEM_PREFIX },
     {
       role: "user",
-      content: ATTACK_GENERATOR_SYSTEM_TEMPLATE_V2(
+      content: buildAttackGeneratorUserContent(
         seedInfo,
         pattern,
         credentialMode,
