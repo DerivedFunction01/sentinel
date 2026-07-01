@@ -511,7 +511,7 @@ export function buildJudgeEvaluationSuffix(
         if (turn.toolCalls && turn.toolCalls.length > 0) {
           conversationBlock += `[Assistant]: (Initiating Tool Calls)\n`;
           for (const tc of turn.toolCalls) {
-            conversationBlock += `  - Call Tool "${tc.name}" with arguments: ${JSON.stringify(tc.arguments)}\n`;
+            conversationBlock += `  (Calls Tool "${tc.name}" with arguments: ${JSON.stringify(tc.arguments)})\n`;
           }
         }
         if (turn.content) {
