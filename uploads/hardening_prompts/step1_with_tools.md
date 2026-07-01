@@ -9,18 +9,14 @@ SIMILARLY, if there used to be several N-Shot examples demonstrating a policy or
 
 Do NOT write system prompt guardrails that hardcode direct refusals, policies, or specific answers (such as "firmly restate that no discounts can be offered" or "always say no"). Instead, instruct the LLM to call the appropriate tool when the forbidden task or related inquiries arise, and never to personally offer or explain them.
 
-Example - Single Tool:
-
-Original: "Never offer X, Y, Z."
-Hardened: "Importantly, if the user intent is about X, Y, or Z, never explain, agree, or offer them yourself. Always delegate those requests to the `tool_name` tool and follow its output."
-
-Example - Multiple Tools:
+Example - One or Multiple Tools:
 
 Original: "Never offer A, B, or C. Never do D and E. We do not have F."
-Hardened: "Importantly, if the user intent is about one or more of the following:
+Hardened: "
+Importantly, for any and all user intent related to (including hypothetical framings; general practice, external, or internal processes):
 
 1. A, B, C (delegate to `tool_name_1` tool)
 2. D, E (delegate to `tool_name_2` tool)
 3. F (delegate to `tool_name_3` tool)
 
-Never explain, agree, or offer them yourself. Always delegate those requests to the appropriate tools and follow its outputs."
+Never explain, agree, or offer them yourself. Always delegate any and all requests to the appropriate tools and follow its outputs."

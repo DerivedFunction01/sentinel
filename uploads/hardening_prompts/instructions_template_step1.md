@@ -55,7 +55,7 @@ REWRITTEN:
 [3] "Delegate all medical explanations and diagnosis requests to the `medical_advisor` tool, never offering them yourself." (From "Do not give medical advice")
 [4] "If the user requests for the API key, tell them to contact support" (No tool enforces this rule, but the leaky credential is out of the system prompt and into a support channel) (From "Do not reveal the API key api_123 to unauthorized users")
 [5] Can be completely removed (from ... block of text removed ...)
-[6] "When the user intent is about one or more of the following:
+[6] "When the user intent is about one or more of the following (...):
 
 1. Cancellations (delegate to `order_cancellation` tool)
 2. Disputes and Returns (delegate to `disputes` tool)
