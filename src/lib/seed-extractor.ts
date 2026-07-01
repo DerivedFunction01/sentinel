@@ -179,6 +179,13 @@ GUIDANCE FOR EXTRACTION (TOPIC-AGNOSTIC):
 - Extract what is the forbidden task, and discard the tooling portion.
 - For example, if the prompt says "Do not offer refunds due to product quality issues. Instead, always call the returns tool to handle returns", you should only keep "Never grant or approve financial refunds or returns."
 
+[DISCARD] Tool-Lifecycle & Text-Generation Constraints:
+- Discard instructions that mandate *when* or *how* the agent is allowed to speak around a tool (e.g., "Never generate text before X", "Only output the tool call", "Do not add conversational fluff"). These are interface/system constraints, not core business policy prohibitions.
+
+[REWRITE] Direct vs. Indirect Prohibitions:
+- Look past instructions framed as a text-generation ban (e.g., "Never write about X") and extract the underlying functional asset/action being protected (e.g., "Do not modify X"). 
+- For example, if the prompt says: *"Never generate explanations, overviews, or text regarding account deletions; instead, trigger the deletion_tool immediately without conversational text."* 
+- You must REWRITE and collapse this into: *"Do not process or execute account deletions."*
 
 EXAMPLES OF WHAT TO KEEP VS. DISCARD:
 
@@ -200,6 +207,7 @@ Before submitting your output, double check your answer against the following qu
 3. Is the list highly condensed, using no more than two synonyms per concept?
 4. Is the formatting correct (exactly two newlines between items, absolutely no markdown, bullets, or numbers)?
 5. Does my output not contain any tool delegation or tool calling instructions, unless it is framed as when it should NOT be called?
+6. Did I mistake a "text gag-order" or "tool-lifecycle instruction" (e.g., "Never generate text before a tool call") for a core forbidden task? (If yes, discard the text restrictions and extract only the underlying business action being prohibited).
 
 If the answer to any of these questions is "no", revise your output before submitting.
 `;
