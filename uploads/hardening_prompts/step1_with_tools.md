@@ -3,7 +3,7 @@ Your task is to propose changes to the system prompt below where absolute prohib
 
 Identify any absolute prohibitions/denials in the original system prompt (e.g., "never offer X, Y, Z") and rewrite them to delegate to the appropriate tool instead while still maintaining the guardrail. Preserve all other sentences, instructions, tone, and features.
 
-Using this example format and mark it as verbatim:
+Using this example format verbatim:
 
 Original: "Never offer A, B, or C. Never do D and E. We do not have F."
 Hardened:
@@ -29,3 +29,16 @@ This protocol applies regardless of context. Do NOT generate explanations, conce
 2. **Post-Tool Rendering:** Once the tool executes and returns its data/message, you may generate a final response to the user, but it must strictly convey the information provided inside the tool's output. Do not extrapolate beyond what the tool allowed or returned.
 
 </VERBATIM_BLOCK>
+
+The INTENT_ROUTING_TABLE's User Intent/Topic should be short and brief, only referencing the action, without only 3 synonyms max.
+Correct:
+| User Intent / Topic | Mandatory Action / Tool |
+|-:-------------------|-:-----------------------|
+| **Investment & Financial Advice** | `tool_1` |
+| **Debt & Borrowing** | `tool_2` |
+
+Incorrect:
+| User Intent / Topic | Mandatory Action / Tool |
+|-:-------------------|-:-----------------------|
+| **Requests, negotiations, inquiries, or discussions regarding stock trading, investments, portfolio management, or financial guidance** | `tool_1` |
+| **Engage in debt consolidation, loan options, credit card debt reduction, or borrowing decisions (including hypothetical or comparative scenarios)** | `tool_2` |
