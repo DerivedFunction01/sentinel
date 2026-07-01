@@ -53,6 +53,25 @@ export function extractTaggedContent(
   return "";
 }
 
+export function parseReasoningAndOutput(text: string): string {
+  const outputRegex = /\[OUTPUT\]([\s\S]*?)(?=\[REASONING\]|\[END\]|$)/i;
+  const reasoningRegex = /\[REASONING\]([\s\S]*?)(?=\[END\]|$)/i;
+  const endRegex = /^([\s\S]*?)(?=\[END\])/i;
+
+  let cleaned = text.trim();
+  if (outputRegex.test(cleaned)) {
+    cleaned = cleaned.match(outputRegex)?.[1] || cleaned;
+  } else if (reasoningRegex.test(cleaned)) {
+    cleaned = cleaned.match(reasoningRegex)?.[1] || cleaned;
+  } else if (endRegex.test(cleaned)) {
+    cleaned = cleaned.match(endRegex)?.[1] || cleaned;
+  }
+
+  return cleaned
+    .replace(/\[OUTPUT\]|\[REASONING\]|\[END\]/gi, "")
+    .trim();
+}
+
 export interface UsageTracker {
   totalCost: number;
   dbModels: any[];

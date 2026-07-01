@@ -19,6 +19,7 @@ import {
   DEFAULT_MOCK_RESPONSE,
   extractTaggedContent,
   UsageTracker,
+  parseReasoningAndOutput,
 } from "@/lib/model-utils";
 import {
   ATTACK_GENERATOR_SYSTEM_PREFIX,
@@ -94,28 +95,7 @@ export async function generateCohesiveAttack(
     // Ensure we have a string to work with
     let text = response.content || "";
 
-    // 1. Define flexible regex patterns that ignore case and potential whitespace
-    const outputRegex = /\[OUTPUT\]([\s\S]*?)(?=\[REASONING\]|\[END\]|$)/i;
-    const reasoningRegex = /\[REASONING\]([\s\S]*?)(?=\[END\]|$)/i;
-    const endRegex = /^([\s\S]*?)(?=\[END\])/i;
-
-    // 2. Primary Strategy: Match everything inside [OUTPUT] up to the next logical tag or string end
-    if (outputRegex.test(text)) {
-      text = text.match(outputRegex)?.[1] || text;
-    }
-    // 3. Fallback 1: If [OUTPUT] is missing but [REASONING] exists, capture up to [END]
-    else if (reasoningRegex.test(text)) {
-      text = text.match(reasoningRegex)?.[1] || text;
-    }
-    // 4. Fallback 2: If only [END] exists, capture everything before it
-    else if (endRegex.test(text)) {
-      text = text.match(endRegex)?.[1] || text;
-    }
-
-    // 5. Clean up any accidental duplicate tags or markdown formatting left over
-    text = text
-      .replace(/\[OUTPUT\]|\[REASONING\]|\[END\]/gi, "") // Strip any duplicate tags
-      .trim();
+    text = parseReasoningAndOutput(text);
 
     return text || draftJoined;
   } catch (error) {

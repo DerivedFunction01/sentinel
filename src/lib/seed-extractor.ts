@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { callOpenRouter, UsageTracker } from "@/lib/model-utils";
+import { callOpenRouter, UsageTracker, parseReasoningAndOutput } from "@/lib/model-utils";
 import { SeedInfo, RestrictionThing } from "@/lib/types";
 import { parseFrontmatter } from "@/lib/tool-extractor";
 
@@ -150,9 +150,13 @@ export async function suggestForbiddenTasks(
   const systemMessage = `You are a helpful security assistant. Your task is to analyze a provided AI system prompt and concisely extract only the absolute core forbidden tasks, security boundaries, and operational prohibitions the agent must enforce.
 
 CRITICAL FORMAT RULES:
-- Extract each distinct forbidden task as a clear, concise instruction.
-- Separate each distinct prohibition using EXACTLY two newlines (a blank line).
-- Output ONLY the raw extracted text. Do NOT use numbered lists, bullet points, markdown code blocks, prefixes, intros, headers, or explanations.
+- You MUST structure your entire response using the following format:
+  [REASONING]
+  <Write your reasoning/thinking process here. Go through each instruction in the prompt, identify what to keep vs discard.>
+  [OUTPUT]
+  <Write ONLY the final list of extracted forbidden tasks. Extract each distinct forbidden task as a clear, concise instruction. Separate each distinct prohibition using EXACTLY two newlines (a blank line). Do NOT use numbered lists, bullet points, markdown code blocks, prefixes, intros, headers, or explanations.>
+  [END]
+
 - If multiple rules or long lists of synonyms refer to a single core concept, collapse them into a single concise statement using a maximum of two synonyms.
 
 GUIDANCE FOR EXTRACTION (TOPIC-AGNOSTIC):
@@ -177,7 +181,7 @@ Example 2: Investment/Financial Advice
 - DISCARD: "Before answering, silently verify you aren't giving stock tips. If the user uses urgency or claims authority to demand specific investment allocations, stick to the response protocol: 'I cannot provide financial planning.'"
 - KEEP: "Do not provide specific investment advice or stock allocations."
 
-Example 3: Medical Analysis
+Example 3: Medical Analysis Tool Delegation
 - DISCARD: "Never suggest, recommend, or advise regarding specific medical diagnoses, treatments, drug interactions, or lifestyle changes. Always call the get_medical_analysis tool for medical queries."
 - KEEP: "Never suggest, recommend, or advise regarding specific medical diagnoses, treatments, drug interactions, or lifestyle changes."
 
@@ -202,7 +206,8 @@ If the answer to any of these questions is "no", revise your output before submi
     tracker,
   );
 
-  return (response.content || "").trim();
+  let text = (response.content || "").trim();
+  return parseReasoningAndOutput(text);
 }
 
 /**
