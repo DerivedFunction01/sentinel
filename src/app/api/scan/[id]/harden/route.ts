@@ -32,13 +32,13 @@ export async function GET(
     const modelId = searchParams.get("modelId");
 
     if (modelId) {
-      const existing = await db.hardenedPrompt.findUnique({
+      // Find the most recent hardened prompt for this model
+      const existing = await db.hardenedPrompt.findFirst({
         where: {
-          scanId_modelId: {
-            scanId: scanRow.id,
-            modelId,
-          },
+          scanId: scanRow.id,
+          modelId,
         },
+        orderBy: { createdAt: "desc" },
       });
       if (existing) {
         let recObj: any = null;
@@ -48,6 +48,7 @@ export async function GET(
           } catch {}
         }
         return NextResponse.json({
+          id: existing.id,
           originalPrompt: scanRow.systemPrompt,
           hardenedPrompt: existing.prompt,
           modelId: existing.modelId,
@@ -148,16 +149,6 @@ export async function POST(
     });
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Check if this model's hardened prompt record already exists
-    const existing = await db.hardenedPrompt.findUnique({
-      where: {
-        scanId_modelId: {
-          scanId: scanRow.id,
-          modelId,
-        },
-      },
-    });
-
     const dbModel = await db.model.findUnique({ where: { id: modelId } });
     const modelName = dbModel?.name || modelId.split("/").pop() || modelId;
 
@@ -223,32 +214,19 @@ export async function POST(
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    let saved;
-    if (existing) {
-      saved = await db.hardenedPrompt.update({
-        where: { id: existing.id },
-        data: {
-          prompt: promptTextToExtract,
-          toolRecommendation,
-          compatibilityScore,
-          granularity,
-          extractorModel,
-        },
-      });
-    } else {
-      saved = await db.hardenedPrompt.create({
-        data: {
-          scanId: scanRow.id,
-          modelId,
-          modelName,
-          prompt: promptTextToExtract,
-          toolRecommendation,
-          compatibilityScore,
-          granularity,
-          extractorModel,
-        },
-      });
-    }
+    // Always create a new record (no unique constraint on scanId+modelId anymore)
+    const saved = await db.hardenedPrompt.create({
+      data: {
+        scanId: scanRow.id,
+        modelId,
+        modelName,
+        prompt: promptTextToExtract,
+        toolRecommendation,
+        compatibilityScore,
+        granularity,
+        extractorModel,
+      },
+    });
 
     let recObj: any = null;
     if (saved.toolRecommendation) {
@@ -264,6 +242,7 @@ export async function POST(
     });
 
     return NextResponse.json({
+      id: saved.id,
       originalPrompt: scanRow.systemPrompt,
       hardenedPrompt: saved.prompt,
       modelId: saved.modelId,

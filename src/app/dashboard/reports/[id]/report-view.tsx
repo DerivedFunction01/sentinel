@@ -61,16 +61,12 @@ export function ReportView({ scan }: ReportViewProps) {
   const [filter, setFilter] = useState<TrialFilter>(TrialFilter.All);
   const [toolManagerOpen, setToolManagerOpen] = useState(false);
 
-  const [selectedHardenedModel, setSelectedHardenedModel] = useState<string>(
-    () => {
-      const active = scan.hardenedPrompts.find(
-        (hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL),
-      );
-      return (
-        active?.modelId || scan.hardenedPrompts[0]?.modelId || DEFAULT_MODEL
-      );
-    },
-  );
+  const [selectedHardenedId, setSelectedHardenedId] = useState<string>(() => {
+    const active = scan.hardenedPrompts.find(
+      (hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL),
+    );
+    return active?.id || scan.hardenedPrompts[0]?.id || "";
+  });
 
   const [currentHardenedPrompt, setCurrentHardenedPrompt] = useState<any>(
     () => {
@@ -128,9 +124,9 @@ export function ReportView({ scan }: ReportViewProps) {
     }
   };
 
-  const handleModelChange = (modelId: string) => {
-    setSelectedHardenedModel(modelId);
-    const cached = historyModels.find((hm) => hm.modelId === modelId);
+  const handleModelChange = (id: string) => {
+    setSelectedHardenedId(id);
+    const cached = historyModels.find((hm) => hm.id === id);
     setCurrentHardenedPrompt(cached || null);
     setTrace(null);
     setActiveToolIdx(0);
@@ -180,6 +176,7 @@ export function ReportView({ scan }: ReportViewProps) {
         }
       }
       const newPrompt = {
+        id: data.id,
         modelId: data.modelId,
         modelName: data.modelName,
         prompt: data.hardenedPrompt,
@@ -190,24 +187,15 @@ export function ReportView({ scan }: ReportViewProps) {
       };
 
       setCurrentHardenedPrompt(newPrompt);
-      setSelectedHardenedModel(newPrompt.modelId);
+      setSelectedHardenedId(newPrompt.id);
       setActiveToolIdx(0);
       if (data.trace) {
         setTrace(data.trace);
         setTraceOpen(true);
       }
 
-      // Update historyModels
-      setHistoryModels((prev) => {
-        const exists = prev.some((hp) => hp.modelId === data.modelId);
-        if (exists) {
-          return prev.map((hp) =>
-            hp.modelId === data.modelId ? newPrompt : hp,
-          );
-        } else {
-          return [...prev, newPrompt];
-        }
-      });
+      // Update historyModels — always append since each hardening creates a new record
+      setHistoryModels((prev) => [...prev, newPrompt]);
 
       toast.success("Tool recommendation generated!", { id: toastId });
     } catch (e) {
@@ -431,7 +419,7 @@ export function ReportView({ scan }: ReportViewProps) {
 
         {/* ── 02 Hardened Prompt & Tool Recommendations ── */}
         {hardenedPrompt(
-          selectedHardenedModel,
+          selectedHardenedId,
           handleModelChange,
           currentHardenedPrompt,
           setPickerOpen,
@@ -604,8 +592,8 @@ function trialBreakdown(
 }
 
 function hardenedPrompt(
-  selectedHardenedModel: string,
-  handleModelChange: (modelId: string) => void,
+  selectedHardenedId: string,
+  handleModelChange: (id: string) => void,
   currentHardenedPrompt: any,
   setPickerOpen,
   extracting: boolean,
@@ -628,13 +616,30 @@ function hardenedPrompt(
   converting: boolean,
   handleConvertTokens: (n: number) => Promise<void>,
 ) {
+  // Build version map: modelId -> count of entries with that modelId
+  const modelVersionCounts = new Map<string, number>();
+  for (const hm of historyModels) {
+    const key = hm.modelId;
+    modelVersionCounts.set(key, (modelVersionCounts.get(key) || 0) + 1);
+  }
+
+  // Track current version index per modelId as we iterate
+  const modelVersionIndex = new Map<string, number>();
+
   const formatDropdownName = (hp: any) => {
     const hardener = hp.modelName || formatModelName(hp.modelId);
-    if (!hp.extractorModel || !hp.toolRecommendation) {
-      return `${hardener} (No Tools)`;
-    }
-    const extractor = formatModelName(hp.extractorModel);
-    return `${hardener} + ${extractor}`;
+    const base =
+      !hp.extractorModel || !hp.toolRecommendation
+        ? `${hardener} (No Tools)`
+        : `${hardener} + ${formatModelName(hp.extractorModel)}`;
+
+    const key = hp.modelId;
+    const total = modelVersionCounts.get(key) || 1;
+    if (total <= 1) return base; // no version suffix needed
+
+    const idx = (modelVersionIndex.get(key) || 0) + 1;
+    modelVersionIndex.set(key, idx);
+    return `${base} (v${idx})`;
   };
 
   return (
@@ -660,12 +665,12 @@ function hardenedPrompt(
               {historyModels.length > 0 ? (
                 <div className="relative">
                   <select
-                    value={selectedHardenedModel}
+                    value={selectedHardenedId}
                     onChange={(e) => handleModelChange(e.target.value)}
                     className="h-8 bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-md pl-2.5 pr-8 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none cursor-pointer"
                   >
                     {historyModels.map((hm) => (
-                      <option key={hm.modelId} value={hm.modelId}>
+                      <option key={hm.id} value={hm.id}>
                         {formatDropdownName(hm)}
                       </option>
                     ))}
@@ -970,7 +975,7 @@ function hardenedPrompt(
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         onConfirm={handleExtractTools}
-        defaultHardenerModel={selectedHardenedModel}
+        defaultHardenerModel={selectedHardenedId}
         defaultGranularity={
           (currentHardenedPrompt?.granularity as any) || Granularity.Compact
         }

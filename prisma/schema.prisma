@@ -94,7 +94,6 @@ model HardenedPrompt {
   extractorModel     String?  // OpenRouter model id used for tool extraction
   createdAt          DateTime @default(now())
 
-  @@unique([scanId, modelId])
   @@index([scanId])
 }
 
