@@ -70,6 +70,7 @@ model Scan {
   currentStep       Int      @default(0) // Current progress step
   totalSteps        Int      @default(0) // Total steps for progress calculation
   progressMeta      String?  // JSON: granular per-attack/target/judge progress with retry state
+  allowNoToolsFallback Boolean @default(false)
   createdAt         DateTime @default(now())
   metadata          String?  // JSON: ScanMetadata - stores seed extraction results, attack summaries, etc.
 
@@ -136,6 +137,7 @@ model Model {
   aiSuggest       Boolean  @default(false) // shows "AI Suggest" sub-label
   popularityRank  Int      @default(9999)
   supportsTools   Boolean  @default(false)
+  isLowCost       Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -154,6 +156,7 @@ model Deployment {
   judgeInstructions String
   tools             String   // JSON tool definitions
   mockToolResponses String   // JSON mock response map
+  allowNoToolsFallback Boolean  @default(false)
   status            String   @default("ACTIVE") // ACTIVE | PAUSED
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)

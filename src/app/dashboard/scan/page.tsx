@@ -63,6 +63,7 @@ interface PromptConfig {
   tools: string;
   mockResponses: string;
   judgeInstructions: string;
+  allowNoToolsFallback: boolean;
   cachedSeedInfo?: SeedInfo;
 }
 
@@ -73,6 +74,7 @@ function makeEmptyPrompt(): PromptConfig {
     tools: "",
     mockResponses: "",
     judgeInstructions: "",
+    allowNoToolsFallback: false,
     cachedSeedInfo: undefined,
   };
 }
@@ -368,6 +370,7 @@ export default function PenTestScanPage() {
           tools: p.tools ?? "[]",
           mockResponses: p.mockResponses ?? "{}",
           judgeInstructions: p.judgeInstructions ?? "",
+          allowNoToolsFallback: p.allowNoToolsFallback ?? false,
         })),
       );
       toast.success("Configuration imported", {

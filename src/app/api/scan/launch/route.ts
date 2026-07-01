@@ -24,6 +24,7 @@ interface PromptPayload {
   judgeInstructions: string;
   tools: string;
   mockResponses: string;
+  allowNoToolsFallback?: boolean;
   cachedSeedInfo?: SeedInfo;
 }
 
@@ -69,6 +70,7 @@ export async function POST(req: Request) {
           judgeInstructions: (body.judgeInstructions as string) || "",
           tools: (body.tools as string) || "",
           mockResponses: (body.mockResponses as string) || "",
+          allowNoToolsFallback: !!body.allowNoToolsFallback,
           cachedSeedInfo: body.cachedSeedInfo as any,
         },
       ];
@@ -132,6 +134,7 @@ export async function POST(req: Request) {
       judgeInstructions: p.judgeInstructions,
       tools,
       mockToolResponses,
+      allowNoToolsFallback: !!p.allowNoToolsFallback,
       cachedSeedInfo: p.cachedSeedInfo,
     };
   });
@@ -208,6 +211,7 @@ export async function POST(req: Request) {
           judgeInstructions: prompt.judgeInstructions,
           tools: toolsJson,
           mockToolResponses: mockJson,
+          allowNoToolsFallback: prompt.allowNoToolsFallback,
           trials: "[]",
           score: 0,
           riskLevel: RiskLevel.Unknown,
@@ -240,6 +244,7 @@ export async function POST(req: Request) {
         granularity: Granularity.Compact,
         includeToolRecommendation: true,
         enableHardening: body.enableHardening !== false,
+        allowNoToolsFallback: prompt.allowNoToolsFallback,
       };
 
       runSingleScanPipeline(

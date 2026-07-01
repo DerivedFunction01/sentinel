@@ -23,6 +23,8 @@ import {
   type ToolValidationResult,
 } from "@/lib/scan-validation";
 import { SeedInfo } from "@/lib/types";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 export interface PromptFormSectionValues {
   systemPrompt: string;
@@ -30,6 +32,7 @@ export interface PromptFormSectionValues {
   judgeInstructions: string;
   tools: string;
   mockResponses: string;
+  allowNoToolsFallback: boolean;
   cachedSeedInfo?: SeedInfo;
 }
 
@@ -316,6 +319,23 @@ export const PromptFormSection = memo(function PromptFormSection({
               placeholder='[{"type":"function","function":{"name":"..."}}]'
               className="font-mono text-xs min-h-40 max-h-80 overflow-y-auto"
             />
+            {values.tools.trim() && values.tools !== "[]" && (
+              <div className="flex items-center gap-2 mt-2">
+                <Checkbox
+                  id="allowNoToolsFallback"
+                  checked={values.allowNoToolsFallback}
+                  onCheckedChange={(checked) =>
+                    onChange("allowNoToolsFallback", !!checked)
+                  }
+                />
+                <Label
+                  htmlFor="allowNoToolsFallback"
+                  className="text-xs text-muted-foreground cursor-pointer select-none"
+                >
+                  Allow running without tools on unsupported models
+                </Label>
+              </div>
+            )}
           </div>
 
           {/* Validation banner */}

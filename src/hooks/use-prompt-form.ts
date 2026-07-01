@@ -16,6 +16,7 @@ export interface PromptFormValues {
   judgeInstructions: string;
   tools: string;
   mockResponses: string;
+  allowNoToolsFallback: boolean;
   cachedSeedInfo?: SeedInfo;
 }
 
@@ -49,6 +50,7 @@ function makeEmpty(): PromptFormValues {
     judgeInstructions: "",
     tools: "",
     mockResponses: "",
+    allowNoToolsFallback: false,
     cachedSeedInfo: undefined,
   };
 }
@@ -65,6 +67,7 @@ export function usePromptForm(
           judgeInstructions: sampleJudgeInstructions,
           tools: JSON.stringify(sampleTools, null, 2),
           mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
+          allowNoToolsFallback: false,
           cachedSeedInfo: undefined,
         }
       : makeEmpty(),

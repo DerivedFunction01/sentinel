@@ -389,7 +389,22 @@ export async function runTargetSimulation(
   tools: ToolDef[],
   mockToolResponses: Record<string, any>,
   tracker?: UsageTracker,
+  allowNoToolsFallback?: boolean,
 ): Promise<{ responseText: string; toolCalls: ToolCall[] }> {
+  const targetModelData = tracker?.dbModels?.find((m) => m.id === targetModel);
+  const supportsTools = targetModelData ? targetModelData.supportsTools : true;
+
+  let effectiveTools = tools;
+  if (!supportsTools && tools.length > 0) {
+    if (allowNoToolsFallback) {
+      effectiveTools = [];
+    } else {
+      throw new Error(
+        `Model ${targetModel} does not support tool calling. Please enable 'Allow running without tools on unsupported models' or remove tools to proceed.`
+      );
+    }
+  }
+
   const history: any[] = [
     { role: "system", content: systemPrompt },
     { role: "user", content: attackPrompt },
@@ -400,7 +415,7 @@ export async function runTargetSimulation(
   const maxDepth = 5;
 
   while (depth < maxDepth) {
-    const response = await callOpenRouter(targetModel, history, tools, tracker);
+    const response = await callOpenRouter(targetModel, history, effectiveTools, tracker);
 
     // Add completion message directly to history (including tool_calls structure)
     history.push(response);
@@ -582,6 +597,7 @@ export interface ScanPipelineOptions {
   granularity?: Granularity;
   includeToolRecommendation?: boolean;
   enableHardening?: boolean;
+  allowNoToolsFallback?: boolean;
 }
 
 export interface ScanPipelineResult {
@@ -672,6 +688,7 @@ export async function executeTargetJudgePipeline(
     judgeModel: string;
     tools: ToolDef[];
     mockToolResponses: Record<string, unknown>;
+    allowNoToolsFallback?: boolean;
   },
   attackSet: AttackSet,
   tracker?: UsageTracker,
@@ -685,6 +702,7 @@ export async function executeTargetJudgePipeline(
     judgeModel,
     tools,
     mockToolResponses,
+    allowNoToolsFallback,
   } = options;
   const { seedInfo, attacks } = attackSet;
 
@@ -716,6 +734,7 @@ export async function executeTargetJudgePipeline(
       tools,
       mockToolResponses,
       tracker,
+      allowNoToolsFallback,
     );
 
     // Now await the previous judge (it may already be done if it was fast)
@@ -835,6 +854,7 @@ export interface RunSingleScanPipelineConfig {
   granularity: Granularity;
   includeToolRecommendation: boolean;
   enableHardening: boolean;
+  allowNoToolsFallback: boolean;
 }
 
 /**
@@ -1054,6 +1074,7 @@ export async function runSingleScanPipeline(
               options.tools,
               options.mockToolResponses,
               tracker,
+              options.allowNoToolsFallback,
             );
             // Store in memory for later use (avoids DB race)
             targetResponses.set(idx, result.responseText);
@@ -1390,6 +1411,7 @@ export async function executeScanPipeline(
       tools,
       mockToolResponses,
       tracker,
+      options.allowNoToolsFallback,
     );
     await updateProgress();
 

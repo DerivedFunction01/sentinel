@@ -90,6 +90,7 @@ export async function PATCH(
       tools,
       mockToolResponses,
       status,
+      allowNoToolsFallback,
     } = body;
 
     const dataToUpdate: any = {};
@@ -116,6 +117,9 @@ export async function PATCH(
           : JSON.stringify(mockToolResponses);
     }
     if (status !== undefined) dataToUpdate.status = status;
+    if (allowNoToolsFallback !== undefined) {
+      dataToUpdate.allowNoToolsFallback = !!allowNoToolsFallback;
+    }
 
     const updated = await db.deployment.update({
       where: { id },

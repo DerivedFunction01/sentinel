@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronsUpDown, Search, Loader2, X, Plus, Wrench } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  Search,
+  Loader2,
+  X,
+  Plus,
+  Wrench,
+  CircleDollarSign,
+} from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -26,6 +35,7 @@ interface ModelOption {
   isRecommended: boolean;
   aiSuggest: boolean;
   supportsTools: boolean;
+  isLowCost: boolean;
 }
 
 interface MultiModelSelectorProps {
@@ -139,6 +149,7 @@ export function MultiModelSelector({
       isRecommended: false,
       aiSuggest: false,
       supportsTools: false,
+      isLowCost: false,
     };
   });
 
@@ -279,7 +290,10 @@ function ModelItem({
         <div className="flex items-center gap-1.5">
           <span className="text-sm text-foreground truncate">{model.name}</span>
           {model.supportsTools && (
-            <Wrench className="h-3 w-3 shrink-0 text-blue-400" />
+            <Wrench className="h-3.5 w-3.5 shrink-0 text-blue-400" />
+          )}
+          {model.isLowCost && (
+            <CircleDollarSign className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
           )}
         </div>
         {model.aiSuggest && (

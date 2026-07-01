@@ -157,6 +157,7 @@ export async function POST(
         judgeInstructions,
         tools: JSON.stringify(tools),
         mockToolResponses: JSON.stringify(mockToolResponses),
+        allowNoToolsFallback: deployment.allowNoToolsFallback,
         trials: "[]",
         score: 0,
         riskLevel: "UNKNOWN" as any,
@@ -189,6 +190,7 @@ export async function POST(
       granularity: Granularity.Compact,
       includeToolRecommendation: false,
       enableHardening: true,
+      allowNoToolsFallback: deployment.allowNoToolsFallback,
     };
 
     await runSingleScanPipeline(pipelineConfig, reportId, attackSet, dbModels);

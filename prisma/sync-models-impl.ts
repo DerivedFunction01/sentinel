@@ -49,26 +49,52 @@ export async function syncModels(db: PrismaClient): Promise<void> {
   const models = json.data;
   console.log(`Fetched ${models.length} models.`);
 
+  // Group models by provider
+  const modelsByProvider: Record<string, OpenRouterModel[]> = {};
+  for (const m of models) {
+    if (!m.id) continue;
+    const provider = m.id.split("/")[0] || "";
+    if (!modelsByProvider[provider]) {
+      modelsByProvider[provider] = [];
+    }
+    modelsByProvider[provider].push(m);
+  }
+
+  // Identify recommended & low-cost models
+  const recommendedIds = new Set<string>();
+  const lowCostIds = new Set<string>();
+
+  for (const provider of KNOWN_PROVIDERS) {
+    const providerModels = modelsByProvider[provider] || [];
+    // The models are already sorted by popularity (most popular first)
+    const popularModels = providerModels.slice(0, MAX_RECOMMENDED_PER_PROVIDER);
+    popularModels.forEach(m => recommendedIds.add(m.id));
+
+    const remainingModels = providerModels.slice(MAX_RECOMMENDED_PER_PROVIDER);
+    // Sort remaining models by prompt price ascending
+    const sortedByPrice = [...remainingModels].sort((a, b) => {
+      const priceA = parseFloat(a.pricing?.prompt || "0");
+      const priceB = parseFloat(b.pricing?.prompt || "0");
+      return priceA - priceB;
+    });
+
+    const cheapestModels = sortedByPrice.slice(0, 2);
+    cheapestModels.forEach(m => {
+      recommendedIds.add(m.id);
+      lowCostIds.add(m.id);
+    });
+  }
+
   let upserted = 0;
-  let recommended = 0;
-  const providerCounts: Record<string, number> = {};
+  let recommendedCount = 0;
+  let lowCostCount = 0;
 
   for (let i = 0; i < models.length; i++) {
     const m = models[i];
     if (!m.id || !m.name) continue;
 
-    const parts = m.id.split("/");
-    const provider = parts[0] || "";
-
-    let isRecommended = false;
-    if (KNOWN_PROVIDERS.includes(provider)) {
-      const currentCount = providerCounts[provider] || 0;
-      if (currentCount < MAX_RECOMMENDED_PER_PROVIDER) {
-        isRecommended = true;
-        providerCounts[provider] = currentCount + 1;
-      }
-    }
-
+    const isRecommended = recommendedIds.has(m.id);
+    const isLowCost = lowCostIds.has(m.id);
     const aiSuggest = AI_SUGGEST_IDS.includes(m.id);
     const popularityRank = i + 1;
     const supportsTools = m.supported_parameters?.includes("tools") ?? false;
@@ -84,6 +110,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
         promptPrice: m.pricing?.prompt ?? null,
         completionPrice: m.pricing?.completion ?? null,
         isRecommended,
+        isLowCost,
         aiSuggest,
         popularityRank,
         supportsTools,
@@ -96,16 +123,18 @@ export async function syncModels(db: PrismaClient): Promise<void> {
         promptPrice: m.pricing?.prompt ?? null,
         completionPrice: m.pricing?.completion ?? null,
         isRecommended,
+        isLowCost,
         aiSuggest,
         popularityRank,
         supportsTools,
       },
     });
     upserted++;
-    if (isRecommended) recommended++;
+    if (isRecommended) recommendedCount++;
+    if (isLowCost) lowCostCount++;
   }
 
-  console.log(`✓ Synced ${upserted} models (${recommended} recommended).`);
+  console.log(`✓ Synced ${upserted} models (${recommendedCount} recommended, ${lowCostCount} low-cost).`);
 }
 
 // CLI entry point — run with: bun run prisma/sync-models-impl.ts

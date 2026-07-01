@@ -59,6 +59,7 @@ export async function POST(req: Request) {
       judgeInstructions,
       tools,
       mockToolResponses,
+      allowNoToolsFallback,
     } = body;
 
     if (!name || !targetModel || !systemPrompt || !forbiddenTask) {
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
           typeof mockToolResponses === "string"
             ? mockToolResponses
             : JSON.stringify(mockToolResponses || {}),
+        allowNoToolsFallback: !!allowNoToolsFallback,
         status: "ACTIVE",
         userId: authUser.userId,
       },
