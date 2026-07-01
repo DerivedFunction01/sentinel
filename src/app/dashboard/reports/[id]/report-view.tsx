@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -23,6 +23,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Collapsible,
   CollapsibleContent,
@@ -153,10 +162,10 @@ export function ReportView({ scan }: ReportViewProps) {
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         if (res.status === 402) {
-          toast.error(
-            errData.message || "Insufficient hardening tokens.",
-            { id: toastId, duration: 6000 },
-          );
+          toast.error(errData.message || "Insufficient hardening tokens.", {
+            id: toastId,
+            duration: 6000,
+          });
           setConvertOpen(true); // auto-open conversion dialog
           return;
         }
@@ -664,7 +673,9 @@ function hardenedPrompt(
                   <ChevronDown className="absolute right-2.5 top-2.5 h-3 w-3 text-slate-400 pointer-events-none" />
                 </div>
               ) : (
-                <span className="text-xs text-muted-foreground italic">None generated yet</span>
+                <span className="text-xs text-muted-foreground italic">
+                  None generated yet
+                </span>
               )}
             </div>
           </div>
@@ -680,47 +691,16 @@ function hardenedPrompt(
                 View Step Traces
               </Button>
             )}
-            {/* Hardening token balance + conversion */}
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setConvertOpen(!convertOpen)}
-                className="flex items-center gap-1.5 rounded-md border border-purple-500/30 bg-purple-600/10 px-2 py-1 text-[11px] font-semibold text-purple-300 hover:bg-purple-600/20 transition-colors"
-                title="Click to convert scan tokens to hardening tokens"
-              >
-                <Zap className="h-3 w-3" />
-                {hardeningTokens === null ? "…" : hardeningTokens} hardening
-              </button>
-              {/* Inline conversion popover */}
-              {convertOpen && (
-                <div className="absolute z-50 mt-1 top-full right-0 w-72 rounded-xl border border-purple-500/30 bg-slate-900 p-4 shadow-xl shadow-purple-900/20 space-y-3">
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-purple-300">Convert Scan Tokens</p>
-                    <p className="text-[11px] text-slate-400">1 scan token = 10 hardening tokens</p>
-                  </div>
-                  <div className="flex gap-2">
-                    {[1, 2, 5].map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => handleConvertTokens(n)}
-                        disabled={converting}
-                        className="flex-1 rounded-md border border-purple-500/40 bg-purple-600/15 px-2 py-1.5 text-[11px] font-semibold text-purple-200 hover:bg-purple-600/30 disabled:opacity-50 transition-colors"
-                      >
-                        {n} → {n * 10}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setConvertOpen(false)}
-                    className="w-full text-[10px] text-slate-500 hover:text-slate-300 text-center"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* Hardening token balance badge — opens conversion dialog */}
+            <button
+              type="button"
+              onClick={() => setConvertOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-purple-500/30 bg-purple-600/10 px-2 py-1 text-[11px] font-semibold text-purple-300 hover:bg-purple-600/20 transition-colors"
+              title="Convert scan tokens to hardening tokens"
+            >
+              <Zap className="h-3 w-3" />
+              {hardeningTokens === null ? "…" : hardeningTokens} hardening
+            </button>
             <Button
               variant="outline"
               size="sm"
@@ -998,7 +978,126 @@ function hardenedPrompt(
           currentHardenedPrompt?.extractorModel || DEFAULT_MODEL
         }
       />
+
+      {/* Token Conversion Dialog */}
+      <TokenConversionDialog
+        open={convertOpen}
+        onOpenChange={setConvertOpen}
+        hardeningTokens={hardeningTokens}
+        converting={converting}
+        onConvert={handleConvertTokens}
+      />
     </section>
+  );
+}
+
+interface TokenConversionDialogProps {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  hardeningTokens: number | null;
+  converting: boolean;
+  onConvert: (n: number) => Promise<void>;
+}
+
+function TokenConversionDialog({
+  open,
+  onOpenChange,
+  hardeningTokens,
+  converting,
+  onConvert,
+}: TokenConversionDialogProps) {
+  const [customAmount, setCustomAmount] = useState("1");
+  const parsed = parseInt(customAmount, 10);
+  const isValid = !isNaN(parsed) && parsed >= 1;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="dark max-w-sm border-border bg-slate-900 text-slate-100">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base font-bold">
+            <Zap className="h-4 w-4 text-purple-400" />
+            Convert Scan Tokens
+          </DialogTitle>
+          <DialogDescription className="text-slate-400 text-xs mt-1">
+            Convert your scan tokens into hardening tokens at a rate of{" "}
+            <span className="font-semibold text-purple-300">
+              1&nbsp;scan&nbsp;→&nbsp;10&nbsp;hardening
+            </span>
+            .
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Current balance */}
+          <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-4 py-3">
+            <span className="text-xs text-slate-400">Hardening Balance</span>
+            <span className="text-sm font-bold text-purple-300 flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5" />
+              {hardeningTokens === null ? "…" : hardeningTokens}
+            </span>
+          </div>
+
+          {/* Quick-select buttons */}
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Quick select
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {[1, 2, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => onConvert(n)}
+                  disabled={converting}
+                  className="flex flex-col items-center rounded-lg border border-purple-500/30 bg-purple-600/10 py-2.5 text-purple-200 hover:bg-purple-600/25 disabled:opacity-50 transition-colors"
+                >
+                  <span className="text-sm font-bold">{n}</span>
+                  <span className="text-[10px] text-slate-400">→ {n * 10}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom amount */}
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Custom amount
+            </p>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min={1}
+                value={customAmount}
+                onChange={(e) => setCustomAmount(e.target.value)}
+                className="bg-slate-950/50 border-slate-700 text-slate-100 h-9 text-sm"
+                placeholder="e.g. 3"
+              />
+              <Button
+                size="sm"
+                onClick={() => isValid && onConvert(parsed)}
+                disabled={!isValid || converting}
+                className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+              >
+                {converting
+                  ? "Converting…"
+                  : `→ ${isValid ? parsed * 10 : "?"}`}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="border-t border-slate-800/80 pt-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            className="text-slate-400 hover:text-slate-200 w-full"
+          >
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1158,15 +1257,17 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                             Categories
                           </span>
                           <div className="flex flex-wrap gap-1">
-                            {seed.businessCategories.map((cat: string, i: number) => (
-                              <Badge
-                                key={i}
-                                variant="outline"
-                                className="text-[10px] border-slate-700 text-slate-300 font-normal px-2 py-0"
-                              >
-                                {cat}
-                              </Badge>
-                            ))}
+                            {seed.businessCategories.map(
+                              (cat: string, i: number) => (
+                                <Badge
+                                  key={i}
+                                  variant="outline"
+                                  className="text-[10px] border-slate-700 text-slate-300 font-normal px-2 py-0"
+                                >
+                                  {cat}
+                                </Badge>
+                              ),
+                            )}
                           </div>
                         </div>
                       )}
@@ -1177,9 +1278,11 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                             Features
                           </span>
                           <ul className="list-disc pl-4 space-y-1 text-foreground text-xs leading-relaxed">
-                            {seed.businessFeatures.map((feat: string, i: number) => (
-                              <li key={i}>{feat}</li>
-                            ))}
+                            {seed.businessFeatures.map(
+                              (feat: string, i: number) => (
+                                <li key={i}>{feat}</li>
+                              ),
+                            )}
                           </ul>
                         </div>
                       )}
@@ -1215,15 +1318,17 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                                     Name Variants
                                   </span>
                                   <div className="flex flex-wrap gap-1 col-span-2">
-                                    {t.thingNameVariants.map((v: string, i: number) => (
-                                      <Badge
-                                        key={i}
-                                        variant="secondary"
-                                        className="text-[10px] bg-slate-900 border-slate-800 text-slate-300 font-normal px-2 py-0"
-                                      >
-                                        {v}
-                                      </Badge>
-                                    ))}
+                                    {t.thingNameVariants.map(
+                                      (v: string, i: number) => (
+                                        <Badge
+                                          key={i}
+                                          variant="secondary"
+                                          className="text-[10px] bg-slate-900 border-slate-800 text-slate-300 font-normal px-2 py-0"
+                                        >
+                                          {v}
+                                        </Badge>
+                                      ),
+                                    )}
                                   </div>
                                 </>
                               )}
@@ -1235,28 +1340,32 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                                     Description Variants
                                   </span>
                                   <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
-                                    {t.thingDescriptionVariants.map((v: string, i: number) => (
-                                      <li key={i}>{v}</li>
-                                    ))}
+                                    {t.thingDescriptionVariants.map(
+                                      (v: string, i: number) => (
+                                        <li key={i}>{v}</li>
+                                      ),
+                                    )}
                                   </ul>
                                 </>
                               )}
 
                             {t.credentials && t.credentials.length > 0 && (
                               <>
-                                  <span className="text-muted-foreground">
-                                    Credentials
-                                  </span>
-                                  <div className="flex flex-wrap gap-1 col-span-2">
-                                    {t.credentials.map((cred: string, i: number) => (
+                                <span className="text-muted-foreground">
+                                  Credentials
+                                </span>
+                                <div className="flex flex-wrap gap-1 col-span-2">
+                                  {t.credentials.map(
+                                    (cred: string, i: number) => (
                                       <code
                                         key={i}
                                         className="bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-[10px] text-amber-300 font-mono"
                                       >
                                         {cred}
                                       </code>
-                                    ))}
-                                  </div>
+                                    ),
+                                  )}
+                                </div>
                               </>
                             )}
 
@@ -1267,9 +1376,11 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                                     Scenarios
                                   </span>
                                   <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
-                                    {t.businessScenarios.slice(0, 3).map((v: string, i: number) => (
-                                      <li key={i}>{v}</li>
-                                    ))}
+                                    {t.businessScenarios
+                                      .slice(0, 3)
+                                      .map((v: string, i: number) => (
+                                        <li key={i}>{v}</li>
+                                      ))}
                                   </ul>
                                 </>
                               )}
