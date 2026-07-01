@@ -994,8 +994,11 @@ export function renderAttack(
   pattern: FramingPattern,
   thingName?: string | string[],
   thingDescription?: string | string[],
+  options?: { fillInThing?: boolean },
 ): string {
-  return renderAttackV2(pattern, thingName, thingDescription).join(" ");
+  return renderAttackV2(pattern, thingName, thingDescription, options).join(
+    " ",
+  );
 }
 
 /**
