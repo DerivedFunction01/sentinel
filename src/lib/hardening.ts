@@ -3,7 +3,7 @@
  * on-demand /api/scan/[id]/harden endpoint.
  *
  * Extracted to eliminate code duplication between:
- *   - src/lib/scan-pipeline.ts   (executeScanPipeline)
+ *   - src/lib/scan-pipeline.ts
  *   - src/app/api/scan/[id]/harden/route.ts  (POST handler)
  */
 import {
@@ -59,7 +59,7 @@ export interface GenerateHardenedPromptResult {
 }
 
 /**
- * Execute the hardening workflow shared by executeScanPipeline and the
+ * Execute the hardening workflow shared by ScanPipeline and the
  * on-demand /api/scan/[id]/harden POST handler.
  *
  * Steps:
@@ -140,7 +140,8 @@ export async function generateHardenedPrompt(
       tools,
       toolRequirements,
     );
-    inspirationExamplesBlock = formatInspirationExamplesBlock(inspirationExamples);
+    inspirationExamplesBlock =
+      formatInspirationExamplesBlock(inspirationExamples);
 
     // Step 3: Run tool extraction (pass pre-fetched examples to avoid a second fetch)
     const result = await generateToolRecommendation(
