@@ -65,18 +65,18 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [toolManagerOpen, setToolManagerOpen] = useState(false);
 
   const [selectedHardenedId, setSelectedHardenedId] = useState<string>(() => {
-    const active = scan.hardenedPrompts.find(
+    const active = [...scan.hardenedPrompts].reverse().find(
       (hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL),
     );
-    return active?.id || scan.hardenedPrompts[0]?.id || "";
+    return active?.id || scan.hardenedPrompts[scan.hardenedPrompts.length - 1]?.id || "";
   });
 
   const [currentHardenedPrompt, setCurrentHardenedPrompt] = useState<any>(
     () => {
-      const active = scan.hardenedPrompts.find(
+      const active = [...scan.hardenedPrompts].reverse().find(
         (hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL),
       );
-      return active || scan.hardenedPrompts[0] || null;
+      return active || scan.hardenedPrompts[scan.hardenedPrompts.length - 1] || null;
     },
   );
 
