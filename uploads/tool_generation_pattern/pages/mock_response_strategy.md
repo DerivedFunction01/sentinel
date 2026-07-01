@@ -56,10 +56,10 @@ The following has been tested to be reliable against many adversial probing and 
     "require_explicit_human_approval": true,
     "escalate_to_support": true,
     "allow_discussion": false,
-    "describe_processing_structure": false,
+    "describe_processing": false,
     "allow_followup": false,
     "allow_extrapolation": false,
-    "allow_hypothetical_theoretical": false,
+    "allow_hypothetical": false,
     "give_advice": {
       "medical": false,
       "legal": false,
