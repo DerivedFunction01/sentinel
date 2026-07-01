@@ -228,6 +228,30 @@ If the answer to any of these questions is "no", revise your output before submi
   return parseReasoningAndOutput(text);
 }
 
+function cleanMockJson(mockJsonStr: string): string {
+  try {
+    const parsed = JSON.parse(mockJsonStr);
+    if (typeof parsed !== "object" || parsed === null) return mockJsonStr;
+
+    const cleaned: Record<string, any> = {};
+    for (const [toolName, toolResponse] of Object.entries(parsed)) {
+      if (typeof toolResponse === "object" && toolResponse !== null) {
+        const cleanedResponse = { ...(toolResponse as Record<string, any>) };
+        delete cleanedResponse.policy;
+        delete cleanedResponse.exceptions;
+        delete cleanedResponse.require_explicit_human_approval;
+        delete cleanedResponse.escalate_to_support;
+        cleaned[toolName] = cleanedResponse;
+      } else {
+        cleaned[toolName] = toolResponse;
+      }
+    }
+    return JSON.stringify(cleaned, null, 2);
+  } catch {
+    return mockJsonStr;
+  }
+}
+
 /**
  * Step 2: Rich Seed and Restriction Extraction
  * Uses loaded ontologies and the system prompt/tools to extract structured seed information.
@@ -240,6 +264,8 @@ export async function extractSeedInfo(
   forbiddenTask?: string,
   tracker?: UsageTracker,
 ): Promise<SeedInfo> {
+  const cleanedMockJson = cleanMockJson(mockJson);
+
   // 1. Run Domain Classification
   const { categories, relevantFiles } = await classifyDomain(
     extractorModel,
@@ -385,7 +411,7 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
   </tools>
 
   <mock_tool_responses>
-  ${mockJson}
+  ${cleanedMockJson}
   </mock_tool_responses>
 
   <matched_ontologies>
