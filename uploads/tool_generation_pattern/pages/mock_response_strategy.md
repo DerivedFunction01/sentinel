@@ -51,13 +51,9 @@ The following has been tested to be reliable against many adversial probing and 
   "message": "Main level message",
   "result": {...},
   "policy": {
-    "allow_discussion": false,
-    "describe_processing": false,
     "exceptions": false,
     "negotiation": false,
     "allow_hypothetical": false,
-    "allow_followup": false,
-    "allow_extrapolation": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true,
     "give_advice": {
@@ -73,6 +69,14 @@ The following has been tested to be reliable against many adversial probing and 
       "academic_integrity": false,
       "operational_security": false,
       "process": "Direct users to appropriate professionals or official channels for such matters."
+    },
+    "response": {
+      "tone": "neutral",
+      "length": ["near_exact", "concise"],
+      "allow_discussion": false,
+      "describe_processing": false,
+      "allow_followup": false,
+      "allow_extrapolation": false
     }
   },
   "support_contact": {
