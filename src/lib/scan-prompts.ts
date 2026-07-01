@@ -10,6 +10,7 @@ import { CredentialMode } from "./enums";
 import { ONTOLOGY_CATEGORY_VALUES } from "./ontology-categories";
 import { TrialVerdict } from "@/lib/enums";
 import { patterns, renderAttack, renderAttackV2 } from "@/lib/attack-templates";
+import { parseFrontmatter } from "@/lib/tool-extractor";
 
 export function loadPromptFile(filename: string): string {
   try {
@@ -24,6 +25,143 @@ export function loadPromptFile(filename: string): string {
     console.error(`Failed to load ${filename}:`, err);
     return "";
   }
+}
+
+const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
+
+/**
+ * Build a map of businessCategory → filename for all ontology markdown files.
+ */
+function buildCategoryToFilenameMap(): Record<string, string> {
+  const map: Record<string, string> = {};
+  try {
+    if (!fs.existsSync(ONTOLOGY_DIR)) return map;
+    const files = fs.readdirSync(ONTOLOGY_DIR).filter((f) => f.endsWith(".md"));
+    for (const file of files) {
+      const filePath = path.join(ONTOLOGY_DIR, file);
+      try {
+        const content = fs.readFileSync(filePath, "utf-8");
+        const { businessCategory } = parseFrontmatter(content);
+        if (businessCategory) {
+          map[businessCategory] = file;
+        }
+      } catch {}
+    }
+  } catch {}
+  return map;
+}
+
+/**
+ * Extract only the section body for a given section number from an ontology markdown file.
+ * Sections are marked as `### N. Title` in the ontology files.
+ * Returns the section content (without the frontmatter), or empty string if not found.
+ */
+function extractSectionBody(filePath: string, sectionNumber: string): string {
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    const { body } = parseFrontmatter(content);
+    if (!body) return "";
+
+    const lines = body.split("\n");
+    const targetHeader = `### ${sectionNumber}.`;
+    let inSection = false;
+    let sectionLines: string[] = [];
+    let found = false;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Check if this is a header
+      if (trimmed.match(/^###\s+\d+\./)) {
+        if (inSection) {
+          // We've reached the next section — stop
+          break;
+        }
+        if (trimmed.startsWith(targetHeader)) {
+          inSection = true;
+          found = true;
+          sectionLines.push(line);
+          continue;
+        }
+      }
+      if (inSection) {
+        sectionLines.push(line);
+      }
+    }
+
+    return found ? sectionLines.join("\n").trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Load ontology content for hardening prompts, respecting per-thing ontologySection IDs.
+ *
+ * When a RestrictionThing has an `ontologySection` (e.g. "RETAIL_HOSPITALITY_RESTAURANT/3"),
+ * only that specific section is loaded from the corresponding ontology file.
+ * Things without an ontologySection are ignored for per-section loading.
+ * The `relevantFiles` list is used as a fallback for generic file-level content
+ * that was not mapped to a specific thing section.
+ */
+function loadTargetedOntologyContent(
+  things: { ontologySection?: string; forbiddenTask?: string }[],
+  relevantFiles?: string[],
+): string {
+  const categoryToFilename = buildCategoryToFilenameMap();
+  const seenSections = new Set<string>();
+  let output = "";
+
+  // 1. Load specific sections from things with ontologySection
+  for (const thing of things) {
+    const sectionId = thing.ontologySection;
+    if (!sectionId) continue;
+
+    // Avoid loading the same section twice
+    if (seenSections.has(sectionId)) continue;
+    seenSections.add(sectionId);
+
+    const parts = sectionId.split("/");
+    if (parts.length !== 2) continue;
+    const [businessCategory, sectionNumber] = parts;
+
+    const filename = categoryToFilename[businessCategory];
+    if (!filename) continue;
+
+    const filePath = path.join(ONTOLOGY_DIR, filename);
+    if (!fs.existsSync(filePath)) continue;
+
+    const sectionBody = extractSectionBody(filePath, sectionNumber);
+    if (sectionBody) {
+      output += `\n--- Policy Guidelines from ${filename} (Section ${sectionNumber}) ---\n${sectionBody}\n`;
+    }
+  }
+
+  // 2. Load full files from relevantFiles that weren't already covered by section extraction
+  if (relevantFiles) {
+    const coveredFiles = new Set<string>();
+    for (const thing of things) {
+      const sectionId = thing.ontologySection;
+      if (!sectionId) continue;
+      const parts = sectionId.split("/");
+      if (parts.length !== 2) continue;
+      const filename = categoryToFilename[parts[0]];
+      if (filename) coveredFiles.add(filename);
+    }
+
+    for (const file of relevantFiles) {
+      if (coveredFiles.has(file)) continue; // already covered via specific sections
+      const filePath = path.join(ONTOLOGY_DIR, file);
+      if (!fs.existsSync(filePath)) continue;
+      try {
+        const content = fs.readFileSync(filePath, "utf-8");
+        const match = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/m);
+        const body = match ? match[1].trim() : content.trim();
+        output += `\n--- Policy Guidelines from ${file} ---\n${body}\n`;
+      } catch {}
+    }
+  }
+
+  return output;
 }
 
 function extractTaggedContent(
@@ -541,21 +679,12 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
     successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies: social engineering, role-play reframings, hypothetical framings, and emotional appeals.`;
   }
 
-  // Load matched ontology files content for ideas
+  // Load matched ontology content — preferring specific sections when available
   let ontologyContent = "";
-  if (metadata?.seedExtraction?.relevantFiles) {
-    const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
-    for (const file of metadata.seedExtraction.relevantFiles) {
-      const filePath = path.join(ONTOLOGY_DIR, file);
-      if (fs.existsSync(filePath)) {
-        try {
-          const content = fs.readFileSync(filePath, "utf-8");
-          const match = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/m);
-          const body = match ? match[1].trim() : content.trim();
-          ontologyContent += `\n--- Policy Guidelines from ${file} ---\n${body}\n`;
-        } catch {}
-      }
-    }
+  if (metadata?.seedExtraction) {
+    const things = metadata.seedExtraction.things || [];
+    const relevantFiles = metadata.seedExtraction.relevantFiles;
+    ontologyContent = loadTargetedOntologyContent(things, relevantFiles);
   }
 
   let finalTemplate = template;
@@ -629,21 +758,12 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a.judgeReasoning}"`).join("\n")}
     successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies.`;
   }
 
-  // Load matched ontology files content for ideas
+  // Load matched ontology content — preferring specific sections when available
   let ontologyContent = "";
-  if (metadata?.seedExtraction?.relevantFiles) {
-    const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
-    for (const file of metadata.seedExtraction.relevantFiles) {
-      const filePath = path.join(ONTOLOGY_DIR, file);
-      if (fs.existsSync(filePath)) {
-        try {
-          const content = fs.readFileSync(filePath, "utf-8");
-          const match = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/m);
-          const body = match ? match[1].trim() : content.trim();
-          ontologyContent += `\n--- Policy Guidelines from ${file} ---\n${body}\n`;
-        } catch {}
-      }
-    }
+  if (metadata?.seedExtraction) {
+    const things = metadata.seedExtraction.things || [];
+    const relevantFiles = metadata.seedExtraction.relevantFiles;
+    ontologyContent = loadTargetedOntologyContent(things, relevantFiles);
   }
 
   let finalTemplate = template;
