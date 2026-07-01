@@ -1459,33 +1459,59 @@ function summaryHero(scan: Scan) {
             (sum, trial) => sum + (trial.toolCalls?.length || 0),
             0,
           );
-          const toolCallRate = (totalToolCalls / scan.totalTrials).toFixed(1);
+          const numericRate = scan.totalTrials > 0 ? totalToolCalls / scan.totalTrials : 0;
+          const toolCallRate = numericRate.toFixed(1);
+
+          let hasTools = false;
+          try {
+            const toolsRaw = scan.tools as any;
+            if (Array.isArray(toolsRaw)) {
+              hasTools = toolsRaw.length > 0;
+            } else if (typeof toolsRaw === "string" && toolsRaw.trim()) {
+              const parsed = JSON.parse(toolsRaw);
+              hasTools = Array.isArray(parsed) && parsed.length > 0;
+            }
+          } catch {
+            // ignore
+          }
+
           return [
-            { label: "Target Model", value: scan.modelName },
-            { label: "Total Trials", value: scan.totalTrials },
-            { label: "Breaches", value: scan.breaches },
-            { label: "Breach Rate", value: `${scan.breachRate}%` },
+            { label: "Target Model", value: scan.modelName, colorType: "default" },
+            { label: "Total Trials", value: scan.totalTrials, colorType: "default" },
+            { label: "Breaches", value: scan.breaches, colorType: "default" },
+            { label: "Breach Rate", value: `${scan.breachRate}%`, colorType: "default" },
             {
               label: "Tool Call Rate",
               value: `${toolCallRate}/trial`,
-              highlight: totalToolCalls > 0 && scan.breaches > 0,
+              colorType: (numericRate >= 1.0 && hasTools)
+                ? "green"
+                : (totalToolCalls > 0 && scan.breaches > 0)
+                  ? "red"
+                  : "default",
             },
           ];
-        })().map((stat) => (
-          <Card
-            key={stat.label}
-            className={`p-4 ${stat.highlight ? "border-red-500/30" : ""}`}
-          >
-            <p className="text-xs text-muted-foreground">{stat.label}</p>
-            <p
-              className={`mt-1 text-sm font-bold ${
-                stat.highlight ? "text-red-400" : "text-foreground"
-              }`}
+        })().map((stat) => {
+          let cardClass = "";
+          let textClass = "text-foreground";
+          if (stat.colorType === "red") {
+            cardClass = "border-red-500/30";
+            textClass = "text-red-400";
+          } else if (stat.colorType === "green") {
+            cardClass = "border-emerald-500/30 bg-emerald-500/5";
+            textClass = "text-emerald-400";
+          }
+          return (
+            <Card
+              key={stat.label}
+              className={`p-4 ${cardClass}`}
             >
-              {stat.value}
-            </p>
-          </Card>
-        ))}
+              <p className="text-xs text-muted-foreground">{stat.label}</p>
+              <p className={`mt-1 text-sm font-bold ${textClass}`}>
+                {stat.value}
+              </p>
+            </Card>
+          );
+        })}
       </div>
     </section>
   );
