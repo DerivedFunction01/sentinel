@@ -18,6 +18,7 @@ import {
   HelpCircle,
   ChevronDown,
   Zap,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,9 +55,11 @@ import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-
 
 interface ReportViewProps {
   scan: Scan;
+  refreshing?: boolean;
+  onRefresh?: () => Promise<void>;
 }
 
-export function ReportView({ scan }: ReportViewProps) {
+export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<TrialFilter>(TrialFilter.All);
   const [toolManagerOpen, setToolManagerOpen] = useState(false);
@@ -399,7 +402,7 @@ export function ReportView({ scan }: ReportViewProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Report header bar */}
-      {ReportHeader(scan)}
+      {ReportHeader(scan, refreshing, onRefresh)}
 
       <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
         {/* ── Summary hero ── */}
@@ -1517,7 +1520,11 @@ function summaryHero(scan: Scan) {
   );
 }
 
-function ReportHeader(scan: Scan) {
+function ReportHeader(
+  scan: Scan,
+  refreshing?: boolean,
+  onRefresh?: () => Promise<void>,
+) {
   return (
     <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
@@ -1545,6 +1552,18 @@ function ReportHeader(scan: Scan) {
           >
             CONFIDENTIAL
           </Badge>
+          {onRefresh && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefresh}
+              disabled={refreshing}
+              className="border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+            >
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
