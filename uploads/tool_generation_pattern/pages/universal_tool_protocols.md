@@ -103,9 +103,9 @@ A universal protocol tool:
     "describe_processing": false,
     "exceptions": false,
     "negotiation": false,
-    "allow_hypothetical": false,
-    "allow_followup": false,
-    "allow_extrapolation": false,
+    "hypothetical": false,
+    "followup": false,
+    "extrapolation": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true,
     "advice": {

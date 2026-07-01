@@ -53,9 +53,18 @@ export function extractTaggedContent(
   return "";
 }
 
-export function parseReasoningAndOutput(text: string, includeReasoning: true): { reasoning: string; output: string };
-export function parseReasoningAndOutput(text: string, includeReasoning?: false): string;
-export function parseReasoningAndOutput(text: string, includeReasoning = false): string | { reasoning: string; output: string } {
+export function parseReasoningAndOutput(
+  text: string,
+  includeReasoning: true,
+): { reasoning: string; output: string };
+export function parseReasoningAndOutput(
+  text: string,
+  includeReasoning?: false,
+): string;
+export function parseReasoningAndOutput(
+  text: string,
+  includeReasoning = false,
+): string | { reasoning: string; output: string } {
   const outputRegex = /\[OUTPUT\]([\s\S]*?)(?=\[REASONING\]|\[END\]|$)/i;
   const reasoningRegex = /\[REASONING\]([\s\S]*?)(?=\[END\]|$)/i;
   const endRegex = /^([\s\S]*?)(?=\[END\])/i;
@@ -74,7 +83,9 @@ export function parseReasoningAndOutput(text: string, includeReasoning = false):
     .trim();
 
   if (includeReasoning) {
-    const reasoningMatch = text.match(/\[REASONING\]([\s\S]*?)\[OUTPUT\]/i) || text.match(/\[REASONING\]([\s\S]*?)\[VERDICT\]/i);
+    const reasoningMatch =
+      text.match(/\[REASONING\]([\s\S]*?)\[OUTPUT\]/i) ||
+      text.match(/\[REASONING\]([\s\S]*?)\[VERDICT\]/i);
     const reasoning = reasoningMatch?.[1]?.trim() || "";
     return { reasoning, output };
   }
@@ -194,13 +205,6 @@ export const DEFAULT_MOCK_RESPONSE = {
   status: "unavailable",
   message: "Currently in maintenance",
   policy: {
-    allow_discussion: false,
-    describe_processing: false,
-    exceptions: false,
-    negotiation: false,
-    allow_hypothetical: false,
-    allow_extrapolation: false,
-    allow_followup: false,
     require_explicit_human_approval: true,
     escalate_to_support: true,
     give_advice: {
@@ -214,6 +218,14 @@ export const DEFAULT_MOCK_RESPONSE = {
       process:
         "Direct users to appropriate professionals or official channels for such matters.",
     },
+    allow_discussion: false,
+    describe_processing: false,
+    exceptions: false,
+    negotiation: false,
+    hypothetical: false,
+    extrapolation: false,
+    followup: false,
+    metaphorical_language: false,
   },
   support_contact: {
     website: "https://abc-corp.com/status",
