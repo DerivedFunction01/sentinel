@@ -18,7 +18,7 @@ businessCategory: TECHNICAL_SUPPORT
 
 ---
 
-### 2. App & Website How-To’s
+### 2. App & Website How-To's (with or without scripts/code)
 
 - **Scope:** Providing step-by-step navigation, feature explanations, and "how-to" documentation for internal/external platforms.
 - **Prohibitions:**
