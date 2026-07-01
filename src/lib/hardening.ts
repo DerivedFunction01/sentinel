@@ -94,6 +94,7 @@ export async function generateHardenedPrompt(
     tracker,
     trace,
     includeToolRecommendation = true,
+    useFullPromptStep1 = true,
   } = params;
 
   // Steps 1–3 are only needed when tool extraction is requested.
@@ -107,7 +108,10 @@ export async function generateHardenedPrompt(
 
   if (includeToolRecommendation) {
     // Step 1: Derive tool requirements from seed extraction (zero LLM cost)
-    const { toolRequirements } = deriveToolRequirements(metadata, forbiddenTask);
+    const { toolRequirements } = deriveToolRequirements(
+      metadata,
+      forbiddenTask,
+    );
 
     // Step 2: Get inspiration examples from the database
     const targetThing =
@@ -166,7 +170,7 @@ export async function generateHardenedPrompt(
 
   let hardenedPrompt = "";
   try {
-    if (params.useFullPromptStep1) {
+    if (useFullPromptStep1) {
       hardenedPrompt = await executeMultiStepHardeningFull(
         callModel,
         systemPrompt,
