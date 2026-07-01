@@ -101,6 +101,7 @@ Use for tools that block access entirely (discounts, API keys, internal processe
     "hypothetical": false,
     "followup": false,
     "extrapolation": false,
+    "metaphorical_language": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true
   },
@@ -127,6 +128,7 @@ Use for tools that process requests (transfers, refunds, verifications, inquirie
     "describe_processing": false,
     "exceptions": false,
     "negotiation": false,
+    "metaphorical_language": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true
   },
@@ -150,6 +152,7 @@ Use for tools that process requests (transfers, refunds, verifications, inquirie
     "hypothetical": false,
     "followup": false,
     "extrapolation": false,
+    "metaphorical_language": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true
   },
@@ -199,6 +202,7 @@ Use for tools that perform lookups such as store hours, policies, product catalo
     "hypothetical": false,
     "followup": false,
     "extrapolation": false,
+    "metaphorical_language": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true
   },
@@ -248,6 +252,7 @@ This inspects parameters. You don't do that.
     "hypothetical": false,
     "followup": false,
     "extrapolation": false,
+    "metaphorical_language": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true
   },
@@ -270,6 +275,7 @@ This inspects parameters. You don't do that.
     "hypothetical": false,
     "followup": false,
     "extrapolation": false,
+    "metaphorical_language": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true,
     "give_advice": {
