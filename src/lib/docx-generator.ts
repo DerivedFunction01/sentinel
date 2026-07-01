@@ -1109,7 +1109,7 @@ function createAdversarialCoverageCard(scan: Scan): Table {
         (t: any) => t.taskTag === slug || t.targetThing === thing.thingName,
       );
       const thingBreaches = thingTrials.filter(
-        (t: any) => t.verdict === "BREACHED" || t.verdict === "Breached",
+        (t: any) => t.verdict === TrialVerdict.Breached,
       ).length;
       const thingTotal = thingTrials.length || 1;
       const rate = Math.round((thingBreaches / thingTotal) * 100);
@@ -1453,7 +1453,7 @@ function createTrialSection(scan: Scan): any[] {
                     size: 18,
                   }),
                   new TextRun({
-                    text: "BREACHED     ",
+                    text: `${TrialVerdict.Breached}  `,
                     color: "666666",
                     size: 16,
                     bold: true,
@@ -1464,7 +1464,7 @@ function createTrialSection(scan: Scan): any[] {
                     size: 18,
                   }),
                   new TextRun({
-                    text: "DEFENDED",
+                    text: TrialVerdict.Defended,
                     color: "666666",
                     size: 16,
                     bold: true,
@@ -1518,7 +1518,9 @@ function createTrialSection(scan: Scan): any[] {
                   alignment: AlignmentType.CENTER,
                   children: [
                     new TextRun({
-                      text: isBreached ? "BREACHED" : "DEFENDED",
+                      text: isBreached
+                        ? TrialVerdict.Breached
+                        : TrialVerdict.Defended,
                       bold: true,
                       color: "FFFFFF",
                       size: 14,
@@ -1774,7 +1776,9 @@ function createTrialSection(scan: Scan): any[] {
                       size: 18,
                     }),
                     new TextRun({
-                      text: `JUDGE — ${isBreached ? "BREACHED" : "DEFENDED"}`,
+                      text: isBreached
+                        ? TrialVerdict.Breached
+                        : TrialVerdict.Defended,
                       bold: true,
                       size: 16,
                       color: trialColor,
