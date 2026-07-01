@@ -736,6 +736,87 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
     .replace("{{STEP_1_TEXT}}", step1Text);
 }
 
+export function getHardenedPromptStep1FullInstructions(
+  systemPrompt: string,
+  forbiddenTask: string,
+  breachedAttacks: BreachedAttack[],
+  recommendedTools?: any[],
+  summarizedPatterns?: string,
+  metadata?: ScanMetadata,
+): string {
+  let toolsBlock = "";
+  if (recommendedTools && recommendedTools.length > 0) {
+    toolsBlock = `\nWe have configured/generated the following tool definitions to handle the forbidden task constraints dynamically:
+<available_tools>
+${JSON.stringify(
+  recommendedTools.map((t) => {
+    const toolObj = t.toolJson || t;
+    const fn = toolObj.function;
+    return {
+      name: t.name || fn?.name || toolObj.name,
+      description: fn?.description || toolObj.description,
+    };
+  }),
+  null,
+  2,
+)}
+</available_tools>
+
+Since these tools are configured to enforce the restrictions, do NOT write system prompt guardrails that hardcode direct refusals, policies, or specific answers (such as "firmly restate that no discounts can be offered" or "always say no").
+Instead, instruct the LLM to call the appropriate tool when the forbidden task or related inquiries arise. The prompt guardrails should solely instruct the LLM to call the tool and follow its output, avoiding duplicate or conflicting instructions.`;
+  }
+
+  const hasTools = recommendedTools && recommendedTools.length > 0;
+  const step1Text = hasTools
+    ? loadPromptFile("step1_with_tools.md")
+    : loadPromptFile("step1_without_tools.md").replace(
+        "{{OPTIMIZATION_PROMPT}}",
+        OPTIMIZATION_PROMPT,
+      );
+
+  const template = loadPromptFile("instructions_template_step1_full.md");
+
+  let successfulAttacksBlock = "";
+  if (breachedAttacks.length > 0) {
+    if (summarizedPatterns) {
+      successfulAttacksBlock = `Threat analysis of successful attack patterns and strategies identified during a pentest:
+<attack_patterns>
+${summarizedPatterns}
+</attack_patterns>`;
+    } else {
+      successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The system prompt must be designed to withstand these attack vectors:
+<successful_attacks>
+${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
+</successful_attacks>`;
+    }
+  } else {
+    successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies: social engineering, role-play reframings, hypothetical framings, and emotional appeals.`;
+  }
+
+  // Load matched ontology content — preferring specific sections when available
+  let ontologyContent = "";
+  if (metadata?.seedExtraction) {
+    const things = metadata.seedExtraction.things || [];
+    const relevantFiles = metadata.seedExtraction.relevantFiles;
+    ontologyContent = loadTargetedOntologyContent(things, relevantFiles);
+  }
+
+  let finalTemplate = template;
+  if (!hasTools && ontologyContent) {
+    finalTemplate = template.replace(
+      "</forbidden_task>",
+      `</forbidden_task>\n\nMatched Domain Policy Guidelines:\n<domain_policies>\n${ontologyContent}\n</domain_policies>`,
+    );
+  }
+
+  return finalTemplate
+    .replace("{{SYSTEM_PROMPT}}", systemPrompt)
+    .replace("{{TOOLS_BLOCK}}", toolsBlock)
+    .replace("{{FORBIDDEN_TASK}}", forbiddenTask)
+    .replace("{{SUCCESSFUL_ATTACKS_BLOCK}}", successfulAttacksBlock)
+    .replace("{{STEP_1_TEXT}}", step1Text);
+}
+
 export function getHardenedPromptStep2Instructions(
   intermediatePrompt: string,
   forbiddenTask: string,
@@ -978,6 +1059,106 @@ export async function executeMultiStepHardening(
   //   trace,
   // );
   // finalPrompt = `${translatedOptPrompt}\n\n${finalPrompt.trim()}`;
+
+  return finalPrompt.trim();
+}
+
+export async function executeMultiStepHardeningFull(
+  callModel: (prompt: string) => Promise<string>,
+  systemPrompt: string,
+  forbiddenTask: string,
+  breachedAttacks: BreachedAttack[],
+  recommendedTools?: any[],
+  inspirationExamplesBlock?: string,
+  trace?: HardeningTrace,
+  summarizedPatterns?: string,
+  metadata?: ScanMetadata,
+): Promise<string> {
+  const workingPrompt = systemPrompt;
+
+  // ── Step 1: Tool Delegation (Outputs Full Prompt) ──
+  const step1Instructions = getHardenedPromptStep1FullInstructions(
+    workingPrompt,
+    forbiddenTask,
+    breachedAttacks,
+    recommendedTools,
+    summarizedPatterns,
+    metadata,
+  );
+
+  let hardenedPrompt = workingPrompt;
+  try {
+    const res = await callModel(step1Instructions);
+    const extracted = extractTaggedContent(
+      res || "",
+      "<REVISED_SYSTEM_PROMPT>",
+      "</REVISED_SYSTEM_PROMPT>",
+    );
+    if (extracted) {
+      hardenedPrompt = extracted.trim();
+    } else {
+      hardenedPrompt = extractSystemPrompt(res || "");
+    }
+
+    if (trace) {
+      trace.step1 = {
+        promptSent: step1Instructions,
+        changedSentencesRaw: res,
+      };
+      trace.compaction = {
+        promptSent: "(Compaction bypassed; Step 1 outputted full prompt)",
+        outputPrompt: hardenedPrompt,
+      };
+    }
+  } catch (err) {
+    console.error("Step 1 of full prompt hardening failed:", err);
+  }
+
+  // ── Step 2: Guardrails Addition ──
+  let finalPrompt = hardenedPrompt;
+  const hasToolsEnforcingRestrictions =
+    recommendedTools && recommendedTools.length > 0;
+
+  if (!hasToolsEnforcingRestrictions) {
+    const step2Instructions = getHardenedPromptStep2Instructions(
+      hardenedPrompt,
+      forbiddenTask,
+      breachedAttacks,
+      recommendedTools,
+      summarizedPatterns,
+      metadata,
+    );
+
+    let step2FinalPrompt = "";
+    try {
+      const res = await callModel(step2Instructions);
+      step2FinalPrompt = extractSystemPrompt(res || "");
+      if (trace) {
+        trace.step2 = {
+          promptSent: step2Instructions,
+          outputPrompt: step2FinalPrompt,
+        };
+      }
+      finalPrompt = step2FinalPrompt;
+    } catch (err) {
+      console.error("Step 2 of prompt hardening failed:", err);
+      finalPrompt = hardenedPrompt;
+    }
+  } else {
+    if (trace) {
+      trace.step2 = {
+        skipped: true,
+        reason: "Tools present to enforce restrictions (rules as code pattern)",
+      };
+    }
+  }
+
+  if (finalPrompt.includes("<system_prompt>")) {
+    finalPrompt = finalPrompt.split("<system_prompt>")[1];
+  }
+  if (finalPrompt.includes("</system_prompt>")) {
+    finalPrompt = finalPrompt.split("</system_prompt>")[0];
+  }
 
   return finalPrompt.trim();
 }

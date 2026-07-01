@@ -18,6 +18,7 @@ import {
 } from "@/lib/inspiration-retriever";
 import {
   executeMultiStepHardening,
+  executeMultiStepHardeningFull,
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
 import { TrialVerdict } from "@/lib/enums";
@@ -46,6 +47,7 @@ export interface GenerateHardenedPromptParams {
   tracker?: UsageTracker;
   trace?: HardeningTrace;
   includeToolRecommendation?: boolean;
+  useFullPromptStep1?: boolean;
 }
 
 export interface GenerateHardenedPromptResult {
@@ -162,20 +164,33 @@ export async function generateHardenedPrompt(
     ? parseSectionedRecommendation(toolRecommendation)
     : [];
 
-  // Step 5: Multi-step prompt hardening
   let hardenedPrompt = "";
   try {
-    hardenedPrompt = await executeMultiStepHardening(
-      callModel,
-      systemPrompt,
-      forbiddenTask,
-      breachedAttacks,
-      recommendedToolsList,
-      inspirationExamplesBlock,
-      trace,
-      metadata?.attackSummary?.summarizedPatterns,
-      metadata,
-    );
+    if (params.useFullPromptStep1) {
+      hardenedPrompt = await executeMultiStepHardeningFull(
+        callModel,
+        systemPrompt,
+        forbiddenTask,
+        breachedAttacks,
+        recommendedToolsList,
+        inspirationExamplesBlock,
+        trace,
+        metadata?.attackSummary?.summarizedPatterns,
+        metadata,
+      );
+    } else {
+      hardenedPrompt = await executeMultiStepHardening(
+        callModel,
+        systemPrompt,
+        forbiddenTask,
+        breachedAttacks,
+        recommendedToolsList,
+        inspirationExamplesBlock,
+        trace,
+        metadata?.attackSummary?.summarizedPatterns,
+        metadata,
+      );
+    }
   } catch (err) {
     console.error("Error generating hardened prompt:", err);
     hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt);
