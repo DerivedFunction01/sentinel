@@ -94,53 +94,55 @@ export async function generateHardenedPrompt(
     includeToolRecommendation = true,
   } = params;
 
-  // Step 1: Rephrase restrictions into tool requirements (cached on metadata)
-  const rephrased = await rephraseRestrictions(
-    forbiddenTask,
-    extractorModel || DEFAULT_MODEL,
-    metadata,
-    tracker,
-  );
-  const toolRequirements = rephrased.toolRequirements;
+  // Steps 1–3 are only needed when tool extraction is requested.
+  // When hardening-only (fast path), skip the inspiration retrieval and
+  // tool extraction pipeline entirely — they make unnecessary LLM/DB calls.
+  let inspirationExamples: InspirationExample[] = [];
+  let inspirationExamplesBlock = "";
+  let toolRecommendation = "";
+  let compatibilityScore = 0;
+  let slowPathHit = false;
 
-  // Step 2: Get inspiration examples from the database (shared between tool extractor and hardening)
-  // Find the matching RestrictionThing from seed extraction metadata
-  const targetThing =
-    metadata.seedExtraction?.things?.find(
-      (t: any) => t.forbiddenTask === forbiddenTask,
-    ) ||
-    ({
+  if (includeToolRecommendation) {
+    // Step 1: Rephrase restrictions into tool requirements (cached on metadata)
+    const rephrased = await rephraseRestrictions(
       forbiddenTask,
-      thingName: "",
-      thingDescription: "",
-      thingNameVariants: [],
-      thingDescriptionVariants: [],
-      vulnerabilities: [],
-      credentials: [],
-      businessScenarios: [],
-      ontologySection: undefined,
-      isPresent: true,
-    } as RestrictionThing);
-  const inspirationExamples: InspirationExample[] =
-    await retrieveInspirationExamples(
+      extractorModel || DEFAULT_MODEL,
+      metadata,
+      tracker,
+    );
+    const toolRequirements = rephrased.toolRequirements;
+
+    // Step 2: Get inspiration examples from the database
+    const targetThing =
+      metadata.seedExtraction?.things?.find(
+        (t: any) => t.forbiddenTask === forbiddenTask,
+      ) ||
+      ({
+        forbiddenTask,
+        thingName: "",
+        thingDescription: "",
+        thingNameVariants: [],
+        thingDescriptionVariants: [],
+        vulnerabilities: [],
+        credentials: [],
+        businessScenarios: [],
+        ontologySection: undefined,
+        isPresent: true,
+      } as RestrictionThing);
+    inspirationExamples = await retrieveInspirationExamples(
       targetThing,
       extractorModel || DEFAULT_MODEL,
       granularity,
       metadata,
       tracker,
       trace,
-      tools, // pass existing tools for overlap assessment
-      toolRequirements, // pass rephrased requirements for better tag generation
+      tools,
+      toolRequirements,
     );
-  const inspirationExamplesBlock =
-    formatInspirationExamplesBlock(inspirationExamples);
+    inspirationExamplesBlock = formatInspirationExamplesBlock(inspirationExamples);
 
-  // Step 3: Run tool extraction (pass pre-fetched examples to avoid a second fetch)
-  let toolRecommendation = "";
-  let compatibilityScore = 0;
-  let slowPathHit = false;
-
-  if (includeToolRecommendation) {
+    // Step 3: Run tool extraction (pass pre-fetched examples to avoid a second fetch)
     const result = await generateToolRecommendation(
       systemPrompt,
       forbiddenTask,
