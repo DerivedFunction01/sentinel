@@ -49,12 +49,16 @@ export async function generateInspirationSearchQuery(
         where: {
           OR: [
             { ontologySections: { contains: targetOntologySection } },
-            ...(wildcardSection ? [{ ontologySections: { contains: wildcardSection } }] : []),
+            ...(wildcardSection
+              ? [{ ontologySections: { contains: wildcardSection } }]
+              : []),
           ],
         },
       });
       if (matchingCount > 0) {
-        console.log(`[Inspiration] Mapped ontology section '${targetOntologySection}' (or wildcard) found in DB. Bypassing LLM query generation.`);
+        console.log(
+          `[Inspiration] Mapped ontology section '${targetOntologySection}' (or wildcard) found in DB. Bypassing LLM query generation.`,
+        );
         return {
           query: targetOntologySection.toLowerCase(),
           tags: [],
@@ -159,7 +163,7 @@ export async function searchInspirationCandidates(
       searchWords.push(
         ...query
           .toLowerCase()
-          .split(/[\s_]+/)
+          .split(/[\s_\/\-]+/)
           .filter(Boolean),
       );
     }
@@ -167,7 +171,7 @@ export async function searchInspirationCandidates(
       searchWords.push(
         ...t
           .toLowerCase()
-          .split(/[\s_]+/)
+          .split(/[\s_\/\-]+/)
           .filter(Boolean),
       );
     });
@@ -178,6 +182,8 @@ export async function searchInspirationCandidates(
         const nameLower = ex.name.toLowerCase();
         const descLower = ex.description.toLowerCase();
         const jsonLower = ex.toolJson.toLowerCase();
+        const bizCatsLower = (ex.businessCategories || "").toLowerCase();
+        const ontSecsLower = (ex.ontologySections || "").toLowerCase();
         let tagsLower = "";
         try {
           tagsLower = JSON.stringify(JSON.parse(ex.tags)).toLowerCase();
@@ -188,7 +194,9 @@ export async function searchInspirationCandidates(
             nameLower.includes(word) ||
             descLower.includes(word) ||
             tagsLower.includes(word) ||
-            jsonLower.includes(word)
+            jsonLower.includes(word) ||
+            bizCatsLower.includes(word) ||
+            ontSecsLower.includes(word)
           ) {
             matchingWordsCount++;
           }
@@ -221,19 +229,17 @@ export async function searchInspirationCandidates(
       if (targetOntologySection) {
         try {
           const exampleSections = JSON.parse(
-            ex.ontologySections || "[]"
+            ex.ontologySections || "[]",
           ) as string[];
-          if (
-            Array.isArray(exampleSections) &&
-            exampleSections.length > 0
-          ) {
+          if (Array.isArray(exampleSections) && exampleSections.length > 0) {
             const category = targetOntologySection.split("/")[0];
             const wildcardSection = category ? `${category}/ALL` : undefined;
 
             const isMatch = exampleSections.some(
               (sec) =>
                 sec.toLowerCase() === targetOntologySection.toLowerCase() ||
-                (wildcardSection && sec.toLowerCase() === wildcardSection.toLowerCase())
+                (wildcardSection &&
+                  sec.toLowerCase() === wildcardSection.toLowerCase()),
             );
             if (isMatch) {
               ontologyBonus = 3.0;
@@ -253,7 +259,7 @@ export async function searchInspirationCandidates(
 
     const afterFilter = scoredExamples.filter((item) => {
       if (searchWords.length > 0) {
-        return item.matchingWordsCount > 0;
+        return item.matchingWordsCount > 0 || item.ontologyBonus > 0;
       }
       return true;
     });
@@ -436,6 +442,65 @@ export async function retrieveInspirationExamples(
   existingTools?: ToolDef[],
   toolRequirements?: string,
 ): Promise<InspirationExample[]> {
+  const targetOntologySection = targetThing.ontologySection;
+
+  if (targetOntologySection) {
+    const category = targetOntologySection.split("/")[0];
+    const wildcardSection = category ? `${category}/ALL` : undefined;
+
+    try {
+      const matchingExamples = await db.toolSchemaExample.findMany({
+        where: {
+          OR: [
+            { ontologySections: { contains: targetOntologySection } },
+            ...(wildcardSection
+              ? [{ ontologySections: { contains: wildcardSection } }]
+              : []),
+          ],
+        },
+      });
+
+      if (matchingExamples.length > 0) {
+        console.log(
+          `[Inspiration] Found ${matchingExamples.length} direct DB example matches for ontology section '${targetOntologySection}'. Bypassing search query execution.`,
+        );
+
+        const candidates: InspirationExample[] = [];
+        for (const ex of matchingExamples) {
+          try {
+            candidates.push({
+              name: ex.name,
+              description: ex.description,
+              tags: JSON.parse(ex.tags),
+              granularity: ex.granularity,
+              toolJson: JSON.parse(ex.toolJson),
+              mockResponse: JSON.parse(ex.mockResponse),
+              businessCategories: JSON.parse(ex.businessCategories || "[]"),
+              ontologySections: JSON.parse(ex.ontologySections || "[]"),
+              directMatch: true,
+              bestMatchingCandidate: true,
+            });
+          } catch {}
+        }
+
+        if (trace) {
+          trace.step0 = {
+            query: `direct-ontology:${targetOntologySection}`,
+            tags: [],
+            retrievedExamples: candidates,
+            usedBusinessCategories: metadata.seedExtraction?.businessCategories,
+          };
+        }
+        return candidates;
+      }
+    } catch (dbErr) {
+      console.error(
+        "[Inspiration] Direct ontology match retrieval error:",
+        dbErr,
+      );
+    }
+  }
+
   const { query, tags } = await generateInspirationSearchQuery(
     targetThing,
     extractorModel,
