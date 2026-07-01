@@ -2,6 +2,7 @@
 
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
+import remarkGfm from "remark-gfm"; // 1. Import the plugin
 import { CodeHighlight } from "@/components/shared/code-highlight";
 
 interface MarkdownRendererProps {
@@ -35,7 +36,6 @@ export function MarkdownRenderer({
         </div>
       );
     },
-    // Inline code is handled by the code component above (no language = inline)
     // Headings
     h1: ({ children }) => (
       <h1 className="mb-2 mt-4 text-lg font-bold text-foreground">
@@ -97,11 +97,42 @@ export function MarkdownRenderer({
     ),
     // Horizontal rule
     hr: () => <hr className="my-3 border-border" />,
+
+    // 2. Table Component Mappings
+    table: ({ children }) => (
+      <div className="my-4 w-full overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-left text-sm text-foreground/90 border-collapse">
+          {children}
+        </table>
+      </div>
+    ),
+    thead: ({ children }) => (
+      <thead className="bg-white/5 text-foreground font-semibold border-b border-border">
+        {children}
+      </thead>
+    ),
+    tbody: ({ children }) => (
+      <tbody className="divide-y divide-border/40">{children}</tbody>
+    ),
+    tr: ({ children }) => (
+      <tr className="hover:bg-white/[0.02] transition-colors">{children}</tr>
+    ),
+    th: ({ children }) => (
+      <th className="px-4 py-2 font-bold text-foreground">{children}</th>
+    ),
+    td: ({ children }) => (
+      <td className="px-4 py-2 text-sm text-foreground/80">{children}</td>
+    ),
   };
 
   return (
     <div className={`prose prose-sm max-w-none ${className || ""}`}>
-      <ReactMarkdown components={components}>{content}</ReactMarkdown>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]} // 3. Pass the plugin here
+        components={components}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }
