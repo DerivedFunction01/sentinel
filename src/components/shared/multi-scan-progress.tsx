@@ -363,7 +363,10 @@ export function MultiScanProgress({
                           selected.detail.summary.completedJudges ===
                             selected.detail.summary.attackCount
                           ? ProgressStepStatus.Completed
-                          : ProgressStepStatus.Running,
+                          : (selected.detail.summary.completedTargets > 0 ||
+                             selected.detail.summary.completedJudges > 0)
+                            ? ProgressStepStatus.Running
+                            : ProgressStepStatus.Pending,
                       )}
                       <span className="text-xs text-muted-foreground">
                         T:{selected.detail.summary.completedTargets}/

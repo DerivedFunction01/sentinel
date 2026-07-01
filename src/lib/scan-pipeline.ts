@@ -957,10 +957,14 @@ async function readProgressMeta(
 async function writeProgressMeta(
   reportId: string,
   meta: ProgressMeta,
+  incrementStep: boolean = false,
 ): Promise<void> {
   await db.scan.update({
     where: { reportId },
-    data: { progressMeta: JSON.stringify(meta) },
+    data: {
+      progressMeta: JSON.stringify(meta),
+      ...(incrementStep ? { currentStep: { increment: 1 } } : {}),
+    },
   });
 }
 
@@ -988,22 +992,25 @@ async function withRetry<T>(
       retries: step.retries,
     });
     onSuccess(updatedMeta, result);
-    await writeProgressMeta(reportId, updatedMeta);
+    const isCoarseSubstep =
+      stepName.startsWith("target-") || stepName.startsWith("judge-");
+    await writeProgressMeta(reportId, updatedMeta, isCoarseSubstep);
     return result;
   } catch (err) {
     const errMsg = (err as Error).message || "Unknown error";
     const updatedMeta = await readProgressMeta(reportId);
     if (!updatedMeta) throw new Error("ProgressMeta not found");
     const newRetries = step.retries + 1;
+    const isFailed = newRetries >= 2;
     setStep(updatedMeta, {
-      status:
-        newRetries >= 2
-          ? ProgressStepStatus.Failed
-          : ProgressStepStatus.Pending,
+      status: isFailed ? ProgressStepStatus.Failed : ProgressStepStatus.Pending,
       retries: newRetries,
       error: errMsg,
     });
-    await writeProgressMeta(reportId, updatedMeta);
+    const isCoarseSubstep =
+      isFailed &&
+      (stepName.startsWith("target-") || stepName.startsWith("judge-"));
+    await writeProgressMeta(reportId, updatedMeta, isCoarseSubstep);
 
     if (newRetries >= 2) {
       console.error(
@@ -1141,10 +1148,10 @@ export async function runSingleScanPipeline(
     ),
   );
 
-  // Update coarse progress for all targets at once
+  // Set coarse progress to exactly attackCount to align
   await db.scan.update({
     where: { reportId },
-    data: { currentStep: { increment: attackCount } },
+    data: { currentStep: attackCount },
   });
 
   // Step B: Launch all judge evaluations in parallel
@@ -1227,10 +1234,10 @@ export async function runSingleScanPipeline(
     }),
   );
 
-  // Update coarse progress for all judges at once
+  // Set coarse progress to exactly total steps to align
   await db.scan.update({
     where: { reportId },
-    data: { currentStep: { increment: attackCount } },
+    data: { currentStep: attackCount * 2 },
   });
 
   // Step C: Build trial results from IN-MEMORY data (not re-reading from DB)
