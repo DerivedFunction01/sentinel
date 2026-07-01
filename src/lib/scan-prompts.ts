@@ -1115,42 +1115,13 @@ export async function executeMultiStepHardeningFull(
   }
 
   // ── Step 2: Guardrails Addition ──
+  // Bypassed completely in executeMultiStepHardeningFull
   let finalPrompt = hardenedPrompt;
-  const hasToolsEnforcingRestrictions =
-    recommendedTools && recommendedTools.length > 0;
-
-  if (!hasToolsEnforcingRestrictions) {
-    const step2Instructions = getHardenedPromptStep2Instructions(
-      hardenedPrompt,
-      forbiddenTask,
-      breachedAttacks,
-      recommendedTools,
-      summarizedPatterns,
-      metadata,
-    );
-
-    let step2FinalPrompt = "";
-    try {
-      const res = await callModel(step2Instructions);
-      step2FinalPrompt = extractSystemPrompt(res || "");
-      if (trace) {
-        trace.step2 = {
-          promptSent: step2Instructions,
-          outputPrompt: step2FinalPrompt,
-        };
-      }
-      finalPrompt = step2FinalPrompt;
-    } catch (err) {
-      console.error("Step 2 of prompt hardening failed:", err);
-      finalPrompt = hardenedPrompt;
-    }
-  } else {
-    if (trace) {
-      trace.step2 = {
-        skipped: true,
-        reason: "Tools present to enforce restrictions (rules as code pattern)",
-      };
-    }
+  if (trace) {
+    trace.step2 = {
+      skipped: true,
+      reason: "Step 2 bypassed in executeMultiStepHardeningFull",
+    };
   }
 
   if (finalPrompt.includes("<system_prompt>")) {
