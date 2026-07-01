@@ -7,9 +7,9 @@
  *   - src/app/api/scan/[id]/harden/route.ts  (POST handler)
  */
 import {
+  deriveToolRequirements,
   generateToolRecommendation,
   parseSectionedRecommendation,
-  rephraseRestrictions,
 } from "@/lib/tool-extractor";
 import {
   retrieveInspirationExamples,
@@ -104,14 +104,8 @@ export async function generateHardenedPrompt(
   let slowPathHit = false;
 
   if (includeToolRecommendation) {
-    // Step 1: Rephrase restrictions into tool requirements (cached on metadata)
-    const rephrased = await rephraseRestrictions(
-      forbiddenTask,
-      extractorModel || DEFAULT_MODEL,
-      metadata,
-      tracker,
-    );
-    const toolRequirements = rephrased.toolRequirements;
+    // Step 1: Derive tool requirements from seed extraction (zero LLM cost)
+    const { toolRequirements } = deriveToolRequirements(metadata, forbiddenTask);
 
     // Step 2: Get inspiration examples from the database
     const targetThing =

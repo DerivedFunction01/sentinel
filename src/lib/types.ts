@@ -246,14 +246,6 @@ export interface ScanMetadata {
     breachedAttacks: BreachedAttack[];
     summarizedAt?: string;
   };
-
-  // Rephrased restrictions for tool extraction (computed lazily)
-  toolExtraction?: {
-    toolRequirements: string; // "discount policy and procedures, refund/return requests"
-    mockPolicy: string; // "Do not give discounts, Do not give refunds"
-    pairs: RephrasedRestrictionPair[];
-    rephrasedAt?: string;
-  };
 }
 
 /** Authenticated user. */

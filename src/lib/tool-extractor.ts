@@ -7,7 +7,6 @@ import {
   ToolRecommendationItem,
   HardeningTrace,
   ScanMetadata,
-  RephrasedRestrictionPair,
   RestrictionThing,
 } from "./types";
 import { Granularity } from "./enums";
@@ -241,84 +240,30 @@ function loadPromptFile(filename: string): string {
 }
 
 /**
- * Rephrase a forbidden task into capability-oriented tool requirements + mock policies.
- * Results are cached on metadata.toolExtraction so this only runs once per scan.
+ * Derive tool requirements from seed extraction things.
+ * Each thing's thingName becomes a tool requirement (e.g. "discounts" → "discount policy and procedures").
+ * The forbiddenTask itself serves as the mock policy (they are identical in purpose).
+ * Falls back to the raw forbiddenTask string when seed extraction is unavailable.
  */
-export async function rephraseRestrictions(
-  forbiddenTask: string,
-  extractorModel: string,
+export function deriveToolRequirements(
   metadata: ScanMetadata,
-  tracker?: any,
-): Promise<{
-  toolRequirements: string;
-  mockPolicy: string;
-  pairs: RephrasedRestrictionPair[];
-}> {
-  // Return cached result if already computed
-  if (metadata.toolExtraction) {
-    return metadata.toolExtraction;
-  }
-
-  const prompt = `You are a requirements analyst. Split each restriction below into two parts:
-(1) the user-facing capability/tool request (what the user asks for)
-(2) the policy the mock response must enforce (why it gets denied)
-
-Restrictions:
-${forbiddenTask}
-
-Output ONLY valid JSON with no preamble:
-{"pairs": [
-  {"original": "...", "toolRequirement": "...", "mockPolicy": "..."}
-]}
-
-Example:
-Input: "Do not give discounts. Do not give refunds. No investment advice."
-Output: {"pairs": [
-  {"original": "Do not give discounts", "toolRequirement": "discount policy and procedures", "mockPolicy": "Do not give discounts"},
-  {"original": "Do not give refunds", "toolRequirement": "refund/return requests", "mockPolicy": "Do not give refunds"},
-  {"original": "No investment advice", "toolRequirement": "investment advice and recommendations", "mockPolicy": "No investment advice"}
-]}`;
-
-  try {
-    const response = await callOpenRouter(
-      extractorModel,
-      [{ role: "user", content: prompt }],
-      undefined,
-      tracker,
-    );
-
-    const cleaned = (response.content || "")
-      .replace(/^```[a-zA-Z]*\n/g, "")
-      .replace(/\n```$/g, "")
-      .trim();
-    const parsed = JSON.parse(cleaned);
-    const pairs: RephrasedRestrictionPair[] = parsed.pairs || [];
-
-    const toolRequirements = pairs.map((p) => p.toolRequirement).join(", ");
-    const mockPolicy = pairs.map((p) => p.mockPolicy).join(". ");
-
-    const result = { toolRequirements, mockPolicy, pairs };
-    metadata.toolExtraction = result;
-    return result;
-  } catch (err) {
-    console.error(
-      "rephraseRestrictions failed, using original forbidden task as fallback:",
-      err,
-    );
-    // Fallback: treat the whole forbidden task as both the requirement and the policy
-    const fallback: RephrasedRestrictionPair = {
-      original: forbiddenTask,
-      toolRequirement: forbiddenTask,
+  forbiddenTask: string,
+): { toolRequirements: string; mockPolicy: string } {
+  const things = metadata.seedExtraction?.things;
+  if (things && things.length > 0) {
+    const toolRequirements = things
+      .map((t) => (t.thingName ? `${t.thingName} policy and procedures` : ""))
+      .filter(Boolean)
+      .join(", ");
+    return {
+      toolRequirements: toolRequirements || forbiddenTask,
       mockPolicy: forbiddenTask,
     };
-    const result = {
-      toolRequirements: forbiddenTask,
-      mockPolicy: forbiddenTask,
-      pairs: [fallback],
-    };
-    metadata.toolExtraction = result;
-    return result;
   }
+  return {
+    toolRequirements: forbiddenTask,
+    mockPolicy: forbiddenTask,
+  };
 }
 
 export function getToolExtractionInstructions(
@@ -739,17 +684,10 @@ export async function generateToolRecommendation(
   slowPathHit: boolean;
 }> {
   try {
-    // Step 0: Pre-compute rephrased capabilities (caches on metadata, used by both inspiration scoring and the slow-path prompt)
-    await rephraseRestrictions(
-      forbiddenTask,
-      extractorModel,
-      metadata,
-      tracker,
-    );
+    // Derive tool requirements from seed extraction (zero LLM cost)
+    const { toolRequirements, mockPolicy } = deriveToolRequirements(metadata, forbiddenTask);
 
     // Step 1: Retrieve inspiration examples from DB with full business context
-    const toolRequirements =
-      metadata.toolExtraction?.toolRequirements || forbiddenTask;
     const targetThing = metadata.seedExtraction?.things?.find(
       (t: any) => t.forbiddenTask === forbiddenTask
     ) || ({
@@ -859,9 +797,6 @@ export async function generateToolRecommendation(
     }
 
     const summarizedPatterns = metadata?.attackSummary?.summarizedPatterns;
-
-    // Use the already-cached rephrased requirements from Step 0
-    const mockPolicy = metadata.toolExtraction?.mockPolicy || forbiddenTask;
 
     const extractionInstructions = getToolExtractionInstructions(
       hardenedPrompt,
