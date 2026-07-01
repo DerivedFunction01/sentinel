@@ -95,12 +95,15 @@ export function ReportView({ scan }: ReportViewProps) {
   const handleExtractTools = async (
     granularity: Granularity,
     extractorModel: string,
+    includeToolRecommendation: boolean = true,
   ) => {
     if (!selectedHardenedModel) return;
 
     setExtracting(true);
     const toastId = toast.loading(
-      "Analyzing prompt for tool recommendations...",
+      includeToolRecommendation
+        ? "Analyzing prompt for tool recommendations..."
+        : "Generating hardened instruction defense...",
     );
     try {
       const res = await fetch(`/api/scan/${scan.id}/harden`, {
@@ -110,6 +113,7 @@ export function ReportView({ scan }: ReportViewProps) {
           modelId: selectedHardenedModel,
           granularity,
           extractorModel,
+          includeToolRecommendation,
         }),
       });
       if (!res.ok) throw new Error("Extraction failed");
@@ -587,7 +591,7 @@ function hardenedPrompt(
                 View Step Traces
               </Button>
             )}
-            {currentHardenedPrompt ? (
+            {currentHardenedPrompt && (
               <Button
                 variant="outline"
                 size="sm"
@@ -598,15 +602,6 @@ function hardenedPrompt(
                 {currentHardenedPrompt.toolRecommendation
                   ? "Re-extract Tools"
                   : "Extract Tools to Schema"}
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                onClick={() => setPickerOpen(true)}
-                disabled={extracting}
-                className="bg-purple-600 hover:bg-purple-700 text-white text-xs"
-              >
-                Harden Model
               </Button>
             )}
           </div>
@@ -1020,36 +1015,46 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Seed Extraction
                   </p>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                  <div className="flex flex-col gap-3 text-xs">
                     {seed.personaDescription && (
-                      <>
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
                         <span className="text-muted-foreground">Persona</span>
-                        <span className="text-foreground text-right">
+                        <span className="text-foreground font-medium">
                           {seed.personaDescription}
                         </span>
-                      </>
+                      </div>
                     )}
                     {seed.businessCategories &&
                       seed.businessCategories.length > 0 && (
-                        <>
+                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
                           <span className="text-muted-foreground">
                             Categories
                           </span>
-                          <span className="text-foreground text-right">
-                            {seed.businessCategories.join(", ")}
-                          </span>
-                        </>
+                          <div className="flex flex-wrap gap-1">
+                            {seed.businessCategories.map((cat: string, i: number) => (
+                              <Badge
+                                key={i}
+                                variant="outline"
+                                className="text-[10px] border-slate-700 text-slate-300 font-normal px-2 py-0"
+                              >
+                                {cat}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     {seed.businessFeatures &&
                       seed.businessFeatures.length > 0 && (
-                        <>
-                          <span className="text-muted-foreground">
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-muted-foreground block font-semibold text-[11px] uppercase tracking-wider">
                             Features
                           </span>
-                          <span className="text-foreground text-right col-span-2">
-                            {seed.businessFeatures.slice(0, 3).join(", ")}
-                          </span>
-                        </>
+                          <ul className="list-disc pl-4 space-y-1 text-foreground text-xs leading-relaxed">
+                            {seed.businessFeatures.map((feat: string, i: number) => (
+                              <li key={i}>{feat}</li>
+                            ))}
+                          </ul>
+                        </div>
                       )}
 
                     {seed.things &&
@@ -1082,9 +1087,17 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                                   <span className="text-muted-foreground">
                                     Name Variants
                                   </span>
-                                  <span className="text-foreground col-span-2">
-                                    {t.thingNameVariants.join(", ")}
-                                  </span>
+                                  <div className="flex flex-wrap gap-1 col-span-2">
+                                    {t.thingNameVariants.map((v: string, i: number) => (
+                                      <Badge
+                                        key={i}
+                                        variant="secondary"
+                                        className="text-[10px] bg-slate-900 border-slate-800 text-slate-300 font-normal px-2 py-0"
+                                      >
+                                        {v}
+                                      </Badge>
+                                    ))}
+                                  </div>
                                 </>
                               )}
 
@@ -1094,20 +1107,29 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                                   <span className="text-muted-foreground">
                                     Description Variants
                                   </span>
-                                  <span className="text-foreground col-span-2">
-                                    {t.thingDescriptionVariants.join("; ")}
-                                  </span>
+                                  <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
+                                    {t.thingDescriptionVariants.map((v: string, i: number) => (
+                                      <li key={i}>{v}</li>
+                                    ))}
+                                  </ul>
                                 </>
                               )}
 
                             {t.credentials && t.credentials.length > 0 && (
                               <>
-                                <span className="text-muted-foreground">
-                                  Credentials
-                                </span>
-                                <span className="text-foreground col-span-2 font-mono text-[10px]">
-                                  {t.credentials.join(", ")}
-                                </span>
+                                  <span className="text-muted-foreground">
+                                    Credentials
+                                  </span>
+                                  <div className="flex flex-wrap gap-1 col-span-2">
+                                    {t.credentials.map((cred: string, i: number) => (
+                                      <code
+                                        key={i}
+                                        className="bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-[10px] text-amber-300 font-mono"
+                                      >
+                                        {cred}
+                                      </code>
+                                    ))}
+                                  </div>
                               </>
                             )}
 
@@ -1117,9 +1139,11 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                                   <span className="text-muted-foreground">
                                     Scenarios
                                   </span>
-                                  <span className="text-foreground col-span-2">
-                                    {t.businessScenarios.slice(0, 3).join("; ")}
-                                  </span>
+                                  <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
+                                    {t.businessScenarios.slice(0, 3).map((v: string, i: number) => (
+                                      <li key={i}>{v}</li>
+                                    ))}
+                                  </ul>
                                 </>
                               )}
                           </div>

@@ -150,13 +150,15 @@ export async function generateAttackSet(
   const mockJson = JSON.stringify(mockToolResponses);
 
   // Step 1: Seed extraction
-  const seedInfo = options.cachedSeedInfo || await extractSeedInfo(
-    options.seedExtractorModel,
-    systemPrompt,
-    toolsJson,
-    mockJson,
-    tracker,
-  );
+  const seedInfo =
+    options.cachedSeedInfo ||
+    (await extractSeedInfo(
+      options.seedExtractorModel,
+      systemPrompt,
+      toolsJson,
+      mockJson,
+      tracker,
+    ));
 
   let thingsToUse = [...(seedInfo.things || [])];
 
@@ -168,18 +170,36 @@ export async function generateAttackSet(
 
     for (const task of individualTasks) {
       const hasMatch = thingsToUse.some(
-        (t) => t.forbiddenTask.toLowerCase().trim() === task.toLowerCase().trim()
+        (t) =>
+          t.forbiddenTask.toLowerCase().trim() === task.toLowerCase().trim(),
       );
       if (!hasMatch) {
         let matchedSection: string | undefined = undefined;
         const lowerTask = task.toLowerCase();
-        if (lowerTask.includes("discount") || lowerTask.includes("coupon") || lowerTask.includes("promotion")) {
+        if (
+          lowerTask.includes("discount") ||
+          lowerTask.includes("coupon") ||
+          lowerTask.includes("promotion")
+        ) {
           matchedSection = "Payments & Billing";
-        } else if (lowerTask.includes("medical") || lowerTask.includes("health") || lowerTask.includes("diagnose")) {
+        } else if (
+          lowerTask.includes("medical") ||
+          lowerTask.includes("health") ||
+          lowerTask.includes("diagnose")
+        ) {
           matchedSection = "Medical & Health Support";
-        } else if (lowerTask.includes("legal") || lowerTask.includes("law") || lowerTask.includes("advice")) {
+        } else if (
+          lowerTask.includes("legal") ||
+          lowerTask.includes("law") ||
+          lowerTask.includes("advice")
+        ) {
           matchedSection = "Legal & Contract Advice";
-        } else if (lowerTask.includes("credentials") || lowerTask.includes("api key") || lowerTask.includes("password") || lowerTask.includes("token")) {
+        } else if (
+          lowerTask.includes("credentials") ||
+          lowerTask.includes("api key") ||
+          lowerTask.includes("password") ||
+          lowerTask.includes("token")
+        ) {
           matchedSection = "Credentials & Secrets";
         }
 
@@ -205,11 +225,14 @@ export async function generateAttackSet(
 
   // Distribute total attacks across all things (based on patterns length)
   const totalTargetCount = patterns.length * 3;
-  const countPerThing = Math.max(patterns.length, Math.ceil(totalTargetCount / thingsToUse.length));
+  const countPerThing = Math.max(
+    patterns.length,
+    Math.ceil(totalTargetCount / thingsToUse.length),
+  );
 
   interface PendingAttack {
     layout: any;
-    thing: typeof thingsToUse[0];
+    thing: (typeof thingsToUse)[0];
     credCtx: { credential: string; instruction: CredentialMode } | undefined;
     promise: Promise<string>;
   }
@@ -224,21 +247,28 @@ export async function generateAttackSet(
     );
 
     for (const layout of attackLayouts) {
-      const pattern = patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
+      const pattern =
+        patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
 
       // Determine credentials context for this specific thing
       const hasCredentials = thing.credentials.length > 0;
-      let credCtx: { credential: string; instruction: CredentialMode } | undefined;
+      let credCtx:
+        | { credential: string; instruction: CredentialMode }
+        | undefined;
 
       if (hasCredentials) {
-        const isVerificationCheck = layout.strategy === FramingStrategy.InsiderVerification;
+        const isVerificationCheck =
+          layout.strategy === FramingStrategy.InsiderVerification;
         if (isVerificationCheck || Math.random() < 0.5) {
           const instruction = isVerificationCheck
             ? CredentialMode.EXACT
             : Math.random() < 0.5
               ? CredentialMode.EXACT
               : CredentialMode.FICTIONAL;
-          const credential = thing.credentials[Math.floor(Math.random() * thing.credentials.length)];
+          const credential =
+            thing.credentials[
+              Math.floor(Math.random() * thing.credentials.length)
+            ];
           credCtx = { credential, instruction };
         }
       }
@@ -270,7 +300,9 @@ export async function generateAttackSet(
     }
   }
 
-  const generatedTexts = await Promise.all(pendingAttacks.map(p => p.promise));
+  const generatedTexts = await Promise.all(
+    pendingAttacks.map((p) => p.promise),
+  );
 
   const attacks: AttackEntry[] = pendingAttacks.map((p, idx) => ({
     patternId: p.layout.patternId,
@@ -400,7 +432,7 @@ export async function runTargetSimulation(
       effectiveTools = [];
     } else {
       throw new Error(
-        `Model ${targetModel} does not support tool calling. Please enable 'Allow running without tools on unsupported models' or remove tools to proceed.`
+        `Model ${targetModel} does not support tool calling. Please enable 'Allow running without tools on unsupported models' or remove tools to proceed.`,
       );
     }
   }
@@ -415,7 +447,12 @@ export async function runTargetSimulation(
   const maxDepth = 5;
 
   while (depth < maxDepth) {
-    const response = await callOpenRouter(targetModel, history, effectiveTools, tracker);
+    const response = await callOpenRouter(
+      targetModel,
+      history,
+      effectiveTools,
+      tracker,
+    );
 
     // Add completion message directly to history (including tool_calls structure)
     history.push(response);
@@ -766,15 +803,22 @@ export async function executeTargetJudgePipeline(
       const isBreached = evaluation.verdict === TrialVerdict.Breached;
       const pattern =
         patterns.find((p) => p.patternId === entry.patternId) || patterns[0];
-      const matchedThing = seedInfo.things?.find((t) => t.forbiddenTask === entry.targetForbiddenTask) || seedInfo.things?.[0];
+      const matchedThing =
+        seedInfo.things?.find(
+          (t) => t.forbiddenTask === entry.targetForbiddenTask,
+        ) || seedInfo.things?.[0];
       const thingNameVariants = matchedThing?.thingNameVariants || [];
-      const thingDescriptionVariants = matchedThing?.thingDescriptionVariants || [];
+      const thingDescriptionVariants =
+        matchedThing?.thingDescriptionVariants || [];
       const thingName = matchedThing?.thingName || "confidential info";
-      const thingDescription = matchedThing?.thingDescription || "disclosing confidential or protected information";
+      const thingDescription =
+        matchedThing?.thingDescription ||
+        "disclosing confidential or protected information";
 
       const variantIdx = i % (thingNameVariants.length || 1);
       const selectedThingName = thingNameVariants[variantIdx] || thingName;
-      const selectedThingDesc = thingDescriptionVariants[variantIdx] || thingDescription;
+      const selectedThingDesc =
+        thingDescriptionVariants[variantIdx] || thingDescription;
 
       return {
         number: i + 1,
@@ -783,7 +827,9 @@ export async function executeTargetJudgePipeline(
         response: targetResult.responseText,
         judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
         judgeVerdict: evaluation.reasoning,
-        taskTag: matchedThing ? slugify(matchedThing.thingName) : "forbidden_task_1",
+        taskTag: matchedThing
+          ? slugify(matchedThing.thingName)
+          : "forbidden_task_1",
         entropyLabel: entry.entropyLabel,
         framingLabel: entry.framingLabel,
         patternId: entry.patternId,
@@ -1044,7 +1090,10 @@ export async function runSingleScanPipeline(
 
   // In-memory store for results (avoids race conditions from parallel DB writes)
   const targetResponses: Map<number, string> = new Map();
-  const judgeVerdicts: Map<number, { verdict: TrialVerdict; reasoning: string }> = new Map();
+  const judgeVerdicts: Map<
+    number,
+    { verdict: TrialVerdict; reasoning: string }
+  > = new Map();
 
   // Step A: Launch all target simulations in parallel
   // Use allSettled so one failure doesn't cancel the entire batch.
@@ -1194,15 +1243,22 @@ export async function runSingleScanPipeline(
     const isBreached = judgeResult?.verdict === TrialVerdict.Breached;
     const pattern =
       patterns.find((p) => p.patternId === entry.patternId) || patterns[0];
-    const matchedThing = attackSet.seedInfo.things?.find((t) => t.forbiddenTask === entry.targetForbiddenTask) || attackSet.seedInfo.things?.[0];
+    const matchedThing =
+      attackSet.seedInfo.things?.find(
+        (t) => t.forbiddenTask === entry.targetForbiddenTask,
+      ) || attackSet.seedInfo.things?.[0];
     const thingNameVariants = matchedThing?.thingNameVariants || [];
-    const thingDescriptionVariants = matchedThing?.thingDescriptionVariants || [];
+    const thingDescriptionVariants =
+      matchedThing?.thingDescriptionVariants || [];
     const thingName = matchedThing?.thingName || "confidential info";
-    const thingDescription = matchedThing?.thingDescription || "disclosing confidential or protected information";
+    const thingDescription =
+      matchedThing?.thingDescription ||
+      "disclosing confidential or protected information";
 
     const variantIdx = idx % (thingNameVariants.length || 1);
     const selectedThingName = thingNameVariants[variantIdx] || thingName;
-    const selectedThingDesc = thingDescriptionVariants[variantIdx] || thingDescription;
+    const selectedThingDesc =
+      thingDescriptionVariants[variantIdx] || thingDescription;
 
     trialResults.push({
       number: idx + 1,
@@ -1211,16 +1267,14 @@ export async function runSingleScanPipeline(
       response: targetResponse,
       judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
       judgeVerdict: judgeResult?.reasoning || "",
-      taskTag: matchedThing ? slugify(matchedThing.thingName) : "forbidden_task_1",
+      taskTag: matchedThing
+        ? slugify(matchedThing.thingName)
+        : "forbidden_task_1",
       entropyLabel: entry.entropyLabel,
       framingLabel: entry.framingLabel,
       patternId: entry.patternId,
       targetThing: selectedThingName,
-      seedTemplate: renderAttack(
-        pattern,
-        selectedThingName,
-        selectedThingDesc,
-      ),
+      seedTemplate: renderAttack(pattern, selectedThingName, selectedThingDesc),
     });
   }
 
@@ -1432,15 +1486,22 @@ export async function executeScanPipeline(
     const isBreached = evaluation.verdict === TrialVerdict.Breached;
     const pattern =
       patterns.find((p) => p.patternId === entry.patternId) || patterns[0];
-    const matchedThing = attackSet.seedInfo.things?.find((t) => t.forbiddenTask === entry.targetForbiddenTask) || attackSet.seedInfo.things?.[0];
+    const matchedThing =
+      attackSet.seedInfo.things?.find(
+        (t) => t.forbiddenTask === entry.targetForbiddenTask,
+      ) || attackSet.seedInfo.things?.[0];
     const thingNameVariants = matchedThing?.thingNameVariants || [];
-    const thingDescriptionVariants = matchedThing?.thingDescriptionVariants || [];
+    const thingDescriptionVariants =
+      matchedThing?.thingDescriptionVariants || [];
     const thingName = matchedThing?.thingName || "confidential info";
-    const thingDescription = matchedThing?.thingDescription || "disclosing confidential or protected information";
+    const thingDescription =
+      matchedThing?.thingDescription ||
+      "disclosing confidential or protected information";
 
     const variantIdx = i % (thingNameVariants.length || 1);
     const selectedThingName = thingNameVariants[variantIdx] || thingName;
-    const selectedThingDesc = thingDescriptionVariants[variantIdx] || thingDescription;
+    const selectedThingDesc =
+      thingDescriptionVariants[variantIdx] || thingDescription;
 
     trials.push({
       number: i + 1,
@@ -1449,7 +1510,9 @@ export async function executeScanPipeline(
       response: targetResult.responseText,
       judgeLabel: isBreached ? JudgeLabel.Leaked : JudgeLabel.Defended,
       judgeVerdict: evaluation.reasoning,
-      taskTag: matchedThing ? slugify(matchedThing.thingName) : "forbidden_task_1",
+      taskTag: matchedThing
+        ? slugify(matchedThing.thingName)
+        : "forbidden_task_1",
       entropyLabel: entry.entropyLabel,
       framingLabel: entry.framingLabel,
       patternId: entry.patternId,

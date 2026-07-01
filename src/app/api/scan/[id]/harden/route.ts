@@ -116,6 +116,7 @@ export async function POST(
       DEFAULT_MODEL;
     const granularity = body.granularity || Granularity.Compact;
     const extractorModel = body.extractorModel || DEFAULT_MODEL;
+    const includeToolRecommendation = body.includeToolRecommendation !== false;
 
     // Check if this model's hardened prompt record already exists
     const existing = await db.hardenedPrompt.findUnique({
@@ -164,6 +165,7 @@ export async function POST(
         metadata,
         trials,
         trace,
+        includeToolRecommendation,
       },
       async (promptText) => {
         const response = await callOpenRouter(modelId, [
