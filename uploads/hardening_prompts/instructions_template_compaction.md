@@ -106,3 +106,5 @@ Put your compacted final version of the system prompt between <SYSTEM_PROMPT> an
 </SYSTEM_PROMPT>
 
 Do NOT include any introduction, explanations, preambles, or markdown formatting outside the tags.
+Do properly format the system prompt with newlines and line breaks, rather than having a single long string
+when a list is present.
