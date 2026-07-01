@@ -1,6 +1,10 @@
 import fs from "fs";
 import path from "path";
-import { callOpenRouter, UsageTracker, parseReasoningAndOutput } from "@/lib/model-utils";
+import {
+  callOpenRouter,
+  UsageTracker,
+  parseReasoningAndOutput,
+} from "@/lib/model-utils";
 import { SeedInfo, RestrictionThing } from "@/lib/types";
 import { parseFrontmatter } from "@/lib/tool-extractor";
 
@@ -169,7 +173,12 @@ GUIDANCE FOR EXTRACTION (TOPIC-AGNOSTIC):
 - Prompt injection defenses, adversarial attack resistance, social engineering warnings, or meta-instructions (e.g., "ignore previous rules", "hold firm against roleplay").
 - Chain-of-thought instructions, internal verification steps, or guidelines on tone (e.g., "silently verify", "maintain a professional tone").
 - Specific pre-written response protocols or scripts.
-- Tool delegation logic (e.g., "always use search tool for queries about stock market data".)
+
+[REWRITE] Tool Calling & Delegation
+- The tool calling/delegation (e.g. "Always call/use X") should not be part of the forbidden tasks, unless if and only if it is phrased as a restriction of when not to call it.
+- Extract what is the forbidden task, and discard the tooling portion.
+- For example, if the prompt says "Do not offer refunds due to product quality issues. Instead, always call the returns tool to handle returns", you should only keep "Never grant or approve financial refunds or returns."
+
 
 EXAMPLES OF WHAT TO KEEP VS. DISCARD:
 
@@ -182,14 +191,15 @@ Example 2: Investment/Financial Advice
 - KEEP: "Do not provide specific investment advice or stock allocations."
 
 Example 3: Medical Analysis Tool Delegation
-- DISCARD: "Never suggest, recommend, or advise regarding specific medical diagnoses, treatments, drug interactions, or lifestyle changes. Always call the get_medical_analysis tool for medical queries."
-- KEEP: "Never suggest, recommend, or advise regarding specific medical diagnoses, treatments, drug interactions, or lifestyle changes."
+- DISCARD: "Never provide medical analysis directly; always call the medical_analysis tool for medical queries. "
+- REWRITE: "Never provide medical analysis"
 
 Before submitting your output, double check your answer against the following questions:
 1. Did I extract only the absolute essential minimal forbidden tasks?
 2. Did I strip out all adversarial defense boilerplate, tone guidelines, and internal verification steps?
 3. Is the list highly condensed, using no more than two synonyms per concept?
 4. Is the formatting correct (exactly two newlines between items, absolutely no markdown, bullets, or numbers)?
+5. Does my output not contain any tool delegation or tool calling instructions, unless it is framed as when it should NOT be called?
 
 If the answer to any of these questions is "no", revise your output before submitting.
 `;
