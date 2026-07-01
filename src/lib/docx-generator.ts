@@ -1051,7 +1051,9 @@ function createAdversarialCoverageCard(scan: Scan): Table {
   const trials = (() => {
     if (!scan.trials) return [];
     try {
-      return typeof scan.trials === "string" ? JSON.parse(scan.trials) : scan.trials;
+      return typeof scan.trials === "string"
+        ? JSON.parse(scan.trials)
+        : scan.trials;
     } catch {
       return [];
     }
@@ -1094,7 +1096,7 @@ function createAdversarialCoverageCard(scan: Scan): Table {
             ],
           }),
         ],
-      })
+      }),
     );
   } else {
     for (const thing of things) {
@@ -1103,8 +1105,12 @@ function createAdversarialCoverageCard(scan: Scan): Table {
         .replace(/[^\w\s-]/g, "")
         .replace(/[\s_-]+/g, "_")
         .trim();
-      const thingTrials = trials.filter((t: any) => t.taskTag === slug || t.targetThing === thing.thingName);
-      const thingBreaches = thingTrials.filter((t: any) => t.verdict === "BREACHED" || t.verdict === "Breached").length;
+      const thingTrials = trials.filter(
+        (t: any) => t.taskTag === slug || t.targetThing === thing.thingName,
+      );
+      const thingBreaches = thingTrials.filter(
+        (t: any) => t.verdict === "BREACHED" || t.verdict === "Breached",
+      ).length;
       const thingTotal = thingTrials.length || 1;
       const rate = Math.round((thingBreaches / thingTotal) * 100);
       const hasBreaches = thingBreaches > 0;
@@ -1148,7 +1154,7 @@ function createAdversarialCoverageCard(scan: Scan): Table {
               ],
             }),
           ],
-        })
+        }),
       );
     }
   }
@@ -2131,24 +2137,235 @@ function parseInlineMarkdown(
   return runs.length > 0 ? runs : [new TextRun("")];
 }
 
+/**
+ * Check if a line is a valid markdown table separator row
+ */
+function isTableSeparator(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("|") && !trimmed.endsWith("|")) {
+    // Must have pipes at start/end to be a separator line
+    // But also accept lines like ":---|:---:|---:" without leading/trailing pipes
+    return /^\|?[\s:]-+[\s:](\|[\s:]-+[\s:])*\|?$/.test(trimmed);
+  }
+  // If it starts with | and ends with |, check it's all dashes/colons/pipes
+  return /^\|[\s:]-+[\s:](\|[\s:]-+[\s:])*\|$/.test(trimmed);
+}
+
+/**
+ * Parse a table row line into cell strings, normalizing to numCols.
+ * Extra columns are appended to the last cell. Missing columns are padded with "".
+ */
+function parseTableRowCells(line: string, numCols: number): string[] {
+  const trimmed = line.trim();
+  // Remove leading and trailing pipe if present
+  let inner = trimmed;
+  if (inner.startsWith("|")) inner = inner.slice(1);
+  if (inner.endsWith("|")) inner = inner.slice(0, -1);
+
+  // Split on pipe, trim each cell
+  const cells = inner.split("|").map((c) => c.trim());
+
+  if (cells.length === numCols) {
+    return cells;
+  } else if (cells.length > numCols) {
+    // Extra columns: append content to the last cell
+    const result = cells.slice(0, numCols - 1);
+    const extra = cells
+      .slice(numCols - 1)
+      .join(" ")
+      .trim();
+    result.push(extra);
+    return result;
+  } else {
+    // Missing columns: pad with empty strings
+    const result = [...cells];
+    while (result.length < numCols) {
+      result.push("");
+    }
+    return result;
+  }
+}
+
+/**
+ * Detect if the current line starts a markdown table (must have header + separator),
+ * parse it, and return a docx Table plus the number of lines consumed.
+ * Returns null if no valid table is found.
+ */
+function parseMarkdownTable(
+  lines: string[],
+  startIndex: number,
+  defaultSize: number,
+  defaultColor: string,
+): { table: Table; lineCount: number } | null {
+  const headerLine = lines[startIndex]?.trim();
+  if (!headerLine || !headerLine.includes("|")) return null;
+
+  const sepLine = lines[startIndex + 1]?.trim();
+  if (!sepLine || !isTableSeparator(sepLine)) return null;
+
+  // Determine canonical column count from separator
+  const sepCells = parseTableRowCells(sepLine, 0); // pass 0 to get raw count
+  const numCols = Math.max(
+    sepCells.length,
+    parseTableRowCells(headerLine, 0).length,
+  );
+
+  // Parse alignments from separator
+  const rawSep = sepLine.trim().replace(/^\|/, "").replace(/\|$/, "");
+  const sepParts = rawSep.split("|").map((c) => c.trim());
+  const alignments: (
+    | typeof AlignmentType.LEFT
+    | typeof AlignmentType.RIGHT
+    | typeof AlignmentType.CENTER
+  )[] = [];
+  for (let i = 0; i < numCols; i++) {
+    const part = sepParts[i] || "---";
+    if (part.startsWith(":") && part.endsWith(":")) {
+      alignments.push(AlignmentType.CENTER);
+    } else if (part.endsWith(":")) {
+      alignments.push(AlignmentType.RIGHT);
+    } else if (part.startsWith(":")) {
+      alignments.push(AlignmentType.LEFT);
+    } else {
+      alignments.push(AlignmentType.LEFT);
+    }
+  }
+
+  // Collect header + data rows
+  const rawHeaderCells = parseTableRowCells(headerLine, numCols);
+  const dataRows: string[][] = [];
+  let rowIdx = startIndex + 2;
+  while (rowIdx < lines.length) {
+    const r = lines[rowIdx].trim();
+    if (!r.includes("|")) break;
+    // Skip if this line looks like another separator (edge case)
+    if (isTableSeparator(r)) break;
+    dataRows.push(parseTableRowCells(r, numCols));
+    rowIdx++;
+  }
+
+  // Build the docx table
+  const tableWidth = 9360;
+  const colWidth = Math.floor(tableWidth / numCols);
+  const columnWidths = new Array(numCols).fill(colWidth);
+
+  const border = {
+    style: BorderStyle.SINGLE,
+    size: 4,
+    color: "CCCCCC",
+  };
+  const borders = {
+    top: border,
+    bottom: border,
+    left: border,
+    right: border,
+  };
+
+  const docxRows: TableRow[] = [];
+
+  // Header row
+  docxRows.push(
+    new TableRow({
+      tableHeader: true,
+      children: rawHeaderCells.map((cell, ci) => {
+        const align = alignments[ci];
+        return new TableCell({
+          borders,
+          width: { size: colWidth, type: WidthType.DXA },
+          shading: { fill: "1F4788", type: ShadingType.CLEAR },
+          margins: { top: 60, bottom: 60, left: 80, right: 80 },
+          verticalAlign: VerticalAlign.CENTER,
+          children: [
+            new Paragraph({
+              alignment: align,
+              children: parseInlineMarkdown(cell, defaultSize, "FFFFFF"),
+            }),
+          ],
+        });
+      }),
+    }),
+  );
+
+  // Data rows
+  dataRows.forEach((rowCells, ri) => {
+    docxRows.push(
+      new TableRow({
+        children: rowCells.map((cell, ci) => {
+          const align = alignments[ci];
+          return new TableCell({
+            borders,
+            width: { size: colWidth, type: WidthType.DXA },
+            shading: {
+              fill: ri % 2 === 0 ? "F8F8F8" : "FFFFFF",
+              type: ShadingType.CLEAR,
+            },
+            margins: { top: 60, bottom: 60, left: 80, right: 80 },
+            verticalAlign: VerticalAlign.CENTER,
+            children: [
+              new Paragraph({
+                alignment: align,
+                children: parseInlineMarkdown(cell, defaultSize, defaultColor),
+              }),
+            ],
+          });
+        }),
+      }),
+    );
+  });
+
+  const table = new Table({
+    width: { size: tableWidth, type: WidthType.DXA },
+    columnWidths,
+    rows: docxRows,
+  });
+
+  return { table, lineCount: rowIdx - startIndex };
+}
+
 function renderMarkdown(
   text: string,
   defaultSize = 20,
   defaultColor = "1A1A1A",
-): Paragraph[] {
+): Paragraph[] | Table[] {
   if (!text) {
     return [new Paragraph({ children: [new TextRun("")] })];
   }
 
   const lines = text.split("\n");
-  const paragraphs: Paragraph[] = [];
+  const paragraphs: (Paragraph | Table)[] = [];
 
-  for (const line of lines) {
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
     const trimmed = line.trim();
+
+    // Check if this line could start a table (must be followed by a separator)
+    if (
+      trimmed.includes("|") &&
+      i + 1 < lines.length &&
+      isTableSeparator(lines[i + 1].trim())
+    ) {
+      const result = parseMarkdownTable(lines, i, defaultSize, defaultColor);
+      if (result) {
+        paragraphs.push(result.table);
+        // Add a small spacer paragraph after the table
+        paragraphs.push(
+          new Paragraph({
+            spacing: { after: 120 },
+            children: [new TextRun("")],
+          }),
+        );
+        i += result.lineCount;
+        continue;
+      }
+    }
+
+    // Fall through to normal paragraph handling
     if (!trimmed) {
       paragraphs.push(
         new Paragraph({ spacing: { after: 100 }, children: [new TextRun("")] }),
       );
+      i++;
       continue;
     }
 
@@ -2221,6 +2438,8 @@ function renderMarkdown(
         }),
       );
     }
+
+    i++;
   }
 
   return paragraphs;
