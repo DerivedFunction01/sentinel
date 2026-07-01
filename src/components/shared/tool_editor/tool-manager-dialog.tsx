@@ -349,7 +349,6 @@ function parseRecommendedTools(raw: any[]): RecommendedTool[] {
     };
   });
 }
-
 export function ToolManagerDialog({
   open,
   onOpenChange,
@@ -359,14 +358,20 @@ export function ToolManagerDialog({
   existingMockKeys,
   existingMocks = {},
 }: ToolManagerDialogProps) {
+  const safeExistingTools = Array.isArray(existingTools) ? existingTools : [];
+  const safeRecommendedTools = Array.isArray(recommendedTools)
+    ? recommendedTools
+    : [];
+  const safeMockKeys = Array.isArray(existingMockKeys) ? existingMockKeys : [];
+
   const parsedRecommended = useMemo(
-    () => parseRecommendedTools(recommendedTools),
-    [recommendedTools],
+    () => parseRecommendedTools(safeRecommendedTools),
+    [safeRecommendedTools],
   );
 
   const existingToolNames = useMemo(
-    () => existingTools.map((t) => t.function?.name).filter(Boolean),
-    [existingTools],
+    () => safeExistingTools.map((t) => t?.function?.name).filter(Boolean),
+    [safeExistingTools],
   );
 
   const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(
@@ -381,12 +386,11 @@ export function ToolManagerDialog({
   const [editingTool, setEditingTool] = useState<any | null>(null);
   const [editingMock, setEditingMock] = useState<any | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingSource, setEditingSource] = useState<
+    "current" | "recommended" | null
+  >(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editingSource, setEditingSource] = useState<"recommended" | "current">(
-    "recommended",
-  );
 
-  // Add localized proxy states to allow edits to mutate the dialog list before applying globally
   const [localRecommended, setLocalRecommended] = useState<any[]>([]);
   const [localExisting, setLocalExisting] = useState<any[]>([]);
   const [localMocks, setLocalMocks] = useState<Record<string, any>>({});
@@ -394,11 +398,11 @@ export function ToolManagerDialog({
   // Initialize localized copy values when dialog state changes:
   useEffect(() => {
     if (open) {
-      setLocalRecommended([...recommendedTools]);
-      setLocalExisting([...existingTools]);
+      setLocalRecommended([...safeRecommendedTools]);
+      setLocalExisting([...safeExistingTools]);
       // Seed mocks from both existing mocks and recommended tool mocks
       const recommendedMocks: Record<string, any> = {};
-      for (const t of recommendedTools) {
+      for (const t of safeRecommendedTools) {
         const name = t.name || t.toolJson?.function?.name;
         if (name && t.mockResponse) {
           recommendedMocks[name] = t.mockResponse;
@@ -407,7 +411,7 @@ export function ToolManagerDialog({
 
       setLocalMocks({ ...existingMocks, ...recommendedMocks });
     }
-  }, [open, recommendedTools, existingTools, existingMocks]);
+  }, [open, safeRecommendedTools, safeExistingTools, existingMocks]);
 
   const toggleAdd = (name: string) => {
     setSelectedToAdd((prev) => {
@@ -594,9 +598,9 @@ export function ToolManagerDialog({
             selectedToRemove,
             selectAllRemove,
             deselectAllRemove,
-            existingTools,
+            safeExistingTools,
             expandedRemove,
-            existingMockKeys,
+            safeMockKeys,
             existingMocks,
             toggleRemove,
             toggleExpandedRemove,
