@@ -53,7 +53,9 @@ export function extractTaggedContent(
   return "";
 }
 
-export function parseReasoningAndOutput(text: string): string {
+export function parseReasoningAndOutput(text: string, includeReasoning: true): { reasoning: string; output: string };
+export function parseReasoningAndOutput(text: string, includeReasoning?: false): string;
+export function parseReasoningAndOutput(text: string, includeReasoning = false): string | { reasoning: string; output: string } {
   const outputRegex = /\[OUTPUT\]([\s\S]*?)(?=\[REASONING\]|\[END\]|$)/i;
   const reasoningRegex = /\[REASONING\]([\s\S]*?)(?=\[END\]|$)/i;
   const endRegex = /^([\s\S]*?)(?=\[END\])/i;
@@ -67,9 +69,17 @@ export function parseReasoningAndOutput(text: string): string {
     cleaned = cleaned.match(endRegex)?.[1] || cleaned;
   }
 
-  return cleaned
+  const output = cleaned
     .replace(/\[OUTPUT\]|\[REASONING\]|\[END\]/gi, "")
     .trim();
+
+  if (includeReasoning) {
+    const reasoningMatch = text.match(/\[REASONING\]([\s\S]*?)\[OUTPUT\]/i) || text.match(/\[REASONING\]([\s\S]*?)\[VERDICT\]/i);
+    const reasoning = reasoningMatch?.[1]?.trim() || "";
+    return { reasoning, output };
+  }
+
+  return output;
 }
 
 export interface UsageTracker {
