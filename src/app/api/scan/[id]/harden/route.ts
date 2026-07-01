@@ -118,6 +118,36 @@ export async function POST(
     const extractorModel = body.extractorModel || DEFAULT_MODEL;
     const includeToolRecommendation = body.includeToolRecommendation !== false;
 
+    // ── Token gating ─────────────────────────────────────────────────────────
+    // Fast path (hardening only)  → costs 1 hardening token
+    // Slow path (+ tool extract)  → costs 3 hardening tokens upfront;
+    //                                refund 1 if the LLM extraction loop was skipped
+    const tokenCost = includeToolRecommendation ? 3 : 1;
+
+    const userBefore = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { hardeningTokens: true },
+    });
+
+    if (!userBefore || userBefore.hardeningTokens < tokenCost) {
+      return NextResponse.json(
+        {
+          error: "insufficient_hardening_tokens",
+          message: `This operation requires ${tokenCost} hardening token${tokenCost > 1 ? "s" : ""}. You have ${userBefore?.hardeningTokens ?? 0}. Convert scan tokens to hardening tokens first.`,
+          required: tokenCost,
+          available: userBefore?.hardeningTokens ?? 0,
+        },
+        { status: 402 },
+      );
+    }
+
+    // Deduct upfront
+    await db.user.update({
+      where: { id: session.user.id },
+      data: { hardeningTokens: { decrement: tokenCost } },
+    });
+    // ─────────────────────────────────────────────────────────────────────────
+
     // Check if this model's hardened prompt record already exists
     const existing = await db.hardenedPrompt.findUnique({
       where: {
@@ -179,6 +209,20 @@ export async function POST(
     const toolRecommendation = hardeningResult.toolRecommendation;
     const compatibilityScore = hardeningResult.compatibilityScore;
 
+    // ── Conditional refund ───────────────────────────────────────────────────
+    // If the slow path was requested but the LLM extraction loop was NOT
+    // executed (directMatch fast path inside generateToolRecommendation),
+    // refund 1 hardening token back to the user.
+    let tokensRefunded = 0;
+    if (includeToolRecommendation && !hardeningResult.slowPathHit) {
+      tokensRefunded = 1;
+      await db.user.update({
+        where: { id: session.user.id },
+        data: { hardeningTokens: { increment: 1 } },
+      });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     let saved;
     if (existing) {
       saved = await db.hardenedPrompt.update({
@@ -213,6 +257,12 @@ export async function POST(
       } catch {}
     }
 
+    // Fetch updated balance to return in response
+    const userAfter = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { hardeningTokens: true },
+    });
+
     return NextResponse.json({
       originalPrompt: scanRow.systemPrompt,
       hardenedPrompt: saved.prompt,
@@ -223,6 +273,9 @@ export async function POST(
       granularity: saved.granularity,
       extractorModel: saved.extractorModel,
       trace,
+      tokenCost: tokenCost - tokensRefunded,
+      tokensRefunded,
+      hardeningTokensRemaining: userAfter?.hardeningTokens ?? 0,
     });
   } catch (error: any) {
     console.error("Error generating/updating hardened prompt:", error);

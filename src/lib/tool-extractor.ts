@@ -735,6 +735,8 @@ export async function generateToolRecommendation(
 ): Promise<{
   toolRecommendation: string | null;
   compatibilityScore: number | null;
+  /** true if the slow LLM extraction loop ran (not a direct-match fast path) */
+  slowPathHit: boolean;
 }> {
   try {
     // Step 0: Pre-compute rephrased capabilities (caches on metadata, used by both inspiration scoring and the slow-path prompt)
@@ -852,6 +854,7 @@ export async function generateToolRecommendation(
       return {
         toolRecommendation: JSON.stringify(payload),
         compatibilityScore: avgScore,
+        slowPathHit: false, // direct-match fast path — no LLM extraction loop
       };
     }
 
@@ -1044,12 +1047,13 @@ export async function generateToolRecommendation(
     return {
       toolRecommendation: JSON.stringify(payload),
       compatibilityScore,
+      slowPathHit: true, // LLM extraction loop was executed
     };
   } catch (err) {
     console.error(
       "Error during generateToolRecommendation pipeline execution:",
       err,
     );
-    return { toolRecommendation: null, compatibilityScore: null };
+    return { toolRecommendation: null, compatibilityScore: null, slowPathHit: false };
   }
 }

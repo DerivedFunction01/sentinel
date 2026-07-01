@@ -17,6 +17,7 @@ import {
   Layers,
   HelpCircle,
   ChevronDown,
+  Zap,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,10 +81,43 @@ export function ReportView({ scan }: ReportViewProps) {
   const [traceOpen, setTraceOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [activeToolIdx, setActiveToolIdx] = useState(0);
+  const [hardeningTokens, setHardeningTokens] = useState<number | null>(null);
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [converting, setConverting] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    // Fetch hardening token balance
+    fetch("/api/user")
+      .then((r) => r.json())
+      .then((d) => setHardeningTokens(d.user?.hardeningTokens ?? 0))
+      .catch(() => {});
   }, []);
+
+  const handleConvertTokens = async (scanTokensToConvert: number) => {
+    setConverting(true);
+    try {
+      const res = await fetch("/api/tokens/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scanTokens: scanTokensToConvert }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.message || "Conversion failed");
+      } else {
+        setHardeningTokens(data.hardeningTokensRemaining);
+        toast.success(
+          `Converted ${scanTokensToConvert} scan token${scanTokensToConvert > 1 ? "s" : ""} → ${data.hardeningTokensGained} hardening tokens`,
+        );
+        setConvertOpen(false);
+      }
+    } catch {
+      toast.error("Conversion failed");
+    } finally {
+      setConverting(false);
+    }
+  };
 
   const handleModelChange = (modelId: string) => {
     setSelectedHardenedModel(modelId);
@@ -116,8 +150,26 @@ export function ReportView({ scan }: ReportViewProps) {
           includeToolRecommendation,
         }),
       });
-      if (!res.ok) throw new Error("Extraction failed");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        if (res.status === 402) {
+          toast.error(
+            errData.message || "Insufficient hardening tokens.",
+            { id: toastId, duration: 6000 },
+          );
+          setConvertOpen(true); // auto-open conversion dialog
+          return;
+        }
+        throw new Error(errData.message || "Extraction failed");
+      }
       const data = await res.json();
+      // Update local token balance from response
+      if (typeof data.hardeningTokensRemaining === "number") {
+        setHardeningTokens(data.hardeningTokensRemaining);
+        if (data.tokensRefunded > 0) {
+          toast.info(`1 hardening token refunded (fast path used)`);
+        }
+      }
       const newPrompt = {
         modelId: data.modelId,
         modelName: data.modelName,
@@ -383,6 +435,11 @@ export function ReportView({ scan }: ReportViewProps) {
           activeToolIdx,
           setActiveToolIdx,
           historyModels,
+          hardeningTokens,
+          setConvertOpen,
+          convertOpen,
+          converting,
+          handleConvertTokens,
         )}
 
         <Separator />
@@ -556,6 +613,11 @@ function hardenedPrompt(
   activeToolIdx: number,
   setActiveToolIdx: React.Dispatch<React.SetStateAction<number>>,
   historyModels: any[],
+  hardeningTokens: number | null,
+  setConvertOpen: (open: boolean) => void,
+  convertOpen: boolean,
+  converting: boolean,
+  handleConvertTokens: (n: number) => Promise<void>,
 ) {
   const formatDropdownName = (hp: any) => {
     const hardener = hp.modelName || formatModelName(hp.modelId);
@@ -618,12 +680,53 @@ function hardenedPrompt(
                 View Step Traces
               </Button>
             )}
+            {/* Hardening token balance + conversion */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setConvertOpen(!convertOpen)}
+                className="flex items-center gap-1.5 rounded-md border border-purple-500/30 bg-purple-600/10 px-2 py-1 text-[11px] font-semibold text-purple-300 hover:bg-purple-600/20 transition-colors"
+                title="Click to convert scan tokens to hardening tokens"
+              >
+                <Zap className="h-3 w-3" />
+                {hardeningTokens === null ? "…" : hardeningTokens} hardening
+              </button>
+              {/* Inline conversion popover */}
+              {convertOpen && (
+                <div className="absolute z-50 mt-1 top-full right-0 w-72 rounded-xl border border-purple-500/30 bg-slate-900 p-4 shadow-xl shadow-purple-900/20 space-y-3">
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-purple-300">Convert Scan Tokens</p>
+                    <p className="text-[11px] text-slate-400">1 scan token = 10 hardening tokens</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {[1, 2, 5].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => handleConvertTokens(n)}
+                        disabled={converting}
+                        className="flex-1 rounded-md border border-purple-500/40 bg-purple-600/15 px-2 py-1.5 text-[11px] font-semibold text-purple-200 hover:bg-purple-600/30 disabled:opacity-50 transition-colors"
+                      >
+                        {n} → {n * 10}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setConvertOpen(false)}
+                    className="w-full text-[10px] text-slate-500 hover:text-slate-300 text-center"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setPickerOpen(true)}
               disabled={extracting}
-              className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10 text-xs animate-pulse"
+              className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10 text-xs"
             >
               Harden Prompt
             </Button>

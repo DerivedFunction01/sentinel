@@ -54,6 +54,8 @@ export interface GenerateHardenedPromptResult {
   compatibilityScore: number;
   hardeningModelId: string;
   hardeningModelName: string;
+  /** true when the slow LLM extraction loop ran; false on fast-path or no-tool runs */
+  slowPathHit: boolean;
 }
 
 /**
@@ -136,6 +138,7 @@ export async function generateHardenedPrompt(
   // Step 3: Run tool extraction (pass pre-fetched examples to avoid a second fetch)
   let toolRecommendation = "";
   let compatibilityScore = 0;
+  let slowPathHit = false;
 
   if (includeToolRecommendation) {
     const result = await generateToolRecommendation(
@@ -154,6 +157,7 @@ export async function generateHardenedPrompt(
     );
     toolRecommendation = result.toolRecommendation || "";
     compatibilityScore = result.compatibilityScore || 0;
+    slowPathHit = result.slowPathHit;
   }
 
   // Step 4: Parse recommended tools
@@ -190,5 +194,6 @@ export async function generateHardenedPrompt(
     compatibilityScore,
     hardeningModelId,
     hardeningModelName,
+    slowPathHit,
   };
 }

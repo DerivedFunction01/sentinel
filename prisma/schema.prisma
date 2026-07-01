@@ -16,7 +16,8 @@ model User {
   password     String // bcrypt hash
   role         String         @default("USER") // UserRole enum: USER | CUSTOMER_ADMIN | SUPER_ADMIN
   company      String?
-  scanTokens   Int            @default(10)
+  scanTokens       Int            @default(10)
+  hardeningTokens  Int            @default(0)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
