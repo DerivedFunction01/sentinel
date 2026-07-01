@@ -19,7 +19,7 @@ import {
   SimpleField,
 } from "docx";
 import * as fs from "fs";
-import type { Scan } from "@/lib/types";
+import type { Scan, TrialTurn } from "@/lib/types";
 import { TrialVerdict, RiskLevel } from "@/lib/enums";
 
 /**
@@ -1636,121 +1636,245 @@ function createTrialSection(scan: Scan): any[] {
                   children: [new TextRun("")],
                 }),
 
-                // Tool Calls Section (if any were made during the trial)
-                ...(trial.toolCalls && trial.toolCalls.length > 0
-                  ? [
+                // Chronological Trace or Fallback
+                ...(trial.transcript && trial.transcript.length > 0
+                  ? trial.transcript.flatMap((turn) => {
+                      if (turn.role === "user") {
+                        return [
+                          new Paragraph({
+                            spacing: { before: 120, after: 60 },
+                            children: [
+                              new TextRun({
+                                text: "❘ USER ATTACK",
+                                bold: true,
+                                size: 16,
+                                color: "2980B9",
+                              }),
+                            ],
+                          }),
+                          ...renderMarkdown(turn.content || "", 20, "1A1A1A"),
+                        ];
+                      }
+                      if (turn.role === "assistant") {
+                        const turnsList: any[] = [];
+                        if (turn.content) {
+                          turnsList.push(
+                            new Paragraph({
+                              spacing: { before: 120, after: 60 },
+                              children: [
+                                new TextRun({
+                                  text: "❘ ASSISTANT",
+                                  bold: true,
+                                  size: 16,
+                                  color: "8E44AD",
+                                }),
+                              ],
+                            }),
+                            ...renderMarkdown(turn.content, 20, "1A1A1A")
+                          );
+                        }
+                        if (turn.toolCalls && turn.toolCalls.length > 0) {
+                          turnsList.push(
+                            new Paragraph({
+                              spacing: { before: 100, after: 60 },
+                              children: [
+                                new TextRun({
+                                  text: "❘ INITIATED TOOL CALLS",
+                                  bold: true,
+                                  size: 16,
+                                  color: "E67E22",
+                                }),
+                              ],
+                            })
+                          );
+                          for (const tc of turn.toolCalls) {
+                            turnsList.push(
+                              new Paragraph({
+                                spacing: { before: 60, after: 40 },
+                                children: [
+                                  new TextRun({
+                                    text: `${tc.name}`,
+                                    bold: true,
+                                    color: "E67E22",
+                                    size: 18,
+                                  }),
+                                  new TextRun({
+                                    text: " called with arguments: ",
+                                    color: "555555",
+                                    size: 16,
+                                  }),
+                                ],
+                              }),
+                              new Paragraph({
+                                spacing: { before: 20, after: 60 },
+                                indent: { left: 360 },
+                                children: [
+                                  new TextRun({
+                                    text: JSON.stringify(tc.arguments, null, 2),
+                                    font: "Consolas",
+                                    size: 16,
+                                    color: "2C3E50",
+                                  }),
+                                ],
+                              })
+                            );
+                          }
+                        }
+                        return turnsList;
+                      }
+                      if (turn.role === "tool") {
+                        let formattedContent = String(turn.content);
+                        try {
+                          if (formattedContent.startsWith("{")) {
+                            formattedContent = JSON.stringify(JSON.parse(formattedContent), null, 2);
+                          }
+                        } catch {}
+                        return [
+                          new Paragraph({
+                            spacing: { before: 100, after: 60 },
+                            children: [
+                              new TextRun({
+                                text: `❘ TOOL RESPONSE: ${turn.name}`,
+                                bold: true,
+                                size: 16,
+                                color: "27AE60",
+                              }),
+                            ],
+                          }),
+                          new Paragraph({
+                            spacing: { before: 20, after: 60 },
+                            indent: { left: 360 },
+                            children: [
+                              new TextRun({
+                                text: formattedContent,
+                                font: "Consolas",
+                                italics: true,
+                                size: 16,
+                                color: "27AE60",
+                              }),
+                            ],
+                          }),
+                        ];
+                      }
+                      return [];
+                    })
+                  : [
+                      // Tool Calls Section (if any were made during the trial)
+                      ...(trial.toolCalls && trial.toolCalls.length > 0
+                        ? [
+                            new Paragraph({
+                              spacing: { before: 100, after: 60 },
+                              children: [
+                                new TextRun({
+                                  text: "❘ ",
+                                  color: "8E44AD", // Purple for tool calls
+                                  bold: true,
+                                  size: 18,
+                                }),
+                                new TextRun({
+                                  text: "TOOL CALLS",
+                                  bold: true,
+                                  size: 16,
+                                  color: "8E44AD",
+                                }),
+                              ],
+                            }),
+                            ...trial.toolCalls.flatMap((tc, i) => [
+                              new Paragraph({
+                                spacing: { before: 60, after: 40 },
+                                children: [
+                                  new TextRun({
+                                    text: `Round ${i + 1}: `,
+                                    bold: true,
+                                    color: "555555",
+                                    size: 16,
+                                  }),
+                                  new TextRun({
+                                    text: `${tc.name}`,
+                                    bold: true,
+                                    color: "8E44AD",
+                                    size: 18,
+                                  }),
+                                  new TextRun({
+                                    text: " called with arguments: ",
+                                    color: "555555",
+                                    size: 16,
+                                  }),
+                                ],
+                              }),
+                              new Paragraph({
+                                spacing: { before: 20, after: 60 },
+                                indent: { left: 360 },
+                                children: [
+                                  new TextRun({
+                                    text: JSON.stringify(tc.arguments, null, 2),
+                                    font: "Consolas",
+                                    size: 16,
+                                    color: "2C3E50",
+                                  }),
+                                ],
+                              }),
+                              new Paragraph({
+                                spacing: { before: 40, after: 40 },
+                                children: [
+                                  new TextRun({
+                                    text: `   → Mock Response:`,
+                                    italics: true,
+                                    color: "7F8C8D",
+                                    size: 16,
+                                  }),
+                                ],
+                              }),
+                              new Paragraph({
+                                spacing: { before: 20, after: 100 },
+                                indent: { left: 360 },
+                                children: [
+                                  new TextRun({
+                                    text: JSON.stringify(tc.mockResponse, null, 2),
+                                    font: "Consolas",
+                                    italics: true,
+                                    size: 16,
+                                    color: "27AE60", // green for successful mock output
+                                  }),
+                                ],
+                              }),
+                            ]),
+                            // Separator after tool calls
+                            new Paragraph({
+                              spacing: { before: 100, after: 100 },
+                              border: {
+                                bottom: {
+                                  color: "E0E0E0",
+                                  style: BorderStyle.SINGLE,
+                                  size: 4,
+                                },
+                              },
+                              children: [new TextRun("")],
+                            }),
+                          ]
+                        : []),
+
+                      // Response Heading
                       new Paragraph({
                         spacing: { before: 100, after: 60 },
                         children: [
                           new TextRun({
                             text: "❘ ",
-                            color: "8E44AD", // Purple for tool calls
+                            color: trialColor,
                             bold: true,
                             size: 18,
                           }),
                           new TextRun({
-                            text: "TOOL CALLS",
+                            text: "RESPONSE",
                             bold: true,
                             size: 16,
-                            color: "8E44AD",
+                            color: "7F8C8D",
                           }),
                         ],
                       }),
-                      ...trial.toolCalls.flatMap((tc, i) => [
-                        new Paragraph({
-                          spacing: { before: 60, after: 40 },
-                          children: [
-                            new TextRun({
-                              text: `Round ${i + 1}: `,
-                              bold: true,
-                              color: "555555",
-                              size: 16,
-                            }),
-                            new TextRun({
-                              text: `${tc.name}`,
-                              bold: true,
-                              color: "8E44AD",
-                              size: 18,
-                            }),
-                            new TextRun({
-                              text: " called with arguments: ",
-                              color: "555555",
-                              size: 16,
-                            }),
-                          ],
-                        }),
-                        new Paragraph({
-                          spacing: { before: 20, after: 60 },
-                          indent: { left: 360 },
-                          children: [
-                            new TextRun({
-                              text: JSON.stringify(tc.arguments, null, 2),
-                              font: "Consolas",
-                              size: 16,
-                              color: "2C3E50",
-                            }),
-                          ],
-                        }),
-                        new Paragraph({
-                          spacing: { before: 40, after: 40 },
-                          children: [
-                            new TextRun({
-                              text: `   → Mock Response:`,
-                              italics: true,
-                              color: "7F8C8D",
-                              size: 16,
-                            }),
-                          ],
-                        }),
-                        new Paragraph({
-                          spacing: { before: 20, after: 100 },
-                          indent: { left: 360 },
-                          children: [
-                            new TextRun({
-                              text: JSON.stringify(tc.mockResponse, null, 2),
-                              font: "Consolas",
-                              italics: true,
-                              size: 16,
-                              color: "27AE60", // green for successful mock output
-                            }),
-                          ],
-                        }),
-                      ]),
-                      // Separator after tool calls
-                      new Paragraph({
-                        spacing: { before: 100, after: 100 },
-                        border: {
-                          bottom: {
-                            color: "E0E0E0",
-                            style: BorderStyle.SINGLE,
-                            size: 4,
-                          },
-                        },
-                        children: [new TextRun("")],
-                      }),
-                    ]
-                  : []),
-
-                // Response Heading
-                new Paragraph({
-                  spacing: { before: 100, after: 60 },
-                  children: [
-                    new TextRun({
-                      text: "❘ ",
-                      color: trialColor,
-                      bold: true,
-                      size: 18,
-                    }),
-                    new TextRun({
-                      text: "RESPONSE",
-                      bold: true,
-                      size: 16,
-                      color: "7F8C8D",
-                    }),
-                  ],
-                }),
-                // Response Text
-                ...renderMarkdown(trial.response, 20, "1A1A1A"),
+                      // Response Text
+                      ...renderMarkdown(trial.response, 20, "1A1A1A"),
+                    ]),
 
                 // Separator
                 new Paragraph({

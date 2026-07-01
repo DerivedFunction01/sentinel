@@ -17,6 +17,7 @@ import type {
   ScanSummary,
   ToolDef,
   Trial,
+  TrialTurn,
 } from "@/lib/types";
 import { DEFAULT_MODEL } from "./model-utils";
 
@@ -101,6 +102,30 @@ export function deserializeScan(row: {
       if ((judgeLabel as string) === "LEAKED") {
         judgeLabel = TrialVerdict.Breached;
       }
+      let transcript = t.transcript as TrialTurn[] | undefined;
+      if (!transcript) {
+        const tcList = (t.toolCalls as Trial["toolCalls"]) || [];
+        const attack = t.attack as string;
+        const response = t.response as string;
+        transcript = [];
+        if (attack) {
+          transcript.push({ role: "user", content: attack });
+        }
+        if (tcList.length > 0) {
+          transcript.push({ role: "assistant", toolCalls: tcList });
+          for (const tc of tcList) {
+            transcript.push({
+              role: "tool",
+              name: tc.name,
+              content: typeof tc.mockResponse === "string" ? tc.mockResponse : JSON.stringify(tc.mockResponse),
+            });
+          }
+        }
+        if (response) {
+          transcript.push({ role: "assistant", content: response });
+        }
+      }
+
       return {
         number: t.number as number,
         verdict: verdict || TrialVerdict.Unknown,
@@ -109,6 +134,7 @@ export function deserializeScan(row: {
         judgeLabel: judgeLabel || TrialVerdict.Unknown,
         judgeVerdict: t.judgeVerdict as string,
         toolCalls: t.toolCalls as Trial["toolCalls"],
+        transcript,
         taskTag: t.taskTag as string | undefined,
         entropyLabel: t.entropyLabel as string | undefined,
         framingLabel: t.framingLabel as string | undefined,

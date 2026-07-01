@@ -135,68 +135,150 @@ export function TrialCard({ trial }: TrialCardProps) {
             </Section>
           )}
 
-          {/* Tool calls (if any) */}
-          {trial.toolCalls && trial.toolCalls.length > 0 && (
+          {/* Chronological Transcript or Legacy Fallback */}
+          {trial.transcript && trial.transcript.length > 0 ? (
             <Section
-              icon={Wrench}
-              label="Tool Calls"
-              iconColor="text-purple-400"
-              bgColor="bg-purple-500/5"
-              borderColor="border-purple-500/10"
+              icon={Swords}
+              label="Chronological Conversation Trace"
+              iconColor="text-blue-400"
+              bgColor="bg-slate-500/5"
+              borderColor="border-slate-500/10"
             >
-              <div className="space-y-3">
-                {trial.toolCalls.map((tc, i) => (
-                  <div
-                    key={i}
-                    className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3"
-                  >
-                    <div className="flex items-center gap-2 text-xs">
-                      <code className="font-mono font-semibold text-purple-400">
-                        {tc.name}()
-                      </code>
-                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-muted-foreground">
-                        mock response returned
-                      </span>
-                    </div>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      <div>
-                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          Arguments
-                        </p>
-                        <CodeHighlight
-                          code={JSON.stringify(tc.arguments, null, 2)}
-                          language="json"
-                          className="!p-2 !bg-muted/30 text-[11px]"
-                        />
+              <div className="space-y-4">
+                {trial.transcript.map((turn, idx) => {
+                  if (turn.role === "user") {
+                    return (
+                      <div key={idx} className="flex flex-col gap-1 border-l-2 border-blue-500/30 pl-3">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-blue-400">User / Attack</span>
+                        <div className="text-sm text-foreground/90">
+                          <MarkdownRenderer content={turn.content || ""} />
+                        </div>
                       </div>
-                      <div>
-                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          Mock Response
-                        </p>
-                        <CodeHighlight
-                          code={JSON.stringify(tc.mockResponse, null, 2)}
-                          language="json"
-                          className="!p-2 !bg-muted/30 text-[11px]"
-                        />
+                    );
+                  }
+                  if (turn.role === "assistant") {
+                    return (
+                      <div key={idx} className="flex flex-col gap-2 border-l-2 border-purple-500/30 pl-3">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-purple-400">Assistant</span>
+                        {turn.content && (
+                          <div className="text-sm text-foreground/90">
+                            <MarkdownRenderer content={turn.content} />
+                          </div>
+                        )}
+                        {turn.toolCalls && turn.toolCalls.length > 0 && (
+                          <div className="mt-1 space-y-2">
+                            <span className="text-[9px] font-semibold uppercase tracking-wider text-purple-400/80">Initiated Tool Calls:</span>
+                            {turn.toolCalls.map((tc, tcIdx) => (
+                              <div key={tcIdx} className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+                                <div className="flex items-center gap-2 text-xs">
+                                  <Wrench className="h-3.5 w-3.5 text-purple-400" />
+                                  <code className="font-mono font-semibold text-purple-400">{tc.name}()</code>
+                                </div>
+                                <div className="mt-2">
+                                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Arguments</p>
+                                  <CodeHighlight
+                                    code={JSON.stringify(tc.arguments, null, 2)}
+                                    language="json"
+                                    className="!p-2 !bg-muted/30 text-[11px]"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  }
+                  if (turn.role === "tool") {
+                    let formattedContent = String(turn.content);
+                    try {
+                      if (formattedContent.startsWith("{")) {
+                        formattedContent = JSON.stringify(JSON.parse(formattedContent), null, 2);
+                      }
+                    } catch {}
+                    return (
+                      <div key={idx} className="flex flex-col gap-1 border-l-2 border-amber-500/30 pl-3">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400">Tool Output ({turn.name})</span>
+                        <div className="mt-1">
+                          <CodeHighlight
+                            code={formattedContent}
+                            language="json"
+                            className="!p-2 !bg-muted/30 text-[11px]"
+                          />
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
               </div>
             </Section>
-          )}
+          ) : (
+            <>
+              {/* Tool calls (if any) */}
+              {trial.toolCalls && trial.toolCalls.length > 0 && (
+                <Section
+                  icon={Wrench}
+                  label="Tool Calls"
+                  iconColor="text-purple-400"
+                  bgColor="bg-purple-500/5"
+                  borderColor="border-purple-500/10"
+                >
+                  <div className="space-y-3">
+                    {trial.toolCalls.map((tc, i) => (
+                      <div
+                        key={i}
+                        className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3"
+                      >
+                        <div className="flex items-center gap-2 text-xs">
+                          <code className="font-mono font-semibold text-purple-400">
+                            {tc.name}()
+                          </code>
+                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            mock response returned
+                          </span>
+                        </div>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          <div>
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              Arguments
+                            </p>
+                            <CodeHighlight
+                              code={JSON.stringify(tc.arguments, null, 2)}
+                              language="json"
+                              className="!p-2 !bg-muted/30 text-[11px]"
+                            />
+                          </div>
+                          <div>
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              Mock Response
+                            </p>
+                            <CodeHighlight
+                              code={JSON.stringify(tc.mockResponse, null, 2)}
+                              language="json"
+                              className="!p-2 !bg-muted/30 text-[11px]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              )}
 
-          {/* Response */}
-          <Section
-            icon={MessageSquareReply}
-            label="Target Model — Response"
-            iconColor="text-blue-400"
-            bgColor="bg-blue-500/5"
-            borderColor="border-blue-500/10"
-          >
-            <MarkdownRenderer content={trial.response} />
-          </Section>
+              {/* Response */}
+              <Section
+                icon={MessageSquareReply}
+                label="Target Model — Response"
+                iconColor="text-blue-400"
+                bgColor="bg-blue-500/5"
+                borderColor="border-blue-500/10"
+              >
+                <MarkdownRenderer content={trial.response} />
+              </Section>
+            </>
+          )}
 
           {/* Judge verdict */}
           <Section

@@ -27,6 +27,13 @@ export interface ToolCall {
   mockResponse: unknown;
 }
 
+export interface TrialTurn {
+  role: "user" | "assistant" | "tool";
+  content?: string;
+  name?: string; // tool name if role === "tool"
+  toolCalls?: ToolCall[]; // tool calls initiated by assistant in this turn
+}
+
 /** One adversarial trial in a scan. */
 export interface Trial {
   number: number;
@@ -36,6 +43,7 @@ export interface Trial {
   judgeLabel: TrialVerdict;
   judgeVerdict: string;
   toolCalls?: ToolCall[];
+  transcript?: TrialTurn[];
   /** The forbidden task this trial targeted, e.g. "forbidden_task_1". */
   taskTag?: string;
   /** Entropy level label, e.g. "Low Entropy" / "High Entropy". */

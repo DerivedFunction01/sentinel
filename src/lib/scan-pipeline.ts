@@ -32,6 +32,7 @@ import { extractSeedInfo } from "@/lib/seed-extractor";
 import {
   ToolDef,
   Trial,
+  TrialTurn,
   ToolCall,
   ScanMetadata,
   BreachedAttack,
@@ -393,7 +394,11 @@ export async function runTargetSimulation(
   mockToolResponses: Record<string, any>,
   tracker?: UsageTracker,
   allowNoToolsFallback?: boolean,
-): Promise<{ responseText: string; toolCalls: ToolCall[] }> {
+): Promise<{
+  responseText: string;
+  toolCalls: ToolCall[];
+  transcript: TrialTurn[];
+}> {
   const targetModelData = tracker?.dbModels?.find((m) => m.id === targetModel);
   const supportsTools = targetModelData ? targetModelData.supportsTools : true;
 
@@ -413,6 +418,9 @@ export async function runTargetSimulation(
     { role: "user", content: attackPrompt },
   ];
 
+  const transcript: TrialTurn[] = [];
+  transcript.push({ role: "user", content: attackPrompt });
+
   const recordedToolCalls: ToolCall[] = [];
   let depth = 0;
   const maxDepth = 5;
@@ -429,6 +437,7 @@ export async function runTargetSimulation(
     history.push(response);
 
     if (response.tool_calls && response.tool_calls.length > 0) {
+      const turnToolCalls: ToolCall[] = [];
       for (const call of response.tool_calls) {
         const name = call.function.name;
         let args: any = {};
@@ -461,10 +470,22 @@ export async function runTargetSimulation(
           mockResult = mockToolResponses[name] || DEFAULT_MOCK_RESPONSE;
         }
 
-        recordedToolCalls.push({
+        const tc: ToolCall = {
           name,
           arguments: args,
           mockResponse: mockResult,
+        };
+        recordedToolCalls.push(tc);
+        turnToolCalls.push(tc);
+
+        // Add tool response to transcript
+        transcript.push({
+          role: "tool",
+          name,
+          content:
+            typeof mockResult === "string"
+              ? mockResult
+              : JSON.stringify(mockResult),
         });
 
         // Append tool response context back to the model history
@@ -475,22 +496,56 @@ export async function runTargetSimulation(
           content: JSON.stringify(mockResult),
         });
       }
+
+      // Add assistant turn with its tool calls (inserted chronologically before the tool responses we just pushed)
+      const assistantTurnIndex = transcript.length - turnToolCalls.length;
+      transcript.splice(assistantTurnIndex, 0, {
+        role: "assistant",
+        content: response.content || undefined,
+        toolCalls: turnToolCalls,
+      });
+
       depth++;
     } else {
       // Reached final text reply
+      transcript.push({
+        role: "assistant",
+        content: response.content || "",
+      });
       return {
         responseText: response.content || "",
         toolCalls: recordedToolCalls,
+        transcript,
       };
     }
   }
 
   const lastMsg = history[history.length - 1];
+  const responseText =
+    lastMsg?.content ||
+    "[Max tool-call depth reached without final text response]";
+
+  if (
+    lastMsg?.role === "assistant" &&
+    !transcript.some(
+      (t) => t.role === "assistant" && t.content === responseText,
+    )
+  ) {
+    transcript.push({
+      role: "assistant",
+      content: responseText,
+    });
+  } else if (lastMsg?.role !== "assistant") {
+    transcript.push({
+      role: "assistant",
+      content: responseText,
+    });
+  }
+
   return {
-    responseText:
-      lastMsg?.content ||
-      "[Max tool-call depth reached without final text response]",
+    responseText,
     toolCalls: recordedToolCalls,
+    transcript,
   };
 }
 
@@ -508,6 +563,7 @@ export async function runJudgeEvaluation(
   toolCalls: ToolCall[],
   tracker?: UsageTracker,
   isGenerative?: boolean,
+  transcript?: TrialTurn[],
 ): Promise<{ verdict: TrialVerdict; reasoning: string }> {
   const toolTraceJson =
     toolCalls.length > 0
@@ -522,6 +578,7 @@ export async function runJudgeEvaluation(
     targetResponse,
     toolTraceJson,
     isGenerative,
+    transcript,
   );
 
   const messages = [
@@ -767,6 +824,7 @@ export async function executeTargetJudgePipeline(
       targetResult.toolCalls,
       tracker,
       seedInfo.isGenerative,
+      targetResult.transcript,
     ).then(async (evaluation) => {
       await updateProgress();
       const isBreached = evaluation.verdict === TrialVerdict.Breached;
@@ -812,6 +870,7 @@ export async function executeTargetJudgePipeline(
           targetResult.toolCalls.length > 0
             ? targetResult.toolCalls
             : undefined,
+        transcript: targetResult.transcript,
       } as Trial;
     });
   }
@@ -1067,7 +1126,7 @@ export async function runSingleScanPipeline(
   // In-memory store for results (avoids race conditions from parallel DB writes)
   const targetResponses: Map<
     number,
-    { responseText: string; toolCalls: any[] }
+    { responseText: string; toolCalls: any[]; transcript: TrialTurn[] }
   > = new Map();
   const judgeVerdicts: Map<
     number,
@@ -1184,6 +1243,7 @@ export async function runSingleScanPipeline(
               targetResult?.toolCalls || [],
               tracker,
               attackSet.seedInfo.isGenerative,
+              targetResult?.transcript,
             );
             // Store in memory for later use (avoids DB race)
             judgeVerdicts.set(idx, {
@@ -1261,6 +1321,7 @@ export async function runSingleScanPipeline(
         targetResult && targetResult.toolCalls.length > 0
           ? targetResult.toolCalls
           : undefined,
+      transcript: targetResult?.transcript,
     });
   }
 
