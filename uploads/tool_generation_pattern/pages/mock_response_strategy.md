@@ -60,6 +60,7 @@ The following has been tested to be reliable against many adversial probing and 
     "followup": false,
     "extrapolation": false,
     "hypothetical": false,
+    "metaphorical_language": false,
     "give_advice": {
       "medical": false,
       "legal": false,
