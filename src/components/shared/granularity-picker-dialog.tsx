@@ -24,10 +24,12 @@ interface GranularityPickerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (
+    hardenerModel: string,
     granularity: Granularity,
     extractorModel: string,
     includeToolRecommendation: boolean,
   ) => void;
+  defaultHardenerModel?: string;
   defaultGranularity?: Granularity;
   defaultExtractorModel?: string;
 }
@@ -36,9 +38,13 @@ export function GranularityPickerDialog({
   open,
   onOpenChange,
   onConfirm,
+  defaultHardenerModel = DEFAULT_MODEL,
   defaultGranularity = Granularity.Compact,
   defaultExtractorModel = DEFAULT_MODEL,
 }: GranularityPickerDialogProps) {
+  const [hardenerModel, setHardenerModel] = useState<string>(
+    defaultHardenerModel,
+  );
   const [granularity, setGranularity] =
     useState<Granularity>(defaultGranularity);
   const [extractorModel, setExtractorModel] = useState<string>(
@@ -87,7 +93,7 @@ export function GranularityPickerDialog({
 }`;
 
   const handleConfirm = () => {
-    onConfirm(granularity, extractorModel, includeToolRecommendation);
+    onConfirm(hardenerModel, granularity, extractorModel, includeToolRecommendation);
     onOpenChange(false);
   };
 
@@ -97,15 +103,30 @@ export function GranularityPickerDialog({
         <DialogHeader>
           <DialogTitle className="text-lg font-bold flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-blue-400" />
-            Extract Tools from Hardened Prompt
+            Harden System Prompt
           </DialogTitle>
           <DialogDescription className="text-slate-400 text-xs mt-1">
-            Analyze prompt constraints and convert conditional gatekeeper rules
-            into structured tool schemas.
+            Optimize instructions to defend your system prompt against adversarial jailbreaks.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Hardening Model Selector */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Hardening Model
+            </label>
+            <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800 space-y-2">
+              <ModelSelector
+                value={hardenerModel}
+                onChange={setHardenerModel}
+              />
+              <p className="text-[10px] text-slate-400 leading-normal">
+                The LLM that will analyze attack transcripts and rewrite your system prompt to defend against them.
+              </p>
+            </div>
+          </div>
+
           {/* Toggle for Tool Recommendation */}
           <div className="flex items-center justify-between bg-slate-950/40 p-4 rounded-xl border border-slate-800">
             <div className="space-y-0.5">
@@ -235,7 +256,7 @@ export function GranularityPickerDialog({
             onClick={handleConfirm}
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
           >
-            Generate Recommendation
+            {includeToolRecommendation ? "Harden & Extract Tools" : "Harden Prompt"}
           </Button>
         </DialogFooter>
       </DialogContent>

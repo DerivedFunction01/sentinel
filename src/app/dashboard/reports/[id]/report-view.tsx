@@ -16,6 +16,7 @@ import {
   Sparkles,
   Layers,
   HelpCircle,
+  ChevronDown,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ import {
 import { ScoreGauge } from "@/components/shared/score-gauge";
 import { TrialCard } from "@/components/shared/trial-card";
 import { toast } from "sonner";
-import { TrialFilter, TrialVerdict } from "@/lib/enums";
+import { TrialFilter, TrialVerdict, formatModelName } from "@/lib/enums";
 import { Scan, Trial, HardeningTrace } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
 import { ScanSummary } from "@/components/shared/scan-summary";
@@ -93,12 +94,11 @@ export function ReportView({ scan }: ReportViewProps) {
   };
 
   const handleExtractTools = async (
+    hardenerModel: string,
     granularity: Granularity,
     extractorModel: string,
     includeToolRecommendation: boolean = true,
   ) => {
-    if (!selectedHardenedModel) return;
-
     setExtracting(true);
     const toastId = toast.loading(
       includeToolRecommendation
@@ -110,7 +110,7 @@ export function ReportView({ scan }: ReportViewProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          modelId: selectedHardenedModel,
+          modelId: hardenerModel,
           granularity,
           extractorModel,
           includeToolRecommendation,
@@ -129,7 +129,7 @@ export function ReportView({ scan }: ReportViewProps) {
       };
 
       setCurrentHardenedPrompt(newPrompt);
-      setSelectedHardenedModel(data.modelId);
+      setSelectedHardenedModel(newPrompt.modelId);
       setActiveToolIdx(0);
       if (data.trace) {
         setTrace(data.trace);
@@ -382,6 +382,7 @@ export function ReportView({ scan }: ReportViewProps) {
           setTraceOpen,
           activeToolIdx,
           setActiveToolIdx,
+          historyModels,
         )}
 
         <Separator />
@@ -545,14 +546,26 @@ function hardenedPrompt(
   handleOpenToolManager: () => void,
   pickerOpen: boolean,
   handleExtractTools: (
+    hardenerModel: string,
     granularity: Granularity,
     extractorModel: string,
+    includeToolRecommendation: boolean,
   ) => Promise<void>,
   trace: HardeningTrace | null,
   setTraceOpen: (open: boolean) => void,
   activeToolIdx: number,
   setActiveToolIdx: React.Dispatch<React.SetStateAction<number>>,
+  historyModels: any[],
 ) {
+  const formatDropdownName = (hp: any) => {
+    const hardener = hp.modelName || formatModelName(hp.modelId);
+    if (!hp.extractorModel || !hp.toolRecommendation) {
+      return `${hardener} (No Tools)`;
+    }
+    const extractor = formatModelName(hp.extractorModel);
+    return `${hardener} + ${extractor}`;
+  };
+
   return (
     <section id="hardened-prompt" className="space-y-6">
       <div>
@@ -571,12 +584,26 @@ function hardenedPrompt(
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-purple-400" />
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Model:
+                Recommendation:
               </span>
-              <ModelSelector
-                value={selectedHardenedModel}
-                onChange={handleModelChange}
-              />
+              {historyModels.length > 0 ? (
+                <div className="relative">
+                  <select
+                    value={selectedHardenedModel}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    className="h-8 bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-md pl-2.5 pr-8 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none cursor-pointer"
+                  >
+                    {historyModels.map((hm) => (
+                      <option key={hm.modelId} value={hm.modelId}>
+                        {formatDropdownName(hm)}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-2.5 h-3 w-3 text-slate-400 pointer-events-none" />
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">None generated yet</span>
+              )}
             </div>
           </div>
 
@@ -591,19 +618,15 @@ function hardenedPrompt(
                 View Step Traces
               </Button>
             )}
-            {currentHardenedPrompt && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPickerOpen(true)}
-                disabled={extracting}
-                className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10 text-xs"
-              >
-                {currentHardenedPrompt.toolRecommendation
-                  ? "Re-extract Tools"
-                  : "Extract Tools to Schema"}
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPickerOpen(true)}
+              disabled={extracting}
+              className="border-blue-500/40 text-blue-400 hover:bg-blue-600/10 text-xs animate-pulse"
+            >
+              Harden Prompt
+            </Button>
           </div>
         </div>
 
@@ -852,7 +875,7 @@ function hardenedPrompt(
                   disabled={extracting}
                   className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1"
                 >
-                  Harden Model
+                  Harden Prompt
                 </Button>
               </div>
             )}
@@ -864,6 +887,7 @@ function hardenedPrompt(
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         onConfirm={handleExtractTools}
+        defaultHardenerModel={selectedHardenedModel}
         defaultGranularity={
           (currentHardenedPrompt?.granularity as any) || Granularity.Compact
         }
