@@ -1001,17 +1001,39 @@ export function renderAttack(
   );
 }
 
+function cleanAndVarThingName(name: string): string {
+  let cleaned = name.trim();
+  cleaned = cleaned.toLowerCase();
+  cleaned = cleaned.replace(/\bapi\b/g, "API");
+  cleaned = cleaned.replace(/\bdb\b/g, "DB");
+  cleaned = cleaned.replace(/\bllm\b/g, "LLM");
+  return cleaned;
+}
+
+function cleanAndVarThingDesc(desc: string): string {
+  let cleaned = desc.trim();
+  // Remove trailing period if present, as it will be embedded in template sentences
+  if (cleaned.endsWith(".")) {
+    cleaned = cleaned.slice(0, -1);
+  }
+  return cleaned;
+}
+
 /**
  * Generate a batch of attack prompts across all patterns.
  * @param thingName The target of the attack
  * @param thingDescription What to extract
  * @param count How many attacks to generate (default: all 9 patterns)
+ * @param thingNameVariants Optional list of alternative names
+ * @param thingDescriptionVariants Optional list of alternative descriptions
  * @returns Array of { patternId, strategy, entropyLabel, framingLabel, attack }
  */
 export function generateAttacks(
   thingName: string,
   thingDescription: string,
   count?: number,
+  thingNameVariants?: string[],
+  thingDescriptionVariants?: string[],
 ): Array<{
   patternId: string;
   strategy: FramingStrategy;
@@ -1031,12 +1053,27 @@ export function generateAttacks(
     selected = selected.slice(0, count);
   }
 
-  return selected.map((pattern) => ({
-    patternId: pattern.patternId,
-    strategy: pattern.strategy,
-    entropyLabel: pattern.entropyLabel,
-    framingLabel: pattern.framingLabel,
-    attack: renderAttack(pattern, thingName, thingDescription),
-    attackDescription: pattern.attackDescription,
-  }));
+  return selected.map((pattern, idx) => {
+    let nameToUse = thingName;
+    if (thingNameVariants && thingNameVariants.length > 0) {
+      nameToUse = thingNameVariants[idx % thingNameVariants.length];
+    }
+    nameToUse = cleanAndVarThingName(nameToUse);
+
+    let descToUse = thingDescription;
+    if (thingDescriptionVariants && thingDescriptionVariants.length > 0) {
+      descToUse =
+        thingDescriptionVariants[idx % thingDescriptionVariants.length];
+    }
+    descToUse = cleanAndVarThingDesc(descToUse);
+
+    return {
+      patternId: pattern.patternId,
+      strategy: pattern.strategy,
+      entropyLabel: pattern.entropyLabel,
+      framingLabel: pattern.framingLabel,
+      attack: renderAttack(pattern, nameToUse, descToUse),
+      attackDescription: pattern.attackDescription,
+    };
+  });
 }

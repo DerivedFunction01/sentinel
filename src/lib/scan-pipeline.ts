@@ -216,6 +216,8 @@ export async function generateAttackSet(
       thing.thingName,
       thing.thingDescription,
       countPerThing,
+      thing.thingNameVariants,
+      thing.thingDescriptionVariants,
     );
 
     for (const layout of attackLayouts) {
