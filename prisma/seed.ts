@@ -12,12 +12,6 @@
  * Run with: bun run db:seed
  */
 import bcrypt from "bcryptjs";
-import { createReadStream, existsSync } from "fs";
-import { createGunzip } from "zlib";
-import * as readline from "readline";
-import * as path from "path";
-import { fileURLToPath } from "url";
-import { ToolExampleCategory } from "../generated/prisma/client.js";
 import { db } from "../src/lib/db";
 import {
   RiskLevel,
@@ -220,94 +214,6 @@ Would you like assistance with product inquiries or order status?`,
     `  Trials: ${seedScan.totalTrials} (${seedScan.breaches} breached, ${breachRate}%)`,
   );
   console.log(`  Tools: 1 | Mock responses: 1`);
-
-  // ── Seed ToolSchemaExample records from gzipped JSONL file ──
-  console.log("Seeding tool schema examples from file...");
-
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const seedFilePath = path.resolve(
-    __dirname,
-    "../uploads/seed/ToolRegistry-tool-examples.jsonl.gz",
-  );
-
-  interface ToolExampleRow {
-    name: string;
-    description: string;
-    tags: string;
-    granularity: string;
-    category?: string;
-    toolJson: string;
-    mockResponse: string;
-    isBuiltIn?: boolean;
-  }
-
-  async function loadToolExamplesFromFile(
-    filePath: string,
-  ): Promise<ToolExampleRow[]> {
-    if (!existsSync(filePath)) {
-      console.warn(
-        `  ⚠ Seed file not found: ${filePath} — skipping tool examples.`,
-      );
-      return [];
-    }
-    const rows: ToolExampleRow[] = [];
-    const rl = readline.createInterface({
-      input: createReadStream(filePath).pipe(createGunzip()),
-      crlfDelay: Infinity,
-    });
-    for await (const line of rl) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      try {
-        rows.push(JSON.parse(trimmed) as ToolExampleRow);
-      } catch (err) {
-        console.warn(`  ⚠ Skipping malformed line: ${trimmed.slice(0, 80)}`);
-      }
-    }
-    return rows;
-  }
-
-  const examplesData = await loadToolExamplesFromFile(seedFilePath);
-  console.log(
-    `  Loaded ${examplesData.length} tool example(s) from seed file.`,
-  );
-
-  const validCategories = Object.values(ToolExampleCategory);
-  type ValidCategory = (typeof validCategories)[number];
-
-  for (const ex of examplesData) {
-    const slugId = `seed-${ex.name.replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase()}`;
-    const resolvedCategory: ValidCategory = validCategories.includes(
-      ex.category as ValidCategory,
-    )
-      ? (ex.category as ValidCategory)
-      : ToolExampleCategory.standard;
-    await db.toolSchemaExample.upsert({
-      where: { id: slugId },
-      update: {
-        name: ex.name,
-        description: ex.description,
-        tags: ex.tags,
-        granularity: ex.granularity,
-        category: resolvedCategory,
-        toolJson: ex.toolJson,
-        mockResponse: ex.mockResponse,
-      },
-      create: {
-        id: slugId,
-        name: ex.name,
-        description: ex.description,
-        tags: ex.tags,
-        granularity: ex.granularity,
-        category: resolvedCategory,
-        toolJson: ex.toolJson,
-        mockResponse: ex.mockResponse,
-        isBuiltIn: ex.isBuiltIn ?? true,
-      },
-    });
-  }
-  console.log(`✓ Seeded ${examplesData.length} tool schema example(s).`);
 }
 
 main()
