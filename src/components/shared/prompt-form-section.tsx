@@ -117,60 +117,7 @@ export const PromptFormSection = memo(function PromptFormSection({
       mockResponses: values.mockResponses,
     });
     try {
-      const res = await fetch("/api/scan/suggest-forbidden", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemPrompt: values.systemPrompt,
-          tools: values.tools,
-          mockResponses: values.mockResponses,
-          extractorModel: options.extractorModel,
-        }),
-      });
-      const data = await res.json();
-      console.log("[AI Suggest] API response data:", data);
-
-      if (
-        data.success &&
-        Array.isArray(data.things) &&
-        data.things.length > 0
-      ) {
-        const forbiddenTasks = data.things
-          .filter((t: any) => t.isPresent !== false)
-          .map((t: any) => t.forbiddenTask)
-          .filter(Boolean);
-        if (forbiddenTasks.length > 0) {
-          console.log(
-            "[AI Suggest] Updating forbiddenTask to:",
-            forbiddenTasks.join("\n\n"),
-          );
-          onChange("forbiddenTask", forbiddenTasks.join("\n\n"));
-        }
-        if (data.seedInfo) {
-          console.log(
-            "[AI Suggest] Updating cachedSeedInfo to:",
-            data.seedInfo,
-          );
-          onChange("cachedSeedInfo", data.seedInfo);
-        }
-        const newConfig = {
-          systemPrompt: values.systemPrompt,
-          tools: values.tools,
-          mockResponses: values.mockResponses,
-        };
-        console.log("[AI Suggest] Saving config to localStorage:", newConfig);
-        localStorage.setItem(
-          "seed_extractor_last_config",
-          JSON.stringify(newConfig),
-        );
-        setCachedConfig(newConfig);
-      } else {
-        console.warn(
-          "[AI Suggest] API success but no tasks suggested or parsed:",
-          data,
-        );
-        alert(" any specific forbidden tasks in the system prompt.");
-      }
+      await getForbiddenTaskFast(values, options, onChange, setCachedConfig);
     } catch (err) {
       console.error("[AI Suggest] Error in fetch workflow:", err);
       alert("An error occurred while analyzing the prompt.");
@@ -468,6 +415,49 @@ export const PromptFormSection = memo(function PromptFormSection({
     </div>
   );
 });
+
+async function getForbiddenTaskFast(
+  values: PromptFormSectionValues,
+  options: PromptFormSectionOptions,
+  onChange: (field: keyof PromptFormSectionValues, value: any) => void,
+  setCachedConfig,
+) {
+  const res = await fetch("/api/scan/fast-suggest-forbidden", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemPrompt: values.systemPrompt,
+      extractorModel: options.extractorModel,
+    }),
+  });
+  const data = await res.json();
+  console.log("[AI Suggest] API response data:", data);
+
+  if (data.success && data.forbiddenTasks) {
+    console.log("[AI Suggest] Updating forbiddenTask to:", data.forbiddenTasks);
+    onChange("forbiddenTask", data.forbiddenTasks);
+    // Clear cachedSeedInfo so that launching the scan triggers dynamic full extraction on the backend
+    onChange("cachedSeedInfo", undefined);
+
+    const newConfig = {
+      systemPrompt: values.systemPrompt,
+      tools: values.tools,
+      mockResponses: values.mockResponses,
+    };
+    console.log("[AI Suggest] Saving config to localStorage:", newConfig);
+    localStorage.setItem(
+      "seed_extractor_last_config",
+      JSON.stringify(newConfig),
+    );
+    setCachedConfig(newConfig);
+  } else {
+    console.warn(
+      "[AI Suggest] API success but no tasks suggested or parsed:",
+      data,
+    );
+    alert("No specific forbidden tasks suggested or parsed.");
+  }
+}
 
 function ToolValidationBanner({
   result,
