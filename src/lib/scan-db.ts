@@ -88,10 +88,16 @@ export function deserializeScan(row: {
     const raw = JSON.parse(row.trials) as Array<Record<string, unknown>>;
     trials = raw.map((t) => {
       let verdict = t.verdict as TrialVerdict;
+      if (typeof verdict === "string") {
+        verdict = verdict.toUpperCase() as TrialVerdict;
+      }
       if ((verdict as string) === "LEAKED") {
         verdict = TrialVerdict.Breached;
       }
       let judgeLabel = t.judgeLabel as TrialVerdict;
+      if (typeof judgeLabel === "string") {
+        judgeLabel = judgeLabel.toUpperCase() as TrialVerdict;
+      }
       if ((judgeLabel as string) === "LEAKED") {
         judgeLabel = TrialVerdict.Breached;
       }
