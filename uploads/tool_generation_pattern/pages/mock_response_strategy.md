@@ -53,7 +53,6 @@ The following has been tested to be reliable against many adversial probing and 
   "policy": {
     "exceptions": false,
     "negotiation": false,
-    "allow_hypothetical": false,
     "require_explicit_human_approval": true,
     "escalate_to_support": true,
     "give_advice": {
@@ -73,10 +72,12 @@ The following has been tested to be reliable against many adversial probing and 
     "response": {
       "tone": "neutral",
       "length": ["near_exact", "concise"],
+      "engage_user_conversation": false,
       "allow_discussion": false,
       "describe_processing": false,
       "allow_followup": false,
-      "allow_extrapolation": false
+      "allow_extrapolation": false,
+      "allow_hypothetical": false
     }
   },
   "support_contact": {
