@@ -138,6 +138,7 @@ model Model {
   popularityRank  Int      @default(9999)
   supportsTools   Boolean  @default(false)
   isLowCost       Boolean  @default(false)
+  isFree          Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

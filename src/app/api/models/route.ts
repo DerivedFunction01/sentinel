@@ -42,6 +42,7 @@ export async function GET(req: Request) {
       popularityRank: m.popularityRank,
       supportsTools: m.supportsTools,
       isLowCost: m.isLowCost,
+      isFree: m.isFree,
     })),
   });
 }

@@ -60,9 +60,10 @@ export async function syncModels(db: PrismaClient): Promise<void> {
     modelsByProvider[provider].push(m);
   }
 
-  // Identify recommended & low-cost models
+  // Identify recommended, free, & low-cost models
   const recommendedIds = new Set<string>();
   const lowCostIds = new Set<string>();
+  const freeIds = new Set<string>();
 
   for (const provider of KNOWN_PROVIDERS) {
     const providerModels = modelsByProvider[provider] || [];
@@ -71,8 +72,18 @@ export async function syncModels(db: PrismaClient): Promise<void> {
     popularModels.forEach(m => recommendedIds.add(m.id));
 
     const remainingModels = providerModels.slice(MAX_RECOMMENDED_PER_PROVIDER);
-    // Sort remaining models by prompt price ascending
-    const sortedByPrice = [...remainingModels].sort((a, b) => {
+
+    // 1. Identify Free models (max 2 per provider)
+    const remainingFree = remainingModels.filter(m => m.id.endsWith(":free"));
+    const freeToRecommend = remainingFree.slice(0, 2);
+    freeToRecommend.forEach(m => {
+      recommendedIds.add(m.id);
+      freeIds.add(m.id);
+    });
+
+    // 2. Identify Low-cost models (excluding free, max 2 per provider)
+    const remainingNonFree = remainingModels.filter(m => !m.id.endsWith(":free"));
+    const sortedByPrice = [...remainingNonFree].sort((a, b) => {
       const priceA = parseFloat(a.pricing?.prompt || "0");
       const priceB = parseFloat(b.pricing?.prompt || "0");
       return priceA - priceB;
@@ -88,6 +99,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
   let upserted = 0;
   let recommendedCount = 0;
   let lowCostCount = 0;
+  let freeCount = 0;
 
   for (let i = 0; i < models.length; i++) {
     const m = models[i];
@@ -95,6 +107,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
 
     const isRecommended = recommendedIds.has(m.id);
     const isLowCost = lowCostIds.has(m.id);
+    const isFree = m.id.endsWith(":free") || freeIds.has(m.id);
     const aiSuggest = AI_SUGGEST_IDS.includes(m.id);
     const popularityRank = i + 1;
     const supportsTools = m.supported_parameters?.includes("tools") ?? false;
@@ -111,6 +124,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
         completionPrice: m.pricing?.completion ?? null,
         isRecommended,
         isLowCost,
+        isFree,
         aiSuggest,
         popularityRank,
         supportsTools,
@@ -124,6 +138,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
         completionPrice: m.pricing?.completion ?? null,
         isRecommended,
         isLowCost,
+        isFree,
         aiSuggest,
         popularityRank,
         supportsTools,
@@ -132,9 +147,10 @@ export async function syncModels(db: PrismaClient): Promise<void> {
     upserted++;
     if (isRecommended) recommendedCount++;
     if (isLowCost) lowCostCount++;
+    if (isFree) freeCount++;
   }
 
-  console.log(`✓ Synced ${upserted} models (${recommendedCount} recommended, ${lowCostCount} low-cost).`);
+  console.log(`✓ Synced ${upserted} models (${recommendedCount} recommended, ${lowCostCount} low-cost, ${freeCount} free).`);
 }
 
 // CLI entry point — run with: bun run prisma/sync-models-impl.ts

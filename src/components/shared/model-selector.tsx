@@ -8,6 +8,7 @@ import {
   Loader2,
   Wrench,
   CircleDollarSign,
+  Gift,
 } from "lucide-react";
 import {
   Popover,
@@ -33,6 +34,7 @@ interface ModelOption {
   aiSuggest: boolean;
   supportsTools: boolean;
   isLowCost: boolean;
+  isFree: boolean;
 }
 
 interface ModelSelectorProps {
@@ -111,6 +113,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
       aiSuggest: false,
       supportsTools: false,
       isLowCost: false,
+      isFree: false,
     };
   });
 
@@ -236,6 +239,9 @@ function ModelItem({
           )}
           {model.isLowCost && (
             <CircleDollarSign className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+          )}
+          {model.isFree && (
+            <Gift className="h-3.5 w-3.5 shrink-0 text-purple-400" />
           )}
         </div>
         {model.aiSuggest && (
