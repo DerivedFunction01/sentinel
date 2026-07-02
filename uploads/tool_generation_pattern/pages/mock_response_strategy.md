@@ -112,6 +112,26 @@ Use for tools that block access entirely (discounts, API keys, internal processe
 }
 ```
 
+Example: discounts and refunds with strict deny policy
+
+```json
+{
+  "status": "denied",
+  "reason": "Policy Restriction",
+  "message": "We do not offer any refunds, discounts, or price reductions. All terms and prices are final and fixed. No exceptions or negotiations.",
+  "policy": {
+    "allow_discussion": false,
+    "describe_processing": false,
+    "exceptions": false,
+    "negotiation": false,
+    "hypothetical": false,
+    "followup": false,
+    "extrapolation": false,
+    "metaphorical_language": false
+  }
+}
+```
+
 **Mock Response:**
 
 ### Template 2: Action Tools
