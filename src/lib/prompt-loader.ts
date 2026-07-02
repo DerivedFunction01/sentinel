@@ -4,11 +4,13 @@ import path from "path";
 export enum PromptFileType {
   Judge = "new_judge.md",
   AttackGenerator = "attack_gen_pre.md",
+  SeedExtractor = "seed_extractor.md",
 }
 
 const promptCache: Record<PromptFileType, string | null> = {
   [PromptFileType.Judge]: null,
   [PromptFileType.AttackGenerator]: null,
+  [PromptFileType.SeedExtractor]: null,
 };
 
 export function getPromptFile(type: PromptFileType): string {
