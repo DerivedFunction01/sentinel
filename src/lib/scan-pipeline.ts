@@ -83,23 +83,47 @@ export async function generateCohesiveAttack(
     },
   ];
 
-  try {
-    const response = await callOpenRouter(
-      generatorModel,
-      messages,
-      undefined,
-      tracker,
-    );
-    // Ensure we have a string to work with
-    let text = response.content || "";
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await callOpenRouter(
+        generatorModel,
+        messages,
+        undefined,
+        tracker,
+      );
+      let text = response.content || "";
+      text = parseReasoningAndOutput(text);
 
-    text = parseReasoningAndOutput(text);
+      if (isValidAttackOutput(text, draftJoined)) {
+        return text;
+      }
 
-    return text || draftJoined;
-  } catch (error) {
-    console.error("Error generating cohesive attack:", error);
-    return draftJoined;
+      console.warn(
+        `[generateCohesiveAttack] Attempt ${attempt}/${maxAttempts} produced invalid output, retrying...`,
+      );
+    } catch (error) {
+      console.error(
+        `[generateCohesiveAttack] Attempt ${attempt}/${maxAttempts} threw:`,
+        error,
+      );
+    }
   }
+
+  return draftJoined;
+}
+
+/**
+ * Check whether the parsed attack output is clean enough to send to the target.
+ * Rejects empty/trivial output, the draft fallback (indicating API failure),
+ * and any leftover tags that indicate the model's reasoning bled through.
+ */
+function isValidAttackOutput(output: string, draftFallback: string): boolean {
+  if (!output || output.length < 10) return false;
+  if (output === draftFallback) return false;
+  // Reject if leftover tags (opening or closing) indicate the parser didn't fully strip them
+  if (/\[\/?(REASONING|OUTPUT|END)\]/.test(output)) return false;
+  return true;
 }
 
 // ────────────────────────────────────────────────────────────────────────────

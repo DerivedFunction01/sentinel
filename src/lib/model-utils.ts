@@ -79,7 +79,7 @@ export function parseReasoningAndOutput(
   }
 
   const output = cleaned
-    .replace(/\[OUTPUT\]|\[REASONING\]|\[END\]/gi, "")
+    .replace(/\[\/?OUTPUT\]|\[\/?REASONING\]|\[\/?END\]/gi, "")
     .trim();
 
   if (includeReasoning) {
