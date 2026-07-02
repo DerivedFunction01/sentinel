@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
 }
 
 model User {
@@ -97,20 +97,13 @@ model HardenedPrompt {
   @@index([scanId])
 }
 
-enum ToolExampleCategory {
-  standard
-  regulatory
-  meta
-}
-
-
 model ToolSchemaExample {
   id           String               @id @default(cuid())
   name         String
   description  String
   tags         String               // JSON array of strings
   granularity  String               // "compact" | "detailed"
-  category     ToolExampleCategory  @default(standard)
+  category     String               @default("standard")
   toolJson     String               // JSON string
   mockResponse String               // JSON string
   businessCategories String         @default("[GENERAL]")

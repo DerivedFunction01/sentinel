@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { revalidateTag } from "next/cache";
 import {
   CredentialMode,
   ProgressStepStatus,
@@ -1067,45 +1068,32 @@ async function writeProgressMeta(
 async function withRetry<T>(
   stepName: string,
   reportId: string,
+  meta: ProgressMeta,
   getStep: (meta: ProgressMeta) => ProgressStep,
   setStep: (meta: ProgressMeta, step: ProgressStep) => void,
   fn: () => Promise<T>,
   onSuccess: (meta: ProgressMeta, result: T) => void,
 ): Promise<T | null> {
-  const meta = await readProgressMeta(reportId);
-  if (!meta) throw new Error("ProgressMeta not found");
-
   const step = getStep(meta);
   if (step.status === ProgressStepStatus.Completed) return null; // already done
 
   try {
     const result = await fn();
-    const updatedMeta = await readProgressMeta(reportId);
-    if (!updatedMeta) throw new Error("ProgressMeta not found");
-    setStep(updatedMeta, {
+    setStep(meta, {
       status: ProgressStepStatus.Completed,
       retries: step.retries,
     });
-    onSuccess(updatedMeta, result);
-    const isCoarseSubstep =
-      stepName.startsWith("target-") || stepName.startsWith("judge-");
-    await writeProgressMeta(reportId, updatedMeta, isCoarseSubstep);
+    onSuccess(meta, result);
     return result;
   } catch (err) {
     const errMsg = (err as Error).message || "Unknown error";
-    const updatedMeta = await readProgressMeta(reportId);
-    if (!updatedMeta) throw new Error("ProgressMeta not found");
     const newRetries = step.retries + 1;
     const isFailed = newRetries >= 2;
-    setStep(updatedMeta, {
+    setStep(meta, {
       status: isFailed ? ProgressStepStatus.Failed : ProgressStepStatus.Pending,
       retries: newRetries,
       error: errMsg,
     });
-    const isCoarseSubstep =
-      isFailed &&
-      (stepName.startsWith("target-") || stepName.startsWith("judge-"));
-    await writeProgressMeta(reportId, updatedMeta, isCoarseSubstep);
 
     if (newRetries >= 2) {
       console.error(
@@ -1114,7 +1102,7 @@ async function withRetry<T>(
       return null;
     }
     // Retry once
-    return withRetry(stepName, reportId, getStep, setStep, fn, onSuccess);
+    return withRetry(stepName, reportId, meta, getStep, setStep, fn, onSuccess);
   }
 }
 
@@ -1137,9 +1125,9 @@ export async function runSingleScanPipeline(
 
   // Initialize progress meta if not already present
   const existing = await readProgressMeta(reportId);
+  const meta = existing || createInitialProgressMeta(attackSet.attacks.length);
   if (!existing) {
-    const initial = createInitialProgressMeta(attackSet.attacks.length);
-    await writeProgressMeta(reportId, initial);
+    await writeProgressMeta(reportId, meta);
   }
 
   // Update coarse progress
@@ -1154,6 +1142,7 @@ export async function runSingleScanPipeline(
   await withRetry(
     "seed",
     reportId,
+    meta,
     (m) => m.seed,
     (m, s) => {
       m.seed = s;
@@ -1161,6 +1150,7 @@ export async function runSingleScanPipeline(
     async () => attackSet.seedInfo,
     () => {},
   );
+  await writeProgressMeta(reportId, meta);
 
   // Phase 2: Generate attacks (already done in attackSet, mark each)
   for (let i = 0; i < attackSet.attacks.length; i++) {
@@ -1168,6 +1158,7 @@ export async function runSingleScanPipeline(
     await withRetry(
       `attack-${i}`,
       reportId,
+      meta,
       (m) => m.attacks[idx],
       (m, s) => {
         m.attacks[idx] = { ...s, text: attackSet.attacks[idx].attackText };
@@ -1178,6 +1169,7 @@ export async function runSingleScanPipeline(
       },
     );
   }
+  await writeProgressMeta(reportId, meta);
 
   // Phase 3: Target + Judge per trial — ALL TARGETS IN PARALLEL, then ALL JUDGES IN PARALLEL
   // Each attack is independent (different prompt to the same target model),
@@ -1203,7 +1195,7 @@ export async function runSingleScanPipeline(
   // Step A: Launch all target simulations in parallel
   // Use allSettled so one failure doesn't cancel the entire batch.
   // withRetry already catches most errors, but we add a safety wrapper
-  // to handle unexpected rejections (e.g. readProgressMeta returning null).
+  // to handle unexpected rejections.
   const safeRetry = (promise: Promise<any>) =>
     promise.catch((err) => {
       console.error(`Parallel step rejected unexpectedly:`, err);
@@ -1216,6 +1208,7 @@ export async function runSingleScanPipeline(
         withRetry(
           `target-${idx}`,
           reportId,
+          meta,
           (m) => m.trials[idx].target,
           (m, s) => {
             m.trials[idx].target = { ...s };
@@ -1246,6 +1239,9 @@ export async function runSingleScanPipeline(
     ),
   );
 
+  // Write once after target phase completes
+  await writeProgressMeta(reportId, meta);
+
   // Set coarse progress to exactly attackCount to align
   await db.scan.update({
     where: { reportId },
@@ -1268,20 +1264,17 @@ export async function runSingleScanPipeline(
           withRetry(
             `judge-${idx}`,
             reportId,
+            meta,
             (m) => m.trials[idx].judge,
             (m, s) => {
               m.trials[idx].judge = { ...s };
             },
             async () => {
-              const meta = await readProgressMeta(reportId);
-              if (meta) {
-                meta.trials[idx].judge = {
-                  status: ProgressStepStatus.Failed,
-                  retries: 2,
-                  error: "Target failed, judge skipped",
-                };
-                await writeProgressMeta(reportId, meta);
-              }
+              meta.trials[idx].judge = {
+                status: ProgressStepStatus.Failed,
+                retries: 2,
+                error: "Target failed, judge skipped",
+              };
               return null;
             },
             () => {},
@@ -1293,6 +1286,7 @@ export async function runSingleScanPipeline(
         withRetry(
           `judge-${idx}`,
           reportId,
+          meta,
           (m) => m.trials[idx].judge,
           (m, s) => {
             m.trials[idx].judge = { ...s };
@@ -1334,6 +1328,9 @@ export async function runSingleScanPipeline(
       );
     }),
   );
+
+  // Write once after judge phase completes
+  await writeProgressMeta(reportId, meta);
 
   // Set coarse progress to exactly total steps to align
   await db.scan.update({
@@ -1449,20 +1446,16 @@ export async function runSingleScanPipeline(
   };
 
   // Determine final status: completed if all steps done, completed_with_failures if some failed
-  const statusMeta = await readProgressMeta(reportId);
-  let finalStatus = ScanStatus.Completed;
-  if (statusMeta) {
-    const hasFailures =
-      statusMeta.attacks.some((a) => a.status === ProgressStepStatus.Failed) ||
-      statusMeta.trials.some(
-        (t) =>
-          t.target.status === ProgressStepStatus.Failed ||
-          t.judge.status === ProgressStepStatus.Failed,
-      );
-    if (hasFailures) {
-      finalStatus = ScanStatus.CompletedWithFailures;
-    }
-  }
+  const hasFailures =
+    meta.attacks.some((a) => a.status === ProgressStepStatus.Failed) ||
+    meta.trials.some(
+      (t) =>
+        t.target.status === ProgressStepStatus.Failed ||
+        t.judge.status === ProgressStepStatus.Failed,
+    );
+  const finalStatus = hasFailures
+    ? ScanStatus.CompletedWithFailures
+    : ScanStatus.Completed;
 
   // Write final results
   await db.scan.update({
@@ -1483,4 +1476,13 @@ export async function runSingleScanPipeline(
       totalSteps,
     },
   });
+
+  // Revalidate cached read routes
+  try {
+    revalidateTag(`scan-report-${reportId}`, { expire: 0 });
+    revalidateTag(`user-scans-${options.userId}`, { expire: 0 });
+    revalidateTag("all-scans", { expire: 0 });
+  } catch (err) {
+    console.error("Failed to revalidate cache tags:", err);
+  }
 }
