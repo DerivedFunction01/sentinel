@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -509,6 +510,8 @@ interface ExampleCardProps {
   onDelete: (id: string) => void;
   onToggleDetails: (id: string) => void;
   onCopy: (example: ToolExample) => void; // Add this
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
 }
 
 const ExampleCard = ({
@@ -518,6 +521,8 @@ const ExampleCard = ({
   onDelete,
   onToggleDetails,
   onCopy,
+  isSelected,
+  onToggleSelect,
 }: ExampleCardProps) => {
   const tags = getParsedTags(example.tags);
   const businessCategories = getParsedBusinessCategories(
@@ -530,61 +535,71 @@ const ExampleCard = ({
         isExpanded ? "border-blue-500/30" : "border-muted"
       }`}
     >
-      <CardContent className="p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          {/* Main content */}
-          <div className="min-w-0 flex-1 space-y-2">
-            <MetadataBadges example={example} />
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {example.description}
-            </p>
-            <TagBadges tags={tags} />
-
-            {businessCategories.length > 0 && (
-              <div className="pt-2">
-                <span className="text-xs font-semibold text-muted-foreground block mb-2">
-                  Business Categories
-                </span>
-                <BusinessCategoryBadges
-                  businessCategories={businessCategories}
-                />
-              </div>
-            )}
-
-            {/* Ontology sections display */}
-            {getParsedTags(example.ontologySections || "[]").length > 0 && (
-              <div className="pt-2">
-                <span className="text-xs font-semibold text-muted-foreground block mb-2">
-                  Ontology Sections
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {getParsedTags(example.ontologySections || "[]").map(
-                    (sec, i) => (
-                      <span
-                        key={i}
-                        className="rounded bg-purple-500/20 border border-purple-500/35 px-1.5 py-0.5 text-[10px] text-purple-300 font-medium"
-                      >
-                        {sec}
-                      </span>
-                    ),
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Actions */}
-          <ExampleActions
-            example={example}
-            isExpanded={isExpanded}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onToggleDetails={() => onToggleDetails(example.id)}
-            onCopy={onCopy} // Add this
+      <CardContent className="p-5 flex items-start gap-4">
+        {/* Selection Checkbox */}
+        <div className="pt-1.5 flex-shrink-0">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => onToggleSelect(example.id)}
           />
         </div>
 
-        {isExpanded && <ExpandedDetails example={example} />}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            {/* Main content */}
+            <div className="min-w-0 flex-1 space-y-2">
+              <MetadataBadges example={example} />
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {example.description}
+              </p>
+              <TagBadges tags={tags} />
+
+              {businessCategories.length > 0 && (
+                <div className="pt-2">
+                  <span className="text-xs font-semibold text-muted-foreground block mb-2">
+                    Business Categories
+                  </span>
+                  <BusinessCategoryBadges
+                    businessCategories={businessCategories}
+                  />
+                </div>
+              )}
+
+              {/* Ontology sections display */}
+              {getParsedTags(example.ontologySections || "[]").length > 0 && (
+                <div className="pt-2">
+                  <span className="text-xs font-semibold text-muted-foreground block mb-2">
+                    Ontology Sections
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {getParsedTags(example.ontologySections || "[]").map(
+                      (sec, i) => (
+                        <span
+                          key={i}
+                          className="rounded bg-purple-500/20 border border-purple-500/35 px-1.5 py-0.5 text-[10px] text-purple-300 font-medium"
+                        >
+                          {sec}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <ExampleActions
+              example={example}
+              isExpanded={isExpanded}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onToggleDetails={() => onToggleDetails(example.id)}
+              onCopy={onCopy} // Add this
+            />
+          </div>
+
+          {isExpanded && <ExpandedDetails example={example} />}
+        </div>
       </CardContent>
     </Card>
   );
@@ -612,6 +627,10 @@ interface CatalogHeaderProps {
   onImportClick: () => void;
   onExportClick: () => void;
   isImporting: boolean;
+  selectedCount: number;
+  onBatchDelete: () => void;
+  allSelected: boolean;
+  onToggleSelectAll: () => void;
 }
 
 const CatalogHeader = ({
@@ -619,13 +638,43 @@ const CatalogHeader = ({
   onImportClick,
   onExportClick,
   isImporting,
+  selectedCount,
+  onBatchDelete,
+  allSelected,
+  onToggleSelectAll,
 }: CatalogHeaderProps) => {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <h2 className="text-lg font-semibold text-foreground">
-        Reference Catalog ({count})
-      </h2>
+      <div className="flex items-center gap-3">
+        {count > 0 && (
+          <div className="flex items-center gap-2 pr-2 border-r border-muted">
+            <Checkbox
+              id="select-all-catalog"
+              checked={allSelected}
+              onCheckedChange={onToggleSelectAll}
+            />
+            <Label htmlFor="select-all-catalog" className="text-xs text-muted-foreground cursor-pointer select-none">
+              Select All
+            </Label>
+          </div>
+        )}
+        <h2 className="text-lg font-semibold text-foreground">
+          Reference Catalog ({count})
+        </h2>
+      </div>
       <div className="flex items-center gap-2">
+        {selectedCount > 0 && (
+          <Button
+            variant="destructive"
+            type="button"
+            size="sm"
+            onClick={onBatchDelete}
+            className="text-xs flex items-center gap-1.5 bg-red-600/90 hover:bg-red-600 text-white border-none"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete Selected ({selectedCount})
+          </Button>
+        )}
         <Button
           variant="outline"
           type="button"
@@ -662,6 +711,8 @@ interface ExampleListProps {
   onDelete: (id: string) => void;
   onToggleDetails: (id: string) => void;
   onCopy: (example: ToolExample) => void; // Add this
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
 }
 
 const ExampleList = ({
@@ -671,6 +722,8 @@ const ExampleList = ({
   onDelete,
   onToggleDetails,
   onCopy,
+  selectedIds,
+  onToggleSelect,
 }: ExampleListProps) => {
   if (examples.length === 0) {
     return <EmptyState />;
@@ -687,6 +740,8 @@ const ExampleList = ({
           onDelete={onDelete}
           onToggleDetails={onToggleDetails}
           onCopy={onCopy}
+          isSelected={selectedIds.includes(ex.id)}
+          onToggleSelect={onToggleSelect}
         />
       ))}
     </div>
@@ -967,6 +1022,7 @@ export function ToolExamplesClient({
   const [examples, setExamples] = useState<ToolExample[]>(initialExamples);
   const [name, setName] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [businessCategoriesStr, setBusinessCategoriesStr] = useState("");
   const [businessCategoriesDropdownOpen, setBusinessCategoriesDropdownOpen] =
@@ -1234,11 +1290,58 @@ export function ToolExamplesClient({
     }
   };
 
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    const allIds = examples.map((ex) => ex.id);
+    const allSelected = allIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !allIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => [...new Set([...prev, ...allIds])]);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (
+      !confirm(
+        `Are you sure you want to delete the ${selectedIds.length} selected examples?`
+      )
+    )
+      return;
+
+    try {
+      const res = await fetch(
+        `/api/admin/tool-examples?id=${selectedIds.join(",")}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!res.ok) {
+        const error = await res.json();
+        toast.error(error.error || "Failed to delete selected examples");
+        return;
+      }
+
+      toast.success(`${selectedIds.length} examples deleted successfully`);
+      setExamples((prev) => prev.filter((ex) => !selectedIds.includes(ex.id)));
+      setSelectedIds([]);
+    } catch (err: any) {
+      toast.error(err.message || "An error occurred");
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this example?")) return;
 
     try {
-      const res = await fetch(`/api/admin/tool-examples/${id}`, {
+      const res = await fetch(`/api/admin/tool-examples?id=${id}`, {
         method: "DELETE",
       });
 
@@ -1250,6 +1353,7 @@ export function ToolExamplesClient({
 
       toast.success("Example deleted successfully");
       setExamples((prev) => prev.filter((ex) => ex.id !== id));
+      setSelectedIds((prev) => prev.filter((i) => i !== id));
     } catch (err: any) {
       toast.error(err.message || "An error occurred");
     }
@@ -1358,6 +1462,10 @@ export function ToolExamplesClient({
               onImportClick={handleImportClick}
               onExportClick={handleExport}
               isImporting={isImporting}
+              selectedCount={selectedIds.length}
+              onBatchDelete={handleBatchDelete}
+              allSelected={examples.length > 0 && examples.every((ex) => selectedIds.includes(ex.id))}
+              onToggleSelectAll={handleToggleSelectAll}
             />
 
             <ExampleList
@@ -1367,6 +1475,8 @@ export function ToolExamplesClient({
               onDelete={handleDelete}
               onToggleDetails={setExpandedId}
               onCopy={handleCopy}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
             />
           </div>
         </div>

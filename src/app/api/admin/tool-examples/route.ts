@@ -204,8 +204,9 @@ export async function DELETE(req: Request) {
   }
 
   try {
-    await db.toolSchemaExample.delete({
-      where: { id },
+    const ids = id.split(",");
+    await db.toolSchemaExample.deleteMany({
+      where: { id: { in: ids } },
     });
     return NextResponse.json({ success: true });
   } catch (err: any) {
