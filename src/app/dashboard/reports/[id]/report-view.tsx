@@ -69,6 +69,8 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isAutoReevaluating, setIsAutoReevaluating] = useState(false);
+  const [proposalsPreview, setProposalsPreview] = useState<any[] | null>(null);
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
 
   const handleAutoReevaluate = async () => {
     setIsAutoReevaluating(true);
@@ -82,18 +84,43 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         throw new Error(err.error || "Failed to auto re-evaluate");
       }
       const data = await res.json();
-      if (data.updatedTrials && data.updatedTrials.length > 0) {
-        toast.success(`Successfully corrected ${data.updatedTrials.length} false-positive breaches!`, { id: toastId });
+      if (data.proposals && data.proposals.length > 0) {
+        toast.dismiss(toastId);
+        setProposalsPreview(data.proposals);
       } else {
-        toast.info("Re-evaluation completed. No verdicts were changed.", { id: toastId });
+        toast.info("Re-evaluation completed. No corrections were proposed.", { id: toastId });
       }
+    } catch (e: any) {
+      toast.error(e.message || "An error occurred", { id: toastId });
+    } finally {
+      setIsAutoReevaluating(false);
+    }
+  };
+
+  const handleConfirmBatch = async () => {
+    if (!proposalsPreview || proposalsPreview.length === 0) return;
+    setIsSavingBatch(true);
+    const toastId = toast.loading("Saving re-evaluated verdicts...");
+    try {
+      const res = await fetch(`/api/scan/${scan.id}/confirm-batch-re-evaluation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proposals: proposalsPreview }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to confirm batch re-evaluation");
+      }
+      const data = await res.json();
+      toast.success(`Successfully corrected ${data.updatedCount} false-positive breaches!`, { id: toastId });
+      setProposalsPreview(null);
       if (onRefresh) {
         await onRefresh();
       }
     } catch (e: any) {
       toast.error(e.message || "An error occurred", { id: toastId });
     } finally {
-      setIsAutoReevaluating(false);
+      setIsSavingBatch(false);
     }
   };
 
@@ -674,6 +701,53 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
               ) : (
                 "Delete Report"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={proposalsPreview !== null} onOpenChange={(open) => { if (!open) setProposalsPreview(null); }}>
+        <DialogContent className="border-yellow-500/20 bg-slate-900 text-slate-100 max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-yellow-400">
+              <Sparkles className="h-5 w-5 text-yellow-400" />
+              Confirm Auto Re-evaluation Proposals
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              The AI judge has proposed the following corrections. None of these changes have been saved yet. Review them and click confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 my-4 pr-1">
+            {proposalsPreview?.map((prop) => (
+              <div key={prop.trialNumber} className="p-3 rounded bg-black/45 border border-yellow-500/15 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-yellow-400">Trial #{prop.trialNumber}</span>
+                  <span className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-semibold px-2 py-0.5 rounded">
+                    Proposed: {prop.verdict}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-300 italic leading-relaxed bg-slate-900/30 p-2 rounded">
+                  "{prop.reasoning}"
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="mt-4 flex gap-2 justify-end shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setProposalsPreview(null)}
+              disabled={isSavingBatch}
+              className="border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+            >
+              Discard All
+            </Button>
+            <Button
+              onClick={handleConfirmBatch}
+              disabled={isSavingBatch}
+              className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
+            >
+              {isSavingBatch && <Loader2 className="mr-2 h-4 w-4 animate-spin text-black" />}
+              Confirm & Save {proposalsPreview?.length || 0} Updates
             </Button>
           </DialogFooter>
         </DialogContent>

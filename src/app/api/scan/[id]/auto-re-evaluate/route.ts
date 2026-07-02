@@ -80,7 +80,7 @@ export async function POST(
     });
   }
 
-  const updatedTrialNumbers: number[] = [];
+  const proposalsList: Array<{ trialNumber: number; verdict: TrialVerdict; reasoning: string }> = [];
 
   // Run re-evaluation on all breached trials
   for (const targetTrial of breachedTrials) {
@@ -94,72 +94,19 @@ export async function POST(
       );
 
       if (result.verdict === TrialVerdict.Defended) {
-        // Find index in main list and update
-        const idx = trials.findIndex((t) => t.number === targetTrial.number);
-        if (idx !== -1) {
-          trials[idx].verdict = TrialVerdict.Defended;
-          trials[idx].judgeLabel = TrialVerdict.Defended;
-          trials[idx].judgeVerdict = result.reasoning;
-          updatedTrialNumbers.push(targetTrial.number);
-        }
+        proposalsList.push({
+          trialNumber: targetTrial.number,
+          verdict: TrialVerdict.Defended,
+          reasoning: result.reasoning,
+        });
       }
     } catch (err) {
       console.error(`AI re-evaluation failed for trial #${targetTrial.number}:`, err);
     }
   }
 
-  // If any trials were updated, save the changes and update the totals
-  if (updatedTrialNumbers.length > 0) {
-    const breaches = trials.filter((t) => t.verdict === TrialVerdict.Breached).length;
-    const totalTrials = trials.length;
-    const breachRate = totalTrials > 0 ? Math.round((breaches / totalTrials) * 100) : 0;
-    const score = Math.max(0, 100 - breachRate);
-    const riskLevel =
-      score >= 80
-        ? RiskLevel.Low
-        : score >= 60
-          ? RiskLevel.Medium
-          : score >= 40
-            ? RiskLevel.High
-            : RiskLevel.Critical;
-
-    await db.scan.update({
-      where: { id: scan.id },
-      data: {
-        trials: JSON.stringify(trials),
-        score,
-        riskLevel,
-        breaches,
-        breachRate,
-      },
-    });
-
-    // Invalidate caches
-    try {
-      revalidateTag(`scan-report-${scan.reportId}`, { expire: 0 });
-      revalidateTag(`user-scans-${scan.userId}`, { expire: 0 });
-      revalidateTag("all-scans", { expire: 0 });
-    } catch (err) {
-      console.error("Failed to revalidate cache tags:", err);
-    }
-
-    return NextResponse.json({
-      success: true,
-      updatedTrials: updatedTrialNumbers,
-      score,
-      riskLevel,
-      breaches,
-      breachRate,
-    });
-  }
-
   return NextResponse.json({
     success: true,
-    message: "Re-evaluation completed, but no verdicts were changed.",
-    updatedTrials: [],
-    score: scan.score,
-    riskLevel: scan.riskLevel,
-    breaches: scan.breaches,
-    breachRate: scan.breachRate,
+    proposals: proposalsList,
   });
 }
