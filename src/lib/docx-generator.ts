@@ -999,6 +999,8 @@ function createConfigurationSection(scan: Scan): any[] {
     }),
     createAdversarialCoverageCard(scan),
 
+    ...createSeedExtractionBlock(scan),
+
     // Attack Pattern Summary
     ...(scan.metadata?.attackSummary?.summarizedPatterns
       ? [
@@ -1031,6 +1033,317 @@ function createConfigurationSection(scan: Scan): any[] {
     }),
     createAgentModelsTable(scan),
   ];
+}
+
+/**
+ * Creates the Seed Extraction block formatting persona, categories, features and restrictions
+ */
+function createSeedExtractionBlock(scan: Scan): any[] {
+  const metadata = (() => {
+    if (!scan.metadata) return null;
+    if (typeof scan.metadata === "object") return scan.metadata as any;
+    try {
+      return JSON.parse(scan.metadata);
+    } catch {
+      return null;
+    }
+  })();
+
+  const seed = metadata?.seedExtraction;
+  if (!seed) return [];
+
+  const children: any[] = [];
+
+  children.push(
+    new Paragraph({
+      spacing: { before: 300, after: 100 },
+      children: [
+        new TextRun({
+          text: "SEED EXTRACTION",
+          bold: true,
+          size: 16,
+          color: "999999",
+        }),
+      ],
+    }),
+  );
+
+  const innerRows: TableRow[] = [];
+
+  if (seed.personaDescription) {
+    innerRows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 9360, type: WidthType.DXA },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "Persona\n",
+                    bold: true,
+                    size: 18,
+                    color: "1F4788",
+                  }),
+                  new TextRun({
+                    text: seed.personaDescription,
+                    size: 18,
+                    color: "333333",
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+  }
+
+  if (seed.businessCategories && seed.businessCategories.length > 0) {
+    innerRows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 9360, type: WidthType.DXA },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "Categories\n",
+                    bold: true,
+                    size: 18,
+                    color: "1F4788",
+                  }),
+                  new TextRun({
+                    text: seed.businessCategories.join(", "),
+                    size: 18,
+                    color: "333333",
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+  }
+
+  if (seed.businessFeatures && seed.businessFeatures.length > 0) {
+    const featureParagraphs: Paragraph[] = [
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: "Features",
+            bold: true,
+            size: 18,
+            color: "1F4788",
+          }),
+        ],
+        spacing: { after: 60 },
+      }),
+    ];
+    seed.businessFeatures.forEach((feat: string) => {
+      featureParagraphs.push(
+        new Paragraph({
+          bullet: { level: 0 },
+          spacing: { before: 20, after: 20 },
+          children: [
+            new TextRun({
+              text: feat,
+              size: 18,
+              color: "333333",
+            }),
+          ],
+        }),
+      );
+    });
+
+    innerRows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 9360, type: WidthType.DXA },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: featureParagraphs,
+          }),
+        ],
+      }),
+    );
+  }
+
+  if (seed.things && seed.things.length > 0) {
+    seed.things.forEach((thing: any, idx: number) => {
+      const thingRuns: any[] = [];
+
+      thingRuns.push(
+        new Paragraph({
+          spacing: { before: 80, after: 40 },
+          children: [
+            new TextRun({
+              text: `Restriction #${idx + 1}: ${thing.thingName || "Protected Asset"}`,
+              bold: true,
+              size: 19,
+              color: "1F4788",
+            }),
+          ],
+        }),
+      );
+
+      if (thing.ontologySection) {
+        thingRuns.push(
+          new Paragraph({
+            spacing: { before: 20, after: 20 },
+            children: [
+              new TextRun({
+                text: "Section: ",
+                bold: true,
+                size: 18,
+                color: "444444",
+              }),
+              new TextRun({
+                text: thing.ontologySection,
+                size: 18,
+                color: "333333",
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (thing.thingDescription) {
+        thingRuns.push(
+          new Paragraph({
+            spacing: { before: 20, after: 20 },
+            children: [
+              new TextRun({
+                text: "Description: ",
+                bold: true,
+                size: 18,
+                color: "444444",
+              }),
+              new TextRun({
+                text: thing.thingDescription,
+                size: 18,
+                color: "333333",
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (thing.thingNameVariants && thing.thingNameVariants.length > 0) {
+        thingRuns.push(
+          new Paragraph({
+            spacing: { before: 20, after: 20 },
+            children: [
+              new TextRun({
+                text: "Name Variants: ",
+                bold: true,
+                size: 18,
+                color: "444444",
+              }),
+              new TextRun({
+                text: thing.thingNameVariants.join(", "),
+                size: 18,
+                color: "333333",
+              }),
+            ],
+          }),
+        );
+      }
+
+      if (
+        thing.thingDescriptionVariants &&
+        thing.thingDescriptionVariants.length > 0
+      ) {
+        thingRuns.push(
+          new Paragraph({
+            spacing: { before: 20, after: 20 },
+            children: [
+              new TextRun({
+                text: "Description Variants:",
+                bold: true,
+                size: 18,
+                color: "444444",
+              }),
+            ],
+          }),
+        );
+        thing.thingDescriptionVariants.forEach((v: string) => {
+          thingRuns.push(
+            new Paragraph({
+              spacing: { before: 0, after: 10 },
+              bullet: { level: 0 },
+              children: [new TextRun({ text: v, size: 18, color: "333333" })],
+            }),
+          );
+        });
+      }
+
+      if (thing.businessScenarios && thing.businessScenarios.length > 0) {
+        thingRuns.push(
+          new Paragraph({
+            spacing: { before: 20, after: 20 },
+            children: [
+              new TextRun({
+                text: "Scenarios:",
+                bold: true,
+                size: 18,
+                color: "444444",
+              }),
+            ],
+          }),
+        );
+        thing.businessScenarios.forEach((s: string) => {
+          thingRuns.push(
+            new Paragraph({
+              spacing: { before: 0, after: 10 },
+              bullet: { level: 0 },
+              children: [new TextRun({ text: s, size: 18, color: "333333" })],
+            }),
+          );
+        });
+      }
+
+      innerRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 9360, type: WidthType.DXA },
+              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              children: thingRuns,
+            }),
+          ],
+        }),
+      );
+    });
+  }
+
+  children.push(
+    new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      borders: {
+        left: {
+          style: BorderStyle.SINGLE,
+          size: 24, // 3pt
+          color: "1F4788",
+        },
+        top: { style: BorderStyle.NONE },
+        right: { style: BorderStyle.NONE },
+        bottom: { style: BorderStyle.NONE },
+        insideHorizontal: {
+          style: BorderStyle.SINGLE,
+          size: 4,
+          color: "EEEEEE",
+        },
+      },
+      rows: innerRows,
+    }),
+  );
+
+  return children;
 }
 
 /**
@@ -1602,39 +1915,40 @@ function createTrialSection(scan: Scan): any[] {
                 cardHeaderTable,
                 new Paragraph({ spacing: { before: 150 } }),
 
-                // Attack Heading
-                new Paragraph({
-                  spacing: { before: 100, after: 60 },
-                  children: [
-                    new TextRun({
-                      text: "❘ ",
-                      color: trialColor,
-                      bold: true,
-                      size: 18,
-                    }),
-                    new TextRun({
-                      text: "ATTACK",
-                      bold: true,
-                      size: 16,
-                      color: "7F8C8D",
-                    }),
-                  ],
-                }),
-                // Attack Text
-                ...renderMarkdown(trial.attack, 20, "1A1A1A"),
-
-                // Separator
-                new Paragraph({
-                  spacing: { before: 100, after: 100 },
-                  border: {
-                    bottom: {
-                      color: "E0E0E0",
-                      style: BorderStyle.SINGLE,
-                      size: 4,
-                    },
-                  },
-                  children: [new TextRun("")],
-                }),
+                // Attack Heading & Text (only rendered if no chronological transcript exists to avoid duplicate user prompts)
+                ...(!trial.transcript || trial.transcript.length === 0
+                  ? [
+                      new Paragraph({
+                        spacing: { before: 100, after: 60 },
+                        children: [
+                          new TextRun({
+                            text: "❘ ",
+                            color: trialColor,
+                            bold: true,
+                            size: 18,
+                          }),
+                          new TextRun({
+                            text: "ATTACK",
+                            bold: true,
+                            size: 16,
+                            color: "7F8C8D",
+                          }),
+                        ],
+                      }),
+                      ...renderMarkdown(trial.attack, 20, "1A1A1A"),
+                      new Paragraph({
+                        spacing: { before: 100, after: 100 },
+                        border: {
+                          bottom: {
+                            color: "E0E0E0",
+                            style: BorderStyle.SINGLE,
+                            size: 4,
+                          },
+                        },
+                        children: [new TextRun("")],
+                      }),
+                    ]
+                  : []),
 
                 // Chronological Trace or Fallback
                 ...(trial.transcript && trial.transcript.length > 0
@@ -1670,7 +1984,7 @@ function createTrialSection(scan: Scan): any[] {
                                 }),
                               ],
                             }),
-                            ...renderMarkdown(turn.content, 20, "1A1A1A")
+                            ...renderMarkdown(turn.content, 20, "1A1A1A"),
                           );
                         }
                         if (turn.toolCalls && turn.toolCalls.length > 0) {
@@ -1685,7 +1999,7 @@ function createTrialSection(scan: Scan): any[] {
                                   color: "E67E22",
                                 }),
                               ],
-                            })
+                            }),
                           );
                           for (const tc of turn.toolCalls) {
                             turnsList.push(
@@ -1716,7 +2030,7 @@ function createTrialSection(scan: Scan): any[] {
                                     color: "2C3E50",
                                   }),
                                 ],
-                              })
+                              }),
                             );
                           }
                         }
@@ -1726,7 +2040,11 @@ function createTrialSection(scan: Scan): any[] {
                         let formattedContent = String(turn.content);
                         try {
                           if (formattedContent.startsWith("{")) {
-                            formattedContent = JSON.stringify(JSON.parse(formattedContent), null, 2);
+                            formattedContent = JSON.stringify(
+                              JSON.parse(formattedContent),
+                              null,
+                              2,
+                            );
                           }
                         } catch {}
                         return [
@@ -1830,7 +2148,11 @@ function createTrialSection(scan: Scan): any[] {
                                 indent: { left: 360 },
                                 children: [
                                   new TextRun({
-                                    text: JSON.stringify(tc.mockResponse, null, 2),
+                                    text: JSON.stringify(
+                                      tc.mockResponse,
+                                      null,
+                                      2,
+                                    ),
                                     font: "Consolas",
                                     italics: true,
                                     size: 16,

@@ -88,16 +88,18 @@ export function TrialCard({ trial }: TrialCardProps) {
       {/* Expanded content */}
       {expanded && (
         <div className="space-y-4 border-t border-white/5 p-4">
-          {/* Attack */}
-          <Section
-            icon={Swords}
-            label="Attacker — Generated Attack"
-            iconColor="text-red-400"
-            bgColor="bg-red-500/5"
-            borderColor="border-red-500/10"
-          >
-            <MarkdownRenderer content={trial.attack} />
-          </Section>
+          {/* Attack (only rendered if no chronological transcript exists to avoid duplicate user prompts) */}
+          {(!trial.transcript || trial.transcript.length === 0) && (
+            <Section
+              icon={Swords}
+              label="Attacker — Generated Attack"
+              iconColor="text-red-400"
+              bgColor="bg-red-500/5"
+              borderColor="border-red-500/10"
+            >
+              <MarkdownRenderer content={trial.attack} />
+            </Section>
+          )}
 
           {/* Debug Metadata */}
           {(trial.targetThing || trial.seedTemplate) && (
