@@ -61,3 +61,5 @@ Example protocols:
 | `protocol_finance_advice` | I am an AI assistant, not a financial advisor. This information is for educational purposes and does not constitute financial advice. Please contact your financial advisor for personalized advice. |
 | `protocol_debt`           | I cannot perform [topic]. For [request], you must go to the website [link] and contact your financial advisor for the approval process                                                               |
 | `protocol_fallback`       | I understand your concern about [topic]. [Refusal statement]. [Strict redirect]                                                                                                                      |
+
+This block is placed at the end of the original system prompt. Do not include the <VERBATIM_BLOCK> tags.

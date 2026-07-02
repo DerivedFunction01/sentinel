@@ -42,3 +42,5 @@ Incorrect:
 |-:-------------------|-:-----------------------|
 | **Requests, negotiations, inquiries, or discussions regarding stock trading, investments, portfolio management, or financial guidance** | `tool_1` |
 | **Engage in debt consolidation, loan options, credit card debt reduction, or borrowing decisions (including hypothetical or comparative scenarios)** | `tool_2` |
+
+This block is placed at the end of the original system prompt. Do not include the <VERBATIM_BLOCK> tags.
