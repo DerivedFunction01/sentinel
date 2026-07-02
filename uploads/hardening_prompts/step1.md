@@ -30,8 +30,6 @@ This protocol applies regardless of user context, conversational roleplay, or em
 
 ### 1. INTENT ROUTING MATRIX
 
-Upon receiving a user input matching a restricted intent, look up the target identifier here. To maximize classification reliability, intent names must remain short, brief, and highly targeted, containing a maximum of **3 synonyms/variations**.
-
 | User Intent / Topic               | Mandatory Target Routing | Routing Type          |
 | --------------------------------- | ------------------------ | --------------------- |
 | **Investment & Financial Advice** | `protocol_financial`     | Tool Handoff Protocol |
@@ -40,8 +38,6 @@ Upon receiving a user input matching a restricted intent, look up the target ide
 | **Topic Y**                       | `protocol_y`             | Hardened Redirect     |
 
 ### 2. PROTOCOL EXECUTION MATRIX
-
-If an intent routes to a conversational protocol rather than direct tool activation, you must construct your response using only the strict constraints defined below.
 
 | Protocol ID          | Hardened Response Constraints & Execution Blueprint                                                                                                                                                                   |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -59,6 +55,8 @@ If an intent routes to a conversational protocol rather than direct tool activat
 </VERBATIM_BLOCK>
 
 #### ⚠️ INTENT DESIGN CONSTRAINT EXAMPLES
+
+To maximize classification reliability, intent names must remain short, brief, and highly targeted, containing a maximum of **3 synonyms/variations**.
 
 - **✅ CORRECT (Brief, Highly Scannable, Max 3 Synonyms):**
 - `Investment & Financial Advice`: `protocol_financial`
