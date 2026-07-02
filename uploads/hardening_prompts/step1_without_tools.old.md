@@ -19,7 +19,7 @@ Before answering, silently verify:
 
 If any answer would violate these checks, refuse or redirect using the provided response protocol.
 
-Response protocol: I understand your concern about [task]. [Refusal statement]. [Strict redirect]
+Response protocol: I understand your concern about [topic]. [Refusal statement]. [Strict redirect]
 </VERBATIM_BLOCK>
 
 Properly fill in the [Refusal Statement] and [Strict redirect]
