@@ -73,24 +73,27 @@ export async function POST(req: Request) {
         }
 
         // Check for existing record: by id first, fall back to name+granularity dedup.
+        let existingId: string | null = null;
         if (data.id) {
           const existingById = await db.toolSchemaExample.findUnique({
             where: { id: data.id },
+            select: { id: true },
           });
           if (existingById) {
-            skipped++;
-            continue;
+            existingId = existingById.id;
           }
         }
-        const existingByName = await db.toolSchemaExample.findFirst({
-          where: {
-            name: data.name,
-            granularity: data.granularity,
-          },
-        });
-        if (existingByName) {
-          skipped++;
-          continue;
+        if (!existingId) {
+          const existingByName = await db.toolSchemaExample.findFirst({
+            where: {
+              name: data.name,
+              granularity: data.granularity,
+            },
+            select: { id: true },
+          });
+          if (existingByName) {
+            existingId = existingByName.id;
+          }
         }
 
         // Tags must be stored as stringified JSON array
@@ -141,20 +144,32 @@ export async function POST(req: Request) {
           ? data.category
           : ToolExampleCategory.Standard;
 
-        await db.toolSchemaExample.create({
-          data: {
-            name: data.name,
-            description: data.description,
-            tags: tagsStr,
-            granularity: data.granularity,
-            category: resolvedCategory,
-            toolJson: data.toolJson,
-            mockResponse: data.mockResponse,
-            isBuiltIn: data.isBuiltIn ?? false,
-            businessCategories: businessCategoriesStr,
-            ontologySections: ontologySectionsStr,
-          },
-        });
+        const payload = {
+          name: data.name,
+          description: data.description,
+          tags: tagsStr,
+          granularity: data.granularity,
+          category: resolvedCategory,
+          toolJson: data.toolJson,
+          mockResponse: data.mockResponse,
+          isBuiltIn: data.isBuiltIn ?? false,
+          businessCategories: businessCategoriesStr,
+          ontologySections: ontologySectionsStr,
+        };
+
+        if (existingId) {
+          await db.toolSchemaExample.update({
+            where: { id: existingId },
+            data: payload,
+          });
+        } else {
+          await db.toolSchemaExample.create({
+            data: {
+              ...payload,
+              id: data.id,
+            },
+          });
+        }
         imported++;
       } catch (err: any) {
         errors.push(
