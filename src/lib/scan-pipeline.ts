@@ -160,7 +160,7 @@ export async function generateAttackSet(
       }
 
       // Check if we got meaningful results — or if forbiddenTask can compensate
-      if (seedInfo.things && seedInfo.things.length > 0) {
+      if (seedInfo && seedInfo.things && seedInfo.things.length > 0) {
         break; // success
       }
 

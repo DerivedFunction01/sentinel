@@ -6,6 +6,10 @@ export enum PromptFileType {
   AttackGenerator = "attack_gen_pre.md",
   SeedExtractor = "seed_extractor.md",
   AttackGeneratorUser = "attack_generator_user.md",
+  JudgeEvaluationSuffix = "judge_evaluation_suffix.md",
+  SuggestForbiddenTasks = "suggest_forbidden_tasks.md",
+  SystemPromptExtractor = "system_prompt_extractor.md",
+  OptimizationPrompt = "optimization_prompt.md",
 }
 
 const promptCache: Record<PromptFileType, string | null> = {
@@ -13,6 +17,10 @@ const promptCache: Record<PromptFileType, string | null> = {
   [PromptFileType.AttackGenerator]: null,
   [PromptFileType.SeedExtractor]: null,
   [PromptFileType.AttackGeneratorUser]: null,
+  [PromptFileType.JudgeEvaluationSuffix]: null,
+  [PromptFileType.SuggestForbiddenTasks]: null,
+  [PromptFileType.SystemPromptExtractor]: null,
+  [PromptFileType.OptimizationPrompt]: null,
 };
 
 export function getPromptFile(type: PromptFileType): string {
@@ -73,7 +81,10 @@ export function processTemplateConditions(
   return result;
 }
 
-export function replacePlaceholders(template: string, values: Record<string, string>): string {
+export function replacePlaceholders(
+  template: string,
+  values: Record<string, string>,
+): string {
   let result = template;
   for (const [key, val] of Object.entries(values)) {
     result = result.split(`{{${key}}}`).join(val ?? "");
