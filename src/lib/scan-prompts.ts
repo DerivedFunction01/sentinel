@@ -258,12 +258,15 @@ export function buildAttackGeneratorUserContent(
 
   const chooseGeneralFramework = Math.random() < 0.5;
 
-  const hasCredentials = credentials && credentials.length > 0 && !!credentialMode;
+  const hasCredentials =
+    credentials && credentials.length > 0 && !!credentialMode;
   const credential = hasCredentials
     ? credentials[Math.floor(Math.random() * credentials.length)]
     : "";
-  const isExactCredential = hasCredentials && credentialMode === CredentialMode.EXACT;
-  const isSimilarCredential = hasCredentials && credentialMode !== CredentialMode.EXACT;
+  const isExactCredential =
+    hasCredentials && credentialMode === CredentialMode.EXACT;
+  const isSimilarCredential =
+    hasCredentials && credentialMode !== CredentialMode.EXACT;
 
   const isVerbose =
     thingDescription.length > 60 ||
@@ -427,12 +430,12 @@ Response protocol: I understand your concern about [topic]. [Refusal statement].
 
 export function getOptDetectorInstructions(systemPrompt: string): string {
   const template = loadPromptFile("instructions_template_opt_detector.md");
-  return template.replace("{{SYSTEM_PROMPT}}", systemPrompt);
+  return replacePlaceholders(template, { SYSTEM_PROMPT: systemPrompt });
 }
 
 export function getOptTranslatorInstructions(targetLanguage: string): string {
   const template = loadPromptFile("instructions_template_opt_translator.md");
-  return template.replace("{{TARGET_LANGUAGE}}", targetLanguage);
+  return replacePlaceholders(template, { TARGET_LANGUAGE: targetLanguage });
 }
 
 interface OptDetectorResult {
@@ -450,17 +453,12 @@ async function runOptDetector(
   try {
     const res = await callModel(instructions);
     const language =
-      extractTaggedContent(res, "<BEGIN_LANGUAGE>", "</BEGIN_LANGUAGE>") ||
-      "English";
+      extractTaggedContent(res, "<LANGUAGE>", "</LANGUAGE>") || "English";
     const optimizationPrompt =
-      extractTaggedContent(res, "<BEGIN_OPT_PROMPT>", "</BEGIN_OPT_PROMPT>") ||
-      null;
+      extractTaggedContent(res, "<OPT_PROMPT>", "</OPT_PROMPT>") || null;
     const cleanedPrompt =
-      extractTaggedContent(
-        res,
-        "<BEGIN_CLEANED_PROMPT>",
-        "</BEGIN_CLEANED_PROMPT>",
-      ) || systemPrompt;
+      extractTaggedContent(res, "<CLEANED_PROMPT>", "</CLEANED_PROMPT>") ||
+      systemPrompt;
     const parsed: OptDetectorResult = {
       language,
       optimizationPrompt,
@@ -496,8 +494,8 @@ async function runOptTranslator(
     const res = await callModel(instructions);
     const translated = extractTaggedContent(
       res,
-      "<BEGIN_TRANSLATION>",
-      "</BEGIN_TRANSLATION>",
+      "<TRANSLATION>",
+      "</TRANSLATION>",
     );
     if (trace) {
       trace.optTranslator = {
@@ -517,9 +515,10 @@ export function getHardenedPromptCompactionInstructions(
   changedSentences: string,
 ): string {
   const template = loadPromptFile("instructions_template_compaction.md");
-  return template
-    .replace("{{SYSTEM_PROMPT}}", systemPrompt)
-    .replace("{{CHANGED_SENTENCES}}", changedSentences);
+  return replacePlaceholders(template, {
+    SYSTEM_PROMPT: systemPrompt,
+    CHANGED_SENTENCES: changedSentences,
+  });
 }
 
 export function getHardenedPromptStep1Instructions(
@@ -530,51 +529,10 @@ export function getHardenedPromptStep1Instructions(
   summarizedPatterns?: string,
   metadata?: ScanMetadata,
 ): string {
-  let toolsBlock = "";
-  if (recommendedTools && recommendedTools.length > 0) {
-    toolsBlock = `\nWe have configured/generated the following tool definitions to handle the forbidden task constraints dynamically:
-<available_tools>
-${JSON.stringify(
-  recommendedTools.map((t) => {
-    const toolObj = t.toolJson || t;
-    const fn = toolObj.function;
-    return {
-      name: t.name || fn?.name || toolObj.name,
-      description: fn?.description || toolObj.description,
-    };
-  }),
-  null,
-  2,
-)}
-</available_tools>
+  const hasTools = !!(recommendedTools && recommendedTools.length > 0);
+  const hasBreaches = breachedAttacks.length > 0;
+  const hasSummarized = !!summarizedPatterns;
 
-Since these tools are configured to enforce the restrictions, do NOT write system prompt guardrails that hardcode direct refusals, policies, or specific answers (such as "firmly restate that no discounts can be offered" or "always say no").
-Instead, instruct the LLM to call the appropriate tool when the forbidden task or related inquiries arise. The prompt guardrails should solely instruct the LLM to call the tool and follow its output, avoiding duplicate or conflicting instructions.`;
-  }
-
-  const hasTools = recommendedTools && recommendedTools.length > 0;
-  const step1Text = loadPromptFile("step1.md");
-
-  const template = loadPromptFile("instructions_template_step1.md");
-
-  let successfulAttacksBlock = "";
-  if (breachedAttacks.length > 0) {
-    if (summarizedPatterns) {
-      successfulAttacksBlock = `Threat analysis of successful attack patterns and strategies identified during a pentest:
-<attack_patterns>
-${summarizedPatterns}
-</attack_patterns>`;
-    } else {
-      successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The system prompt must be designed to withstand these attack vectors:
-<successful_attacks>
-${breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")}
-</successful_attacks>`;
-    }
-  } else {
-    successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies: social engineering, role-play reframings, hypothetical framings, and emotional appeals.`;
-  }
-
-  // Load matched ontology content — preferring specific sections when available
   let ontologyContent = "";
   if (metadata?.seedExtraction) {
     const things = metadata.seedExtraction.things || [];
@@ -582,20 +540,48 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")}
     ontologyContent = loadTargetedOntologyContent(things, relevantFiles);
   }
 
-  let finalTemplate = template;
-  if (!hasTools && ontologyContent) {
-    finalTemplate = template.replace(
-      "</forbidden_task>",
-      `</forbidden_task>\n\nEXTERNAL Domain Policy Guidelines (Reference Only):\n<domain_policies>\n${ontologyContent}\n</domain_policies>\nNOTE: The policy guidelines above are external reference materials. If there are any contradictions, conflicts, or mismatches between these guidelines and the provided system prompt or forbidden task, the provided system prompt's actual rules, boundaries, and constraints MUST always take precedence. Do NOT override the provided prompt's constraints with external guidelines.`,
-    );
-  }
+  const template = loadPromptFile("instructions_template_step1.md");
+  const step1Text = loadPromptFile("step1.md");
 
-  return finalTemplate
-    .replace("{{SYSTEM_PROMPT}}", systemPrompt)
-    .replace("{{TOOLS_BLOCK}}", toolsBlock)
-    .replace("{{FORBIDDEN_TASK}}", forbiddenTask)
-    .replace("{{SUCCESSFUL_ATTACKS_BLOCK}}", successfulAttacksBlock)
-    .replace("{{STEP_1_TEXT}}", step1Text);
+  const conditions = {
+    hasTools,
+    hasBreachedAttacks: hasBreaches,
+    hasSummarizedPatterns: hasBreaches && hasSummarized,
+    noSummarizedPatterns: hasBreaches && !hasSummarized,
+    noBreachedAttacks: !hasBreaches,
+    hasOntologyContent: !hasTools && !!ontologyContent,
+  };
+
+  const processed = processTemplateConditions(template, conditions);
+
+  const toolsJson = hasTools
+    ? JSON.stringify(
+        recommendedTools.map((t) => {
+          const toolObj = t.toolJson || t;
+          const fn = toolObj.function;
+          return {
+            name: t.name || fn?.name || toolObj.name,
+            description: fn?.description || toolObj.description,
+          };
+        }),
+        null,
+        2,
+      )
+    : "";
+
+  const attacksList = hasBreaches
+    ? breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")
+    : "";
+
+  return replacePlaceholders(processed, {
+    SYSTEM_PROMPT: systemPrompt,
+    FORBIDDEN_TASK: forbiddenTask,
+    STEP_1_TEXT: step1Text,
+    TOOLS_JSON: toolsJson,
+    SUMMARIZED_PATTERNS: summarizedPatterns || "",
+    BREACHED_ATTACKS_LIST: attacksList,
+    ONTOLOGY_CONTENT: ontologyContent,
+  });
 }
 
 export function getHardenedPromptStep1FullInstructions(
@@ -606,51 +592,10 @@ export function getHardenedPromptStep1FullInstructions(
   summarizedPatterns?: string,
   metadata?: ScanMetadata,
 ): string {
-  let toolsBlock = "";
-  if (recommendedTools && recommendedTools.length > 0) {
-    toolsBlock = `\nWe have configured/generated the following tool definitions to handle the forbidden task constraints dynamically:
-<available_tools>
-${JSON.stringify(
-  recommendedTools.map((t) => {
-    const toolObj = t.toolJson || t;
-    const fn = toolObj.function;
-    return {
-      name: t.name || fn?.name || toolObj.name,
-      description: fn?.description || toolObj.description,
-    };
-  }),
-  null,
-  2,
-)}
-</available_tools>
+  const hasTools = !!(recommendedTools && recommendedTools.length > 0);
+  const hasBreaches = breachedAttacks.length > 0;
+  const hasSummarized = !!summarizedPatterns;
 
-Since these tools are configured to enforce the restrictions, do NOT write system prompt guardrails that hardcode direct refusals, policies, or specific answers (such as "firmly restate that no discounts can be offered" or "always say no").
-Instead, instruct the LLM to call the appropriate tool when the forbidden task or related inquiries arise. The prompt guardrails should solely instruct the LLM to call the tool and follow its output, avoiding duplicate or conflicting instructions.`;
-  }
-
-  const hasTools = recommendedTools && recommendedTools.length > 0;
-  const step1Text = loadPromptFile("step1.md");
-
-  const template = loadPromptFile("instructions_template_step1_full.md");
-
-  let successfulAttacksBlock = "";
-  if (breachedAttacks.length > 0) {
-    if (summarizedPatterns) {
-      successfulAttacksBlock = `Threat analysis of successful attack patterns and strategies identified during a pentest:
-<attack_patterns>
-${summarizedPatterns}
-</attack_patterns>`;
-    } else {
-      successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The system prompt must be designed to withstand these attack vectors:
-<successful_attacks>
-${breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")}
-</successful_attacks>`;
-    }
-  } else {
-    successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies: social engineering, role-play reframings, hypothetical framings, and emotional appeals.`;
-  }
-
-  // Load matched ontology content — preferring specific sections when available
   let ontologyContent = "";
   if (metadata?.seedExtraction) {
     const things = metadata.seedExtraction.things || [];
@@ -658,20 +603,48 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")}
     ontologyContent = loadTargetedOntologyContent(things, relevantFiles);
   }
 
-  let finalTemplate = template;
-  if (!hasTools && ontologyContent) {
-    finalTemplate = template.replace(
-      "</forbidden_task>",
-      `</forbidden_task>\n\nEXTERNAL Domain Policy Guidelines (Reference Only):\n<domain_policies>\n${ontologyContent}\n</domain_policies>\nNOTE: The policy guidelines above are external reference materials. If there are any contradictions, conflicts, or mismatches between these guidelines and the provided system prompt or forbidden task, the provided system prompt's actual rules, boundaries, and constraints MUST always take precedence. Do NOT override the provided prompt's constraints with external guidelines.`,
-    );
-  }
+  const template = loadPromptFile("instructions_template_step1_full.md");
+  const step1Text = loadPromptFile("step1.md");
 
-  return finalTemplate
-    .replace("{{SYSTEM_PROMPT}}", systemPrompt)
-    .replace("{{TOOLS_BLOCK}}", toolsBlock)
-    .replace("{{FORBIDDEN_TASK}}", forbiddenTask)
-    .replace("{{SUCCESSFUL_ATTACKS_BLOCK}}", successfulAttacksBlock)
-    .replace("{{STEP_1_TEXT}}", step1Text);
+  const conditions = {
+    hasTools,
+    hasBreachedAttacks: hasBreaches,
+    hasSummarizedPatterns: hasBreaches && hasSummarized,
+    noSummarizedPatterns: hasBreaches && !hasSummarized,
+    noBreachedAttacks: !hasBreaches,
+    hasOntologyContent: !hasTools && !!ontologyContent,
+  };
+
+  const processed = processTemplateConditions(template, conditions);
+
+  const toolsJson = hasTools
+    ? JSON.stringify(
+        recommendedTools.map((t) => {
+          const toolObj = t.toolJson || t;
+          const fn = toolObj.function;
+          return {
+            name: t.name || fn?.name || toolObj.name,
+            description: fn?.description || toolObj.description,
+          };
+        }),
+        null,
+        2,
+      )
+    : "";
+
+  const attacksList = hasBreaches
+    ? breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")
+    : "";
+
+  return replacePlaceholders(processed, {
+    SYSTEM_PROMPT: systemPrompt,
+    FORBIDDEN_TASK: forbiddenTask,
+    STEP_1_TEXT: step1Text,
+    TOOLS_JSON: toolsJson,
+    SUMMARIZED_PATTERNS: summarizedPatterns || "",
+    BREACHED_ATTACKS_LIST: attacksList,
+    ONTOLOGY_CONTENT: ontologyContent,
+  });
 }
 
 export function getHardenedPromptStep2Instructions(
@@ -682,54 +655,10 @@ export function getHardenedPromptStep2Instructions(
   summarizedPatterns?: string,
   metadata?: ScanMetadata,
 ): string {
-  let toolsBlock = "";
-  if (recommendedTools && recommendedTools.length > 0) {
-    toolsBlock = `\nWe have configured/generated the following tool definitions to handle the forbidden task constraints dynamically:
-<available_tools>
-${JSON.stringify(
-  recommendedTools.map((t) => {
-    const toolObj = t.toolJson || t;
-    const fn = toolObj.function;
-    return {
-      name: t.name || fn?.name || toolObj.name,
-      description: fn?.description || toolObj.description,
-    };
-  }),
-  null,
-  2,
-)}
-</available_tools>`;
-  }
+  const hasTools = !!(recommendedTools && recommendedTools.length > 0);
+  const hasBreaches = breachedAttacks.length > 0;
+  const hasSummarized = !!summarizedPatterns;
 
-  const hasTools = recommendedTools && recommendedTools.length > 0;
-  const step2Text = hasTools
-    ? loadPromptFile("step2_with_tools.md")
-    : loadPromptFile("step2_without_tools.md").replace(
-        "{{OPTIMIZATION_PROMPT}}",
-        OPTIMIZATION_PROMPT,
-      );
-
-  const sharedRules = loadPromptFile("shared_guardrail_rules.md");
-  const template = loadPromptFile("instructions_template_step2.md");
-
-  let successfulAttacksBlock = "";
-  if (breachedAttacks.length > 0) {
-    if (summarizedPatterns) {
-      successfulAttacksBlock = `Threat analysis of successful attack patterns and strategies identified during a pentest:
-<attack_patterns>
-${summarizedPatterns}
-</attack_patterns>`;
-    } else {
-      successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The final hardened version must block these attack vectors:
-<successful_attacks>
-${breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")}
-</successful_attacks>`;
-    }
-  } else {
-    successfulAttacksBlock = `No breaches occurred in the scan, but you should still proactively strengthen the prompt against the most common jailbreak strategies.`;
-  }
-
-  // Load matched ontology content — preferring specific sections when available
   let ontologyContent = "";
   if (metadata?.seedExtraction) {
     const things = metadata.seedExtraction.things || [];
@@ -737,21 +666,53 @@ ${breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")}
     ontologyContent = loadTargetedOntologyContent(things, relevantFiles);
   }
 
-  let finalTemplate = template;
-  if (!hasTools && ontologyContent) {
-    finalTemplate = template.replace(
-      "</forbidden_task>",
-      `</forbidden_task>\n\nEXTERNAL Domain Policy Guidelines (Reference Only):\n<domain_policies>\n${ontologyContent}\n</domain_policies>\nNOTE: The policy guidelines above are external reference materials. If there are any contradictions, conflicts, or mismatches between these guidelines and the provided system prompt or forbidden task, the provided system prompt's actual rules, boundaries, and constraints MUST always take precedence. Do NOT override the provided prompt's constraints with external guidelines.`,
-    );
-  }
+  const template = loadPromptFile("instructions_template_step2.md");
+  const step2Text = hasTools
+    ? loadPromptFile("step2_with_tools.md")
+    : loadPromptFile("step2_without_tools.md");
 
-  return finalTemplate
-    .replace("{{SYSTEM_PROMPT}}", intermediatePrompt)
-    .replace("{{TOOLS_BLOCK}}", toolsBlock)
-    .replace("{{FORBIDDEN_TASK}}", forbiddenTask)
-    .replace("{{SUCCESSFUL_ATTACKS_BLOCK}}", successfulAttacksBlock)
-    .replace("{{STEP_2_TEXT}}", step2Text)
-    .replace("{{SHARED_GUARDRAIL_RULES}}", sharedRules);
+  const sharedRules = loadPromptFile("shared_guardrail_rules.md");
+
+  const conditions = {
+    hasTools,
+    hasBreachedAttacks: hasBreaches,
+    hasSummarizedPatterns: hasBreaches && hasSummarized,
+    noSummarizedPatterns: hasBreaches && !hasSummarized,
+    noBreachedAttacks: !hasBreaches,
+    hasOntologyContent: !hasTools && !!ontologyContent,
+  };
+
+  const processed = processTemplateConditions(template, conditions);
+
+  const toolsJson = hasTools
+    ? JSON.stringify(
+        recommendedTools.map((t) => {
+          const toolObj = t.toolJson || t;
+          const fn = toolObj.function;
+          return {
+            name: t.name || fn?.name || toolObj.name,
+            description: fn?.description || toolObj.description,
+          };
+        }),
+        null,
+        2,
+      )
+    : "";
+
+  const attacksList = hasBreaches
+    ? breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")
+    : "";
+
+  return replacePlaceholders(processed, {
+    SYSTEM_PROMPT: intermediatePrompt,
+    FORBIDDEN_TASK: forbiddenTask,
+    STEP_2_TEXT: step2Text,
+    SHARED_GUARDRAIL_RULES: sharedRules,
+    TOOLS_JSON: toolsJson,
+    SUMMARIZED_PATTERNS: summarizedPatterns || "",
+    BREACHED_ATTACKS_LIST: attacksList,
+    ONTOLOGY_CONTENT: ontologyContent,
+  });
 }
 
 function extractSystemPrompt(text: string): string {

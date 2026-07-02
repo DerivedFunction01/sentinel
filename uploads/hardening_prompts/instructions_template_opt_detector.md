@@ -12,14 +12,14 @@ Here is the system prompt to analyze:
 STRICT OUTPUT FORMAT RULES:
 Output your analysis using exactly the following section blocks. Do NOT include any introduction, preambles, or extra text outside these blocks.
 
-<BEGIN_LANGUAGE>
+<LANGUAGE>
 The name of the primary language (e.g. English, Spanish, French, Japanese).
-</BEGIN_LANGUAGE>
+</LANGUAGE>
 
-<BEGIN_OPT_PROMPT>
+<OPT_PROMPT>
 The exact extracted optimization statement/block found in the prompt. If none exists, leave this block empty.
-</BEGIN_OPT_PROMPT>
+</OPT_PROMPT>
 
-<BEGIN_CLEANED_PROMPT>
+<CLEANED_PROMPT>
 The full system prompt with the optimization statement/block completely removed. If no optimization block was found, copy the original prompt here verbatim.
-</BEGIN_CLEANED_PROMPT>
+</CLEANED_PROMPT>
