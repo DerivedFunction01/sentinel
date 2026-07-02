@@ -705,12 +705,7 @@ Instead, instruct the LLM to call the appropriate tool when the forbidden task o
   }
 
   const hasTools = recommendedTools && recommendedTools.length > 0;
-  const step1Text = hasTools
-    ? loadPromptFile("step1_with_tools.md")
-    : loadPromptFile("step1_without_tools.md").replace(
-        "{{OPTIMIZATION_PROMPT}}",
-        OPTIMIZATION_PROMPT,
-      );
+  const step1Text = loadPromptFile("step1.md");
 
   const template = loadPromptFile("instructions_template_step1.md");
 
@@ -786,12 +781,7 @@ Instead, instruct the LLM to call the appropriate tool when the forbidden task o
   }
 
   const hasTools = recommendedTools && recommendedTools.length > 0;
-  const step1Text = hasTools
-    ? loadPromptFile("step1_with_tools.md")
-    : loadPromptFile("step1_without_tools.md").replace(
-        "{{OPTIMIZATION_PROMPT}}",
-        OPTIMIZATION_PROMPT,
-      );
+  const step1Text = loadPromptFile("step1.md");
 
   const template = loadPromptFile("instructions_template_step1_full.md");
 
