@@ -21,6 +21,7 @@ export async function GET() {
       role: true,
       scanTokens: true,
       hardeningTokens: true,
+      reevaluationTokens: true,
       createdAt: true,
     },
   });
@@ -55,6 +56,7 @@ export async function PATCH(req: Request) {
       role: true,
       scanTokens: true,
       hardeningTokens: true,
+      reevaluationTokens: true,
     },
   });
 

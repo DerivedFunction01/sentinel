@@ -201,8 +201,10 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [mounted, setMounted] = useState(false);
   const [activeToolIdx, setActiveToolIdx] = useState(0);
   const [hardeningTokens, setHardeningTokens] = useState<number | null>(null);
+  const [reevaluationTokens, setReevaluationTokens] = useState<number | null>(null);
   const [convertOpen, setConvertOpen] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [convertTarget, setConvertTarget] = useState<"hardening" | "reevaluation">("hardening");
 
   const [summarizedPatterns, setSummarizedPatterns] = useState<
     string | undefined
@@ -211,10 +213,13 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
 
   useEffect(() => {
     setMounted(true);
-    // Fetch hardening token balance
+    // Fetch token balances
     fetch("/api/user")
       .then((r) => r.json())
-      .then((d) => setHardeningTokens(d.user?.hardeningTokens ?? 0))
+      .then((d) => {
+        setHardeningTokens(d.user?.hardeningTokens ?? 0);
+        setReevaluationTokens(d.user?.reevaluationTokens ?? 0);
+      })
       .catch(() => {});
   }, []);
 
@@ -247,21 +252,24 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     }
   };
 
-  const handleConvertTokens = async (scanTokensToConvert: number) => {
+  const handleConvertTokens = async (scanTokensToConvert: number, target: "hardening" | "reevaluation" = "hardening") => {
     setConverting(true);
     try {
       const res = await fetch("/api/tokens/convert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scanTokens: scanTokensToConvert }),
+        body: JSON.stringify({ scanTokens: scanTokensToConvert, target }),
       });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.message || "Conversion failed");
       } else {
-        setHardeningTokens(data.hardeningTokensRemaining);
+        if (target === "hardening") {
+          setHardeningTokens(data.hardeningTokensRemaining);
+        }
+        setReevaluationTokens(data.reevaluationTokensRemaining);
         toast.success(
-          `Converted ${scanTokensToConvert} scan token${scanTokensToConvert > 1 ? "s" : ""} → ${data.hardeningTokensGained} hardening tokens`,
+          `Converted ${scanTokensToConvert} scan token${scanTokensToConvert > 1 ? "s" : ""} → ${data.tokensGained} ${target} tokens`,
         );
         setConvertOpen(false);
       }
@@ -594,6 +602,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
           setActiveToolIdx,
           historyModels,
           hardeningTokens,
+          reevaluationTokens,
           setConvertOpen,
           convertOpen,
           converting,
@@ -901,10 +910,11 @@ function hardenedPrompt(
   setActiveToolIdx: React.Dispatch<React.SetStateAction<number>>,
   historyModels: any[],
   hardeningTokens: number | null,
+  reevaluationTokens: number | null,
   setConvertOpen: (open: boolean) => void,
   convertOpen: boolean,
   converting: boolean,
-  handleConvertTokens: (n: number) => Promise<void>,
+  handleConvertTokens: (n: number, target?: "hardening" | "reevaluation") => Promise<void>,
 ) {
   // Build version map: modelId -> count of entries with that modelId
   const modelVersionCounts = new Map<string, number>();
@@ -1279,6 +1289,7 @@ function hardenedPrompt(
         open={convertOpen}
         onOpenChange={setConvertOpen}
         hardeningTokens={hardeningTokens}
+        reevaluationTokens={reevaluationTokens}
         converting={converting}
         onConvert={handleConvertTokens}
       />
@@ -1290,20 +1301,24 @@ interface TokenConversionDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   hardeningTokens: number | null;
+  reevaluationTokens: number | null;
   converting: boolean;
-  onConvert: (n: number) => Promise<void>;
+  onConvert: (n: number, target: "hardening" | "reevaluation") => Promise<void>;
 }
 
 function TokenConversionDialog({
   open,
   onOpenChange,
   hardeningTokens,
+  reevaluationTokens,
   converting,
   onConvert,
 }: TokenConversionDialogProps) {
+  const [target, setTarget] = useState<"hardening" | "reevaluation">("hardening");
   const [customAmount, setCustomAmount] = useState("1");
   const parsed = parseInt(customAmount, 10);
   const isValid = !isNaN(parsed) && parsed >= 1;
+  const conversionRate = target === "hardening" ? 10 : 30;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1314,22 +1329,52 @@ function TokenConversionDialog({
             Convert Scan Tokens
           </DialogTitle>
           <DialogDescription className="text-slate-400 text-xs mt-1">
-            Convert your scan tokens into hardening tokens at a rate of{" "}
+            Convert your scan tokens into{" "}
+            {target === "hardening" ? "hardening" : "re-evaluation"} tokens at a rate of{" "}
             <span className="font-semibold text-purple-300">
-              1&nbsp;scan&nbsp;→&nbsp;10&nbsp;hardening
+              1&nbsp;scan&nbsp;→&nbsp;{conversionRate}&nbsp;{target === "hardening" ? "hardening" : "re-evaluation"}
             </span>
             .
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Current balance */}
-          <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-4 py-3">
-            <span className="text-xs text-slate-400">Hardening Balance</span>
-            <span className="text-sm font-bold text-purple-300 flex items-center gap-1.5">
-              <Zap className="h-3.5 w-3.5" />
-              {hardeningTokens === null ? "…" : hardeningTokens}
-            </span>
+          {/* Target toggle */}
+          <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/50 p-1">
+            <button
+              type="button"
+              onClick={() => setTarget("hardening")}
+              className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-colors ${
+                target === "hardening"
+                  ? "bg-purple-600/20 text-purple-300"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              Hardening
+            </button>
+            <button
+              type="button"
+              onClick={() => setTarget("reevaluation")}
+              className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-colors ${
+                target === "reevaluation"
+                  ? "bg-emerald-600/20 text-emerald-300"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              Re-evaluation
+            </button>
+          </div>
+
+          {/* Current balances */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-4 py-2.5">
+              <span className="text-xs text-slate-400">Hardening</span>
+              <span className="text-sm font-bold text-purple-300">{hardeningTokens === null ? "…" : hardeningTokens}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-4 py-2.5">
+              <span className="text-xs text-slate-400">Re-evaluation</span>
+              <span className="text-sm font-bold text-emerald-300">{reevaluationTokens === null ? "…" : reevaluationTokens}</span>
+            </div>
           </div>
 
           {/* Quick-select buttons */}
@@ -1342,12 +1387,16 @@ function TokenConversionDialog({
                 <button
                   key={n}
                   type="button"
-                  onClick={() => onConvert(n)}
+                  onClick={() => onConvert(n, target)}
                   disabled={converting}
-                  className="flex flex-col items-center rounded-lg border border-purple-500/30 bg-purple-600/10 py-2.5 text-purple-200 hover:bg-purple-600/25 disabled:opacity-50 transition-colors"
+                  className={`flex flex-col items-center rounded-lg border py-2.5 disabled:opacity-50 transition-colors ${
+                    target === "hardening"
+                      ? "border-purple-500/30 bg-purple-600/10 text-purple-200 hover:bg-purple-600/25"
+                      : "border-emerald-500/30 bg-emerald-600/10 text-emerald-200 hover:bg-emerald-600/25"
+                  }`}
                 >
                   <span className="text-sm font-bold">{n}</span>
-                  <span className="text-[10px] text-slate-400">→ {n * 10}</span>
+                  <span className="text-[10px] text-slate-400">→ {n * conversionRate}</span>
                 </button>
               ))}
             </div>
@@ -1369,13 +1418,13 @@ function TokenConversionDialog({
               />
               <Button
                 size="sm"
-                onClick={() => isValid && onConvert(parsed)}
+                onClick={() => isValid && onConvert(parsed, target)}
                 disabled={!isValid || converting}
-                className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+                className={target === "hardening" ? "bg-purple-600 hover:bg-purple-700 text-white shrink-0" : "bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"}
               >
                 {converting
                   ? "Converting…"
-                  : `→ ${isValid ? parsed * 10 : "?"}`}
+                  : `→ ${isValid ? parsed * conversionRate : "?"}`}
               </Button>
             </div>
           </div>

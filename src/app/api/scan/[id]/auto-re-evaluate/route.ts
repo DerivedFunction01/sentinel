@@ -30,6 +30,30 @@ export async function POST(
     return NextResponse.json({ error: "Scan not found" }, { status: 404 });
   }
 
+  // Check reevaluation token balance
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { reevaluationTokens: true },
+  });
+
+  if (!user || user.reevaluationTokens < 1) {
+    return NextResponse.json(
+      {
+        error: "insufficient_reevaluation_tokens",
+        message: "You need at least 1 reevaluation token to auto re-evaluate. Convert scan tokens to reevaluation tokens at a rate of 1:30.",
+        required: 1,
+        available: user?.reevaluationTokens ?? 0,
+      },
+      { status: 402 },
+    );
+  }
+
+  // Deduct 1 reevaluation token
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { reevaluationTokens: { decrement: 1 } },
+  });
+
   let trials: Trial[] = [];
   try {
     trials = JSON.parse(scan.trials) as Trial[];

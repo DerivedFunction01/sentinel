@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-const CONVERSION_RATE = 10; // 1 scan token → 10 hardening tokens
+const HARDENING_CONVERSION_RATE = 10; // 1 scan token → 10 hardening tokens
+const REEVALUATION_CONVERSION_RATE = 30; // 1 scan token → 30 reevaluation tokens
 
 export async function POST(req: Request) {
   try {
@@ -14,6 +15,7 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const scanTokensToConvert: number = Number(body.scanTokens);
+    const target: string = body.target || "hardening"; // "hardening" | "reevaluation"
 
     if (!scanTokensToConvert || scanTokensToConvert < 1 || !Number.isInteger(scanTokensToConvert)) {
       return NextResponse.json(
@@ -22,10 +24,19 @@ export async function POST(req: Request) {
       );
     }
 
+    if (target !== "hardening" && target !== "reevaluation") {
+      return NextResponse.json(
+        { error: "invalid_target", message: "target must be 'hardening' or 'reevaluation'." },
+        { status: 400 },
+      );
+    }
+
+    const conversionRate = target === "reevaluation" ? REEVALUATION_CONVERSION_RATE : HARDENING_CONVERSION_RATE;
+
     // Fetch current balance
     const user = await db.user.findUnique({
       where: { id: session.user.id },
-      select: { scanTokens: true, hardeningTokens: true },
+      select: { scanTokens: true, hardeningTokens: true, reevaluationTokens: true },
     });
 
     if (!user || user.scanTokens < scanTokensToConvert) {
@@ -40,24 +51,32 @@ export async function POST(req: Request) {
       );
     }
 
-    const hardeningGained = scanTokensToConvert * CONVERSION_RATE;
+    const tokensGained = scanTokensToConvert * conversionRate;
 
-    // Atomic: deduct scan tokens, add hardening tokens
+    // Atomic: deduct scan tokens, add target tokens
+    const updateData: any = {
+      scanTokens: { decrement: scanTokensToConvert },
+    };
+    if (target === "reevaluation") {
+      updateData.reevaluationTokens = { increment: tokensGained };
+    } else {
+      updateData.hardeningTokens = { increment: tokensGained };
+    }
+
     const updated = await db.user.update({
       where: { id: session.user.id },
-      data: {
-        scanTokens: { decrement: scanTokensToConvert },
-        hardeningTokens: { increment: hardeningGained },
-      },
-      select: { scanTokens: true, hardeningTokens: true },
+      data: updateData,
+      select: { scanTokens: true, hardeningTokens: true, reevaluationTokens: true },
     });
 
     return NextResponse.json({
       scanTokensConverted: scanTokensToConvert,
-      hardeningTokensGained: hardeningGained,
+      tokensGained,
+      target,
+      conversionRate,
       scanTokensRemaining: updated.scanTokens,
       hardeningTokensRemaining: updated.hardeningTokens,
-      conversionRate: CONVERSION_RATE,
+      reevaluationTokensRemaining: updated.reevaluationTokens,
     });
   } catch (error: any) {
     console.error("Error converting tokens:", error);

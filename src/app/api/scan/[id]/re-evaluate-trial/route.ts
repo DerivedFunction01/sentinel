@@ -53,7 +53,7 @@ export async function POST(
 
   const targetTrial = trials[targetTrialIndex];
 
-  // 1. Manual Override
+  // 1. Manual Override (no token deduction)
   if (manualOverride) {
     const { verdict, reasoning } = manualOverride;
     if (!verdict || !reasoning) {
@@ -116,6 +116,30 @@ export async function POST(
   }
 
   // 2. LLM Re-evaluation (Preview Only — does not save to DB)
+  // Check reevaluation token balance
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { reevaluationTokens: true },
+  });
+
+  if (!user || user.reevaluationTokens < 1) {
+    return NextResponse.json(
+      {
+        error: "insufficient_reevaluation_tokens",
+        message: "You need at least 1 reevaluation token to re-evaluate a trial. Convert scan tokens to reevaluation tokens at a rate of 1:30.",
+        required: 1,
+        available: user?.reevaluationTokens ?? 0,
+      },
+      { status: 402 },
+    );
+  }
+
+  // Deduct 1 reevaluation token
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { reevaluationTokens: { decrement: 1 } },
+  });
+
   // Gather reference examples from other trials in the scan
   const referenceExamples: Array<{
     attack: string;
