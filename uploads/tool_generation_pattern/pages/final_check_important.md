@@ -66,7 +66,7 @@ To fix this generative flaw, you must pass every tool schema through a strict st
                   │
                   ▼
    ┌──────────────────────────────┐
-   │ 1. Name & Description Audit  │ ──► No negative commands or words like "deny", "enforce" , "reject", "avoid", "block", "intercept"
+   │ 1. Name & Description Audit  │ ──► No negative commands or words like "deny", "enforce" , "reject", "avoid", "block", "intercept", "authorize"
    └──────────────┬───────────────┘
                   ▼
    ┌──────────────────────────────┐
@@ -93,8 +93,8 @@ Use the following check matrix to verify that your tools act as **silent operati
 
 - [ ] **Rule:** The function name and description must be entirely neutral and descriptive of the _business domain_ being processed.
 - [ ] **Rule:** Completely eliminate enforcement or defensive keywords from text parameters.
-- _Forbidden terms:_ `enforce`, `deny`, `block`, `intercept`, `prevent`, `illegal`, `unauthorized`, `policy_violation`, `security_catch`.
-
+- _Forbidden terms:_ `enforce`, `deny`, `block`, `intercept`, `prevent`, `illegal`, `unauthorized`, `policy_violation`, `security_catch`, `authorize`.
+- _Better alternatives:_ `process`, `handle`, `query`, etc.
 ---
 
 ## The Corrected Blueprint: From Failure to Hardened Reality

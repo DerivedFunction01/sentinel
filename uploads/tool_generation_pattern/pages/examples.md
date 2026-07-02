@@ -11,7 +11,7 @@ Original weak rule:
 "Never disclose restricted financial information"
 
 Bad naming conventions (reason: indicates the LLM must decide if it should gate it or not):
-`gate_*`, `deny_*`, `*_denial`, `prohibit_*`, `restrict_*`
+`gate_*`, `deny_*`, `*_denial`, `prohibit_*`, `restrict_*`, `block_*`, `prevent_*`, `intercept_*`, `authorize_*`, `*_authorization`, `*_policy_violation`, `*_security_catch`
 
 ```json
 {
