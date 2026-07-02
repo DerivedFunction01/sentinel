@@ -573,7 +573,7 @@ function ReevaluationPanel({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 text-xs border-white/10 hover:bg-white/5"
+                  className="h-7 text-xs border-white/10 text-slate-300 hover:text-white hover:bg-white/5 bg-transparent"
                   onClick={() => setProposal(null)}
                 >
                   Discard
