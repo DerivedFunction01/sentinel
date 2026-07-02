@@ -42,7 +42,7 @@ Mock responses **must be generic and parameter-agnostic**:
 
 ### Template 0: Mock Tool Schema (Full)
 
-The following has been tested to be reliable against many adversial probing and attacks. Some of the provided mock responses may have more fields than necessary. You may remove fields that are not needed for your use case, such as not having a support contact, or the requirement does not have a human escalation path, or some of the advice fields are not applicable.
+The following has been tested to be reliable against many adversial probing and attacks. Some of the provided mock responses may have more fields than necessary. You may remove fields that are not needed for your use case, such as not having a support contact, or the requirement does not have a human escalation path, or some of the advice fields are not applicable. However, the `policy` field and the `status` field and `reason` field are generally not recommended to be removed as they play a critical role in the overall security and robustness of the system.
 
 ```json
 {
