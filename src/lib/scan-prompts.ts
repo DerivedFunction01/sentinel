@@ -719,7 +719,7 @@ ${summarizedPatterns}
     } else {
       successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The system prompt must be designed to withstand these attack vectors:
 <successful_attacks>
-${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
+${breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")}
 </successful_attacks>`;
     }
   } else {
@@ -795,7 +795,7 @@ ${summarizedPatterns}
     } else {
       successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The system prompt must be designed to withstand these attack vectors:
 <successful_attacks>
-${breachedAttacks.map((a, i) => `${i + 1}. "${a}"`).join("\n")}
+${breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")}
 </successful_attacks>`;
     }
   } else {
@@ -874,7 +874,7 @@ ${summarizedPatterns}
     } else {
       successfulAttacksBlock = `The following adversarial prompts SUCCESSFULLY bypassed the current system prompt during a pentest. The final hardened version must block these attack vectors:
 <successful_attacks>
-${breachedAttacks.map((a, i) => `${i + 1}. "${a.judgeReasoning}"`).join("\n")}
+${breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")}
 </successful_attacks>`;
     }
   } else {
