@@ -378,3 +378,39 @@ export function computeDashboardStats(scans: ScanSummary[]) {
     attackSuccessRate,
   };
 }
+
+/** Delete a single scan by reportId and userId. */
+export async function deleteScan(
+  reportId: string,
+  userId: string,
+): Promise<boolean> {
+  const row = await db.scan.findFirst({
+    where: { reportId, userId },
+  });
+  if (!row) return false;
+  await db.scan.delete({
+    where: { id: row.id },
+  });
+  return true;
+}
+
+/** Delete multiple scans by reportIds and userId. */
+export async function deleteScans(
+  reportIds: string[],
+  userId: string,
+): Promise<void> {
+  await db.scan.deleteMany({
+    where: {
+      userId,
+      reportId: { in: reportIds },
+    },
+  });
+}
+
+/** Delete all scans for a user. */
+export async function deleteAllScans(userId: string): Promise<void> {
+  await db.scan.deleteMany({
+    where: { userId },
+  });
+}
+

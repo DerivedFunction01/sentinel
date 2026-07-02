@@ -102,3 +102,19 @@ export async function clearCachedReports(): Promise<void> {
     console.error("IndexedDB clearCachedReports error:", error);
   }
 }
+
+export async function deleteCachedScanDetail(reportId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_SCAN_DETAILS, "readwrite");
+      const store = transaction.objectStore(STORE_SCAN_DETAILS);
+      const request = store.delete(reportId);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB deleteCachedScanDetail error:", error);
+  }
+}
+

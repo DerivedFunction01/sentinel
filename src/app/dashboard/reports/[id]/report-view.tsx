@@ -20,6 +20,7 @@ import {
   Zap,
   RefreshCw,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,45 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<TrialFilter>(TrialFilter.All);
   const [toolManagerOpen, setToolManagerOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    const toastId = toast.loading("Deleting scan report...");
+    try {
+      const res = await fetch(`/api/scan/${scan.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to delete scan report");
+      }
+
+      // Invalidate cache
+      const { deleteCachedScanDetail, getCachedScansList, setCachedScansList } =
+        await import("@/lib/indexed-db");
+      await deleteCachedScanDetail(scan.id);
+
+      // Fetch user & update list cache
+      const userRes = await fetch("/api/user");
+      const userData = await userRes.json();
+      if (userData?.user?.id) {
+        const cached = await getCachedScansList(userData.user.id);
+        if (cached) {
+          const updated = cached.filter((r: any) => r.id !== scan.id);
+          await setCachedScansList(userData.user.id, updated);
+        }
+      }
+
+      toast.success("Scan report deleted successfully", { id: toastId });
+      router.push("/dashboard/reports");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete report", { id: toastId });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
 
   const [selectedHardenedId, setSelectedHardenedId] = useState<string>(() => {
     const active = [...scan.hardenedPrompts]
@@ -443,7 +483,9 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Report header bar */}
-      {ReportHeader(scan, refreshing, onRefresh)}
+      {ReportHeader(scan, refreshing, onRefresh, () =>
+        setDeleteDialogOpen(true),
+      )}
 
       <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
         {/* ── Summary hero ── */}
@@ -562,6 +604,45 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
               : {}
         }
       />
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="border-red-500/20 bg-slate-900 text-slate-100">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-400">
+              <Trash2 className="h-5 w-5 text-red-400" />
+              Delete Scan Report
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Are you sure you want to delete Scan #{scan.id}? This action is
+              permanent and cannot be undone. All associated data, including
+              hardened prompts, will be permanently deleted from the database.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleting}
+              className="border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Report"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1629,6 +1710,7 @@ function ReportHeader(
   scan: Scan,
   refreshing?: boolean,
   onRefresh?: () => Promise<void>,
+  onDelete?: () => void,
 ) {
   return (
     <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md">
@@ -1686,6 +1768,17 @@ function ReportHeader(
               Download
             </a>
           </Button>
+          {onDelete && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onDelete}
+              className="border-red-500/30 text-red-400 hover:text-red-300 hover:bg-red-950/20"
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              Delete
+            </Button>
+          )}
         </div>
       </div>
     </div>
