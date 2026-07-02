@@ -13,13 +13,14 @@ interface SdkDocsProps {
 }
 
 type Lang = "curl" | "python" | "node";
-type Op = "trigger" | "list" | "create" | "update";
+type Op = "trigger" | "list" | "create" | "update" | "reevaluate";
 
 const OPS = [
   { id: "trigger", label: "Trigger Scan (POST)" },
   { id: "list", label: "List Profiles (GET)" },
   { id: "create", label: "Create Profile (POST)" },
   { id: "update", label: "Update Profile (PATCH)" },
+  { id: "reevaluate", label: "Auto Re-evaluate Scan (POST)" },
 ] as const;
 
 const LANGS = [
@@ -35,11 +36,14 @@ export function SdkDocs({
 }: SdkDocsProps) {
   const [activeLang, setActiveLang] = useState<Lang>("curl");
   const [activeOp, setActiveOp] = useState<Op>("trigger");
-  const [origin, setOrigin] = useState("https://ToolRegistry.app");
+  const [origin, setOrigin] = useState(() => {
+    return process.env.NEXTAUTH_URL || "https://ToolRegistry.app";
+  });
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // Fallback to current browser origin if NEXTAUTH_URL is relative or not set
       setOrigin(window.location.origin);
     }
   }, []);
@@ -94,6 +98,9 @@ export function SdkDocs({
     "allowNoToolsFallback": true,
     "status": "ACTIVE"
   }'`;
+        case "reevaluate":
+          return `curl -X POST "${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/auto-re-evaluate" \\
+  -H "Authorization: Bearer ${token}"`;
       }
     }
 
@@ -170,6 +177,16 @@ data = {
 }
  
 response = requests.patch(url, headers=headers, json=data)
+print(response.json())`;
+        case "reevaluate":
+          return `import requests
+ 
+url = "${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/auto-re-evaluate"
+headers = {
+    "Authorization": "Bearer ${token}"
+}
+ 
+response = requests.post(url, headers=headers)
 print(response.json())`;
       }
     }
@@ -253,6 +270,18 @@ const response = await fetch(url, {
     allowNoToolsFallback: true,
     status: "ACTIVE"
   })
+});
+const result = await response.json();
+console.log(result);`;
+        case "reevaluate":
+          return `import fetch from 'node-fetch'; // or use native fetch in Node 18+
+ 
+const url = '${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/auto-re-evaluate';
+const response = await fetch(url, {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer ${token}'
+  }
 });
 const result = await response.json();
 console.log(result);`;

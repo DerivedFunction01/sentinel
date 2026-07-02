@@ -43,6 +43,7 @@ import {
 import { ScoreGauge } from "@/components/shared/score-gauge";
 import { TrialCard } from "@/components/shared/trial-card";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { TrialFilter, TrialVerdict, formatModelName } from "@/lib/enums";
 import { Scan, Trial, HardeningTrace } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
@@ -67,6 +68,34 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [toolManagerOpen, setToolManagerOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isAutoReevaluating, setIsAutoReevaluating] = useState(false);
+
+  const handleAutoReevaluate = async () => {
+    setIsAutoReevaluating(true);
+    const toastId = toast.loading("Auto re-evaluating all breached trials...");
+    try {
+      const res = await fetch(`/api/scan/${scan.id}/auto-re-evaluate`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to auto re-evaluate");
+      }
+      const data = await res.json();
+      if (data.updatedTrials && data.updatedTrials.length > 0) {
+        toast.success(`Successfully corrected ${data.updatedTrials.length} false-positive breaches!`, { id: toastId });
+      } else {
+        toast.info("Re-evaluation completed. No verdicts were changed.", { id: toastId });
+      }
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (e: any) {
+      toast.error(e.message || "An error occurred", { id: toastId });
+    } finally {
+      setIsAutoReevaluating(false);
+    }
+  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -483,8 +512,13 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Report header bar */}
-      {ReportHeader(scan, refreshing, onRefresh, () =>
-        setDeleteDialogOpen(true),
+      {ReportHeader(
+        scan,
+        refreshing,
+        onRefresh,
+        () => setDeleteDialogOpen(true),
+        isAutoReevaluating,
+        handleAutoReevaluate,
       )}
 
       <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
@@ -541,6 +575,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
           filter,
           setFilter,
           filteredTrials,
+          onRefresh,
         )}
 
         {/* Report footer */}
@@ -654,6 +689,7 @@ function trialBreakdown(
   filter: TrialFilter,
   setFilter,
   filteredTrials: Trial[],
+  onRefresh?: () => void,
 ) {
   return (
     <section id="trial-breakdown" className="space-y-6">
@@ -707,7 +743,12 @@ function trialBreakdown(
       {/* Trial cards */}
       <div className="space-y-3">
         {filteredTrials.map((trial) => (
-          <TrialCard key={trial.number} trial={trial} />
+          <TrialCard
+            key={trial.number}
+            trial={trial}
+            scan={scan}
+            onRefresh={onRefresh}
+          />
         ))}
       </div>
 
@@ -1711,6 +1752,8 @@ function ReportHeader(
   refreshing?: boolean,
   onRefresh?: () => Promise<void>,
   onDelete?: () => void,
+  isAutoReevaluating?: boolean,
+  onAutoReevaluate?: () => void,
 ) {
   return (
     <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md">
@@ -1751,6 +1794,27 @@ function ReportHeader(
                 className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
               />
               Refresh
+            </Button>
+          )}
+          {onAutoReevaluate && scan.breaches > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAutoReevaluate}
+              disabled={isAutoReevaluating || refreshing}
+              className={cn(
+                "flex items-center gap-1.5",
+                scan.breachRate >= 80
+                  ? "border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10 shadow-[0_0_8px_rgba(234,179,8,0.15)] animate-pulse"
+                  : "border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+              )}
+            >
+              {isAutoReevaluating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              <span>Auto Re-evaluate</span>
             </Button>
           )}
           <Button
