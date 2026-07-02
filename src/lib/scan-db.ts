@@ -5,7 +5,6 @@
  * typed Scan/Trial structures used by the UI.
  */
 import { db } from "@/lib/db";
-import { unstable_cache } from "next/cache";
 import {
   RiskLevel,
   ScanStatus,
@@ -118,7 +117,10 @@ export function deserializeScan(row: {
             transcript.push({
               role: "tool",
               name: tc.name,
-              content: typeof tc.mockResponse === "string" ? tc.mockResponse : JSON.stringify(tc.mockResponse),
+              content:
+                typeof tc.mockResponse === "string"
+                  ? tc.mockResponse
+                  : JSON.stringify(tc.mockResponse),
             });
           }
         }
@@ -223,38 +225,34 @@ export async function getScanByReportId(
   reportId: string,
   userId: string,
 ): Promise<Scan | null> {
-  const cachedFn = unstable_cache(
-    async (rId: string, uId: string) => {
-      const row = await db.scan.findFirst({
-        where: { reportId: rId, userId: uId },
-        include: { hardenedPrompts: true },
-      });
-      if (!row) return null;
-      const scan = deserializeScan(row);
-      const allIds = [
-        scan.targetModel,
-        scan.attackerModel,
-        scan.judgeModel,
-        scan.hardenerModel,
-      ].filter(Boolean);
-      const names = await lookupModelNames(allIds);
-      scan.modelName = names[scan.targetModel] || formatModelName(scan.targetModel);
-      scan.attackerModelName =
-        names[scan.attackerModel] || formatModelName(scan.attackerModel);
-      scan.judgeModelName =
-        names[scan.judgeModel] || formatModelName(scan.judgeModel);
-      scan.hardenerModelName =
-        names[scan.hardenerModel] || formatModelName(scan.hardenerModel);
-      return scan;
-    },
-    [`scan-report-${reportId}`],
-    { tags: [`scan-report-${reportId}`] }
-  );
-  return cachedFn(reportId, userId);
+  const row = await db.scan.findFirst({
+    where: { reportId: reportId, userId: userId },
+    include: { hardenedPrompts: true },
+  });
+  if (!row) return null;
+  const scan = deserializeScan(row);
+  const allIds = [
+    scan.targetModel,
+    scan.attackerModel,
+    scan.judgeModel,
+    scan.hardenerModel,
+  ].filter(Boolean);
+  const names = await lookupModelNames(allIds);
+  scan.modelName = names[scan.targetModel] || formatModelName(scan.targetModel);
+  scan.attackerModelName =
+    names[scan.attackerModel] || formatModelName(scan.attackerModel);
+  scan.judgeModelName =
+    names[scan.judgeModel] || formatModelName(scan.judgeModel);
+  scan.hardenerModelName =
+    names[scan.hardenerModel] || formatModelName(scan.hardenerModel);
+  return scan;
 }
 
 /** Fetch a user's recent scans (for the overview activity feed + reports list). */
-function calculateToolCallRate(trialsJson: string, totalTrials: number): string {
+function calculateToolCallRate(
+  trialsJson: string,
+  totalTrials: number,
+): string {
   try {
     const trialsList = JSON.parse(trialsJson) as Array<any>;
     const totalToolCalls = trialsList.reduce(
@@ -273,69 +271,55 @@ function calculateToolCallRate(trialsJson: string, totalTrials: number): string 
 
 /** Fetch a user's recent scans (for the overview activity feed + reports list). */
 export async function getUserScans(userId: string): Promise<ScanSummary[]> {
-  const cachedFn = unstable_cache(
-    async (uId: string) => {
-      const rows = await db.scan.findMany({
-        where: { userId: uId },
-        orderBy: { createdAt: "desc" },
-      });
-      const names = await lookupModelNames(rows.map((r) => r.targetModel));
-      return rows.map((row) => ({
-        id: row.reportId,
-        issuedDate: row.createdAt.toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        }),
-        targetModel: row.targetModel,
-        modelName: names[row.targetModel] || formatModelName(row.targetModel),
-        promptExcerpt: row.systemPrompt.slice(0, 80),
-        breaches: row.breaches,
-        totalTrials: row.totalTrials,
-        score: row.score,
-        riskLevel: row.riskLevel as RiskLevel,
-        status: row.status as ScanStatus,
-        relativeTime: formatRelativeTime(row.createdAt),
-        toolCallRate: calculateToolCallRate(row.trials, row.totalTrials),
-      }));
-    },
-    [`user-scans-${userId}`],
-    { tags: [`user-scans-${userId}`] }
-  );
-  return cachedFn(userId);
+  const rows = await db.scan.findMany({
+    where: { userId: userId },
+    orderBy: { createdAt: "desc" },
+  });
+  const names = await lookupModelNames(rows.map((r) => r.targetModel));
+  return rows.map((row) => ({
+    id: row.reportId,
+    issuedDate: row.createdAt.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }),
+    targetModel: row.targetModel,
+    modelName: names[row.targetModel] || formatModelName(row.targetModel),
+    promptExcerpt: row.systemPrompt.slice(0, 80),
+    breaches: row.breaches,
+    totalTrials: row.totalTrials,
+    score: row.score,
+    riskLevel: row.riskLevel as RiskLevel,
+    status: row.status as ScanStatus,
+    relativeTime: formatRelativeTime(row.createdAt),
+    toolCallRate: calculateToolCallRate(row.trials, row.totalTrials),
+  }));
 }
 
 /** Fetch all scans across all users (admin only). */
 export async function getAllScans(): Promise<ScanSummary[]> {
-  const cachedFn = unstable_cache(
-    async () => {
-      const rows = await db.scan.findMany({
-        orderBy: { createdAt: "desc" },
-      });
-      const names = await lookupModelNames(rows.map((r) => r.targetModel));
-      return rows.map((row) => ({
-        id: row.reportId,
-        issuedDate: row.createdAt.toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        }),
-        targetModel: row.targetModel,
-        modelName: names[row.targetModel] || formatModelName(row.targetModel),
-        promptExcerpt: row.systemPrompt.slice(0, 80),
-        breaches: row.breaches,
-        totalTrials: row.totalTrials,
-        score: row.score,
-        riskLevel: row.riskLevel as RiskLevel,
-        status: row.status as ScanStatus,
-        relativeTime: formatRelativeTime(row.createdAt),
-        toolCallRate: calculateToolCallRate(row.trials, row.totalTrials),
-      }));
-    },
-    ["all-scans"],
-    { tags: ["all-scans"] }
-  );
-  return cachedFn();
+  const rows = await db.scan.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+  const names = await lookupModelNames(rows.map((r) => r.targetModel));
+  return rows.map((row) => ({
+    id: row.reportId,
+    issuedDate: row.createdAt.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }),
+    targetModel: row.targetModel,
+    modelName: names[row.targetModel] || formatModelName(row.targetModel),
+    promptExcerpt: row.systemPrompt.slice(0, 80),
+    breaches: row.breaches,
+    totalTrials: row.totalTrials,
+    score: row.score,
+    riskLevel: row.riskLevel as RiskLevel,
+    status: row.status as ScanStatus,
+    relativeTime: formatRelativeTime(row.createdAt),
+    toolCallRate: calculateToolCallRate(row.trials, row.totalTrials),
+  }));
 }
 
 function formatRelativeTime(date: Date): string {
@@ -455,4 +439,3 @@ export async function deleteAllScans(userId: string): Promise<void> {
     where: { userId },
   });
 }
-

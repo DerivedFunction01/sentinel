@@ -1,5 +1,4 @@
 import { db } from "@/lib/db";
-import { revalidateTag } from "next/cache";
 import {
   CredentialMode,
   ProgressStepStatus,
@@ -1567,13 +1566,4 @@ export async function runSingleScanPipeline(
       totalSteps,
     },
   });
-
-  // Revalidate cached read routes
-  try {
-    revalidateTag(`scan-report-${reportId}`, { expire: 0 });
-    revalidateTag(`user-scans-${options.userId}`, { expire: 0 });
-    revalidateTag("all-scans", { expire: 0 });
-  } catch (err) {
-    console.error("Failed to revalidate cache tags:", err);
-  }
 }
