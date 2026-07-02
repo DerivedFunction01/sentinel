@@ -8,6 +8,7 @@ import { type ToolDef, type HardeningTrace } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
 import { generateHardenedPrompt } from "@/lib/hardening";
 import { getDeterministicHardenedPrompt } from "@/lib/scan-prompts";
+import { summarizeBreachedAttacks } from "@/lib/scan-pipeline";
 
 export async function GET(
   req: Request,
@@ -171,7 +172,33 @@ export async function POST(
       ? (JSON.parse(scanRow.tools) as ToolDef[])
       : [];
 
-    const metadata = scanRow.metadata ? JSON.parse(scanRow.metadata) : {};
+    let metadata = scanRow.metadata ? JSON.parse(scanRow.metadata) : {};
+
+    // Generate attack pattern summary if missing and breaches exist
+    if (!metadata.attackSummary?.summarizedPatterns && breachedAttacks.length > 0) {
+      try {
+        const summaryText = await summarizeBreachedAttacks(async (promptText) => {
+          const response = await callOpenRouter(modelId, [
+            { role: "user", content: promptText },
+          ]);
+          return response.content || "";
+        }, breachedAttacks);
+
+        metadata.attackSummary = {
+          summarizedPatterns: summaryText,
+          breachedAttacks,
+          summarizedAt: new Date().toISOString(),
+        };
+
+        // Cache it in the database scan record
+        await db.scan.update({
+          where: { id: scanRow.id },
+          data: { metadata: JSON.stringify(metadata) },
+        });
+      } catch (err) {
+        console.error("Failed to generate dynamic attack summary during hardening:", err);
+      }
+    }
 
     const hardeningResult = await generateHardenedPrompt(
       {

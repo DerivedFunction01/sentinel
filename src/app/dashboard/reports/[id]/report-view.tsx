@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Zap,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,18 +66,24 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [toolManagerOpen, setToolManagerOpen] = useState(false);
 
   const [selectedHardenedId, setSelectedHardenedId] = useState<string>(() => {
-    const active = [...scan.hardenedPrompts].reverse().find(
-      (hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL),
+    const active = [...scan.hardenedPrompts]
+      .reverse()
+      .find((hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL));
+    return (
+      active?.id ||
+      scan.hardenedPrompts[scan.hardenedPrompts.length - 1]?.id ||
+      ""
     );
-    return active?.id || scan.hardenedPrompts[scan.hardenedPrompts.length - 1]?.id || "";
   });
 
   const [currentHardenedPrompt, setCurrentHardenedPrompt] = useState<any>(
     () => {
-      const active = [...scan.hardenedPrompts].reverse().find(
-        (hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL),
+      const active = [...scan.hardenedPrompts]
+        .reverse()
+        .find((hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL));
+      return (
+        active || scan.hardenedPrompts[scan.hardenedPrompts.length - 1] || null
       );
-      return active || scan.hardenedPrompts[scan.hardenedPrompts.length - 1] || null;
     },
   );
 
@@ -93,6 +100,11 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [convertOpen, setConvertOpen] = useState(false);
   const [converting, setConverting] = useState(false);
 
+  const [summarizedPatterns, setSummarizedPatterns] = useState<
+    string | undefined
+  >(() => scan.metadata?.attackSummary?.summarizedPatterns);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+
   useEffect(() => {
     setMounted(true);
     // Fetch hardening token balance
@@ -101,6 +113,35 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
       .then((d) => setHardeningTokens(d.user?.hardeningTokens ?? 0))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    setSummarizedPatterns(scan.metadata?.attackSummary?.summarizedPatterns);
+  }, [scan.metadata?.attackSummary?.summarizedPatterns]);
+
+  const handleGenerateSummary = async () => {
+    setGeneratingSummary(true);
+    const toastId = toast.loading("Summarizing attack patterns...");
+    try {
+      const res = await fetch(`/api/scan/${scan.id}/summarize`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to generate summary");
+      }
+      const data = await res.json();
+      setSummarizedPatterns(data.summary);
+      toast.success("Attack patterns summarized successfully!", {
+        id: toastId,
+      });
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate summary", { id: toastId });
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
 
   const handleConvertTokens = async (scanTokensToConvert: number) => {
     setConverting(true);
@@ -416,7 +457,13 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         <Separator />
 
         {/* ── 01 Scan Configuration ── */}
-        {scanConfiguration(scan, mounted)}
+        {scanConfiguration(
+          scan,
+          mounted,
+          summarizedPatterns,
+          generatingSummary,
+          handleGenerateSummary,
+        )}
 
         <Separator />
 
@@ -1109,7 +1156,13 @@ function TokenConversionDialog({
   );
 }
 
-function scanConfiguration(scan: Scan, mounted: boolean) {
+function scanConfiguration(
+  scan: Scan,
+  mounted: boolean,
+  summarizedPatterns?: string,
+  generatingSummary?: boolean,
+  handleGenerateSummary?: () => void,
+) {
   return (
     <section id="scan-configuration" className="space-y-6">
       <div>
@@ -1411,8 +1464,8 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
               );
             })()}
 
-          {/* Attack summary patterns from metadata */}
-          {scan.metadata?.attackSummary?.summarizedPatterns && (
+          {/* Attack summary patterns from state */}
+          {summarizedPatterns ? (
             <Collapsible>
               <CollapsibleTrigger asChild>
                 <Button
@@ -1431,12 +1484,42 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="mt-2 rounded-lg border border-border bg-muted/5 p-3">
-                  <MarkdownRenderer
-                    content={scan.metadata.attackSummary.summarizedPatterns}
-                  />
+                  <MarkdownRenderer content={summarizedPatterns} />
                 </div>
               </CollapsibleContent>
             </Collapsible>
+          ) : (
+            scan.breaches > 0 && (
+              <div className="rounded-lg border border-slate-700/60 bg-slate-800/10 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
+                    <Swords className="h-3.5 w-3.5" />
+                    No Attack Pattern Summary
+                  </p>
+                  <p className="text-[11px] text-muted-foreground max-w-lg leading-relaxed">
+                    This report has {scan.breaches} successful attacks, but the
+                    pattern summary is missing (possibly due to a temporary LLM
+                    API failure during scanning).
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateSummary}
+                  disabled={generatingSummary}
+                  className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 shrink-0 font-medium text-xs"
+                >
+                  {generatingSummary ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    "Generate Summary"
+                  )}
+                </Button>
+              </div>
+            )
           )}
         </div>
       </ConfigBlock>
@@ -1473,7 +1556,8 @@ function summaryHero(scan: Scan) {
             (sum, trial) => sum + (trial.toolCalls?.length || 0),
             0,
           );
-          const numericRate = scan.totalTrials > 0 ? totalToolCalls / scan.totalTrials : 0;
+          const numericRate =
+            scan.totalTrials > 0 ? totalToolCalls / scan.totalTrials : 0;
           const toolCallRate = numericRate.toFixed(1);
 
           let hasTools = false;
@@ -1490,18 +1574,31 @@ function summaryHero(scan: Scan) {
           }
 
           return [
-            { label: "Target Model", value: scan.modelName, colorType: "default" },
-            { label: "Total Trials", value: scan.totalTrials, colorType: "default" },
+            {
+              label: "Target Model",
+              value: scan.modelName,
+              colorType: "default",
+            },
+            {
+              label: "Total Trials",
+              value: scan.totalTrials,
+              colorType: "default",
+            },
             { label: "Breaches", value: scan.breaches, colorType: "default" },
-            { label: "Breach Rate", value: `${scan.breachRate}%`, colorType: "default" },
+            {
+              label: "Breach Rate",
+              value: `${scan.breachRate}%`,
+              colorType: "default",
+            },
             {
               label: "Tool Call Rate",
               value: `${toolCallRate}/trial`,
-              colorType: (numericRate >= 1.0 && hasTools)
-                ? "green"
-                : (totalToolCalls > 0 && scan.breaches > 0)
-                  ? "red"
-                  : "default",
+              colorType:
+                numericRate >= 1.0 && hasTools
+                  ? "green"
+                  : totalToolCalls > 0 && scan.breaches > 0
+                    ? "red"
+                    : "default",
             },
           ];
         })().map((stat) => {
@@ -1515,10 +1612,7 @@ function summaryHero(scan: Scan) {
             textClass = "text-emerald-400";
           }
           return (
-            <Card
-              key={stat.label}
-              className={`p-4 ${cardClass}`}
-            >
+            <Card key={stat.label} className={`p-4 ${cardClass}`}>
               <p className="text-xs text-muted-foreground">{stat.label}</p>
               <p className={`mt-1 text-sm font-bold ${textClass}`}>
                 {stat.value}
@@ -1571,7 +1665,9 @@ function ReportHeader(
               disabled={refreshing}
               className="border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
             >
-              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+              />
               Refresh
             </Button>
           )}
