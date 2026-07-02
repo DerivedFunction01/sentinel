@@ -177,8 +177,13 @@ export function TrialCard({ trial, scan, onRefresh }: TrialCardProps) {
                 {trial.transcript.map((turn, idx) => {
                   if (turn.role === "user") {
                     return (
-                      <div key={idx} className="flex flex-col gap-1 border-l-2 border-blue-500/30 pl-3">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-blue-400">User / Attack</span>
+                      <div
+                        key={idx}
+                        className="flex flex-col gap-1 border-l-2 border-blue-500/30 pl-3"
+                      >
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-blue-400">
+                          User / Attack
+                        </span>
                         <div className="text-sm text-foreground/90">
                           <MarkdownRenderer content={turn.content || ""} />
                         </div>
@@ -187,8 +192,13 @@ export function TrialCard({ trial, scan, onRefresh }: TrialCardProps) {
                   }
                   if (turn.role === "assistant") {
                     return (
-                      <div key={idx} className="flex flex-col gap-2 border-l-2 border-purple-500/30 pl-3">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-purple-400">Assistant</span>
+                      <div
+                        key={idx}
+                        className="flex flex-col gap-2 border-l-2 border-purple-500/30 pl-3"
+                      >
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-purple-400">
+                          Assistant
+                        </span>
                         {turn.content && (
                           <div className="text-sm text-foreground/90">
                             <MarkdownRenderer content={turn.content} />
@@ -196,15 +206,24 @@ export function TrialCard({ trial, scan, onRefresh }: TrialCardProps) {
                         )}
                         {turn.toolCalls && turn.toolCalls.length > 0 && (
                           <div className="mt-1 space-y-2">
-                            <span className="text-[9px] font-semibold uppercase tracking-wider text-purple-400/80">Initiated Tool Calls:</span>
+                            <span className="text-[9px] font-semibold uppercase tracking-wider text-purple-400/80">
+                              Initiated Tool Calls:
+                            </span>
                             {turn.toolCalls.map((tc, tcIdx) => (
-                              <div key={tcIdx} className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+                              <div
+                                key={tcIdx}
+                                className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3"
+                              >
                                 <div className="flex items-center gap-2 text-xs">
                                   <Wrench className="h-3.5 w-3.5 text-purple-400" />
-                                  <code className="font-mono font-semibold text-purple-400">{tc.name}()</code>
+                                  <code className="font-mono font-semibold text-purple-400">
+                                    {tc.name}()
+                                  </code>
                                 </div>
                                 <div className="mt-2">
-                                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Arguments</p>
+                                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Arguments
+                                  </p>
                                   <CodeHighlight
                                     code={JSON.stringify(tc.arguments, null, 2)}
                                     language="json"
@@ -222,12 +241,21 @@ export function TrialCard({ trial, scan, onRefresh }: TrialCardProps) {
                     let formattedContent = String(turn.content);
                     try {
                       if (formattedContent.startsWith("{")) {
-                        formattedContent = JSON.stringify(JSON.parse(formattedContent), null, 2);
+                        formattedContent = JSON.stringify(
+                          JSON.parse(formattedContent),
+                          null,
+                          2,
+                        );
                       }
                     } catch {}
                     return (
-                      <div key={idx} className="flex flex-col gap-1 border-l-2 border-amber-500/30 pl-3">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400">Tool Output ({turn.name})</span>
+                      <div
+                        key={idx}
+                        className="flex flex-col gap-1 border-l-2 border-amber-500/30 pl-3"
+                      >
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400">
+                          Tool Output ({turn.name})
+                        </span>
                         <div className="mt-1">
                           <CodeHighlight
                             code={formattedContent}
@@ -336,7 +364,11 @@ export function TrialCard({ trial, scan, onRefresh }: TrialCardProps) {
 
           {/* Interactive Re-evaluation & Override Panel */}
           {onRefresh && scan && (
-            <ReevaluationPanel trial={trial} scan={scan} onRefresh={onRefresh} />
+            <ReevaluationPanel
+              trial={trial}
+              scan={scan}
+              onRefresh={onRefresh}
+            />
           )}
         </div>
       )}
@@ -357,27 +389,35 @@ function ReevaluationPanel({
 
   // Manual Override State
   const [manualVerdict, setManualVerdict] = useState<TrialVerdict>(
-    trial.verdict === TrialVerdict.Breached ? TrialVerdict.Defended : TrialVerdict.Breached
+    trial.verdict === TrialVerdict.Breached
+      ? TrialVerdict.Defended
+      : TrialVerdict.Breached,
   );
   const [manualReasoning, setManualReasoning] = useState(
-    trial.judgeVerdict || ""
+    trial.judgeVerdict || "",
   );
   const [isSavingOverride, setIsSavingOverride] = useState(false);
 
   // AI Re-evaluation State
   const [selectedRefNums, setSelectedRefNums] = useState<number[]>([]);
   const [isReevaluating, setIsReevaluating] = useState(false);
-  const [proposal, setProposal] = useState<{ verdict: TrialVerdict; reasoning: string } | null>(null);
+  const [proposal, setProposal] = useState<{
+    verdict: TrialVerdict;
+    reasoning: string;
+  } | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
 
   // Parse all scan trials to find successfully defended ones (excluding this one)
   let scanTrials: Trial[] = [];
   try {
-    scanTrials = typeof scan.trials === "string" ? JSON.parse(scan.trials) : scan.trials || [];
+    scanTrials =
+      typeof scan.trials === "string"
+        ? JSON.parse(scan.trials)
+        : scan.trials || [];
   } catch {}
 
   const defendedTrials = scanTrials.filter(
-    (t) => t.verdict === TrialVerdict.Defended && t.number !== trial.number
+    (t) => t.verdict === TrialVerdict.Defended && t.number !== trial.number,
   );
 
   const handleManualOverride = async () => {
@@ -456,7 +496,9 @@ function ReevaluationPanel({
         const err = await res.json();
         throw new Error(err.error || "Failed to save proposal");
       }
-      toast.success("AI re-evaluation proposal accepted and saved!", { id: toastId });
+      toast.success("AI re-evaluation proposal accepted and saved!", {
+        id: toastId,
+      });
       setProposal(null);
       onRefresh();
     } catch (e: any) {
@@ -468,7 +510,7 @@ function ReevaluationPanel({
 
   const toggleRefNum = (num: number) => {
     setSelectedRefNums((prev) =>
-      prev.includes(num) ? prev.filter((n) => n !== num) : [...prev, num]
+      prev.includes(num) ? prev.filter((n) => n !== num) : [...prev, num],
     );
   };
 
@@ -481,10 +523,15 @@ function ReevaluationPanel({
         </div>
         <div className="flex rounded-md bg-white/5 p-0.5">
           <button
-            onClick={() => { setTab("ai"); setProposal(null); }}
+            onClick={() => {
+              setTab("ai");
+              setProposal(null);
+            }}
             className={cn(
               "px-2.5 py-1 text-[10px] font-medium rounded-sm transition-colors",
-              tab === "ai" ? "bg-yellow-500/20 text-yellow-400" : "text-slate-400 hover:text-white"
+              tab === "ai"
+                ? "bg-yellow-500/20 text-yellow-400"
+                : "text-slate-400 hover:text-white",
             )}
           >
             AI Contrastive Re-eval
@@ -493,7 +540,9 @@ function ReevaluationPanel({
             onClick={() => setTab("manual")}
             className={cn(
               "px-2.5 py-1 text-[10px] font-medium rounded-sm transition-colors",
-              tab === "manual" ? "bg-yellow-500/20 text-yellow-400" : "text-slate-400 hover:text-white"
+              tab === "manual"
+                ? "bg-yellow-500/20 text-yellow-400"
+                : "text-slate-400 hover:text-white",
             )}
           >
             Manual Override
@@ -504,7 +553,11 @@ function ReevaluationPanel({
       {tab === "ai" ? (
         <div className="space-y-4">
           <div className="text-xs text-slate-300 leading-relaxed">
-            <span className="font-semibold text-yellow-500">How it works:</span> Under-performing or overly strict judge evaluations can be re-run with contrastive learning. Select up to 3 successfully defended trials below to serve as "safe reference" examples. The judge LLM will compare this trial to those examples.
+            <span className="font-semibold text-yellow-500">How it works:</span>{" "}
+            Under-performing or overly strict judge evaluations can be re-run
+            with contrastive learning. Select up to 3 successfully defended
+            trials below to serve as "safe reference" examples. The judge LLM
+            will compare this trial to those examples.
           </div>
 
           <div>
@@ -513,7 +566,8 @@ function ReevaluationPanel({
             </span>
             {defendedTrials.length === 0 ? (
               <div className="text-[11px] text-slate-500 bg-black/20 p-2.5 rounded border border-white/5">
-                No successfully defended trials in this scan to use as custom references. Default safe reference templates will be used.
+                No successfully defended trials in this scan to use as custom
+                references. Default safe reference templates will be used.
               </div>
             ) : (
               <div className="max-h-32 overflow-y-auto space-y-2 pr-1 select-none">
@@ -527,7 +581,7 @@ function ReevaluationPanel({
                         "flex items-start gap-2.5 p-2 rounded border transition-colors cursor-pointer text-xs",
                         isChecked
                           ? "bg-yellow-500/[0.04] border-yellow-500/30 text-slate-200"
-                          : "bg-black/10 border-white/5 text-slate-400 hover:bg-black/25"
+                          : "bg-black/10 border-white/5 text-slate-400 hover:bg-black/25",
                       )}
                     >
                       <Checkbox
@@ -537,9 +591,13 @@ function ReevaluationPanel({
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2 font-mono text-[10px] text-yellow-500/80 mb-0.5">
-                          <span>Trial #{t.number} ({t.taskTag || "Standard"})</span>
+                          <span>
+                            Trial #{t.number} ({t.taskTag || "Standard"})
+                          </span>
                         </div>
-                        <p className="truncate text-slate-300 font-serif italic">"{t.response}"</p>
+                        <p className="truncate text-slate-300 font-serif italic">
+                          "{t.response}"
+                        </p>
                       </div>
                     </div>
                   );
@@ -560,14 +618,14 @@ function ReevaluationPanel({
                     "text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider",
                     proposal.verdict === TrialVerdict.Breached
                       ? "bg-red-500/10 border border-red-500/20 text-red-400"
-                      : "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                      : "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400",
                   )}
                 >
                   {proposal.verdict}
                 </span>
               </div>
               <div className="text-xs text-slate-300 bg-black/40 p-2.5 rounded border border-white/5 max-h-32 overflow-y-auto leading-relaxed">
-                {proposal.reasoning}
+                {<MarkdownRenderer content={proposal.reasoning} />}
               </div>
               <div className="flex gap-2 justify-end pt-1">
                 <Button
@@ -584,7 +642,9 @@ function ReevaluationPanel({
                   onClick={handleConfirmProposal}
                   disabled={isConfirming}
                 >
-                  {isConfirming && <Loader2 className="h-3 w-3 animate-spin mr-1 text-black" />}
+                  {isConfirming && (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1 text-black" />
+                  )}
                   Accept & Save
                 </Button>
               </div>
@@ -610,7 +670,11 @@ function ReevaluationPanel({
       ) : (
         <div className="space-y-4">
           <div className="text-xs text-slate-300 leading-relaxed">
-            <span className="font-semibold text-yellow-500">Override Verdict:</span> Directly bypass the LLM judge decisions and force a specific verdict for this trial.
+            <span className="font-semibold text-yellow-500">
+              Override Verdict:
+            </span>{" "}
+            Directly bypass the LLM judge decisions and force a specific verdict
+            for this trial.
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -620,7 +684,7 @@ function ReevaluationPanel({
                 "p-2.5 rounded border text-center transition-all flex flex-col items-center justify-center gap-1",
                 manualVerdict === TrialVerdict.Defended
                   ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-                  : "bg-black/10 border-white/5 text-slate-400 hover:bg-black/25"
+                  : "bg-black/10 border-white/5 text-slate-400 hover:bg-black/25",
               )}
             >
               <CircleCheck className="h-4 w-4" />
@@ -632,7 +696,7 @@ function ReevaluationPanel({
                 "p-2.5 rounded border text-center transition-all flex flex-col items-center justify-center gap-1",
                 manualVerdict === TrialVerdict.Breached
                   ? "bg-red-500/10 border-red-500/40 text-red-400"
-                  : "bg-black/10 border-white/5 text-slate-400 hover:bg-black/25"
+                  : "bg-black/10 border-white/5 text-slate-400 hover:bg-black/25",
               )}
             >
               <CircleX className="h-4 w-4" />
@@ -641,7 +705,10 @@ function ReevaluationPanel({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="override-reason" className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            <Label
+              htmlFor="override-reason"
+              className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider"
+            >
               Reasoning / Explanation
             </Label>
             <Textarea
@@ -661,7 +728,9 @@ function ReevaluationPanel({
               onClick={handleManualOverride}
               disabled={isSavingOverride}
             >
-              {isSavingOverride && <Loader2 className="h-4 w-4 animate-spin text-black" />}
+              {isSavingOverride && (
+                <Loader2 className="h-4 w-4 animate-spin text-black" />
+              )}
               Apply Override
             </Button>
           </div>
