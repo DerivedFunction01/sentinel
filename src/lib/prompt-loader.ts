@@ -10,6 +10,7 @@ export enum PromptFileType {
   SuggestForbiddenTasks = "suggest_forbidden_tasks.md",
   SystemPromptExtractor = "system_prompt_extractor.md",
   OptimizationPrompt = "optimization_prompt.md",
+  ExtractSeedInfo = "extract_seed_info.md",
 }
 
 const promptCache: Record<PromptFileType, string | null> = {
@@ -21,6 +22,7 @@ const promptCache: Record<PromptFileType, string | null> = {
   [PromptFileType.SuggestForbiddenTasks]: null,
   [PromptFileType.SystemPromptExtractor]: null,
   [PromptFileType.OptimizationPrompt]: null,
+  [PromptFileType.ExtractSeedInfo]: null,
 };
 
 export function getPromptFile(type: PromptFileType): string {
