@@ -80,7 +80,14 @@ export async function POST(
     });
   }
 
-  const proposalsList: Array<{ trialNumber: number; verdict: TrialVerdict; reasoning: string }> = [];
+  const proposalsList: Array<{
+    trialNumber: number;
+    verdict: TrialVerdict;
+    reasoning: string;
+    attack: string;
+    response: string;
+    originalReasoning: string;
+  }> = [];
 
   // Run re-evaluation on all breached trials
   for (const targetTrial of breachedTrials) {
@@ -98,6 +105,9 @@ export async function POST(
           trialNumber: targetTrial.number,
           verdict: TrialVerdict.Defended,
           reasoning: result.reasoning,
+          attack: targetTrial.attack,
+          response: targetTrial.response,
+          originalReasoning: targetTrial.judgeVerdict || "",
         });
       }
     } catch (err) {

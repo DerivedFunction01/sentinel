@@ -44,6 +44,7 @@ import { ScoreGauge } from "@/components/shared/score-gauge";
 import { TrialCard } from "@/components/shared/trial-card";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 import { TrialFilter, TrialVerdict, formatModelName } from "@/lib/enums";
 import { Scan, Trial, HardeningTrace } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
@@ -70,6 +71,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [deleting, setDeleting] = useState(false);
   const [isAutoReevaluating, setIsAutoReevaluating] = useState(false);
   const [proposalsPreview, setProposalsPreview] = useState<any[] | null>(null);
+  const [deselectedProposals, setDeselectedProposals] = useState<number[]>([]);
   const [isSavingBatch, setIsSavingBatch] = useState(false);
 
   const handleAutoReevaluate = async () => {
@@ -86,6 +88,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
       const data = await res.json();
       if (data.proposals && data.proposals.length > 0) {
         toast.dismiss(toastId);
+        setDeselectedProposals([]);
         setProposalsPreview(data.proposals);
       } else {
         toast.info("Re-evaluation completed. No corrections were proposed.", { id: toastId });
@@ -99,13 +102,18 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
 
   const handleConfirmBatch = async () => {
     if (!proposalsPreview || proposalsPreview.length === 0) return;
+    const confirmed = proposalsPreview.filter(p => !deselectedProposals.includes(p.trialNumber));
+    if (confirmed.length === 0) {
+      toast.error("No proposals selected for confirmation.");
+      return;
+    }
     setIsSavingBatch(true);
     const toastId = toast.loading("Saving re-evaluated verdicts...");
     try {
       const res = await fetch(`/api/scan/${scan.id}/confirm-batch-re-evaluation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposals: proposalsPreview }),
+        body: JSON.stringify({ proposals: confirmed }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -714,23 +722,59 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
               Confirm Auto Re-evaluation Proposals
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              The AI judge has proposed the following corrections. None of these changes have been saved yet. Review them and click confirm.
+              The AI judge has proposed the following corrections. Uncheck any proposals you wish to ignore.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-4 my-4 pr-1">
-            {proposalsPreview?.map((prop) => (
-              <div key={prop.trialNumber} className="p-3 rounded bg-black/45 border border-yellow-500/15 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-yellow-400">Trial #{prop.trialNumber}</span>
-                  <span className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-semibold px-2 py-0.5 rounded">
-                    Proposed: {prop.verdict}
-                  </span>
+            {proposalsPreview?.map((prop) => {
+              const isChecked = !deselectedProposals.includes(prop.trialNumber);
+              return (
+                <div key={prop.trialNumber} className={cn(
+                  "p-3 rounded border transition-colors space-y-3",
+                  isChecked ? "bg-yellow-500/[0.03] border-yellow-500/20" : "bg-black/25 border-white/5 opacity-55"
+                )}>
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-yellow-400">
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={() => {
+                          setDeselectedProposals(prev =>
+                            prev.includes(prop.trialNumber)
+                              ? prev.filter(n => n !== prop.trialNumber)
+                              : [...prev, prop.trialNumber]
+                          );
+                        }}
+                      />
+                      <span>Trial #{prop.trialNumber}</span>
+                    </label>
+                    <span className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-semibold px-2 py-0.5 rounded">
+                      Proposed: {prop.verdict}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Adversarial Attack</span>
+                      <p className="text-slate-300 font-mono text-[11px] p-2 rounded bg-black/20 mt-0.5 whitespace-pre-wrap">{prop.attack}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Model's Response</span>
+                      <p className="text-slate-300 font-serif italic p-2 rounded bg-black/20 mt-0.5 whitespace-pre-wrap">"{prop.response}"</p>
+                    </div>
+                    {prop.originalReasoning && (
+                      <div>
+                        <span className="text-[10px] font-bold text-red-400/80 uppercase tracking-wider block">Original Judge Reasoning</span>
+                        <p className="text-slate-400 p-2 rounded bg-black/20 mt-0.5 leading-relaxed">{prop.originalReasoning}</p>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">New Proposed Reasoning</span>
+                      <p className="text-slate-200 p-2 rounded bg-emerald-500/[0.04] border border-emerald-500/10 mt-0.5 leading-relaxed">{prop.reasoning}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs text-slate-300 italic leading-relaxed bg-slate-900/30 p-2 rounded">
-                  "{prop.reasoning}"
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <DialogFooter className="mt-4 flex gap-2 justify-end shrink-0">
             <Button
@@ -747,7 +791,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
               className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
             >
               {isSavingBatch && <Loader2 className="mr-2 h-4 w-4 animate-spin text-black" />}
-              Confirm & Save {proposalsPreview?.length || 0} Updates
+              Confirm & Save {proposalsPreview ? proposalsPreview.length - deselectedProposals.length : 0} Updates
             </Button>
           </DialogFooter>
         </DialogContent>
