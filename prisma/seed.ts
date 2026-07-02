@@ -40,10 +40,10 @@ async function main() {
   const customerAdminPassword = await bcrypt.hash("cadmin123", 10);
 
   const admin = await db.user.upsert({
-    where: { email: "admin@ToolRegistry.app" },
+    where: { email: "admin@toolregistry.app" },
     update: {},
     create: {
-      email: "admin@ToolRegistry.app",
+      email: "admin@toolregistry.app",
       name: "Super Admin",
       password: adminPassword,
       role: UserRole.SuperAdmin,
@@ -53,10 +53,10 @@ async function main() {
   });
 
   const customerAdmin = await db.user.upsert({
-    where: { email: "cadmin@ToolRegistry.app" },
+    where: { email: "cadmin@toolregistry.app" },
     update: {},
     create: {
-      email: "cadmin@ToolRegistry.app",
+      email: "cadmin@toolregistry.app",
       name: "Customer Admin",
       password: customerAdminPassword,
       role: UserRole.CustomerAdmin,
@@ -66,15 +66,15 @@ async function main() {
   });
 
   await db.user.update({
-    where: { email: "cadmin@ToolRegistry.app" },
+    where: { email: "cadmin@toolregistry.app" },
     data: { company: "cadmin-company-id" },
   });
 
   const user = await db.user.upsert({
-    where: { email: "denny@ToolRegistry.app" },
+    where: { email: "denny@toolregistry.app" },
     update: {},
     create: {
-      email: "denny@ToolRegistry.app",
+      email: "denny@toolregistry.app",
       name: "Denny Li",
       password: userPassword,
       role: UserRole.User,
@@ -84,7 +84,7 @@ async function main() {
   });
 
   await db.user.update({
-    where: { email: "denny@ToolRegistry.app" },
+    where: { email: "denny@toolregistry.app" },
     data: { company: "cadmin-company-id" },
   });
 
