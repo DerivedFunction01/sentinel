@@ -326,7 +326,12 @@ export const REWRITE_ASSISTANT_PREFILL_V2 = ``;
  */
 
 export function getJudgeEvaluationFixedPrefix(): string {
-  return getPromptFile(PromptFileType.Judge);
+  // Replaced the {{DEFENDED}} and {{BREACHED}} with TrialVerdict
+
+  return replacePlaceholders(getPromptFile(PromptFileType.Judge), {
+    DEFENDED: TrialVerdict.Defended,
+    BREACHED: TrialVerdict.Breached,
+  });
 }
 
 /**
