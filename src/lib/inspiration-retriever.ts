@@ -9,6 +9,11 @@ import {
   RestrictionThing,
 } from "./types";
 import { Granularity } from "./enums";
+import {
+  PromptFileType,
+  getPromptFile,
+  replacePlaceholders,
+} from "@/lib/prompt-loader";
 
 export interface InspirationExample {
   name: string;
@@ -97,14 +102,17 @@ export async function generateInspirationSearchQuery(
       ? `\nTool Requirements (user-facing capabilities the assistant needs to handle): ${toolRequirements}\nUse these to guide tag selection.`
       : "";
 
-    const prompt = `You are a search query generator. Your task is to analyze the following security constraint/forbidden task of an AI assistant and generate search tags and a keyword query to find relevant tool schema templates in our database.
+    const template = getPromptFile(PromptFileType.SearchQueryGenerator);
 
-Forbidden Task: "${forbiddenTask}"
-Target Granularity: ${granularity}${personaContext}${featuresContext}${scenariosContext}${toolRequirementsContext}${tagsContext}
-
-DO NOT use adversarial language like "refusal" in the the tags or query. There will be no results, since the tool schema does not have these tags or words.
-
-Output ONLY a JSON object containing the keys "query" (a string of 1-3 keywords, e.g. "discount" or "refund") and "tags" (an array of lowercase tags, e.g. ["finance", "policy", "authentication", "pii", "moderation"]). Do not output any preamble, markdown blocks, or explanation.`;
+    const prompt = replacePlaceholders(template, {
+      FORBIDDEN_TASK: forbiddenTask,
+      GRANULARITY: granularity,
+      PERSONA_CONTEXT: personaContext,
+      FEATURES_CONTEXT: featuresContext,
+      SCENARIOS_CONTEXT: scenariosContext,
+      TOOL_REQUIREMENTS_CONTEXT: toolRequirementsContext,
+      TAGS_CONTEXT: tagsContext,
+    });
 
     const response = await callOpenRouter(
       extractorModel,
@@ -181,35 +189,27 @@ For each candidate example, also evaluate overlap with these existing tools by a
 
     const scoringToolRequirements = toolRequirements || forbiddenTask;
 
-    const scoringPrompt = `You are a scoring evaluator. Analyze how well each database tool schema example matches the required user-facing capabilities and target granularity.
-
-Tool Requirements (what users request from the assistant):
-${scoringToolRequirements}
-Target Granularity: ${granularity}
-Business Categories: ${(metadata.seedExtraction?.businessCategories || []).join(", ") || "N/A"}
-
-Examples:
-${candidates
-  .map(
-    (c, i) => `--- Example #${i} ---
+    const template = getPromptFile(PromptFileType.ScoringEvaluator);
+    const candidateText = candidates
+      .map(
+        (c, i) => `--- Example #${i} ---
 Name: "${c.name}"
 Description: ${c.description}
 Tags: ${c.tags.join(", ")}
 Tool JSON: ${JSON.stringify(c.toolJson)}`,
-  )
-  .join("\n\n")}
-${existingToolsBlock}
-Return ONLY a JSON array of objects representing the scores for each example:
-[
-  {
-    "requirementScore": <0-100>,
-    "granularityScore": <0-100>,
-    "bestMatchingCandidate": <boolean: true if this candidate is the single best match for its role/action among all candidates>,
-    "rationale": "<one-sentence reasoning>",
-    "overlap": { "score": <0-100>, "replaceExisting": "<existing tool name or null>", "merge": <bool>, "rationale": "<one-sentence>" }
-  }
-]
-Output ONLY the raw JSON array. Do not wrap in markdown or include preambles.`;
+      )
+      .join("\n\n");
+
+    const categoriesText =
+      (metadata.seedExtraction?.businessCategories || []).join(", ") || "N/A";
+
+    const scoringPrompt = replacePlaceholders(template, {
+      SCORING_TOOL_REQUIREMENTS: scoringToolRequirements,
+      GRANULARITY: granularity,
+      BUSINESS_CATEGORIES: categoriesText,
+      CANDIDATE_EXAMPLES: candidateText,
+      EXISTING_TOOLS_BLOCK: existingToolsBlock,
+    });
 
     const scoreResponse = await callOpenRouter(
       extractorModel,
@@ -267,11 +267,7 @@ Output ONLY the raw JSON array. Do not wrap in markdown or include preambles.`;
 
   for (const ex of candidates) {
     if (ex.requirementScore !== undefined && ex.requirementScore >= 70) {
-      if (
-        ex.overlap &&
-        ex.overlap.score >= 70 &&
-        !ex.overlap.replaceExisting
-      ) {
+      if (ex.overlap && ex.overlap.score >= 70 && !ex.overlap.replaceExisting) {
         ex.directMatch = false;
       } else {
         ex.directMatch = true;
@@ -385,19 +381,17 @@ export async function searchInspirationCandidates(
       if (targetOntologySection) {
         try {
           const exampleSections = JSON.parse(
-            ex.ontologySections || "[]"
+            ex.ontologySections || "[]",
           ) as string[];
-          if (
-            Array.isArray(exampleSections) &&
-            exampleSections.length > 0
-          ) {
+          if (Array.isArray(exampleSections) && exampleSections.length > 0) {
             const category = targetOntologySection.split("/")[0];
             const wildcardSection = category ? `${category}/ALL` : undefined;
 
             const isMatch = exampleSections.some(
               (sec) =>
                 sec.toLowerCase() === targetOntologySection.toLowerCase() ||
-                (wildcardSection && sec.toLowerCase() === wildcardSection.toLowerCase())
+                (wildcardSection &&
+                  sec.toLowerCase() === wildcardSection.toLowerCase()),
             );
             if (isMatch) {
               ontologyBonus = 3.0;

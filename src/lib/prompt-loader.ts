@@ -11,6 +11,9 @@ export enum PromptFileType {
   SystemPromptExtractor = "system_prompt_extractor.md",
   OptimizationPrompt = "optimization_prompt.md",
   ExtractSeedInfo = "extract_seed_info.md",
+  JudgeReEvaluation = "judge_re_evaluation.md",
+  SearchQueryGenerator = "inspiration_prompts/search_query_generator.md",
+  ScoringEvaluator = "inspiration_prompts/scoring_evaluator.md",
 }
 
 const promptCache: Record<PromptFileType, string | null> = {
@@ -23,6 +26,9 @@ const promptCache: Record<PromptFileType, string | null> = {
   [PromptFileType.SystemPromptExtractor]: null,
   [PromptFileType.OptimizationPrompt]: null,
   [PromptFileType.ExtractSeedInfo]: null,
+  [PromptFileType.JudgeReEvaluation]: null,
+  [PromptFileType.SearchQueryGenerator]: null,
+  [PromptFileType.ScoringEvaluator]: null,
 };
 
 export function getPromptFile(type: PromptFileType): string {
