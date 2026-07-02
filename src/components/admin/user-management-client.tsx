@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Mail, Building2, Coins, Loader2, Search } from "lucide-react";
+import { Users, Mail, Building2, Coins, Loader2, Search, Eye, EyeOff, Key, Copy, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +61,45 @@ export function UserManagementClient({
   const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState("");
   const [updating, setUpdating] = useState<string | null>(null);
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({});
+  const [revealingId, setRevealingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleRevealPassword = async (userId: string) => {
+    if (revealedPasswords[userId]) {
+      setRevealedPasswords((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+      return;
+    }
+
+    setRevealingId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/reveal-password?userId=${userId}`);
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to retrieve password");
+        return;
+      }
+      setRevealedPasswords((prev) => ({
+        ...prev,
+        [userId]: data.password,
+      }));
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setRevealingId(null);
+    }
+  };
+
+  const handleCopyPassword = (userId: string, hash: string) => {
+    navigator.clipboard.writeText(hash);
+    setCopiedId(userId);
+    toast.success("Password hash copied to clipboard");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Dialog / Add User Form States
   const [isOpen, setIsOpen] = useState(false);
@@ -332,8 +371,50 @@ export function UserManagementClient({
                     <span>{u._count.scans} scans</span>
                     <span>{new Date(u.createdAt).toLocaleDateString()}</span>
                   </div>
+                  {revealedPasswords[u.id] && (
+                    <div className="mt-2 p-2 rounded bg-black/40 border border-yellow-500/20 flex items-center justify-between gap-4 max-w-xl">
+                      <span className="text-xs font-mono text-yellow-300 break-all select-all">
+                        {revealedPasswords[u.id]}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1"
+                        onClick={() => handleCopyPassword(u.id, revealedPasswords[u.id])}
+                      >
+                        {copiedId === u.id ? (
+                          <Check className="h-3 w-3 text-emerald-400" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                        {copiedId === u.id ? "Copied" : "Copy"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {(() => {
+                    const canReveal = currentUser.role === UserRole.SuperAdmin ||
+                      (currentUser.role === UserRole.CustomerAdmin && u.company === currentUser.company);
+                    return canReveal ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 flex items-center gap-1 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
+                        onClick={() => handleRevealPassword(u.id)}
+                        disabled={revealingId === u.id}
+                      >
+                        {revealingId === u.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : revealedPasswords[u.id] ? (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5" />
+                        )}
+                        {revealedPasswords[u.id] ? "Hide Hash" : "Reveal Hash"}
+                      </Button>
+                    ) : null;
+                  })()}
                   <Select
                     value={u.role}
                     onValueChange={(v) => handleRoleChange(u.id, v)}
