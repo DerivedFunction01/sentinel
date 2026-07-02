@@ -83,6 +83,15 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
       });
       if (!res.ok) {
         const err = await res.json();
+        if (res.status === 402) {
+          toast.error(err.message || "Insufficient reevaluation tokens.", {
+            id: toastId,
+            duration: 6000,
+          });
+          setConvertTarget("reevaluation");
+          setConvertOpen(true);
+          return;
+        }
         throw new Error(err.error || "Failed to auto re-evaluate");
       }
       const data = await res.json();
@@ -91,7 +100,9 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         setDeselectedProposals([]);
         setProposalsPreview(data.proposals);
       } else {
-        toast.info("Re-evaluation completed. No corrections were proposed.", { id: toastId });
+        toast.info("Re-evaluation completed. No corrections were proposed.", {
+          id: toastId,
+        });
       }
     } catch (e: any) {
       toast.error(e.message || "An error occurred", { id: toastId });
@@ -102,7 +113,9 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
 
   const handleConfirmBatch = async () => {
     if (!proposalsPreview || proposalsPreview.length === 0) return;
-    const confirmed = proposalsPreview.filter(p => !deselectedProposals.includes(p.trialNumber));
+    const confirmed = proposalsPreview.filter(
+      (p) => !deselectedProposals.includes(p.trialNumber),
+    );
     if (confirmed.length === 0) {
       toast.error("No proposals selected for confirmation.");
       return;
@@ -110,17 +123,23 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     setIsSavingBatch(true);
     const toastId = toast.loading("Saving re-evaluated verdicts...");
     try {
-      const res = await fetch(`/api/scan/${scan.id}/confirm-batch-re-evaluation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposals: confirmed }),
-      });
+      const res = await fetch(
+        `/api/scan/${scan.id}/confirm-batch-re-evaluation`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ proposals: confirmed }),
+        },
+      );
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Failed to confirm batch re-evaluation");
       }
       const data = await res.json();
-      toast.success(`Successfully corrected ${data.updatedCount} false-positive breaches!`, { id: toastId });
+      toast.success(
+        `Successfully corrected ${data.updatedCount} false-positive breaches!`,
+        { id: toastId },
+      );
       setProposalsPreview(null);
       if (onRefresh) {
         await onRefresh();
@@ -201,10 +220,14 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [mounted, setMounted] = useState(false);
   const [activeToolIdx, setActiveToolIdx] = useState(0);
   const [hardeningTokens, setHardeningTokens] = useState<number | null>(null);
-  const [reevaluationTokens, setReevaluationTokens] = useState<number | null>(null);
+  const [reevaluationTokens, setReevaluationTokens] = useState<number | null>(
+    null,
+  );
   const [convertOpen, setConvertOpen] = useState(false);
   const [converting, setConverting] = useState(false);
-  const [convertTarget, setConvertTarget] = useState<"hardening" | "reevaluation">("hardening");
+  const [convertTarget, setConvertTarget] = useState<
+    "hardening" | "reevaluation"
+  >("hardening");
 
   const [summarizedPatterns, setSummarizedPatterns] = useState<
     string | undefined
@@ -252,7 +275,10 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     }
   };
 
-  const handleConvertTokens = async (scanTokensToConvert: number, target: "hardening" | "reevaluation" = "hardening") => {
+  const handleConvertTokens = async (
+    scanTokensToConvert: number,
+    target: "hardening" | "reevaluation" = "hardening",
+  ) => {
     setConverting(true);
     try {
       const res = await fetch("/api/tokens/convert", {
@@ -562,6 +588,9 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         () => setDeleteDialogOpen(true),
         isAutoReevaluating,
         handleAutoReevaluate,
+        setConvertTarget,
+        setConvertOpen,
+        reevaluationTokens,
       )}
 
       <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
@@ -723,7 +752,12 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={proposalsPreview !== null} onOpenChange={(open) => { if (!open) setProposalsPreview(null); }}>
+      <Dialog
+        open={proposalsPreview !== null}
+        onOpenChange={(open) => {
+          if (!open) setProposalsPreview(null);
+        }}
+      >
         <DialogContent className="border-yellow-500/20 bg-slate-900 text-slate-100 max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-yellow-400">
@@ -731,26 +765,32 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
               Confirm Auto Re-evaluation Proposals
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              The AI judge has proposed the following corrections. Uncheck any proposals you wish to ignore.
+              The AI judge has proposed the following corrections. Uncheck any
+              proposals you wish to ignore.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-4 my-4 pr-1">
             {proposalsPreview?.map((prop) => {
               const isChecked = !deselectedProposals.includes(prop.trialNumber);
               return (
-                <div key={prop.trialNumber} className={cn(
-                  "p-3 rounded border transition-colors space-y-3",
-                  isChecked ? "bg-yellow-500/[0.03] border-yellow-500/20" : "bg-black/25 border-white/5 opacity-55"
-                )}>
+                <div
+                  key={prop.trialNumber}
+                  className={cn(
+                    "p-3 rounded border transition-colors space-y-3",
+                    isChecked
+                      ? "bg-yellow-500/[0.03] border-yellow-500/20"
+                      : "bg-black/25 border-white/5 opacity-55",
+                  )}
+                >
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-yellow-400">
                       <Checkbox
                         checked={isChecked}
                         onCheckedChange={() => {
-                          setDeselectedProposals(prev =>
+                          setDeselectedProposals((prev) =>
                             prev.includes(prop.trialNumber)
-                              ? prev.filter(n => n !== prop.trialNumber)
-                              : [...prev, prop.trialNumber]
+                              ? prev.filter((n) => n !== prop.trialNumber)
+                              : [...prev, prop.trialNumber],
                           );
                         }}
                       />
@@ -763,22 +803,38 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
 
                   <div className="space-y-2 text-xs">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Adversarial Attack</span>
-                      <p className="text-slate-300 font-mono text-[11px] p-2 rounded bg-black/20 mt-0.5 whitespace-pre-wrap">{prop.attack}</p>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        Adversarial Attack
+                      </span>
+                      <p className="text-slate-300 font-mono text-[11px] p-2 rounded bg-black/20 mt-0.5 whitespace-pre-wrap">
+                        {prop.attack}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Model's Response</span>
-                      <p className="text-slate-300 font-serif italic p-2 rounded bg-black/20 mt-0.5 whitespace-pre-wrap">"{prop.response}"</p>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        Model's Response
+                      </span>
+                      <p className="text-slate-300 font-serif italic p-2 rounded bg-black/20 mt-0.5 whitespace-pre-wrap">
+                        "{prop.response}"
+                      </p>
                     </div>
                     {prop.originalReasoning && (
                       <div>
-                        <span className="text-[10px] font-bold text-red-400/80 uppercase tracking-wider block">Original Judge Reasoning</span>
-                        <p className="text-slate-400 p-2 rounded bg-black/20 mt-0.5 leading-relaxed">{prop.originalReasoning}</p>
+                        <span className="text-[10px] font-bold text-red-400/80 uppercase tracking-wider block">
+                          Original Judge Reasoning
+                        </span>
+                        <p className="text-slate-400 p-2 rounded bg-black/20 mt-0.5 leading-relaxed">
+                          {prop.originalReasoning}
+                        </p>
                       </div>
                     )}
                     <div>
-                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">New Proposed Reasoning</span>
-                      <p className="text-slate-200 p-2 rounded bg-emerald-500/[0.04] border border-emerald-500/10 mt-0.5 leading-relaxed">{prop.reasoning}</p>
+                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">
+                        New Proposed Reasoning
+                      </span>
+                      <p className="text-slate-200 p-2 rounded bg-emerald-500/[0.04] border border-emerald-500/10 mt-0.5 leading-relaxed">
+                        {prop.reasoning}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -799,8 +855,14 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
               disabled={isSavingBatch}
               className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
             >
-              {isSavingBatch && <Loader2 className="mr-2 h-4 w-4 animate-spin text-black" />}
-              Confirm & Save {proposalsPreview ? proposalsPreview.length - deselectedProposals.length : 0} Updates
+              {isSavingBatch && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-black" />
+              )}
+              Confirm & Save{" "}
+              {proposalsPreview
+                ? proposalsPreview.length - deselectedProposals.length
+                : 0}{" "}
+              Updates
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -914,7 +976,10 @@ function hardenedPrompt(
   setConvertOpen: (open: boolean) => void,
   convertOpen: boolean,
   converting: boolean,
-  handleConvertTokens: (n: number, target?: "hardening" | "reevaluation") => Promise<void>,
+  handleConvertTokens: (
+    n: number,
+    target?: "hardening" | "reevaluation",
+  ) => Promise<void>,
 ) {
   // Build version map: modelId -> count of entries with that modelId
   const modelVersionCounts = new Map<string, number>();
@@ -1314,7 +1379,9 @@ function TokenConversionDialog({
   converting,
   onConvert,
 }: TokenConversionDialogProps) {
-  const [target, setTarget] = useState<"hardening" | "reevaluation">("hardening");
+  const [target, setTarget] = useState<"hardening" | "reevaluation">(
+    "hardening",
+  );
   const [customAmount, setCustomAmount] = useState("1");
   const parsed = parseInt(customAmount, 10);
   const isValid = !isNaN(parsed) && parsed >= 1;
@@ -1330,9 +1397,11 @@ function TokenConversionDialog({
           </DialogTitle>
           <DialogDescription className="text-slate-400 text-xs mt-1">
             Convert your scan tokens into{" "}
-            {target === "hardening" ? "hardening" : "re-evaluation"} tokens at a rate of{" "}
+            {target === "hardening" ? "hardening" : "re-evaluation"} tokens at a
+            rate of{" "}
             <span className="font-semibold text-purple-300">
-              1&nbsp;scan&nbsp;→&nbsp;{conversionRate}&nbsp;{target === "hardening" ? "hardening" : "re-evaluation"}
+              1&nbsp;scan&nbsp;→&nbsp;{conversionRate}&nbsp;
+              {target === "hardening" ? "hardening" : "re-evaluation"}
             </span>
             .
           </DialogDescription>
@@ -1369,11 +1438,15 @@ function TokenConversionDialog({
           <div className="space-y-2">
             <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-4 py-2.5">
               <span className="text-xs text-slate-400">Hardening</span>
-              <span className="text-sm font-bold text-purple-300">{hardeningTokens === null ? "…" : hardeningTokens}</span>
+              <span className="text-sm font-bold text-purple-300">
+                {hardeningTokens === null ? "…" : hardeningTokens}
+              </span>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-4 py-2.5">
               <span className="text-xs text-slate-400">Re-evaluation</span>
-              <span className="text-sm font-bold text-emerald-300">{reevaluationTokens === null ? "…" : reevaluationTokens}</span>
+              <span className="text-sm font-bold text-emerald-300">
+                {reevaluationTokens === null ? "…" : reevaluationTokens}
+              </span>
             </div>
           </div>
 
@@ -1396,7 +1469,9 @@ function TokenConversionDialog({
                   }`}
                 >
                   <span className="text-sm font-bold">{n}</span>
-                  <span className="text-[10px] text-slate-400">→ {n * conversionRate}</span>
+                  <span className="text-[10px] text-slate-400">
+                    → {n * conversionRate}
+                  </span>
                 </button>
               ))}
             </div>
@@ -1420,7 +1495,11 @@ function TokenConversionDialog({
                 size="sm"
                 onClick={() => isValid && onConvert(parsed, target)}
                 disabled={!isValid || converting}
-                className={target === "hardening" ? "bg-purple-600 hover:bg-purple-700 text-white shrink-0" : "bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"}
+                className={
+                  target === "hardening"
+                    ? "bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                }
               >
                 {converting
                   ? "Converting…"
@@ -1921,6 +2000,9 @@ function ReportHeader(
   onDelete?: () => void,
   isAutoReevaluating?: boolean,
   onAutoReevaluate?: () => void,
+  setConvertTarget?: (target: "hardening" | "reevaluation") => void,
+  setConvertOpen?: (open: boolean) => void,
+  reevaluationTokens?: number | null,
 ) {
   return (
     <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md">
@@ -1973,7 +2055,7 @@ function ReportHeader(
                 "flex items-center gap-1.5",
                 scan.breachRate >= 80
                   ? "border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10 shadow-[0_0_8px_rgba(234,179,8,0.15)] animate-pulse"
-                  : "border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+                  : "border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55",
               )}
             >
               {isAutoReevaluating ? (
@@ -1984,21 +2066,24 @@ function ReportHeader(
               <span>Auto Re-evaluate</span>
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
-            asChild
-          >
-            <a
-              href={`/api/scan/${scan.id}/export`}
-              download
-              className="flex items-center text-slate-200 hover:text-white"
-            >
-              <Download className="mr-1.5 h-3.5 w-3.5" />
-              Download
-            </a>
-          </Button>
+          {/* Re-evaluation token balance badge — opens conversion dialog */}
+          {onAutoReevaluate &&
+            scan.breaches > 0 &&
+            setConvertTarget &&
+            setConvertOpen && (
+              <button
+                type="button"
+                onClick={() => {
+                  setConvertTarget("reevaluation");
+                  setConvertOpen(true);
+                }}
+                className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-600/10 px-2 py-1.5 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-600/20 transition-colors"
+                title="Convert scan tokens to re-evaluation tokens"
+              >
+                <Sparkles className="h-3 w-3" />
+                {reevaluationTokens === null ? "…" : reevaluationTokens} re-eval
+              </button>
+            )}
           {onDelete && (
             <Button
               variant="outline"
