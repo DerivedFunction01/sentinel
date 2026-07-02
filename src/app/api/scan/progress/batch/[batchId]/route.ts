@@ -48,7 +48,9 @@ export async function GET(
     // Compute aggregate statistics
     const totalScans = scans.length;
     const completedScans = scans.filter(
-      (s) => s.status === ScanStatus.Completed,
+      (s) =>
+        s.status === ScanStatus.Completed ||
+        s.status === ScanStatus.CompletedWithFailures,
     ).length;
     const failedScans = scans.filter(
       (s) => s.status === ScanStatus.Failed,
@@ -71,7 +73,9 @@ export async function GET(
 
     // Aggregate score and breaches across completed scans
     const completedList = scans.filter(
-      (s) => s.status === ScanStatus.Completed,
+      (s) =>
+        s.status === ScanStatus.Completed ||
+        s.status === ScanStatus.CompletedWithFailures,
     );
 
     // Determine overall batch status
