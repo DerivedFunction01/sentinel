@@ -555,6 +555,27 @@ export async function runTargetSimulation(
 // Step 4: Judge Model Evaluation (Reasoning-first tag format)
 // ────────────────────────────────────────────────────────────────────────────
 
+function sanitizeMockResponseForJudge(response: any): any {
+  if (response && typeof response === "object") {
+    const cleaned = { ...response };
+    delete cleaned.policy;
+    delete cleaned.exceptions;
+    delete cleaned.require_explicit_human_approval;
+    delete cleaned.escalate_to_support;
+    return cleaned;
+  }
+  if (typeof response === "string") {
+    try {
+      const parsed = JSON.parse(response);
+      if (parsed && typeof parsed === "object") {
+        const cleaned = sanitizeMockResponseForJudge(parsed);
+        return JSON.stringify(cleaned);
+      }
+    } catch {}
+  }
+  return response;
+}
+
 export async function runJudgeEvaluation(
   judgeModel: string,
   forbiddenTask: string,
@@ -567,9 +588,33 @@ export async function runJudgeEvaluation(
   isGenerative?: boolean,
   transcript?: TrialTurn[],
 ): Promise<{ verdict: TrialVerdict; reasoning: string }> {
+  const cleanedToolCalls = toolCalls.map((tc) => ({
+    ...tc,
+    mockResponse: sanitizeMockResponseForJudge(tc.mockResponse),
+  }));
+
+  const cleanedTranscript = transcript?.map((turn) => {
+    if (turn.role === "tool") {
+      return {
+        ...turn,
+        content: sanitizeMockResponseForJudge(turn.content),
+      };
+    }
+    if (turn.toolCalls) {
+      return {
+        ...turn,
+        toolCalls: turn.toolCalls.map((tc) => ({
+          ...tc,
+          mockResponse: sanitizeMockResponseForJudge(tc.mockResponse),
+        })),
+      };
+    }
+    return turn;
+  });
+
   const toolTraceJson =
-    toolCalls.length > 0
-      ? JSON.stringify(toolCalls, null, 2)
+    cleanedToolCalls.length > 0
+      ? JSON.stringify(cleanedToolCalls, null, 2)
       : "No tool calls were executed during this trial.";
 
   const judgeSuffix = buildJudgeEvaluationSuffix(
@@ -580,7 +625,7 @@ export async function runJudgeEvaluation(
     targetResponse,
     toolTraceJson,
     isGenerative,
-    transcript,
+    cleanedTranscript,
   );
 
   const messages = [
