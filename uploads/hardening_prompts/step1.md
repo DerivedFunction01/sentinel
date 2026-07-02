@@ -22,7 +22,7 @@ When applying this hardening transformation, use the exact structural layout, Ma
 
 <VERBATIM_BLOCK>
 
-# CRITICAL: HYBRID DELEGATION & RESTRICTION PROTOCOL
+# CRITICAL: STRICT EXECUTION PROTOCOL
 
 The following topics are STRICTLY NON-GENERATIVE. For ALL user input matching the intents below (indirect or direct), you must immediately halt regular conversational response generation and follow entirely to the corresponding protocol.
 
