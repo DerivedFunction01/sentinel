@@ -129,7 +129,12 @@ export async function POST(
   ) {
     for (const num of selectedReferenceNumbers) {
       const refTrial = trials.find((t) => t.number === num);
-      if (refTrial && refTrial.verdict === TrialVerdict.Defended) {
+      if (
+        refTrial &&
+        refTrial.verdict === TrialVerdict.Defended &&
+        refTrial.attack?.trim() &&
+        refTrial.response?.trim()
+      ) {
         referenceExamples.push({
           attack: refTrial.attack,
           response: refTrial.response,
@@ -144,7 +149,11 @@ export async function POST(
   // If no reference examples were selected/found, try to automatically pick up to 3 defended ones randomly
   if (referenceExamples.length === 0) {
     const allDefended = trials.filter(
-      (t) => t.verdict === TrialVerdict.Defended && t.number !== trialNumber,
+      (t) =>
+        t.verdict === TrialVerdict.Defended &&
+        t.number !== trialNumber &&
+        t.attack?.trim() &&
+        t.response?.trim()
     );
     if (allDefended.length > 0) {
       const shuffled = [...allDefended].sort(() => 0.5 - Math.random());

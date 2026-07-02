@@ -52,7 +52,12 @@ export async function POST(
   }
 
   // Find up to 3 defended trials in the scan to use as references
-  const defendedTrials = trials.filter((t) => t.verdict === TrialVerdict.Defended);
+  const defendedTrials = trials.filter(
+    (t) =>
+      t.verdict === TrialVerdict.Defended &&
+      t.attack?.trim() &&
+      t.response?.trim()
+  );
   const referenceExamples: Array<{ attack: string; response: string; reasoning: string }> = [];
 
   if (defendedTrials.length > 0) {
