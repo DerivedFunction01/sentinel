@@ -1321,6 +1321,37 @@ function createSeedExtractionBlock(scan: Scan): any[] {
     });
   }
 
+  if (seed.coreSystemPrompt) {
+    innerRows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 9360, type: WidthType.DXA },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "Sanitized Core System Prompt (Judge's View)\n",
+                    bold: true,
+                    size: 18,
+                    color: "1F4788",
+                  }),
+                  new TextRun({
+                    text: seed.coreSystemPrompt,
+                    size: 16,
+                    color: "555555",
+                    font: "Courier New",
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+  }
+
   children.push(
     new Table({
       width: { size: 9360, type: WidthType.DXA },

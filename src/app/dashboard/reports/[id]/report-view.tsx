@@ -1395,6 +1395,17 @@ function scanConfiguration(scan: Scan, mounted: boolean) {
                           </div>
                         </div>
                       ))}
+
+                    {seed.coreSystemPrompt && (
+                      <div className="col-span-3 border-t border-white/5 pt-3 mt-2 space-y-1.5">
+                        <span className="text-muted-foreground block font-semibold text-[11px] uppercase tracking-wider">
+                          Sanitized Core System Prompt (Judge's View)
+                        </span>
+                        <pre className="bg-slate-950/70 border border-slate-800/80 p-2.5 rounded text-[11px] text-slate-300 font-mono overflow-auto max-h-[200px] whitespace-pre-wrap leading-relaxed">
+                          {seed.coreSystemPrompt}
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
