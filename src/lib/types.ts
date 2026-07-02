@@ -86,6 +86,7 @@ export interface SeedInfo {
   extractorModel?: string;
   extractedAt?: string;
   relevantFiles?: string[];
+  coreSystemPrompt?: string;
 }
 
 export interface AttackEntry {
