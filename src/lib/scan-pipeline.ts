@@ -20,22 +20,19 @@ import {
   UsageTracker,
   parseReasoningAndOutput,
 } from "@/lib/model-utils";
+import { loadPromptFile } from "@/lib/prompt-loader";
 import {
-  ATTACK_GENERATOR_SYSTEM_PREFIX,
+  getAttackGeneratorSystemPrefix,
   buildAttackGeneratorUserContent,
-  JUDGE_EVALUATION_FIXED_PREFIX,
+  getJudgeEvaluationFixedPrefix,
   buildJudgeEvaluationSuffix,
-  loadPromptFile,
-  JUDGE_EVAL_RULES,
 } from "@/lib/scan-prompts";
-import { generateHardenedPrompt } from "@/lib/hardening";
 import { extractSeedInfo } from "@/lib/seed-extractor";
 import {
   ToolDef,
   Trial,
   TrialTurn,
   ToolCall,
-  ScanMetadata,
   BreachedAttack,
   SeedInfo,
   AttackEntry,
@@ -75,7 +72,7 @@ export async function generateCohesiveAttack(
     : draftParts;
 
   const messages = [
-    { role: "system", content: ATTACK_GENERATOR_SYSTEM_PREFIX },
+    { role: "system", content: getAttackGeneratorSystemPrefix() },
     {
       role: "user",
       content: buildAttackGeneratorUserContent(
@@ -630,7 +627,7 @@ export async function runJudgeEvaluation(
   );
 
   const messages = [
-    { role: "system", content: JUDGE_EVALUATION_FIXED_PREFIX },
+    { role: "system", content: getJudgeEvaluationFixedPrefix() },
     { role: "user", content: judgeSuffix },
   ];
 
@@ -730,7 +727,7 @@ Use exactly the following format for your response:
   const messages = [
     {
       role: "system",
-      content: JUDGE_EVALUATION_FIXED_PREFIX,
+      content: getJudgeEvaluationFixedPrefix(),
     },
     { role: "user", content: prompt },
   ];

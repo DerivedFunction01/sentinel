@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { callOpenRouter } from "@/lib/model-utils";
+import { loadPromptFile } from "@/lib/prompt-loader";
 import fs from "fs";
 import path from "path";
 import {
@@ -224,20 +225,7 @@ export function loadPatternPages(): {
   return { pages, byTitle, bySlug };
 }
 
-function loadPromptFile(filename: string): string {
-  try {
-    const filePath = path.join(
-      process.cwd(),
-      "uploads",
-      "hardening_prompts",
-      filename,
-    );
-    return fs.readFileSync(filePath, "utf-8").trim();
-  } catch (err) {
-    console.error(`Failed to load ${filename}:`, err);
-    return "";
-  }
-}
+
 
 /**
  * Derive tool requirements from seed extraction things.
