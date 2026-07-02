@@ -5,12 +5,14 @@ export enum PromptFileType {
   Judge = "new_judge.md",
   AttackGenerator = "attack_gen_pre.md",
   SeedExtractor = "seed_extractor.md",
+  AttackGeneratorUser = "attack_generator_user.md",
 }
 
 const promptCache: Record<PromptFileType, string | null> = {
   [PromptFileType.Judge]: null,
   [PromptFileType.AttackGenerator]: null,
   [PromptFileType.SeedExtractor]: null,
+  [PromptFileType.AttackGeneratorUser]: null,
 };
 
 export function getPromptFile(type: PromptFileType): string {
@@ -51,4 +53,30 @@ export function loadPromptFile(filename: string): string {
     console.error(`Failed to load ${filename}:`, err);
     return "";
   }
+}
+
+export function processTemplateConditions(
+  template: string,
+  conditions: Record<string, boolean>,
+): string {
+  let result = template;
+  for (const [tag, isTrue] of Object.entries(conditions)) {
+    const startTag = `<${tag}>`;
+    const endTag = `</${tag}>`;
+    const regex = new RegExp(`${startTag}([\\s\\S]*?)${endTag}`, "g");
+    if (isTrue) {
+      result = result.replace(regex, "$1");
+    } else {
+      result = result.replace(regex, "");
+    }
+  }
+  return result;
+}
+
+export function replacePlaceholders(template: string, values: Record<string, string>): string {
+  let result = template;
+  for (const [key, val] of Object.entries(values)) {
+    result = result.split(`{{${key}}}`).join(val ?? "");
+  }
+  return result;
 }
