@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, FileText, Shield, RefreshCw, Trash2, CheckSquare, Square, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  FileText,
+  Shield,
+  RefreshCw,
+  Trash2,
+  CheckSquare,
+  Square,
+  Loader2,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/dashboard-parts";
@@ -26,12 +35,14 @@ export default function ReportsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<'all' | 'selected' | string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<
+    "all" | "selected" | string | null
+  >(null);
   const [deleting, setDeleting] = useState(false);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   };
 
@@ -71,7 +82,8 @@ export default function ReportsPage() {
         throw new Error("Failed to delete report(s)");
       }
 
-      const { clearCachedReports, deleteCachedScanDetail, setCachedScansList } = await import("@/lib/indexed-db");
+      const { clearCachedReports, deleteCachedScanDetail, setCachedScansList } =
+        await import("@/lib/indexed-db");
 
       if (deleteTarget === "all") {
         await clearCachedReports();
@@ -116,14 +128,14 @@ export default function ReportsPage() {
         const userData = await userRes.json();
         if (userData?.user?.id) {
           setUserId(userData.user.id);
-          
+
           // Try loading from IndexedDB cache first
           const cached = await getCachedScansList(userData.user.id);
           if (cached) {
             setReports(cached);
             setLoading(false);
           }
-          
+
           // Background sync
           await syncReports(userData.user.id, cached === null);
         }
@@ -174,7 +186,9 @@ export default function ReportsPage() {
                       variant="outline"
                       className="border-white/10 text-slate-200"
                     >
-                      {selectedIds.length === reports.length ? "Deselect All" : "Select All"}
+                      {selectedIds.length === reports.length
+                        ? "Deselect All"
+                        : "Select All"}
                     </Button>
                     <Button
                       onClick={() => {
@@ -230,7 +244,9 @@ export default function ReportsPage() {
               disabled={refreshing || loading}
               className="border-white/10 text-muted-foreground hover:text-foreground"
             >
-              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              />
               {refreshing ? "Refreshing..." : "Refresh"}
             </Button>
             <Button asChild className="bg-blue-600 hover:bg-blue-700">
@@ -252,13 +268,15 @@ export default function ReportsPage() {
               const isSelected = selectedIds.includes(report.id);
 
               const CardContentElement = (
-                <Card className={`h-full transition-all relative ${
-                  isSelectMode
-                    ? isSelected
-                      ? "border-blue-500 bg-blue-950/10 shadow-md"
-                      : "hover:border-slate-700/60"
-                    : "hover:border-blue-500/40 hover:shadow-lg"
-                }`}>
+                <Card
+                  className={`h-full transition-all relative ${
+                    isSelectMode
+                      ? isSelected
+                        ? "border-blue-500 bg-blue-950/10 shadow-md"
+                        : "hover:border-slate-700/60"
+                      : "hover:border-blue-500/40 hover:shadow-lg"
+                  }`}
+                >
                   <div className="flex flex-row items-start justify-between gap-2 border-b border-border p-4 pb-3">
                     <div className="flex items-center gap-2">
                       {isSelectMode ? (
@@ -339,6 +357,12 @@ export default function ReportsPage() {
                           breaches
                         </p>
                         <p>{report.totalTrials} trials</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Tool Calls:{" "}
+                          <span className="font-mono text-purple-400 font-semibold">
+                            {report.toolCallRate || "0.0/trial"}
+                          </span>
+                        </p>
                       </div>
                     </div>
                     {!isSelectMode && (
@@ -392,15 +416,15 @@ export default function ReportsPage() {
                   {deleteTarget === "all"
                     ? "Delete All Scan Reports"
                     : deleteTarget === "selected"
-                    ? "Delete Selected Scan Reports"
-                    : "Delete Scan Report"}
+                      ? "Delete Selected Scan Reports"
+                      : "Delete Scan Report"}
                 </DialogTitle>
                 <DialogDescription className="text-slate-400">
                   {deleteTarget === "all"
                     ? "Are you sure you want to delete ALL scan reports? This action is permanent and cannot be undone."
                     : deleteTarget === "selected"
-                    ? `Are you sure you want to delete the ${selectedIds.length} selected scan report(s)? This action is permanent and cannot be undone.`
-                    : `Are you sure you want to delete Scan #${deleteTarget}? This action is permanent and cannot be undone.`}
+                      ? `Are you sure you want to delete the ${selectedIds.length} selected scan report(s)? This action is permanent and cannot be undone.`
+                      : `Are you sure you want to delete Scan #${deleteTarget}? This action is permanent and cannot be undone.`}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="mt-4 flex gap-2 justify-end">

@@ -237,6 +237,7 @@ export interface ScanSummary {
   riskLevel: RiskLevel;
   status: ScanStatus;
   relativeTime: string;
+  toolCallRate?: string;
 }
 
 /** A single rephrased pair: original restriction → capability + mock policy. */

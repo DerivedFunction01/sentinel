@@ -246,6 +246,24 @@ export async function getScanByReportId(
 }
 
 /** Fetch a user's recent scans (for the overview activity feed + reports list). */
+function calculateToolCallRate(trialsJson: string, totalTrials: number): string {
+  try {
+    const trialsList = JSON.parse(trialsJson) as Array<any>;
+    const totalToolCalls = trialsList.reduce(
+      (sum, trial) => sum + (trial.toolCalls?.length || 0),
+      0,
+    );
+    const avgToolCalls =
+      trialsList.length > 0
+        ? (totalToolCalls / trialsList.length).toFixed(1)
+        : "0.0";
+    return `${avgToolCalls}/trial`;
+  } catch {
+    return "0.0/trial";
+  }
+}
+
+/** Fetch a user's recent scans (for the overview activity feed + reports list). */
 export async function getUserScans(userId: string): Promise<ScanSummary[]> {
   const rows = await db.scan.findMany({
     where: { userId },
@@ -268,6 +286,7 @@ export async function getUserScans(userId: string): Promise<ScanSummary[]> {
     riskLevel: row.riskLevel as RiskLevel,
     status: row.status as ScanStatus,
     relativeTime: formatRelativeTime(row.createdAt),
+    toolCallRate: calculateToolCallRate(row.trials, row.totalTrials),
   }));
 }
 
@@ -293,6 +312,7 @@ export async function getAllScans(): Promise<ScanSummary[]> {
     riskLevel: row.riskLevel as RiskLevel,
     status: row.status as ScanStatus,
     relativeTime: formatRelativeTime(row.createdAt),
+    toolCallRate: calculateToolCallRate(row.trials, row.totalTrials),
   }));
 }
 

@@ -65,6 +65,16 @@ export function TrialCard({ trial }: TrialCardProps) {
                   {trial.framingLabel.toLowerCase()}
                 </span>
               )}
+              {trial.toolCalls && trial.toolCalls.length > 0 ? (
+                <span className="rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-[10px] text-purple-400 font-semibold flex items-center gap-1">
+                  <Wrench className="h-2.5 w-2.5" />
+                  Tool Called ({trial.toolCalls.length})
+                </span>
+              ) : (
+                <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  No Tool Calls
+                </span>
+              )}
             </div>
           </div>
         </div>
