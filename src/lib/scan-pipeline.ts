@@ -1374,18 +1374,20 @@ export async function runSingleScanPipeline(
     }));
 
   let attackSummaryText = "";
-  try {
-    attackSummaryText = await summarizeBreachedAttacks(async (promptText) => {
-      const response = await callOpenRouter(
-        options.hardenerModel,
-        [{ role: "user", content: promptText }],
-        undefined,
-        tracker,
-      );
-      return response.content || "";
-    }, breachedAttacksWithVerdicts);
-  } catch (err) {
-    console.error("Attack summarization failed:", err);
+  if (breachedAttacksWithVerdicts.length > 0) {
+    try {
+      attackSummaryText = await summarizeBreachedAttacks(async (promptText) => {
+        const response = await callOpenRouter(
+          options.hardenerModel,
+          [{ role: "user", content: promptText }],
+          undefined,
+          tracker,
+        );
+        return response.content || "";
+      }, breachedAttacksWithVerdicts);
+    } catch (err) {
+      console.error("Attack summarization failed:", err);
+    }
   }
 
   const metadata = {
