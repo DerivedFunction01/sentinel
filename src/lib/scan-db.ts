@@ -405,6 +405,8 @@ export function computeDashboardStats(scans: ScanSummary[]) {
       model,
       scans: info.scans,
       name: info.name,
+      totalTrials: info.totalTrials,
+      totalBreaches: info.totalBreaches,
       defenseRate:
         info.totalTrials > 0
           ? Math.round(((info.totalTrials - info.totalBreaches) / info.totalTrials) * 100)

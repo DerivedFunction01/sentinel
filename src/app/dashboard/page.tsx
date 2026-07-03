@@ -14,8 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatCard, PageHeader } from "@/components/dashboard/dashboard-parts";
 import { RiskDonut } from "@/components/shared/risk-donut";
 import { ScoreTrendChart } from "@/components/shared/score-trend";
-import { ModelAnalyticsChart } from "@/components/dashboard/model-analytics-chart";
-import { AttackSuccessChart } from "@/components/dashboard/attack-success-chart";
+import { ModelScansChart, ModelDefenseChart } from "@/components/dashboard/model-analytics-chart";
 import { computeDashboardStats, getUserScans } from "@/lib/scan-db";
 import { requireUser } from "@/lib/auth-helpers";
 import { getRiskStyle } from "@/lib/risk-utils";
@@ -137,20 +136,20 @@ function riskDistribution(stats: any) {
 
 function analytics(stats: any) {
   return <Card className="h-[45%] min-h-0 flex flex-col">
-    <Tabs defaultValue="models" className="flex-1 flex flex-col min-h-0">
+    <Tabs defaultValue="scans" className="flex-1 flex flex-col min-h-0">
       <CardHeader className="py-2.5 px-4 flex flex-row items-center justify-between space-y-0 flex-none">
         <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Analytics</CardTitle>
         <TabsList className="h-8 p-0.5 bg-muted/65 border border-white/5">
-          <TabsTrigger value="models" className="text-[10px] px-2.5 py-1">Model Usage</TabsTrigger>
-          <TabsTrigger value="attacks" className="text-[10px] px-2.5 py-1">Attack Success</TabsTrigger>
+          <TabsTrigger value="scans" className="text-[10px] px-2.5 py-1">Model Scans</TabsTrigger>
+          <TabsTrigger value="defense" className="text-[10px] px-2.5 py-1">Model Defense Rate</TabsTrigger>
         </TabsList>
       </CardHeader>
       <CardContent className="flex-1 min-h-0 p-4 pt-1">
-        <TabsContent value="models" className="h-full mt-0">
-          <ModelAnalyticsChart data={stats.modelUsage} />
+        <TabsContent value="scans" className="h-full mt-0">
+          <ModelScansChart data={stats.modelUsage} />
         </TabsContent>
-        <TabsContent value="attacks" className="h-full mt-0">
-          <AttackSuccessChart data={stats.attackSuccessRate} />
+        <TabsContent value="defense" className="h-full mt-0">
+          <ModelDefenseChart data={stats.modelUsage} />
         </TabsContent>
       </CardContent>
     </Tabs>
