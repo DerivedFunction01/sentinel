@@ -161,13 +161,55 @@ export default function PenTestScanPage() {
           const fallbackModelId = findDefaultModel(d.models);
           // Use most frequently used model for each role, falling back to system default
           setTargetModels((prev) =>
-            prev.length === 0 ? [getMostUsedModelForRole(ModelSelectorRole.Target, fallbackModelId)] : prev,
+            prev.length === 0
+              ? [
+                  getMostUsedModelForRole(
+                    ModelSelectorRole.Target,
+                    fallbackModelId,
+                  ),
+                ]
+              : prev,
           );
-          setAttackerModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Attack, fallbackModelId) : prev);
-          setJudgeModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Judge, fallbackModelId) : prev);
-          setHardenerModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Hardener, fallbackModelId) : prev);
-          setSeedExtractorModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.SeedExtractor, fallbackModelId) : prev);
-          setExtractorModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.ToolExtractor, fallbackModelId) : prev);
+          setAttackerModel((prev) =>
+            prev === ""
+              ? getMostUsedModelForRole(
+                  ModelSelectorRole.Attack,
+                  fallbackModelId,
+                )
+              : prev,
+          );
+          setJudgeModel((prev) =>
+            prev === ""
+              ? getMostUsedModelForRole(
+                  ModelSelectorRole.Judge,
+                  fallbackModelId,
+                )
+              : prev,
+          );
+          setHardenerModel((prev) =>
+            prev === ""
+              ? getMostUsedModelForRole(
+                  ModelSelectorRole.Hardener,
+                  fallbackModelId,
+                )
+              : prev,
+          );
+          setSeedExtractorModel((prev) =>
+            prev === ""
+              ? getMostUsedModelForRole(
+                  ModelSelectorRole.SeedExtractor,
+                  fallbackModelId,
+                )
+              : prev,
+          );
+          setExtractorModel((prev) =>
+            prev === ""
+              ? getMostUsedModelForRole(
+                  ModelSelectorRole.ToolExtractor,
+                  fallbackModelId,
+                )
+              : prev,
+          );
         }
       })
       .catch(() => {});
@@ -612,11 +654,6 @@ function PromptSectionItem({
   seedExtractorModel: string;
 }) {
   const handleChange = (field: keyof PromptConfig, value: any) => {
-    console.log(
-      "[scan/page.tsx] handleChange calling updatePrompt:",
-      field,
-      value,
-    );
     updatePrompt(prompts, setPrompts, idx, field, value);
   };
 

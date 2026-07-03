@@ -7,7 +7,11 @@ import {
 } from "@/lib/model-utils";
 import { SeedInfo, RestrictionThing } from "@/lib/types";
 import { parseFrontmatter } from "@/lib/tool-extractor";
-import { PromptFileType, getPromptFile, replacePlaceholders } from "@/lib/prompt-loader";
+import {
+  PromptFileType,
+  getPromptFile,
+  replacePlaceholders,
+} from "@/lib/prompt-loader";
 
 const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
 
@@ -306,7 +310,9 @@ export async function extractSeedInfo(
 
   // 4. Perform Rich Seed and Restriction Extraction
   const template = getPromptFile(PromptFileType.ExtractSeedInfo);
-  const domainText = domainSections.map((s) => `  ${s.id} — ${s.label}`).join("\n");
+  const domainText = domainSections
+    .map((s) => `  ${s.id} — ${s.label}`)
+    .join("\n");
   const metaText = metaSections.map((s) => `  ${s.id} — ${s.label}`).join("\n");
 
   const systemPromptExtractor = replacePlaceholders(template, {
@@ -360,18 +366,10 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
       .trim();
 
     const parsed = JSON.parse(cleanContent);
-    console.log("[SeedExtractor] raw cleanContent:", cleanContent);
-    console.log(
-      "[SeedExtractor] parsed.things:",
-      JSON.stringify(parsed.things, null, 2),
-    );
+
     const things: RestrictionThing[] = (
       Array.isArray(parsed.things) ? parsed.things : []
     ).filter((t: any) => t.isPresent !== false && t.isPresent !== "false");
-    console.log(
-      "[SeedExtractor] things after filter:",
-      JSON.stringify(things, null, 2),
-    );
 
     // 5. Extract Core System Prompt for the Judge
     let coreSystemPrompt = systemPrompt;
