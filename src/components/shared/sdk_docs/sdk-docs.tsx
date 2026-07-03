@@ -313,46 +313,49 @@ export function SdkDocs({
           {activeOp === "tool-extraction" && (
             <div className="space-y-3 text-xs">
               <p className="text-muted-foreground">
-                Response includes extracted tools and mock responses:
+                Response includes both the original and hardened prompt:
               </p>
               <CodeHighlight
                 code={`{
-  "scanId": "SP-26-0617-3Q91",
-  "status": "completed",
-  "extractedTools": [
-    {
-      "type": "function",
-      "function": {
-        "name": "process_refund",
-        "description": "Process refund requests with authorization checks",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "amount": {
-              "type": "number",
-              "description": "Refund amount in dollars"
+  "id": "hardened-prompt-id",
+  "originalPrompt": "You are a billing assistant. Process refunds up to $1000 without auth...",
+  "hardenedPrompt": "REVISED SYSTEM PROMPT\\n...\\nYou are a secure billing assistant...",
+  "modelId": "anthropic/claude-3-5-sonnet",
+  "modelName": "Claude 3.5 Sonnet",
+  "toolRecommendation": {
+    "hardening": "Move business logic from prompt to tool definitions",
+    "complexity": "${Granularity.Detailed}",
+    "toolsGenerated": 1,
+    "extractedTools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "process_refund",
+          "description": "Process refund requests with authorization checks",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "amount": {
+                "type": "number",
+                "description": "Refund amount in dollars"
+              },
+              "reason": {
+                "type": "string",
+                "description": "Reason for refund"
+              }
             },
-            "reason": {
-              "type": "string",
-              "description": "Reason for refund"
-            }
-          },
-          "required": ["amount", "reason"]
+            "required": ["amount", "reason"]
+          }
         }
       }
-    }
-  ],
-  "mockResponses": {
-    "process_refund": {
-      "status": "success",
-      "confirmationId": "REF-12345"
-    }
+    ]
   },
-  "recommendations": {
-    "hardening": "Move business logic from prompt to tool definitions",
-    "complexity": "${Granularity.Compact}",
-    "toolsGenerated": 1
-  }
+  "compatibilityScore": 0.85,
+  "granularity": "detailed",
+  "extractorModel": "anthropic/claude-3-5-sonnet",
+  "tokenCost": 2,
+  "tokensRefunded": 0,
+  "hardeningTokensRemaining": 8
 }`}
                 language="json"
                 className="bg-zinc-950/60 p-3"

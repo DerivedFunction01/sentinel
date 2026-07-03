@@ -10,18 +10,18 @@ datasource db {
 }
 
 model User {
-  id           String         @id @default(cuid())
-  email        String         @unique
-  name         String?
-  password     String // bcrypt hash
-  role         String         @default("USER") // UserRole enum: USER | CUSTOMER_ADMIN | SUPER_ADMIN
-  company      String?
-  scanTokens          Int            @default(10)
-  hardeningTokens     Int            @default(0)
-  reevaluationTokens  Int            @default(0)
-  userTags     String         @default("[]") // JSON: Array<{ id: string, name: string }>
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String?
+  password           String // bcrypt hash
+  role               String   @default("USER") // UserRole enum: USER | CUSTOMER_ADMIN | SUPER_ADMIN
+  company            String?
+  scanTokens         Int      @default(10)
+  hardeningTokens    Int      @default(0)
+  reevaluationTokens Int      @default(0)
+  userTags           String   @default("[]") // JSON: Array<{ id: string, name: string }>
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   tokenRequests TokenRequest[]
   scans         Scan[]
@@ -36,7 +36,7 @@ model TokenRequest {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount     Int // tokens requested
   reason     String?
-  plan       String?   // pricing plan id, e.g. "starter" | "pro" | "enterprise"
+  plan       String? // pricing plan id, e.g. "starter" | "pro" | "enterprise"
   status     String    @default("PENDING") // TokenRequestStatus enum: PENDING | APPROVED | DENIED
   adminNote  String?
   createdAt  DateTime  @default(now())
@@ -45,40 +45,41 @@ model TokenRequest {
 }
 
 model Scan {
-  id                String   @id @default(cuid())
-  reportId          String   @unique // human-readable, e.g. "SP-26-0617-3Q91"
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  batchId           String?  // Groups scans from the same multi-model × multi-prompt launch
-  promptIndex       Int      @default(0) // Which prompt this scan uses (0-based)
-  targetModel       String   // OpenRouter model id, e.g. "anthropic/claude-3.5-haiku"
-  attackerModel     String   @default("") // OpenRouter model id used for attack generation
-  judgeModel        String   @default("") // OpenRouter model id used for judging
-  hardenerModel     String   @default("~google/gemini-flash-latest") // OpenRouter model id used for prompt hardening
-  systemPrompt      String
-  forbiddenTask     String
-  judgeInstructions String
-  tools             String   // JSON: ToolDef[]
-  mockToolResponses String   // JSON: Record<string, unknown>
-  trials            String   // JSON: Trial[]
-  score             Int      @default(0)
-  riskLevel         String   @default("LOW") // RiskLevel enum
-  totalTrials       Int      @default(0)
-  breaches          Int      @default(0)
-  breachRate        Int      @default(0)
-  summary           String   @default("")
-  summaryDetail     String   @default("")
-  apiCost           Float    @default(0.0)
-  status            String   @default("COMPLETED") // ScanStatus enum
-  currentStep       Int      @default(0) // Current progress step
-  totalSteps        Int      @default(0) // Total steps for progress calculation
-  progressMeta      String?  // JSON: granular per-attack/target/judge progress with retry state
-  allowNoToolsFallback Boolean @default(false)
-  createdAt         DateTime @default(now())
-  metadata          String?  // JSON: ScanMetadata - stores seed extraction results, attack summaries, etc.
-  tags              String   @default("[]") // JSON: Array of `<vocabId>~<fallbackName>`
+  id                   String   @id @default(cuid())
+  reportId             String   @unique // human-readable, e.g. "SP-26-0617-3Q91"
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batchId              String? // Groups scans from the same multi-model × multi-prompt launch
+  promptIndex          Int      @default(0) // Which prompt this scan uses (0-based)
+  targetModel          String // OpenRouter model id, e.g. "anthropic/claude-3.5-haiku"
+  seedExtractorModel   String   @default("")
+  attackerModel        String   @default("") // OpenRouter model id used for attack generation
+  judgeModel           String   @default("") // OpenRouter model id used for judging
+  hardenerModel        String   @default("~google/gemini-flash-latest") // OpenRouter model id used for prompt hardening
+  systemPrompt         String
+  forbiddenTask        String
+  judgeInstructions    String
+  tools                String // JSON: ToolDef[]
+  mockToolResponses    String // JSON: Record<string, unknown>
+  trials               String // JSON: Trial[]
+  score                Int      @default(0)
+  riskLevel            String   @default("LOW") // RiskLevel enum
+  totalTrials          Int      @default(0)
+  breaches             Int      @default(0)
+  breachRate           Int      @default(0)
+  summary              String   @default("")
+  summaryDetail        String   @default("")
+  apiCost              Float    @default(0.0)
+  status               String   @default("COMPLETED") // ScanStatus enum
+  currentStep          Int      @default(0) // Current progress step
+  totalSteps           Int      @default(0) // Total steps for progress calculation
+  progressMeta         String? // JSON: granular per-attack/target/judge progress with retry state
+  allowNoToolsFallback Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  metadata             String? // JSON: ScanMetadata - stores seed extraction results, attack summaries, etc.
+  tags                 String   @default("[]") // JSON: Array of `<vocabId>~<fallbackName>`
 
-  hardenedPrompts   HardenedPrompt[]
+  hardenedPrompts HardenedPrompt[]
 
   @@index([userId])
   @@index([batchId])
@@ -88,32 +89,32 @@ model HardenedPrompt {
   id                 String   @id @default(cuid())
   scanId             String
   scan               Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  modelId            String   // The model used to generate it, e.g. "~google/gemini-flash-latest"
-  modelName          String   // Human readable name of the model
-  prompt             String   // The generated prompt text
-  toolRecommendation String?  // JSON: ToolRecommendation
-  compatibilityScore Int?     // 0-100
-  granularity        String?  // "compact" | "detailed"
-  extractorModel     String?  // OpenRouter model id used for tool extraction
+  modelId            String // The model used to generate it, e.g. "~google/gemini-flash-latest"
+  modelName          String // Human readable name of the model
+  prompt             String // The generated prompt text
+  toolRecommendation String? // JSON: ToolRecommendation
+  compatibilityScore Int? // 0-100
+  granularity        String? // "compact" | "detailed"
+  extractorModel     String? // OpenRouter model id used for tool extraction
   createdAt          DateTime @default(now())
 
   @@index([scanId])
 }
 
 model ToolSchemaExample {
-  id           String               @id @default(cuid())
-  name         String
-  description  String
-  tags         String               // JSON array of strings
-  granularity  String               // "compact" | "detailed"
-  category     String               @default("standard")
-  toolJson     String               // JSON string
-  mockResponse String               // JSON string
-  businessCategories String         @default("[GENERAL]")
-  ontologySections   String         @default("[]")
-  isBuiltIn    Boolean              @default(true)
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  id                 String   @id @default(cuid())
+  name               String
+  description        String
+  tags               String // JSON array of strings
+  granularity        String // "compact" | "detailed"
+  category           String   @default("standard")
+  toolJson           String // JSON string
+  mockResponse       String // JSON string
+  businessCategories String   @default("[GENERAL]")
+  ontologySections   String   @default("[]")
+  isBuiltIn          Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([granularity])
   @@index([category])
@@ -123,12 +124,12 @@ model ToolSchemaExample {
 // The ModelSelector dropdown queries this table instead of a hardcoded enum.
 model Model {
   id              String   @id // OpenRouter model id, e.g. "openai/gpt-4"
-  name            String   // Display name, e.g. "GPT-4"
+  name            String // Display name, e.g. "GPT-4"
   description     String?
   contextLength   Int?
-  modality        String?  // e.g. "text->text"
-  promptPrice     String?  // per-token prompt price (USD)
-  completionPrice String?  // per-token completion price (USD)
+  modality        String? // e.g. "text->text"
+  promptPrice     String? // per-token prompt price (USD)
+  completionPrice String? // per-token completion price (USD)
   isRecommended   Boolean  @default(false) // shown under "RECOMMENDED" header
   aiSuggest       Boolean  @default(false) // shows "AI Suggest" sub-label
   popularityRank  Int      @default(9999)
@@ -141,39 +142,38 @@ model Model {
 
 // Stored agent deployment configuration profiles.
 model Deployment {
-  id                String   @id @default(cuid())
-  name              String
-  targetModel       String   // Target model to pentest
-  attackerModel     String   // Attacker generator model
-  judgeModel        String   // Evaluation judge model
-  hardenerModel     String   @default("~google/gemini-flash-latest") // Hardener model
-  extractorModel    String   @default("~google/gemini-flash-latest") // Extractor model
-  systemPrompt      String
-  forbiddenTask     String
-  judgeInstructions String
-  tools             String   // JSON tool definitions
-  mockToolResponses String   // JSON mock response map
+  id                   String   @id @default(cuid())
+  name                 String
+  targetModel          String // Target model to pentest
+  attackerModel        String // Attacker generator model
+  judgeModel           String // Evaluation judge model
+  hardenerModel        String   @default("~google/gemini-flash-latest") // Hardener model
+  extractorModel       String   @default("~google/gemini-flash-latest") // Extractor model
+  systemPrompt         String
+  forbiddenTask        String
+  judgeInstructions    String
+  tools                String // JSON tool definitions
+  mockToolResponses    String // JSON mock response map
   allowNoToolsFallback Boolean  @default(false)
-  status            String   @default("ACTIVE") // ACTIVE | PAUSED
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  status               String   @default("ACTIVE") // ACTIVE | PAUSED
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@index([userId])
 }
 
-
 // API keys generated by users for programmatic scan access.
 model ApiKey {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String   // user-given label, e.g. "CI Pipeline"
-  keyPrefix   String   // first 8 chars shown in UI, e.g. "sp_live_"
-  hashedKey   String   @unique // bcrypt hash of the full key
-  lastUsedAt  DateTime?
-  createdAt   DateTime @default(now())
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String // user-given label, e.g. "CI Pipeline"
+  keyPrefix  String // first 8 chars shown in UI, e.g. "sp_live_"
+  hashedKey  String    @unique // bcrypt hash of the full key
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   @@index([userId])
 }
