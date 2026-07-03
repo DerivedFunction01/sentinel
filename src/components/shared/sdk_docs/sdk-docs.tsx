@@ -495,8 +495,9 @@ function WorkflowExplanation({
             Polling Batch Progress
           </h5>
           <p className="text-muted-foreground mb-2">
-            Poll this endpoint every 2-5 seconds to track scan progress. The
-            response includes:
+            Poll this endpoint every 3-5 seconds to track scan progress. The
+            server caches results briefly, so more frequent polling won't return
+            new data. Recommended pattern:
           </p>
           <ul className="list-disc pl-5 text-muted-foreground space-y-1">
             <li>
