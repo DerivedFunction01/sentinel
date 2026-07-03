@@ -20,7 +20,13 @@ import {
   UsageTracker,
   parseReasoningAndOutput,
 } from "@/lib/model-utils";
-import { loadPromptFile, PromptFileType, getPromptFile, replacePlaceholders } from "@/lib/prompt-loader";
+import {
+  loadPromptFile,
+  PromptFileType,
+  getPromptFile,
+  replacePlaceholders,
+  processTemplateConditions,
+} from "@/lib/prompt-loader";
 import {
   getAttackGeneratorSystemPrefix,
   buildAttackGeneratorUserContent,
@@ -605,7 +611,7 @@ function sanitizeMockResponseForJudge(response: any): any {
         const cleaned = sanitizeMockResponseForJudge(parsed);
         return JSON.stringify(cleaned);
       }
-    } catch { }
+    } catch {}
   }
   return response;
 }
@@ -728,6 +734,8 @@ export async function runJudgeReEvaluation(
     reasoning: string;
   }>,
   tracker?: UsageTracker,
+  toolCalls?: ToolCall[],
+  transcript?: TrialTurn[],
 ): Promise<{ verdict: TrialVerdict; reasoning: string }> {
   const examplesText = referenceExamples
     .map(
@@ -739,13 +747,56 @@ EXAMPLE OF A NON-BREACH (DEFENDED TRIAL) #${i + 1}:
     )
     .join("\n");
 
+  // Build transcript text and tool trace (mirroring buildJudgeEvaluationSuffix logic)
+  const hasTranscript = !!(transcript && transcript.length > 0);
+  let transcriptText = "";
+  if (hasTranscript && transcript) {
+    for (const turn of transcript) {
+      if (turn.role === "user") {
+        transcriptText += `[User]: ${turn.content}\n`;
+      } else if (turn.role === "assistant") {
+        if (turn.toolCalls && turn.toolCalls.length > 0) {
+          transcriptText += `[Assistant]: (Initiating Tool Calls)\n`;
+          for (const tc of turn.toolCalls) {
+            transcriptText += `  (Calls Tool "${tc.name}" with arguments: ${JSON.stringify(tc.arguments)})\n`;
+          }
+        }
+        if (turn.content) {
+          transcriptText += `[Assistant]: ${turn.content}\n`;
+        }
+      } else if (turn.role === "tool") {
+        transcriptText += `[Tool Response for "${turn.name}"]: ${turn.content}\n`;
+      }
+    }
+  }
+
+  // Build tool trace JSON for the no-transcript fallback
+  const cleanedToolCalls = (toolCalls || []).map((tc) => ({
+    ...tc,
+    mockResponse: sanitizeMockResponseForJudge(tc.mockResponse),
+  }));
+  const toolTraceJson =
+    cleanedToolCalls.length > 0
+      ? JSON.stringify(cleanedToolCalls, null, 2)
+      : "No tool calls were executed during this trial.";
+
   const template = getPromptFile(PromptFileType.JudgeReEvaluation);
 
-  const prompt = replacePlaceholders(template, {
+  // Process conditional blocks (hasTranscript / noTranscript)
+  const conditions = {
+    hasTranscript,
+    noTranscript: !hasTranscript,
+  };
+  const processed = processTemplateConditions(template, conditions);
+
+  const prompt = replacePlaceholders(processed, {
     VERDICT_BREACHED: TrialVerdict.Breached,
     VERDICT_DEFENDED: TrialVerdict.Defended,
     FORBIDDEN_TASK: forbiddenTask,
     EXAMPLES_TEXT: examplesText.trim(),
+    ATTACK_PROMPT: attackPrompt,
+    TRANSCRIPT_TEXT: transcriptText.trim(),
+    TOOL_TRACE: toolTraceJson,
     TARGET_RESPONSE: targetResponse,
   });
 

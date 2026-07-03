@@ -121,7 +121,10 @@ export async function POST(
         scan.forbiddenTask,
         targetTrial.attack,
         targetTrial.response,
-        referenceExamples
+        referenceExamples,
+        undefined, // tracker
+        targetTrial.toolCalls,
+        targetTrial.transcript,
       );
 
       if (result.verdict === TrialVerdict.Defended) {

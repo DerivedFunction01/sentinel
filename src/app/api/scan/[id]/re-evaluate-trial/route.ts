@@ -212,6 +212,9 @@ export async function POST(
       targetTrial.attack,
       targetTrial.response,
       referenceExamples,
+      undefined, // tracker
+      targetTrial.toolCalls,
+      targetTrial.transcript,
     );
 
     return NextResponse.json({
