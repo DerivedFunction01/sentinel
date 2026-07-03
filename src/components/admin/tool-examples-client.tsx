@@ -43,6 +43,7 @@ import { Granularity } from "@/lib/enums";
 import { ONTOLOGY_CATEGORY_VALUES } from "@/lib/ontology-categories";
 import { Check } from "lucide-react";
 import { ToolExampleCategory } from "@/lib/enums";
+import { getCachedToolExamples, setCachedToolExamples } from "@/lib/indexed-db";
 
 // ============================================================================
 // TYPES
@@ -1034,6 +1035,29 @@ export function ToolExamplesClient({
   >({});
 
   useEffect(() => {
+    async function loadCachedAndSync() {
+      try {
+        const cached = await getCachedToolExamples();
+        if (cached) {
+          setExamples(cached);
+        }
+      } catch (err) {
+        console.error("Failed to load cached tool examples:", err);
+      }
+
+      try {
+        const refetchRes = await fetch("/api/admin/tool-examples");
+        if (refetchRes.ok) {
+          const updatedExamples = await refetchRes.json();
+          setExamples(updatedExamples);
+          await setCachedToolExamples(updatedExamples);
+        }
+      } catch (err) {
+        console.error("Failed to sync tool examples:", err);
+      }
+    }
+    loadCachedAndSync();
+
     fetch("/api/admin/ontology-sections")
       .then((r) => r.ok ? r.json() : {})
       .then((data) => setOntologySectionMap(data))
@@ -1077,6 +1101,7 @@ export function ToolExamplesClient({
       if (refetchRes.ok) {
         const updatedExamples = await refetchRes.json();
         setExamples(updatedExamples);
+        await setCachedToolExamples(updatedExamples);
       }
     } catch {
       toast.error("An error occurred during import.");
@@ -1279,6 +1304,7 @@ export function ToolExamplesClient({
       if (refetchRes.ok) {
         const updatedExamples = await refetchRes.json();
         setExamples(updatedExamples);
+        await setCachedToolExamples(updatedExamples);
       }
 
       // Reset form
@@ -1330,7 +1356,9 @@ export function ToolExamplesClient({
       }
 
       toast.success(`${selectedIds.length} examples deleted successfully`);
-      setExamples((prev) => prev.filter((ex) => !selectedIds.includes(ex.id)));
+      const updatedList = examples.filter((ex) => !selectedIds.includes(ex.id));
+      setExamples(updatedList);
+      await setCachedToolExamples(updatedList);
       setSelectedIds([]);
     } catch (err: any) {
       toast.error(err.message || "An error occurred");
@@ -1352,7 +1380,9 @@ export function ToolExamplesClient({
       }
 
       toast.success("Example deleted successfully");
-      setExamples((prev) => prev.filter((ex) => ex.id !== id));
+      const updatedList = examples.filter((ex) => ex.id !== id);
+      setExamples(updatedList);
+      await setCachedToolExamples(updatedList);
       setSelectedIds((prev) => prev.filter((i) => i !== id));
     } catch (err: any) {
       toast.error(err.message || "An error occurred");

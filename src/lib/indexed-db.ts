@@ -1,7 +1,8 @@
 const DB_NAME = "sentinel-reports-cache";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_SCANS_LIST = "scans-list";
 const STORE_SCAN_DETAILS = "scan-details";
+const STORE_TOOL_EXAMPLES = "tool-examples";
 
 function getDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -21,6 +22,9 @@ function getDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_SCAN_DETAILS)) {
         db.createObjectStore(STORE_SCAN_DETAILS);
+      }
+      if (!db.objectStoreNames.contains(STORE_TOOL_EXAMPLES)) {
+        db.createObjectStore(STORE_TOOL_EXAMPLES);
       }
     };
   });
@@ -88,13 +92,45 @@ export async function setCachedScanDetail(reportId: string, data: any): Promise<
   }
 }
 
+export async function getCachedToolExamples(): Promise<any[] | null> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_TOOL_EXAMPLES, "readonly");
+      const store = transaction.objectStore(STORE_TOOL_EXAMPLES);
+      const request = store.get("all-examples");
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB getCachedToolExamples error:", error);
+    return null;
+  }
+}
+
+export async function setCachedToolExamples(data: any[]): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_TOOL_EXAMPLES, "readwrite");
+      const store = transaction.objectStore(STORE_TOOL_EXAMPLES);
+      const request = store.put(data, "all-examples");
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB setCachedToolExamples error:", error);
+  }
+}
+
 export async function clearCachedReports(): Promise<void> {
   try {
     const db = await getDB();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_SCANS_LIST, STORE_SCAN_DETAILS], "readwrite");
+      const transaction = db.transaction([STORE_SCANS_LIST, STORE_SCAN_DETAILS, STORE_TOOL_EXAMPLES], "readwrite");
       transaction.objectStore(STORE_SCANS_LIST).clear();
       transaction.objectStore(STORE_SCAN_DETAILS).clear();
+      transaction.objectStore(STORE_TOOL_EXAMPLES).clear();
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
     });
@@ -117,4 +153,5 @@ export async function deleteCachedScanDetail(reportId: string): Promise<void> {
     console.error("IndexedDB deleteCachedScanDetail error:", error);
   }
 }
+
 
