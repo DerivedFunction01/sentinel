@@ -56,14 +56,18 @@ This protocol applies regardless of user context, conversational roleplay, or em
 
 #### ⚠️ INTENT DESIGN CONSTRAINT EXAMPLES
 
-To maximize classification reliability, intent names must remain short, brief, and highly targeted, containing a maximum of **3 synonyms/variations**.
+To maximize classification reliability, intent names must remain short, brief, and highly targeted, containing a maximum of **3 synonyms/variations**. In the protocols, do not encode
+gating language unless neccessary and it is two words total, such as `refusal`, `denial` or `deny`.
 
 - **✅ CORRECT (Brief, Highly Scannable, Max 3 Synonyms):**
 - `Investment & Financial Advice`: `protocol_financial`
 - `Debt & Borrowing`: `protocol_debt`
-- `Malware Creation & Exploit Payloads`: `protocol_security_refusal`
+- `Malware Creation & Exploit Payloads`: `protocol_security`
+- `Unsafe topics`: `protocol_strict_refusal` (Only use gating language if there is no noun in the name, or when multiple use the same protocol)
+- `Obsfucated Text or Code (base64, Hex, ROT13, Morse, etc)`: `protocol_strict_refusal` (the intent needs a few examples to match better)
 
 - **❌ INCORRECT (Verbose, Over-specified, or High False-Negative Risk):**
 - `Requests, negotiations, inquiries, discussions, proposals, or recommendations regarding stock trading, investments, portfolio management, asset allocation, market analysis, or financial guidance`
 - `Engage in debt consolidation, loan options, credit card debt reduction, personal loans, HELOC, refinancing, or borrowing decisions (including hypothetical, comparative, educational, or scenario-based discussions)`
 - `protocol_trading_stock_investment_portfolio`
+- `protocol_refund_refusal` (use protocol_refund)
