@@ -36,7 +36,7 @@ import { Label } from "@/components/ui/label";
 import { ModelSelector } from "@/components/shared/model-selector";
 import { PromptFormSection } from "@/components/shared/prompt-form-section";
 import { CodeHighlight } from "@/components/shared/code-highlight";
-import { SdkDocs } from "@/components/shared/sdk-docs";
+import { SdkDocs } from "@/components/shared/sdk_docs/sdk-docs";
 import { toast } from "sonner";
 import {
   DEFAULT_MODEL,
@@ -156,12 +156,54 @@ export default function AgentDeploymentPage() {
         if (d.models && d.models.length > 0) {
           const fallbackModelId = findDefaultModel(d.models);
           // Use most frequently used model for each role, falling back to system default
-          setTargetModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Target, fallbackModelId) : prev);
-          setAttackerModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Attack, fallbackModelId) : prev);
-          setJudgeModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Judge, fallbackModelId) : prev);
-          setHardenerModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Hardener, fallbackModelId) : prev);
-          setSeedExtractorModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.SeedExtractor, fallbackModelId) : prev);
-          setExtractorModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.ToolExtractor, fallbackModelId) : prev);
+          setTargetModel((prev) =>
+            prev === ""
+              ? getMostUsedModelForRole(
+                  ModelSelectorRole.Target,
+                  fallbackModelId,
+                )
+              : prev,
+          );
+          setAttackerModel((prev) =>
+            prev === ""
+              ? getMostUsedModelForRole(
+                  ModelSelectorRole.Attack,
+                  fallbackModelId,
+                )
+              : prev,
+          );
+          setJudgeModel((prev) =>
+            prev === ""
+              ? getMostUsedModelForRole(
+                  ModelSelectorRole.Judge,
+                  fallbackModelId,
+                )
+              : prev,
+          );
+          setHardenerModel((prev) =>
+            prev === ""
+              ? getMostUsedModelForRole(
+                  ModelSelectorRole.Hardener,
+                  fallbackModelId,
+                )
+              : prev,
+          );
+          setSeedExtractorModel((prev) =>
+            prev === ""
+              ? getMostUsedModelForRole(
+                  ModelSelectorRole.SeedExtractor,
+                  fallbackModelId,
+                )
+              : prev,
+          );
+          setExtractorModel((prev) =>
+            prev === ""
+              ? getMostUsedModelForRole(
+                  ModelSelectorRole.ToolExtractor,
+                  fallbackModelId,
+                )
+              : prev,
+          );
         }
       })
       .catch(() => {});
@@ -615,7 +657,11 @@ export default function AgentDeploymentPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Judge Model</Label>
-                  <ModelSelector value={judgeModel} onChange={setJudgeModel} role={ModelSelectorRole.Judge} />
+                  <ModelSelector
+                    value={judgeModel}
+                    onChange={setJudgeModel}
+                    role={ModelSelectorRole.Judge}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Hardener Model</Label>
@@ -636,7 +682,9 @@ export default function AgentDeploymentPage() {
                   className="flex items-center gap-1 text-xs text-slate-400 hover:text-white px-2 h-7"
                   onClick={() => setShowAdvancedModels(!showAdvancedModels)}
                 >
-                  {showAdvancedModels ? "Hide Advanced Options" : "Show Advanced Options"}
+                  {showAdvancedModels
+                    ? "Hide Advanced Options"
+                    : "Show Advanced Options"}
                 </Button>
 
                 {showAdvancedModels && (
@@ -652,7 +700,8 @@ export default function AgentDeploymentPage() {
                         role={ModelSelectorRole.SeedExtractor}
                       />
                       <p className="text-[10px] text-muted-foreground">
-                        Custom model used to auto-suggest forbidden tasks and analyze prompt ontologies.
+                        Custom model used to auto-suggest forbidden tasks and
+                        analyze prompt ontologies.
                       </p>
                     </div>
 
@@ -667,7 +716,8 @@ export default function AgentDeploymentPage() {
                         role={ModelSelectorRole.ToolExtractor}
                       />
                       <p className="text-[10px] text-muted-foreground">
-                        Custom model used to extract tools and analyze mock responses during hardening.
+                        Custom model used to extract tools and analyze mock
+                        responses during hardening.
                       </p>
                     </div>
                   </div>

@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { SdkDocs } from "@/components/shared/sdk-docs";
+import { SdkDocs } from "@/components/shared/sdk_docs/sdk-docs";
 
 interface ApiKeyRow {
   id: string;
