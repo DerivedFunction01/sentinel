@@ -5,7 +5,12 @@ import { CodeHighlight } from "@/components/shared/code-highlight";
 import { Button } from "@/components/ui/button";
 import { Copy, Terminal, FileCode, Check } from "lucide-react";
 import { toast } from "sonner";
-import { TrialVerdict, ScanStatus, ProgressStepStatus } from "@/lib/enums";
+import {
+  TrialVerdict,
+  ScanStatus,
+  ProgressStepStatus,
+  Granularity,
+} from "@/lib/enums";
 import { getCodeSample, CODE_SAMPLES } from "./code_samples";
 
 interface SdkDocsProps {
@@ -345,7 +350,7 @@ export function SdkDocs({
   },
   "recommendations": {
     "hardening": "Move business logic from prompt to tool definitions",
-    "complexity": "detailed",
+    "complexity": "${Granularity.Compact}",
     "toolsGenerated": 1
   }
 }`}
@@ -589,7 +594,8 @@ function WorkflowExplanation({
               <ul className="list-disc pl-5 space-y-1">
                 <li>
                   <strong className="text-foreground">modelId</strong>{" "}
-                  (optional): The prompt hardener model ID
+                  (optional): The model to use for hardening. Defaults to scan's
+                  judgeModel, attackerModel, or the system default
                 </li>
                 <li>
                   <strong className="text-foreground">extractorModel</strong>{" "}
@@ -598,8 +604,16 @@ function WorkflowExplanation({
                 </li>
                 <li>
                   <strong className="text-foreground">granularity</strong>{" "}
-                  (optional): "compact" (1-3 tools) or "detailed"
-                  (domain-specific tools)
+                  (optional): {Granularity.Compact} (1-3 tools) or{" "}
+                  {Granularity.Detailed} (domain-specific tools)
+                </li>
+                <li>
+                  <strong className="text-foreground">
+                    includeToolRecommendation
+                  </strong>{" "}
+                  (optional): Set to true to extract tools and get
+                  recommendations. Costs 3 tokens (refunds 1 if extraction not
+                  needed). Set to false for hardening only (costs 1 token)
                 </li>
               </ul>
             </div>

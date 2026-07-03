@@ -1,6 +1,6 @@
 // code-samples.ts
 // Store all code samples organized by language and operation
-import { TrialVerdict } from "@/lib/enums";
+import { Granularity, TrialVerdict } from "@/lib/enums";
 import { DEFAULT_MODEL } from "@/lib/model-utils";
 
 type Lang = "curl" | "python" | "node";
@@ -132,8 +132,10 @@ export const CODE_SAMPLES: Record<
   -H "Authorization: Bearer ${token}" \\
   -H "Content-Type: application/json" \\
   -d '{
+    "modelId": "${DEFAULT_MODEL}",
     "extractorModel": "${DEFAULT_MODEL}",
-    "granularity": "detailed"
+    "granularity": "${Granularity.Compact}",
+    "includeToolRecommendation": false
   }'`,
 
     progress: ({ token, origin }) =>
@@ -304,8 +306,10 @@ headers = {
     "Content-Type": "application/json"
 }
 data = {
+    "modelId": "${DEFAULT_MODEL}",
     "extractorModel": "${DEFAULT_MODEL}",
-    "granularity": "detailed"
+    "granularity": "detailed",
+    "includeToolRecommendation": true
 }
 
 response = requests.post(url, headers=headers, json=data)
@@ -546,8 +550,10 @@ fetch(url, options)
 
 const url = '${origin}/api/scan/SP-26-0617-3Q91/harden';
 const data = {
+  modelId: '${DEFAULT_MODEL}',
   extractorModel: '${DEFAULT_MODEL}',
-  granularity: 'detailed'
+  granularity: 'detailed',
+  includeToolRecommendation: true
 };
 
 const options = {
