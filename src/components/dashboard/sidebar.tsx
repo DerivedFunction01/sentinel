@@ -73,7 +73,7 @@ export function DashboardSidebar({ user }: { user: SidebarUser }) {
     (user.name?.[0] ?? "U") + (user.name?.split(" ")[1]?.[0] ?? "");
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden h-screen w-60 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar md:flex">
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
         <Link href="/" className="flex items-center gap-2">
           <LogoIcon size="sm" />
