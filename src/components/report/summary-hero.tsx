@@ -5,9 +5,10 @@ import { TrialVerdict } from "@/lib/enums";
 
 interface SummaryHeroProps {
   scan: Scan;
+  vocabulary?: Array<{ id: string; name: string }>;
 }
 
-export function SummaryHero({ scan }: SummaryHeroProps) {
+export function SummaryHero({ scan, vocabulary }: SummaryHeroProps) {
   const totalToolCalls = scan.trials.reduce(
     (sum, trial) => sum + (trial.toolCalls?.length || 0),
     0,
@@ -119,6 +120,24 @@ export function SummaryHero({ scan }: SummaryHeroProps) {
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
             {scan.summaryDetail}
           </p>
+          {scan.tags && scan.tags.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {scan.tags.map((tagStr: string) => {
+                const parts = tagStr.split("~");
+                const fallbackName = parts[1] || parts[0] || tagStr;
+                const vocabEntry = vocabulary?.find((v) => v.id === parts[0]);
+                const displayName = vocabEntry?.name || fallbackName;
+                return (
+                  <span
+                    key={tagStr}
+                    className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800/50 px-2.5 py-0.5 text-[11px] font-medium text-slate-300"
+                  >
+                    {displayName}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card p-6">
           <ScoreGauge score={scan.score} riskLevel={scan.riskLevel} />

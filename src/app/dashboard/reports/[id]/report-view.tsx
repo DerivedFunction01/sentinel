@@ -476,7 +476,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
 
       <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
         {/* ── Summary hero ── */}
-        <SummaryHero scan={scan} />
+        <SummaryHero scan={scan} vocabulary={vocabulary} />
 
         <Separator />
 

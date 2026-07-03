@@ -18,6 +18,7 @@ import {
   Download,
   Upload,
   Database,
+  Tags,
 } from "lucide-react";
 import {
   Card,
@@ -35,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatCard, PageHeader } from "@/components/dashboard/dashboard-parts";
 import { toast } from "sonner";
 import { TokenRequestStatus } from "@/lib/enums";
+import { TagVocabularyEditor } from "@/components/shared/tag-vocabulary-editor";
 
 interface UserData {
   id: string;
@@ -509,6 +511,24 @@ export default function SettingsPage() {
                 accent="default"
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Tag Vocabulary */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Tags className="h-4 w-4 text-blue-400" />
+              Tag Vocabulary
+            </CardTitle>
+            <CardDescription>
+              Create up to 25 tags to organize your scans. Names must be under
+              25 characters. Renaming a tag updates all existing scans
+              automatically.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <TagVocabularyEditor />
           </CardContent>
         </Card>
 
