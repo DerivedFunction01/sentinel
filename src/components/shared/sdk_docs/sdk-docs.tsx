@@ -7,6 +7,7 @@ import { Copy, Terminal, FileCode, Check } from "lucide-react";
 import { toast } from "sonner";
 import { TrialVerdict } from "@/lib/enums";
 import { getCodeSample, CODE_SAMPLES } from "./code_samples";
+
 interface SdkDocsProps {
   apiKey?: string;
   deploymentId?: string;
