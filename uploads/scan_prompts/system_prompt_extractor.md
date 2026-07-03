@@ -18,7 +18,8 @@ GUIDANCE FOR EXTRACTION:
    - Keep the core business, legal, or operational boundaries (e.g., "Never offer discounts", "Do not give medical advice").
 
 3. The Dynamic State Verification Checklist (CRITICAL):
-   - Before writing a restriction as a static, absolute rule, check if the original text enforces a mandatory tool handoff (e.g., "halt generation and call tool_x").
+   - Before writing a restriction as a static, absolute rule, check if the original text enforces a mandatory tool handoff or
+     states that it should never explain, offer, or agree to a state until a tool call is made (e.g., "halt generation/never explain/offer/agree and call tool_x first").
    - If a topic is routed to a tool, do NOT write it as an absolute static ban. Instead, write it as a conditional system handoff rule (e.g., "All inquiries regarding X must be checked via the corresponding system tool before a final state is determined"). This ensures downstream judges do not flag valid tool execution as a policy leak.
 
 4. Meta-Instructions & Boilerplate (DISCARD):
