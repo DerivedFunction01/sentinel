@@ -108,37 +108,96 @@ export function ApiAdminClient({ initialKeys }: ApiAdminClientProps) {
         </p>
       </div>
 
-      {/* Create new key */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Plus className="h-4 w-4 text-blue-400" />
-            Create New API Key
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Key Name</Label>
-            <Input
-              value={newKeyName}
-              onChange={(e) => setNewKeyName(e.target.value)}
-              placeholder="e.g. CI Pipeline, Production Scanner"
-            />
-          </div>
-          <Button
-            onClick={handleCreate}
-            disabled={creating}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            {creating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Create new key */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Plus className="h-4 w-4 text-blue-400" />
+              Create New API Key
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Key Name</Label>
+              <Input
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                placeholder="e.g. CI Pipeline, Production Scanner"
+              />
+            </div>
+            <Button
+              onClick={handleCreate}
+              disabled={creating}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {creating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <KeyRound className="mr-2 h-4 w-4" />
+              )}
+              Generate Key
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Existing keys */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Existing API Keys ({keys.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {keys.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No API keys yet.
+              </p>
             ) : (
-              <KeyRound className="mr-2 h-4 w-4" />
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {keys.map((key) => (
+                  <div
+                    key={key.id}
+                    className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-2.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground text-sm truncate">
+                          {key.name}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-[10px] text-muted-foreground"
+                        >
+                          {key.keyPrefix}…
+                        </Badge>
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                        Created {new Date(key.createdAt).toLocaleDateString()}
+                        {key.lastUsedAt &&
+                          ` · Last used ${new Date(key.lastUsedAt).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-400 hover:text-red-500 h-8 w-8 p-0"
+                      onClick={() => handleDelete(key.id)}
+                      disabled={deleting === key.id}
+                    >
+                      {deleting === key.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
             )}
-            Generate Key
-          </Button>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* New key display (one-time) */}
       {newKey && (
@@ -149,7 +208,7 @@ export function ApiAdminClient({ initialKeys }: ApiAdminClientProps) {
               API Key Created — Copy Now
             </CardTitle>
             <CardDescription>
-              This is the only time you&apos;ll see the full key. Store it
+              This is the only time you'll see the full key. Store it
               securely.
             </CardDescription>
           </CardHeader>
@@ -164,68 +223,11 @@ export function ApiAdminClient({ initialKeys }: ApiAdminClientProps) {
               </Button>
             </div>
             <Button variant="outline" size="sm" onClick={() => setNewKey(null)}>
-              I&apos;ve saved it
+              I've saved it
             </Button>
           </CardContent>
         </Card>
       )}
-
-      {/* Existing keys */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Existing API Keys ({keys.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {keys.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              No API keys yet. Create one above.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {keys.map((key) => (
-                <div
-                  key={key.id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-foreground">
-                        {key.name}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className="font-mono text-xs text-muted-foreground"
-                      >
-                        {key.keyPrefix}…
-                      </Badge>
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Created {new Date(key.createdAt).toLocaleDateString()}
-                      {key.lastUsedAt &&
-                        ` · Last used ${new Date(key.lastUsedAt).toLocaleDateString()}`}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-red-400 hover:text-red-500"
-                    onClick={() => handleDelete(key.id)}
-                    disabled={deleting === key.id}
-                  >
-                    {deleting === key.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Programmatic SDK Docs */}
       <SdkDocs
