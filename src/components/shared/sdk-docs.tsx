@@ -49,7 +49,7 @@ export function SdkDocs({
   }, []);
 
   const token = apiKey || "YOUR_API_KEY";
-  const depId = deploymentId || "dep_clx123abc456";
+  const depId = deploymentId || "DEPLOYMENT_ID";
   const origin = originRef.current;
 
   const getCodeContent = (): string => {
