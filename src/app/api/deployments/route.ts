@@ -53,6 +53,7 @@ export async function POST(req: Request) {
       attackerModel,
       judgeModel,
       hardenerModel,
+      seedExtractorModel,
       extractorModel,
       systemPrompt,
       forbiddenTask,
@@ -72,10 +73,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Default attacker/judge to target model if not explicitly specified
+    // Default attacker/judge/seed-extractor to target model if not explicitly specified
     const finalAttacker = attackerModel || targetModel;
     const finalJudge = judgeModel || targetModel;
     const finalHardener = hardenerModel || DEFAULT_MODEL;
+    const finalSeedExtractor = seedExtractorModel || DEFAULT_MODEL;
     const finalExtractor = extractorModel || DEFAULT_MODEL;
 
     // Create record
@@ -86,6 +88,7 @@ export async function POST(req: Request) {
         attackerModel: finalAttacker,
         judgeModel: finalJudge,
         hardenerModel: finalHardener,
+        seedExtractorModel: finalSeedExtractor,
         extractorModel: finalExtractor,
         systemPrompt,
         forbiddenTask,

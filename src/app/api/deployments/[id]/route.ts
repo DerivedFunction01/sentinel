@@ -83,6 +83,7 @@ export async function PATCH(
       attackerModel,
       judgeModel,
       hardenerModel,
+      seedExtractorModel,
       extractorModel,
       systemPrompt,
       forbiddenTask,
@@ -99,6 +100,8 @@ export async function PATCH(
     if (attackerModel !== undefined) dataToUpdate.attackerModel = attackerModel;
     if (judgeModel !== undefined) dataToUpdate.judgeModel = judgeModel;
     if (hardenerModel !== undefined) dataToUpdate.hardenerModel = hardenerModel;
+    if (seedExtractorModel !== undefined)
+      dataToUpdate.seedExtractorModel = seedExtractorModel;
     if (extractorModel !== undefined)
       dataToUpdate.extractorModel = extractorModel;
     if (systemPrompt !== undefined) dataToUpdate.systemPrompt = systemPrompt;

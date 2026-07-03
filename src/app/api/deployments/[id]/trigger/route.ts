@@ -114,7 +114,7 @@ export async function POST(
     const attackerModel = deployment.attackerModel || defaultModel;
     const judgeModel = deployment.judgeModel || defaultModel;
     const hardenerModel = deployment.hardenerModel || defaultModel;
-    const seedExtractorModel = defaultModel;
+    const seedExtractorModel = deployment.seedExtractorModel || defaultModel;
     const extractorModel = deployment.extractorModel || DEFAULT_MODEL;
 
     let tools: ToolDef[] = [];

@@ -148,6 +148,7 @@ model Deployment {
   attackerModel        String // Attacker generator model
   judgeModel           String // Evaluation judge model
   hardenerModel        String   @default("~google/gemini-flash-latest") // Hardener model
+  seedExtractorModel   String   @default("~google/gemini-flash-latest") // Seed extractor model
   extractorModel       String   @default("~google/gemini-flash-latest") // Extractor model
   systemPrompt         String
   forbiddenTask        String
