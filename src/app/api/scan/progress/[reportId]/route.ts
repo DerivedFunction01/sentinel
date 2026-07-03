@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authenticateRequest } from "@/lib/auth-utils";
 import { db } from "@/lib/db";
 import { ProgressStepStatus } from "@/lib/enums";
 
@@ -10,6 +11,11 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ reportId: string }> },
 ) {
+  const auth = await authenticateRequest(req);
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { reportId } = await params;
 
   if (!reportId) {

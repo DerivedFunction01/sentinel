@@ -5,7 +5,7 @@ import { CodeHighlight } from "@/components/shared/code-highlight";
 import { Button } from "@/components/ui/button";
 import { Copy, Terminal, FileCode, Check } from "lucide-react";
 import { toast } from "sonner";
-import { TrialVerdict } from "@/lib/enums";
+import { TrialVerdict, ScanStatus, ProgressStepStatus } from "@/lib/enums";
 import { getCodeSample, CODE_SAMPLES } from "./code_samples";
 
 interface SdkDocsProps {
@@ -24,7 +24,8 @@ type Op =
   | "reevaluate-trial"
   | "confirm-reevaluate"
   | "confirm-batch-reevaluate"
-  | "tool-extraction";
+  | "tool-extraction"
+  | "progress";
 
 const OPS = [
   { id: "trigger", label: "Trigger Scan (POST)" },
@@ -39,6 +40,7 @@ const OPS = [
     label: "Confirm Batch Re-evaluation (POST)",
   },
   { id: "tool-extraction", label: "Extract & Harden Tools (POST)" },
+  { id: "progress", label: "Get Batch Progress (GET)" },
 ] as const;
 
 const LANGS = [
@@ -169,13 +171,10 @@ export function SdkDocs({
         activeOp === "reevaluate-trial" ||
         activeOp === "confirm-reevaluate" ||
         activeOp === "confirm-batch-reevaluate" ||
-        activeOp === "tool-extraction") && (
+        activeOp === "tool-extraction" ||
+        activeOp === "progress") && (
         <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6 space-y-4">
-          <h3 className="font-semibold text-sm">
-            {activeOp === "tool-extraction"
-              ? "Tool Extraction & Hardening"
-              : "Re-evaluation Workflow"}
-          </h3>
+          <h3 className="font-semibold text-sm">Extra Details</h3>
 
           {activeOp === "confirm-batch-reevaluate" && (
             <div className="space-y-2 text-xs">
@@ -239,6 +238,58 @@ export function SdkDocs({
       "attack": "Original attack prompt...",
       "response": "Model's original response...",
       "originalReasoning": "Original breach reasoning..."
+    }
+  ]
+}`}
+                language="json"
+                className="bg-zinc-950/60 p-3"
+              />
+            </div>
+          )}
+
+          {activeOp === "progress" && (
+            <div className="space-y-2 text-xs">
+              <p className="text-muted-foreground">
+                Response includes batch progress, individual scan statuses, and
+                granular phase breakdown:
+              </p>
+              <CodeHighlight
+                code={`{
+  "batchId": "batch-123abc",
+  "status": "${ScanStatus.Running}",
+  "totalScans": 3,
+  "completedScans": 1,
+  "failedScans": 0,
+  "runningScans": 2,
+  "overallProgress": 45,
+  "scans": [
+    {
+      "reportId": "SP-26-0617-3Q91",
+      "targetModel": "~anthropic/claude-opus-4",
+      "promptIndex": 0,
+      "status": "${ScanStatus.Completed}",
+      "currentStep": 6,
+      "totalSteps": 6,
+      "score": 75,
+      "breaches": 2,
+      "totalTrials": 10,
+      "breachRate": 20,
+      "detail": {
+        "seed": "${ProgressStepStatus.Completed}",
+        "attacks": [
+          { "idx": 0, "status": "${ProgressStepStatus.Completed}", "retries": 0 }
+        ],
+        "trials": [
+          { "idx": 0, "target": { "status": "${ProgressStepStatus.Completed}" }, "judge": { "status": "${ProgressStepStatus.Completed}" } }
+        ],
+        "hardening": "${ProgressStepStatus.Pending}",
+        "summary": {
+          "attackCount": 5,
+          "completedAttacks": 5,
+          "completedTargets": 10,
+          "completedJudges": 10
+        }
+      }
     }
   ]
 }`}
@@ -328,7 +379,8 @@ export function SdkDocs({
             activeOp === "reevaluate-trial" ||
             activeOp === "confirm-reevaluate" ||
             activeOp === "confirm-batch-reevaluate" ||
-            activeOp === "tool-extraction") && (
+            activeOp === "tool-extraction" ||
+            activeOp === "progress") && (
             <WorkflowExplanation activeOp={activeOp} token={token} />
           )}
         </div>
@@ -432,6 +484,58 @@ function WorkflowExplanation({
                 DEFENDED
               </code>{" "}
               are included in proposals
+            </li>
+          </ul>
+        </div>
+      )}
+
+      {activeOp === "progress" && (
+        <div className="space-y-2">
+          <h5 className="font-semibold text-foreground">
+            Polling Batch Progress
+          </h5>
+          <p className="text-muted-foreground mb-2">
+            Poll this endpoint every 2-5 seconds to track scan progress. The
+            response includes:
+          </p>
+          <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+            <li>
+              <strong className="text-foreground">overallProgress:</strong>{" "}
+              Percentage complete across all scans (0-100)
+            </li>
+            <li>
+              <strong className="text-foreground">status:</strong>{" "}
+              <code className="text-blue-400 bg-muted px-1 py-0.5 rounded">
+                {ScanStatus.Running}
+              </code>
+              ,{" "}
+              <code className="text-blue-400 bg-muted px-1 py-0.5 rounded">
+                {ScanStatus.Completed}
+              </code>
+              , or{" "}
+              <code className="text-blue-400 bg-muted px-1 py-0.5 rounded">
+                {ScanStatus.CompletedWithFailures}
+              </code>
+            </li>
+            <li>
+              <strong className="text-foreground">scans[]:</strong> Array of
+              individual scan progress with detailed phase breakdown
+            </li>
+            <li>
+              <strong className="text-foreground">detail:</strong> Granular
+              phase status (
+              <code className="text-blue-400 bg-muted px-1 py-0.5 rounded">
+                {ProgressStepStatus.Completed}
+              </code>
+              ,{" "}
+              <code className="text-blue-400 bg-muted px-1 py-0.5 rounded">
+                {ProgressStepStatus.Running}
+              </code>
+              ,{" "}
+              <code className="text-blue-400 bg-muted px-1 py-0.5 rounded">
+                {ProgressStepStatus.Pending}
+              </code>
+              )
             </li>
           </ul>
         </div>
