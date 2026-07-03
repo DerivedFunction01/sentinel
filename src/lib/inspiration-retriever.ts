@@ -61,9 +61,6 @@ export async function generateInspirationSearchQuery(
         },
       });
       if (matchingCount > 0) {
-        console.log(
-          `[Inspiration] Mapped ontology section '${targetOntologySection}' (or wildcard) found in DB. Bypassing LLM query generation.`,
-        );
         return {
           query: targetOntologySection.toLowerCase(),
           tags: [],
@@ -504,10 +501,6 @@ export async function retrieveInspirationExamples(
       });
 
       if (matchingExamples.length > 0) {
-        console.log(
-          `[Inspiration] Found ${matchingExamples.length} direct DB example matches for ontology section '${targetOntologySection}'. Bypassing search query execution.`,
-        );
-
         const candidates: InspirationExample[] = [];
         for (const ex of matchingExamples) {
           try {

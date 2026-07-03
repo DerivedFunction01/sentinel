@@ -114,11 +114,7 @@ export const PromptFormSection = memo(function PromptFormSection({
       return;
     }
     setAiSuggestLoading(true);
-    console.log("[AI Suggest] Triggering API call with values:", {
-      systemPrompt: values.systemPrompt,
-      tools: values.tools,
-      mockResponses: values.mockResponses,
-    });
+
     try {
       await getForbiddenTaskFast(values, options, onChange, setCachedConfig);
     } catch (err) {
@@ -451,10 +447,8 @@ async function getForbiddenTaskFast(
     }),
   });
   const data = await res.json();
-  console.log("[AI Suggest] API response data:", data);
 
   if (data.success && data.forbiddenTasks) {
-    console.log("[AI Suggest] Updating forbiddenTask to:", data.forbiddenTasks);
     onChange("forbiddenTask", data.forbiddenTasks);
     // Clear cachedSeedInfo so that launching the scan triggers dynamic full extraction on the backend
     onChange("cachedSeedInfo", undefined);
@@ -464,7 +458,6 @@ async function getForbiddenTaskFast(
       tools: values.tools,
       mockResponses: values.mockResponses,
     };
-    console.log("[AI Suggest] Saving config to localStorage:", newConfig);
     localStorage.setItem(
       "seed_extractor_last_config",
       JSON.stringify(newConfig),

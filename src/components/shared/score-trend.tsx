@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LineChart,
   Line,
@@ -13,63 +11,26 @@ import {
 } from "recharts";
 import type { ScoreTrendPoint } from "@/lib/types";
 
-type TimePeriod = "all" | "weekly" | "monthly" | "annually";
-
 interface ScoreTrendChartProps {
   data: ScoreTrendPoint[];
 }
 
 export function ScoreTrendChart({ data }: ScoreTrendChartProps) {
-  const [period, setPeriod] = useState<TimePeriod>("all");
+  if (data.length === 0) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        No data for selected period.
+      </p>
+    );
+  }
 
-  if (data.length === 0) return null;
-
-  const now = new Date();
-  const filteredData = data.filter((d) => {
-    const scanDate = new Date(d.date);
-    const validDate = !isNaN(scanDate.getTime());
-    switch (period) {
-      case "weekly":
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return scanDate >= weekAgo;
-      case "monthly":
-        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        return scanDate >= monthAgo;
-      case "annually":
-        const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-        return scanDate >= yearAgo;
-      default:
-        return true;
-    }
-  });
-
-  const chartData = filteredData.map((d) => ({
+  const chartData = data.map((d) => ({
     date: d.date ?? d.label,
     score: d.score,
   }));
 
   return (
     <div className="w-full h-full flex flex-col">
-      <Tabs
-        value={period}
-        onValueChange={(v) => setPeriod(v as TimePeriod)}
-        className="mb-2"
-      >
-        <TabsList className="h-7 p-0.5 bg-muted/65 border border-white/5">
-          <TabsTrigger value="all" className="text-[10px] px-2 py-1">
-            All
-          </TabsTrigger>
-          <TabsTrigger value="weekly" className="text-[10px] px-2 py-1">
-            Weekly
-          </TabsTrigger>
-          <TabsTrigger value="monthly" className="text-[10px] px-2 py-1">
-            Monthly
-          </TabsTrigger>
-          <TabsTrigger value="annually" className="text-[10px] px-2 py-1">
-            Annually
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
       <div className="flex-1 min-h-0">
         {filteredData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
