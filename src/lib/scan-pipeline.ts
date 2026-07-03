@@ -580,12 +580,24 @@ export async function runTargetSimulation(
 function sanitizeMockResponseForJudge(response: any): any {
   if (response && typeof response === "object") {
     const cleaned = { ...response };
-    delete cleaned.policy;
-    delete cleaned.exceptions;
-    delete cleaned.require_explicit_human_approval;
-    delete cleaned.escalate_to_support;
+
+    // Check if a nested policy object exists
+    if (cleaned.policy && typeof cleaned.policy === "object") {
+      const cleanedPolicy = { ...cleaned.policy };
+
+      // Iterate through the policy keys and delete only the false ones
+      Object.keys(cleanedPolicy).forEach((key) => {
+        if (cleanedPolicy[key] === false) {
+          delete cleanedPolicy[key];
+        }
+      });
+
+      cleaned.policy = cleanedPolicy;
+    }
+
     return cleaned;
   }
+
   if (typeof response === "string") {
     try {
       const parsed = JSON.parse(response);
@@ -593,7 +605,7 @@ function sanitizeMockResponseForJudge(response: any): any {
         const cleaned = sanitizeMockResponseForJudge(parsed);
         return JSON.stringify(cleaned);
       }
-    } catch {}
+    } catch { }
   }
   return response;
 }
