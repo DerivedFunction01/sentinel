@@ -27,6 +27,20 @@ export async function POST(req: Request) {
       );
     }
 
+    const removeTagIds: string[] = Array.isArray(body.removeTagIds)
+      ? body.removeTagIds
+      : [];
+
+    if (removeTagIds.length > 0) {
+      const duplicate = removeTagIds.some((id: string) => tagIds.includes(id));
+      if (duplicate) {
+        return NextResponse.json(
+          { error: "A tagId cannot appear in both tagIds and removeTagIds" },
+          { status: 400 },
+        );
+      }
+    }
+
     // Fetch the user's vocabulary to resolve tag names
     const dbUser = await db.user.findUnique({
       where: { id: user.userId },
@@ -56,7 +70,8 @@ export async function POST(req: Request) {
     }
 
     // Update each scan, deduping by tagId prefix
-    const tagPrefixSet = new Set(tagIds);
+    const addTagPrefixSet = new Set(tagIds);
+    const removeTagPrefixSet = new Set(removeTagIds);
 
     for (const scanId of scanIds) {
       const scan = await db.scan.findFirst({
@@ -71,10 +86,9 @@ export async function POST(req: Request) {
         existingTags = JSON.parse(scan.tags || "[]");
       } catch {}
 
-      // Remove existing entries for the same tagIds, then append new ones
       const filtered = existingTags.filter((entry) => {
         const existingId = entry.split("~")[0];
-        return !tagPrefixSet.has(existingId);
+        return !addTagPrefixSet.has(existingId) && !removeTagPrefixSet.has(existingId);
       });
 
       const merged = [...filtered, ...resolvedTags];

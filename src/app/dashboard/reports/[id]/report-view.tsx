@@ -29,6 +29,7 @@ import { ExtractionTraceDialog } from "@/components/shared/extraction-trace-dial
 import { DEFAULT_MODEL } from "@/lib/model-utils";
 import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-dialog";
 import { ReportHeader } from "@/components/report/report-header";
+import { TagSelectedDialog } from "@/components/shared/tag-selected-dialog";
 
 interface ReportViewProps {
   scan: Scan;
@@ -206,7 +207,10 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     string | undefined
   >(() => scan.metadata?.attackSummary?.summarizedPatterns);
   const [generatingSummary, setGeneratingSummary] = useState(false);
-  const [vocabulary, setVocabulary] = useState<Array<{ id: string; name: string }>>([]);
+  const [vocabulary, setVocabulary] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -284,6 +288,34 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
       toast.error("Conversion failed");
     } finally {
       setConverting(false);
+    }
+  };
+
+  const handleTagConfirm = async (
+    addingTagIds: string[],
+    removingTagIds: string[],
+  ) => {
+    const toastId = toast.loading("Updating tags...");
+    try {
+      const res = await fetch("/api/scans/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scanIds: [scan.id],
+          tagIds: addingTagIds,
+          removeTagIds: removingTagIds,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to update tags");
+      }
+      toast.success("Tags updated successfully!", { id: toastId });
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update tags", { id: toastId });
     }
   };
 
@@ -472,9 +504,10 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         setConvertTarget={setConvertTarget}
         setConvertOpen={setConvertOpen}
         reevaluationTokens={reevaluationTokens}
+        onTag={() => setTagDialogOpen(true)}
       />
 
-      <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
         {/* ── Summary hero ── */}
         <SummaryHero scan={scan} vocabulary={vocabulary} />
 
@@ -590,6 +623,16 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
                 })()
               : {}
         }
+      />
+      <TagSelectedDialog
+        open={tagDialogOpen}
+        onOpenChange={setTagDialogOpen}
+        vocabulary={vocabulary}
+        editMode
+        existingTagIds={(scan.tags || [])
+          .map((t) => t.split("~")[0])
+          .filter(Boolean)}
+        onConfirm={handleTagConfirm}
       />
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="border-red-500/20 bg-slate-900 text-slate-100">

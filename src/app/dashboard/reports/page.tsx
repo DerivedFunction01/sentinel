@@ -160,13 +160,17 @@ export default function ReportsPage() {
     loadInitialData();
   }, []);
 
-  const handleBulkTag = async (tagIds: string[]) => {
+  const handleBulkTag = async (tagIds: string[], removeTagIds?: string[]) => {
     const toastId = toast.loading("Applying tags...");
     try {
+      const body: any = { scanIds: selectedIds, tagIds };
+      if (removeTagIds && removeTagIds.length > 0) {
+        body.removeTagIds = removeTagIds;
+      }
       const res = await fetch("/api/scans/tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scanIds: selectedIds, tagIds }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const err = await res.json();

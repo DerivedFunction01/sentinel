@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, Loader2, Sparkles, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  RefreshCw,
+  Loader2,
+  Sparkles,
+  Trash2,
+  Tags,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -18,6 +25,7 @@ interface ReportHeaderProps {
   setConvertTarget?: (target: "hardening" | "reevaluation") => void;
   setConvertOpen?: (open: boolean) => void;
   reevaluationTokens?: number | null;
+  onTag?: () => void;
 }
 
 export function ReportHeader({
@@ -30,10 +38,11 @@ export function ReportHeader({
   setConvertTarget,
   setConvertOpen,
   reevaluationTokens,
+  onTag,
 }: ReportHeaderProps) {
   return (
     <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard/reports">
@@ -119,6 +128,17 @@ export function ReportHeader({
             >
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               Delete
+            </Button>
+          )}
+          {onTag && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onTag}
+              className="border-blue-500/30 text-blue-400 hover:text-blue-300 hover:bg-blue-950/20"
+            >
+              <Tags className="mr-1.5 h-3.5 w-3.5" />
+              Tags
             </Button>
           )}
         </div>
