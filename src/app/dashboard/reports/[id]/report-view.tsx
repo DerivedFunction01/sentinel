@@ -1941,6 +1941,34 @@ function summaryHero(scan: Scan) {
             // ignore
           }
 
+          const toolTrials = scan.trials.filter(
+            (t: any) => t.toolCalls && t.toolCalls.length > 0,
+          );
+          const noToolTrials = scan.trials.filter(
+            (t: any) => !t.toolCalls || t.toolCalls.length === 0,
+          );
+          const toolBreached = toolTrials.filter(
+            (t: any) => t.verdict === TrialVerdict.Breached,
+          ).length;
+          const noToolBreached = noToolTrials.filter(
+            (t: any) => t.verdict === TrialVerdict.Breached,
+          ).length;
+          const toolDefenseRate =
+            toolTrials.length > 0
+              ? Math.round(
+                  ((toolTrials.length - toolBreached) / toolTrials.length) *
+                    100,
+                )
+              : 0;
+          const noToolDefenseRate =
+            noToolTrials.length > 0
+              ? Math.round(
+                  ((noToolTrials.length - noToolBreached) /
+                    noToolTrials.length) *
+                    100,
+                )
+              : 0;
+
           return [
             {
               label: "Target Model",
@@ -1968,6 +1996,30 @@ function summaryHero(scan: Scan) {
                     ? "red"
                     : "default",
             },
+            {
+              label: "Defense Rate (w/ tools)",
+              value: `${toolDefenseRate}%`,
+              colorType:
+                toolTrials.length === 0
+                  ? "default"
+                  : toolDefenseRate >= 80
+                    ? "green"
+                    : toolDefenseRate >= 50
+                      ? "amber"
+                      : "red",
+            },
+            {
+              label: "Defense Rate (no tools)",
+              value: `${noToolDefenseRate}%`,
+              colorType:
+                noToolTrials.length === 0
+                  ? "default"
+                  : noToolDefenseRate >= 80
+                    ? "green"
+                    : noToolDefenseRate >= 50
+                      ? "amber"
+                      : "red",
+            },
           ];
         })().map((stat) => {
           let cardClass = "";
@@ -1978,6 +2030,9 @@ function summaryHero(scan: Scan) {
           } else if (stat.colorType === "green") {
             cardClass = "border-emerald-500/30 bg-emerald-500/5";
             textClass = "text-emerald-400";
+          } else if (stat.colorType === "amber") {
+            cardClass = "border-amber-500/30 bg-amber-500/5";
+            textClass = "text-amber-400";
           }
           return (
             <Card key={stat.label} className={`p-4 ${cardClass}`}>
