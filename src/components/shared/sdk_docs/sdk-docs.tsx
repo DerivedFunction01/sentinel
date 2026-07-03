@@ -25,7 +25,9 @@ type Op =
   | "confirm-reevaluate"
   | "confirm-batch-reevaluate"
   | "tool-extraction"
-  | "progress";
+  | "progress"
+  | "scans"
+  | "scan";
 
 const OPS = [
   { id: "trigger", label: "Trigger Scan (POST)" },
@@ -41,6 +43,8 @@ const OPS = [
   },
   { id: "tool-extraction", label: "Extract & Harden Tools (POST)" },
   { id: "progress", label: "Get Batch Progress (GET)" },
+  { id: "scans", label: "List Scans (GET)" },
+  { id: "scan", label: "Get Single Scan (GET)" },
 ] as const;
 
 const LANGS = [
@@ -172,7 +176,9 @@ export function SdkDocs({
         activeOp === "confirm-reevaluate" ||
         activeOp === "confirm-batch-reevaluate" ||
         activeOp === "tool-extraction" ||
-        activeOp === "progress") && (
+        activeOp === "progress" ||
+        activeOp === "scans" ||
+        activeOp === "scan") && (
         <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6 space-y-4">
           <h3 className="font-semibold text-sm">Extra Details</h3>
 
@@ -542,6 +548,29 @@ function WorkflowExplanation({
         </div>
       )}
 
+      {activeOp === "scans" && (
+        <div className="space-y-2">
+          <h5 className="font-semibold text-foreground">List All Scans</h5>
+          <p className="text-muted-foreground">
+            Returns all scans belonging to the authenticated user, ordered by
+            most recent first. Includes summary information such as score, risk
+            level, breach count, and model used.
+          </p>
+        </div>
+      )}
+
+      {activeOp === "scan" && (
+        <div className="space-y-2">
+          <h5 className="font-semibold text-foreground">
+            Get Single Scan Details
+          </h5>
+          <p className="text-muted-foreground">
+            Returns full details for a specific scan including all trials with
+            verdicts, transcripts, tool calls, hardened prompts, and metadata.
+          </p>
+        </div>
+      )}
+
       {activeOp === "tool-extraction" && (
         <div className="space-y-2">
           <h5 className="font-semibold text-foreground">
@@ -563,12 +592,12 @@ function WorkflowExplanation({
                   (optional): The prompt hardener model ID
                 </li>
                 <li>
-                  <strong className="text-foreground">extractorModel</strong>
+                  <strong className="text-foreground">extractorModel</strong>{" "}
                   (optional): Model for tool extraction. Use larger models
                   (Claude, GPT-4o) for complex prompts
                 </li>
                 <li>
-                  <strong className="text-foreground">granularity</strong>
+                  <strong className="text-foreground">granularity</strong>{" "}
                   (optional): "compact" (1-3 tools) or "detailed"
                   (domain-specific tools)
                 </li>

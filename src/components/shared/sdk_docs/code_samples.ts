@@ -14,7 +14,9 @@ type Op =
   | "confirm-reevaluate"
   | "confirm-batch-reevaluate"
   | "tool-extraction"
-  | "progress";
+  | "progress"
+  | "scans"
+  | "scan";
 
 interface CodeSampleParams {
   token: string;
@@ -136,6 +138,14 @@ export const CODE_SAMPLES: Record<
 
     progress: ({ token, origin }) =>
       `curl -X GET "${origin}/api/scan/progress/batch/BATCH_ID" \\
+  -H "Authorization: Bearer ${token}"`,
+
+    scans: ({ token, origin }) =>
+      `curl -X GET "${origin}/api/scans" \\
+  -H "Authorization: Bearer ${token}"`,
+
+    scan: ({ token, origin }) =>
+      `curl -X GET "${origin}/api/scans/SCAN_ID_OR_REPORT_ID" \\
   -H "Authorization: Bearer ${token}"`,
   },
 
@@ -305,6 +315,28 @@ print(response.json())`,
       `import requests
 
 url = "${origin}/api/scan/progress/batch/BATCH_ID"
+headers = {
+    "Authorization": "Bearer ${token}"
+}
+
+response = requests.get(url, headers=headers)
+print(response.json())`,
+
+    scans: ({ token, origin }) =>
+      `import requests
+
+url = "${origin}/api/scans"
+headers = {
+    "Authorization": "Bearer ${token}"
+}
+
+response = requests.get(url, headers=headers)
+print(response.json())`,
+
+    scan: ({ token, origin }) =>
+      `import requests
+
+url = "${origin}/api/scans/SCAN_ID_OR_REPORT_ID"
 headers = {
     "Authorization": "Bearer ${token}"
 }
@@ -536,6 +568,38 @@ fetch(url, options)
       `const fetch = require('node-fetch');
 
 const url = '${origin}/api/scan/progress/batch/BATCH_ID';
+const options = {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer ${token}'
+  }
+};
+
+fetch(url, options)
+  .then(res => res.json())
+  .then(data => console.log(data))
+  .catch(err => console.error(err));`,
+
+    scans: ({ token, origin }) =>
+      `const fetch = require('node-fetch');
+
+const url = '${origin}/api/scans';
+const options = {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer ${token}'
+  }
+};
+
+fetch(url, options)
+  .then(res => res.json())
+  .then(data => console.log(data))
+  .catch(err => console.error(err));`,
+
+    scan: ({ token, origin }) =>
+      `const fetch = require('node-fetch');
+
+const url = '${origin}/api/scans/SCAN_ID_OR_REPORT_ID';
 const options = {
   method: 'GET',
   headers: {
