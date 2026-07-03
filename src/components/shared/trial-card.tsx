@@ -69,6 +69,9 @@ export function TrialCard({ trial, scan, onRefresh }: TrialCardProps) {
           )}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs font-bold text-foreground">
+                #{trial.number}
+              </span>
               <span className="font-mono text-xs text-muted-foreground">
                 {trial.taskTag || `forbidden_task_1`}
               </span>
