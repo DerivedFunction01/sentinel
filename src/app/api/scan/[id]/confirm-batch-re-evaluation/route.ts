@@ -37,23 +37,7 @@ export async function POST(
     return NextResponse.json({ error: "Scan not found" }, { status: 404 });
   }
 
-  // Check reevaluation token balance for the number of trials being confirmed
-  const user = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: { reevaluationTokens: true },
-  });
-
-  if (!user || user.reevaluationTokens < proposals.length) {
-    return NextResponse.json(
-      {
-        error: "insufficient_reevaluation_tokens",
-        message: `You need ${proposals.length} reevaluation token${proposals.length > 1 ? "s" : ""} to confirm these re-evaluations. You have ${user?.reevaluationTokens ?? 0}. Convert scan tokens to reevaluation tokens at a rate of 1:30.`,
-        required: proposals.length,
-        available: user?.reevaluationTokens ?? 0,
-      },
-      { status: 402 },
-    );
-  }
+  // No token deduction needed for confirmations — only for re-evaluation API calls
 
   let trials: Trial[] = [];
   try {
@@ -88,12 +72,6 @@ export async function POST(
           : score >= 40
             ? RiskLevel.High
             : RiskLevel.Critical;
-
-    // Deduct reevaluation tokens for the number of successfully updated trials
-    await db.user.update({
-      where: { id: session.user.id },
-      data: { reevaluationTokens: { decrement: updatedCount } },
-    });
 
     // Save scan
     await db.scan.update({

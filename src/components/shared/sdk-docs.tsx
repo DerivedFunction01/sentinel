@@ -551,15 +551,15 @@ console.log(result);`;
           <div>
             <h4 className="font-semibold text-foreground mb-2">Token Cost Model</h4>
             <p className="text-muted-foreground leading-relaxed mb-2">
-              Re-evaluation uses a <strong className="text-foreground">flat 1 token fee</strong> regardless of how many trials are processed. 
-              Confirmation costs <strong className="text-foreground">1 token per trial</strong> you choose to apply.
+              Re-evaluation costs <strong className="text-foreground">1 token per trial being evaluated</strong> (matches actual OpenRouter API usage). 
+              Confirmation is <strong className="text-foreground">free</strong> — it only updates the database.
             </p>
             <div className="bg-muted/30 border border-border rounded-lg p-3 space-y-2">
               <p className="text-xs font-medium text-foreground">Example: Re-evaluating 10 breached trials, getting 3 overturned</p>
               <ul className="text-xs text-muted-foreground space-y-1 pl-4 list-disc">
-                <li><code className="text-blue-400">auto-re-evaluate</code> — 1 token (processes all 10)</li>
-                <li><code className="text-blue-400">confirm-batch-re-evaluation</code> — 3 tokens (applies 3 overturned trials)</li>
-                <li className="font-medium text-foreground">Total: 4 tokens</li>
+                <li><code className="text-blue-400">auto-re-evaluate</code> — 10 tokens (one per breached trial)</li>
+                <li><code className="text-blue-400">confirm-batch-re-evaluation</code> — FREE (no API calls)</li>
+                <li className="font-medium text-foreground">Total: 10 tokens</li>
               </ul>
             </div>
           </div>
@@ -567,7 +567,7 @@ console.log(result);`;
           <div>
             <h4 className="font-semibold text-foreground mb-2">Three-Endpoint Workflow</h4>
             <p className="text-muted-foreground leading-relaxed mb-2">
-              <strong className="text-foreground">Step 1:</strong> Request re-evaluation (1 token flat fee)
+              <strong className="text-foreground">Step 1:</strong> Request re-evaluation (N tokens for N trials)
             </p>
             <div className="space-y-2 pl-2 border-l-2 border-blue-500/30 mb-3">
               <div>
@@ -595,7 +595,7 @@ console.log(result);`;
             </p>
 
             <p className="text-muted-foreground leading-relaxed mb-2">
-              <strong className="text-foreground">Step 3:</strong> Confirm accepted changes (1 token per trial)
+              <strong className="text-foreground">Step 3:</strong> Confirm accepted changes (FREE)
             </p>
             <div className="space-y-2 pl-2 border-l-2 border-emerald-500/30">
               <div>
@@ -604,7 +604,7 @@ console.log(result);`;
                   POST /api/scan/{'{id}'}/confirm-re-evaluation
                 </code>
                 <p className="text-muted-foreground mt-1">
-                  Apply <strong className="text-foreground">one</strong> proposed change. Costs 1 token.
+                  Apply <strong className="text-foreground">one</strong> proposed change. No token cost.
                 </p>
               </div>
               <div>
@@ -613,13 +613,13 @@ console.log(result);`;
                   POST /api/scan/{'{id}'}/confirm-batch-re-evaluation
                 </code>
                 <p className="text-muted-foreground mt-1">
-                  Apply <strong className="text-foreground">multiple</strong> proposals at once. Costs 1 token per trial confirmed.
+                  Apply <strong className="text-foreground">multiple</strong> proposals at once. No token cost.
                 </p>
               </div>
             </div>
             <p className="text-muted-foreground mt-2">
-              <strong className="text-foreground">Important:</strong> Neither re-evaluation endpoint modifies the database. 
-              Changes are only applied when you call a confirmation endpoint.
+              <strong className="text-foreground">Important:</strong> Re-evaluation endpoints do NOT modify the database. 
+              Changes are only applied when you call a confirmation endpoint (which is free).
             </p>
           </div>
 
@@ -667,7 +667,7 @@ console.log(result);`;
                   language="bash"
                   className="bg-zinc-950/60 p-3"
                 />
-                <p className="text-muted-foreground mt-3">Step 2: If overturned, confirm (1 token)</p>
+                <p className="text-muted-foreground mt-3">Step 2: If overturned, confirm (FREE)</p>
                 <CodeHighlight
                   code={`curl -X POST "${origin}/api/scan/SP-26-0617-3Q91/confirm-re-evaluation" \\
   -H "Authorization: Bearer ${token}" \\
@@ -688,14 +688,14 @@ console.log(result);`;
             <h4 className="font-semibold text-foreground mb-2">Example: Bulk Re-evaluate + Batch Confirm</h4>
             {hasMounted && (
               <div className="space-y-2">
-                <p className="text-muted-foreground">Step 1: Auto re-evaluate all breached (1 token)</p>
+                <p className="text-muted-foreground">Step 1: Auto re-evaluate all breached (N tokens, where N = number of breached trials)</p>
                 <CodeHighlight
                   code={`curl -X POST "${origin}/api/scan/SP-26-0617-3Q91/auto-re-evaluate" \\
   -H "Authorization: Bearer ${token}"`}
                   language="bash"
                   className="bg-zinc-950/60 p-3"
                 />
-                <p className="text-muted-foreground mt-3">Step 2: Review proposals, then batch confirm accepted ones (N tokens)</p>
+                <p className="text-muted-foreground mt-3">Step 2: Review proposals, then batch confirm accepted ones (FREE)</p>
                 <CodeHighlight
                   code={`curl -X POST "${origin}/api/scan/SP-26-0617-3Q91/confirm-batch-re-evaluation" \\
   -H "Authorization: Bearer ${token}" \\

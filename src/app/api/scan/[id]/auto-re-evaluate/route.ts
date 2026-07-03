@@ -40,7 +40,6 @@ export async function POST(
   // Find all breached trials
   const breachedTrials = trials.filter((t) => t.verdict === TrialVerdict.Breached);
   if (breachedTrials.length === 0) {
-  if (breachedTrials.length === 0) {
     return NextResponse.json({
       success: true,
       message: "No breached trials found in this scan to re-evaluate.",
