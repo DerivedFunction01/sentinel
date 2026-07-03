@@ -50,19 +50,34 @@ export function ScoreTrendChart({ data }: ScoreTrendChartProps) {
 
   return (
     <div className="w-full h-full flex flex-col">
-      <Tabs value={period} onValueChange={(v) => setPeriod(v as TimePeriod)} className="mb-2">
+      <Tabs
+        value={period}
+        onValueChange={(v) => setPeriod(v as TimePeriod)}
+        className="mb-2"
+      >
         <TabsList className="h-7 p-0.5 bg-muted/65 border border-white/5">
-          <TabsTrigger value="all" className="text-[10px] px-2 py-1">All</TabsTrigger>
-          <TabsTrigger value="weekly" className="text-[10px] px-2 py-1">Weekly</TabsTrigger>
-          <TabsTrigger value="monthly" className="text-[10px] px-2 py-1">Monthly</TabsTrigger>
-          <TabsTrigger value="annually" className="text-[10px] px-2 py-1">Annually</TabsTrigger>
+          <TabsTrigger value="all" className="text-[10px] px-2 py-1">
+            All
+          </TabsTrigger>
+          <TabsTrigger value="weekly" className="text-[10px] px-2 py-1">
+            Weekly
+          </TabsTrigger>
+          <TabsTrigger value="monthly" className="text-[10px] px-2 py-1">
+            Monthly
+          </TabsTrigger>
+          <TabsTrigger value="annually" className="text-[10px] px-2 py-1">
+            Annually
+          </TabsTrigger>
         </TabsList>
       </Tabs>
       <div className="flex-1 min-h-0">
         {filteredData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="rgba(255,255,255,0.05)"
+              />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 10, fill: "rgba(255,255,255,0.3)" }}
@@ -71,7 +86,10 @@ export function ScoreTrendChart({ data }: ScoreTrendChartProps) {
                 height={60}
                 tickFormatter={(value) => {
                   const date = new Date(value);
-                  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  return date.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  });
                 }}
               />
               <YAxis
@@ -87,7 +105,7 @@ export function ScoreTrendChart({ data }: ScoreTrendChartProps) {
                   fontSize: "12px",
                 }}
                 labelStyle={{ color: "hsl(var(--popover-foreground))" }}
-                formatter={(value: number) => [`Score: ${value.toFixed(0)}`, ""]}
+                formatter={(value) => [`Score: ${value.toFixed(0)}`, ""]}
                 labelFormatter={(label) => `Date: ${label}`}
               />
               <Line
@@ -95,7 +113,12 @@ export function ScoreTrendChart({ data }: ScoreTrendChartProps) {
                 dataKey="score"
                 stroke="#3B82F6"
                 strokeWidth={2.5}
-                dot={{ r: 4, fill: "#3B82F6", stroke: "#0a0e1a", strokeWidth: 2 }}
+                dot={{
+                  r: 4,
+                  fill: "#3B82F6",
+                  stroke: "#0a0e1a",
+                  strokeWidth: 2,
+                }}
                 activeDot={{ r: 6 }}
               />
             </LineChart>
