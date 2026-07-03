@@ -482,14 +482,42 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
     right: border,
   };
 
-  const metricCellWidth = 1872; // 9360 / 5
-  const tableWidth = 9360;
+  const metricCellWidth = 1172; // 9376 / 8
+  const tableWidth = 9376;
 
   const totalToolCalls = scan.trials.reduce(
     (sum, trial) => sum + (trial.toolCalls?.length || 0),
     0,
   );
-  const toolCallRate = (totalToolCalls / scan.totalTrials).toFixed(1);
+  const toolCallRate =
+    scan.totalTrials > 0
+      ? (totalToolCalls / scan.totalTrials).toFixed(1)
+      : "0.0";
+
+  const toolTrials = scan.trials.filter(
+    (t: any) => t.toolCalls && t.toolCalls.length > 0,
+  );
+  const noToolTrials = scan.trials.filter(
+    (t: any) => !t.toolCalls || t.toolCalls.length === 0,
+  );
+  const toolBreached = toolTrials.filter(
+    (t: any) => t.verdict === TrialVerdict.Breached,
+  ).length;
+  const noToolBreached = noToolTrials.filter(
+    (t: any) => t.verdict === TrialVerdict.Breached,
+  ).length;
+  const toolDefenseRate =
+    toolTrials.length > 0
+      ? Math.round(
+          ((toolTrials.length - toolBreached) / toolTrials.length) * 100,
+        )
+      : 0;
+  const noToolDefenseRate =
+    noToolTrials.length > 0
+      ? Math.round(
+          ((noToolTrials.length - noToolBreached) / noToolTrials.length) * 100,
+        )
+      : 0;
 
   const metrics = [
     { label: "TARGET MODEL", value: scan.modelName },
@@ -501,19 +529,35 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
       value: `${toolCallRate}/trial`,
       red: totalToolCalls > 0 && scan.breaches > 0,
     },
+    {
+      label: "DEFENSE RATE (W/ TOOLS)",
+      value: toolTrials.length === 0 ? "N/A" : `${toolDefenseRate}%`,
+      red: toolTrials.length > 0 && toolDefenseRate < 50,
+      amber:
+        toolTrials.length > 0 && toolDefenseRate >= 50 && toolDefenseRate < 80,
+    },
+    {
+      label: "DEFENSE RATE (NO TOOLS)",
+      value: noToolTrials.length === 0 ? "N/A" : `${noToolDefenseRate}%`,
+      red: noToolTrials.length > 0 && noToolDefenseRate < 50,
+      amber:
+        noToolTrials.length > 0 &&
+        noToolDefenseRate >= 50 &&
+        noToolDefenseRate < 80,
+    },
     { label: "API COST", value: `$${(scan.apiCost || 0).toFixed(4)}` },
   ];
+
+  const accentColor = (metric: any) => {
+    if (metric.red) return "E74C3C";
+    if (metric.amber) return "F39C12";
+    return "1F4788";
+  };
 
   return [
     new Table({
       width: { size: tableWidth, type: WidthType.DXA },
-      columnWidths: [
-        metricCellWidth,
-        metricCellWidth,
-        metricCellWidth,
-        metricCellWidth,
-        metricCellWidth,
-      ],
+      columnWidths: Array(8).fill(metricCellWidth),
       rows: [
         new TableRow({
           children: metrics.map((metric) => {
@@ -529,19 +573,19 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
                     new TextRun({
                       text: metric.label,
                       bold: true,
-                      size: 18,
+                      size: 16,
                       color: "666666",
                     }),
                   ],
                 }),
                 new Paragraph({
-                  spacing: { before: 60 },
+                  spacing: { before: 40 },
                   children: [
                     new TextRun({
                       text: metric.value,
                       bold: true,
-                      size: 28,
-                      color: metric.red ? "E74C3C" : "1F4788",
+                      size: 24,
+                      color: accentColor(metric),
                     }),
                   ],
                 }),
