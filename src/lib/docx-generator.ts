@@ -482,8 +482,8 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
     right: border,
   };
 
-  const metricCellWidth = 1172; // 9376 / 8
-  const tableWidth = 9376;
+  const metricCellWidth = 2340; // 9360 / 4
+  const tableWidth = 9360;
 
   const totalToolCalls = scan.trials.reduce(
     (sum, trial) => sum + (trial.toolCalls?.length || 0),
@@ -519,15 +519,34 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
         )
       : 0;
 
-  const metrics = [
-    { label: "TARGET MODEL", value: scan.modelName },
-    { label: "TOTAL TRIALS", value: scan.totalTrials.toString() },
-    { label: "BREACHES", value: scan.breaches.toString(), red: true },
-    { label: "BREACH RATE", value: `${scan.breachRate}%`, red: true },
+  // Row 1: Merging cell 1 & 2 for Model Name. It now contains 3 items.
+  const row1Metrics = [
+    {
+      label: "TARGET MODEL",
+      value: scan.modelName,
+      size: metricCellWidth * 2,
+      gridSpan: 2,
+    },
+    {
+      label: "TOTAL TRIALS",
+      value: scan.totalTrials.toString(),
+      size: metricCellWidth,
+    },
+    {
+      label: "BREACHES",
+      value: scan.breaches.toString(),
+      red: true,
+      size: metricCellWidth,
+    },
+  ];
+
+  // Row 2: Standard 4 columns containing the rest of your stats
+  const row2Metrics = [
     {
       label: "TOOL CALL RATE",
       value: `${toolCallRate}/trial`,
       red: totalToolCalls > 0 && scan.breaches > 0,
+      size: metricCellWidth,
     },
     {
       label: "DEFENSE RATE (W/ TOOLS)",
@@ -535,6 +554,7 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
       red: toolTrials.length > 0 && toolDefenseRate < 50,
       amber:
         toolTrials.length > 0 && toolDefenseRate >= 50 && toolDefenseRate < 80,
+      size: metricCellWidth,
     },
     {
       label: "DEFENSE RATE (NO TOOLS)",
@@ -544,8 +564,13 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
         noToolTrials.length > 0 &&
         noToolDefenseRate >= 50 &&
         noToolDefenseRate < 80,
+      size: metricCellWidth,
     },
-    { label: "API COST", value: `$${(scan.apiCost || 0).toFixed(4)}` },
+    {
+      label: "API COST",
+      value: `$${(scan.apiCost || 0).toFixed(4)}`,
+      size: metricCellWidth,
+    },
   ];
 
   const accentColor = (metric: any) => {
@@ -554,46 +579,49 @@ function createMetricsTable(scan: Scan, breachedCount: number): any[] {
     return "1F4788";
   };
 
+  const renderRow = (metrics: any[]) =>
+    new TableRow({
+      children: metrics.map((metric) => {
+        return new TableCell({
+          borders,
+          width: { size: metric.size, type: WidthType.DXA },
+          // Dynamically apply gridSpan if it exists on the metric object
+          ...(metric.gridSpan ? { gridSpan: metric.gridSpan } : {}),
+          shading: { fill: "F8F8F8", type: ShadingType.CLEAR },
+          margins: { top: 80, bottom: 80, left: 100, right: 100 },
+          verticalAlign: VerticalAlign.CENTER,
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: metric.label,
+                  bold: true,
+                  size: 16,
+                  color: "666666",
+                }),
+              ],
+            }),
+            new Paragraph({
+              spacing: { before: 40 },
+              children: [
+                new TextRun({
+                  text: metric.value,
+                  bold: true,
+                  size: 24,
+                  color: accentColor(metric),
+                }),
+              ],
+            }),
+          ],
+        });
+      }),
+    });
+
   return [
     new Table({
       width: { size: tableWidth, type: WidthType.DXA },
-      columnWidths: Array(8).fill(metricCellWidth),
-      rows: [
-        new TableRow({
-          children: metrics.map((metric) => {
-            return new TableCell({
-              borders,
-              width: { size: metricCellWidth, type: WidthType.DXA },
-              shading: { fill: "F8F8F8", type: ShadingType.CLEAR },
-              margins: { top: 80, bottom: 80, left: 100, right: 100 },
-              verticalAlign: VerticalAlign.CENTER,
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: metric.label,
-                      bold: true,
-                      size: 16,
-                      color: "666666",
-                    }),
-                  ],
-                }),
-                new Paragraph({
-                  spacing: { before: 40 },
-                  children: [
-                    new TextRun({
-                      text: metric.value,
-                      bold: true,
-                      size: 24,
-                      color: accentColor(metric),
-                    }),
-                  ],
-                }),
-              ],
-            });
-          }),
-        }),
-      ],
+      columnWidths: Array(4).fill(metricCellWidth),
+      rows: [renderRow(row1Metrics), renderRow(row2Metrics)],
     }),
   ];
 }
