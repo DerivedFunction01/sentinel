@@ -720,7 +720,7 @@ function ReevaluationPanel({
               placeholder="Provide context or explanation for this manual correction..."
               value={manualReasoning}
               onChange={(e) => setManualReasoning(e.target.value)}
-              className="text-xs bg-black/25 border-white/10 focus:border-yellow-500/30"
+              className="text-xs bg-black/25 border-white/10 text-slate-400 focus:border-yellow-500/30"
             />
           </div>
 

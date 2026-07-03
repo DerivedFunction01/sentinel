@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model User {
@@ -19,6 +19,7 @@ model User {
   scanTokens          Int            @default(10)
   hardeningTokens     Int            @default(0)
   reevaluationTokens  Int            @default(0)
+  userTags     String         @default("[]") // JSON: Array<{ id: string, name: string }>
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -75,6 +76,7 @@ model Scan {
   allowNoToolsFallback Boolean @default(false)
   createdAt         DateTime @default(now())
   metadata          String?  // JSON: ScanMetadata - stores seed extraction results, attack summaries, etc.
+  tags              String   @default("[]") // JSON: Array of `<vocabId>~<fallbackName>`
 
   hardenedPrompts   HardenedPrompt[]
 

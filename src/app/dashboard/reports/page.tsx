@@ -11,6 +11,7 @@ import {
   CheckSquare,
   Square,
   Loader2,
+  Tags,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { TagSelectedDialog } from "@/components/shared/tag-selected-dialog";
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<any[]>([]);
@@ -39,6 +41,8 @@ export default function ReportsPage() {
     "all" | "selected" | string | null
   >(null);
   const [deleting, setDeleting] = useState(false);
+  const [vocabulary, setVocabulary] = useState<Array<{ id: string; name: string }>>([]);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) =>
@@ -139,6 +143,15 @@ export default function ReportsPage() {
           // Background sync
           await syncReports(userData.user.id, cached === null);
         }
+
+        // Fetch vocabulary
+        try {
+          const tagsRes = await fetch("/api/user/tags");
+          const tagsData = await tagsRes.json();
+          if (tagsData.tags) {
+            setVocabulary(tagsData.tags);
+          }
+        } catch {}
       } catch (err) {
         console.error("Failed to load initial scans:", err);
         setLoading(false);
@@ -146,6 +159,30 @@ export default function ReportsPage() {
     }
     loadInitialData();
   }, []);
+
+  const handleBulkTag = async (tagIds: string[]) => {
+    const toastId = toast.loading("Applying tags...");
+    try {
+      const res = await fetch("/api/scans/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scanIds: selectedIds, tagIds }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to tag scans");
+      }
+      const data = await res.json();
+      setReports(data.scans);
+      if (userId) {
+        const { setCachedScansList } = await import("@/lib/indexed-db");
+        await setCachedScansList(userId, data.scans);
+      }
+      toast.success("Tags applied successfully!", { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to tag scans", { id: toastId });
+    }
+  };
 
   async function syncReports(uid: string, forceLoadingState = false) {
     if (forceLoadingState) setLoading(true);
@@ -191,6 +228,15 @@ export default function ReportsPage() {
                         : "Select All"}
                     </Button>
                     <Button
+                      onClick={() => setTagDialogOpen(true)}
+                      disabled={selectedIds.length === 0}
+                      variant="outline"
+                      className="border-blue-500/20 text-blue-400 hover:bg-blue-950/20"
+                    >
+                      <Tags className="mr-2 h-4 w-4" />
+                      Tag Selected ({selectedIds.length})
+                    </Button>
+                    <Button
                       onClick={() => {
                         setDeleteTarget("selected");
                         setDeleteDialogOpen(true);
@@ -220,6 +266,7 @@ export default function ReportsPage() {
                       variant="outline"
                       className="border-white/10 text-muted-foreground hover:text-foreground"
                     >
+                      <Tags className="mr-2 h-4 w-4" />
                       Select Reports
                     </Button>
                     <Button
@@ -332,6 +379,24 @@ export default function ReportsPage() {
                     <p className="line-clamp-2 text-xs text-muted-foreground">
                       {truncate(report.promptExcerpt, 80)}
                     </p>
+                    {report.tags && report.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {report.tags.map((tagStr: string) => {
+                          const parts = tagStr.split("~");
+                          const fallbackName = parts[1] || parts[0] || tagStr;
+                          const vocabEntry = vocabulary.find((v) => v.id === parts[0]);
+                          const displayName = vocabEntry?.name || fallbackName;
+                          return (
+                            <span
+                              key={tagStr}
+                              className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800/50 px-2 py-0.5 text-[10px] font-medium text-slate-300"
+                            >
+                              {displayName}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">
                         {report.modelName}
@@ -456,6 +521,14 @@ export default function ReportsPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          <TagSelectedDialog
+            open={tagDialogOpen}
+            onOpenChange={setTagDialogOpen}
+            vocabulary={vocabulary}
+            selectedScanCount={selectedIds.length}
+            onConfirm={handleBulkTag}
+          />
         </>
       )}
     </div>

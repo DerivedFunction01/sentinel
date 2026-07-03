@@ -65,12 +65,18 @@ export function deserializeScan(row: {
   let tools: ToolDef[] = [];
   let mockToolResponses: Record<string, unknown> = {};
   let trials: Trial[] = [];
+  let tags: string[] = [];
   try {
     if (row.metadata) {
       metadata = JSON.parse(row.metadata) as ScanMetadata;
     }
   } catch {
     /* keep undefined */
+  }
+  try {
+    tags = JSON.parse((row as any).tags || "[]") as string[];
+  } catch {
+    /* keep empty */
   }
   try {
     tools = JSON.parse(row.tools) as ToolDef[];
@@ -174,6 +180,7 @@ export function deserializeScan(row: {
     summary: row.summary,
     summaryDetail: row.summaryDetail,
     metadata,
+    tags,
     hardenedPrompts: (row.hardenedPrompts || []).map((hp) => {
       let recObj: any = null;
       if (hp.toolRecommendation) {
@@ -293,6 +300,7 @@ export async function getUserScans(userId: string): Promise<ScanSummary[]> {
     status: row.status as ScanStatus,
     relativeTime: formatRelativeTime(row.createdAt),
     toolCallRate: calculateToolCallRate(row.trials, row.totalTrials),
+    tags: parseTags(row.tags),
   }));
 }
 
@@ -319,6 +327,7 @@ export async function getAllScans(): Promise<ScanSummary[]> {
     status: row.status as ScanStatus,
     relativeTime: formatRelativeTime(row.createdAt),
     toolCallRate: calculateToolCallRate(row.trials, row.totalTrials),
+    tags: parseTags(row.tags),
   }));
 }
 
@@ -403,6 +412,17 @@ export function computeDashboardStats(scans: ScanSummary[]) {
     modelUsage,
     attackSuccessRate,
   };
+}
+
+/** Parse the tags JSON string from DB into a string array. */
+function parseTags(tagsJson: string): string[] {
+  if (!tagsJson || tagsJson === "[]") return [];
+  try {
+    const parsed = JSON.parse(tagsJson);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Delete a single scan by reportId and userId. */

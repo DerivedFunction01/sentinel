@@ -222,6 +222,7 @@ export interface Scan {
   apiCost: number;
   trials: Trial[];
   metadata?: ScanMetadata;
+  tags?: string[];
 }
 
 /** Lightweight scan reference for list/activity views. */
@@ -238,6 +239,7 @@ export interface ScanSummary {
   status: ScanStatus;
   relativeTime: string;
   toolCallRate?: string;
+  tags?: string[];
 }
 
 /** A single rephrased pair: original restriction → capability + mock policy. */
@@ -266,6 +268,7 @@ export interface User {
   scanTokens: number;
   totalScans: number;
   apiScans: number;
+  userTags?: Array<{ id: string; name: string }>;
 }
 
 /** Dashboard-level aggregate statistics. */
