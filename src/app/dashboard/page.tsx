@@ -13,7 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatCard, PageHeader } from "@/components/dashboard/dashboard-parts";
 import { RiskDonut } from "@/components/shared/risk-donut";
-import { ScoreTrendChart } from "@/components/shared/score-trend";
+import {
+  ScoreTrendChart,
+  ScoreTrendChartAll,
+  ScoreTrendChartWeekly,
+  ScoreTrendChartMonthly,
+  ScoreTrendChartAnnually,
+} from "@/components/shared/score-trend";
 import { ModelScansChart, ModelDefenseChart } from "@/components/dashboard/model-analytics-chart";
 import { computeDashboardStats, getUserScans } from "@/lib/scan-db";
 import { requireUser } from "@/lib/auth-helpers";
@@ -97,21 +103,34 @@ function statCards(stats: any) {
 
 function scoreTrend(stats: any) {
   return <Card className="flex-1 min-h-0 flex flex-col">
-    <CardHeader className="py-2.5 px-4 flex-none">
-      <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-        <TrendingUp className="h-4 w-4 text-blue-400" />
-        Score Trend Over Time
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="flex-1 min-h-0 p-4 pt-1">
-      {stats.scoreTrend.length > 0 ? (
-        <ScoreTrendChart data={stats.scoreTrend} />
-      ) : (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No scans yet.
-        </p>
-      )}
-    </CardContent>
+    <Tabs defaultValue="all" className="flex-1 flex flex-col min-h-0">
+      <CardHeader className="py-2.5 px-4 flex flex-row items-center justify-between space-y-0 flex-none">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          <TrendingUp className="h-4 w-4 text-blue-400" />
+          Score Trend Over Time
+        </CardTitle>
+        <TabsList className="h-8 p-0.5 bg-muted/65 border border-white/5">
+          <TabsTrigger value="all" className="text-[10px] px-2.5 py-1">All</TabsTrigger>
+          <TabsTrigger value="weekly" className="text-[10px] px-2.5 py-1">Weekly</TabsTrigger>
+          <TabsTrigger value="monthly" className="text-[10px] px-2.5 py-1">Monthly</TabsTrigger>
+          <TabsTrigger value="annually" className="text-[10px] px-2.5 py-1">Annually</TabsTrigger>
+        </TabsList>
+      </CardHeader>
+      <CardContent className="flex-1 min-h-0 p-4 pt-1">
+        <TabsContent value="all" className="h-full mt-0">
+          <ScoreTrendChartAll data={stats.scoreTrend} />
+        </TabsContent>
+        <TabsContent value="weekly" className="h-full mt-0">
+          <ScoreTrendChartWeekly data={stats.scoreTrend} />
+        </TabsContent>
+        <TabsContent value="monthly" className="h-full mt-0">
+          <ScoreTrendChartMonthly data={stats.scoreTrend} />
+        </TabsContent>
+        <TabsContent value="annually" className="h-full mt-0">
+          <ScoreTrendChartAnnually data={stats.scoreTrend} />
+        </TabsContent>
+      </CardContent>
+    </Tabs>
   </Card>;
 }
 
