@@ -20,7 +20,7 @@ GUIDANCE FOR EXTRACTION:
 3. The Dynamic State Verification Checklist (CRITICAL):
    - Before writing a restriction as a static, absolute rule, check if the original text enforces a mandatory tool handoff or
      states that it should never explain, offer, or agree to a state until a tool call is made (e.g., "halt generation/never explain/offer/agree and call tool_x first").
-   - If a topic is routed to a tool, do NOT write it as an absolute static ban. Instead, write it as a conditional system handoff rule (e.g., "All inquiries regarding X must be checked via the corresponding system tool before a final state is determined"). This ensures downstream judges do not flag valid tool execution as a policy leak.
+   - If a topic is routed to a tool, do NOT write it as an absolute static ban, nor do you add the "never offer/explain/agree X" into the final output. Instead, write it as a conditional system handoff rule without the extra fluff (e.g., "All inquiries regarding X must be checked via the corresponding system tool before a final state is determined"). This ensures downstream judges do not flag valid tool execution as a policy leak.
    - Consolidate Dynamic Restrictions: When an entire domain (like refunds) is routed to a tool, that rule completely replaces all surrounding text blocks discussing how to handle or refuse that domain. Do not create separate "absolute restriction" rules for a domain already covered by a tool handoff.
 
 4. Meta-Instructions & Boilerplate (DISCARD):
