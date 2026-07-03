@@ -30,6 +30,7 @@ import { DEFAULT_MODEL } from "@/lib/model-utils";
 import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-dialog";
 import { ReportHeader } from "@/components/report/report-header";
 import { TagSelectedDialog } from "@/components/shared/tag-selected-dialog";
+import { getCachedUserTags } from "@/lib/indexed-db";
 
 interface ReportViewProps {
   scan: Scan;
@@ -214,7 +215,6 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
 
   useEffect(() => {
     setMounted(true);
-    // Fetch token balances + vocabulary
     fetch("/api/user")
       .then((r) => r.json())
       .then((d) => {
@@ -222,13 +222,30 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         setReevaluationTokens(d.user?.reevaluationTokens ?? 0);
       })
       .catch(() => {});
-    // Fetch vocabulary
-    fetch("/api/user/tags")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.tags) setVocabulary(d.tags);
-      })
-      .catch(() => {});
+    // Load vocabulary from IndexedDB cache first
+    (async () => {
+      try {
+        const userRes = await fetch("/api/user");
+        const userData = await userRes.json();
+        const uid = userData?.user?.id;
+        if (uid) {
+          const cached = await getCachedUserTags(uid);
+          if (cached) {
+            setVocabulary(cached);
+          }
+          // Fallback to API if no cache
+          if (!cached) {
+            const tagsRes = await fetch("/api/user/tags");
+            const tagsData = await tagsRes.json();
+            if (tagsData.tags) {
+              setVocabulary(tagsData.tags);
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -628,10 +645,10 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         open={tagDialogOpen}
         onOpenChange={setTagDialogOpen}
         vocabulary={vocabulary}
-        editMode
-        existingTagIds={(scan.tags || [])
+        selectedScanCount={1}
+        existingTagIdsPerScan={[(scan.tags || [])
           .map((t) => t.split("~")[0])
-          .filter(Boolean)}
+          .filter(Boolean)]}
         onConfirm={handleTagConfirm}
       />
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

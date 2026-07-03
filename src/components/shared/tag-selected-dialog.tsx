@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,9 +23,8 @@ interface TagSelectedDialogProps {
   onOpenChange: (v: boolean) => void;
   vocabulary: TagItem[];
   selectedScanCount?: number;
-  onConfirm: (tagIds: string[], removeTagIds: string[]) => Promise<void>;
-  editMode?: boolean;
-  existingTagIds?: string[];
+  onConfirm: (addingTagIds: string[], removingTagIds: string[]) => Promise<void>;
+  existingTagIdsPerScan?: string[][];
 }
 
 export function TagSelectedDialog({
@@ -34,56 +33,60 @@ export function TagSelectedDialog({
   vocabulary,
   selectedScanCount,
   onConfirm,
-  editMode = false,
-  existingTagIds = [],
+  existingTagIdsPerScan = [],
 }: TagSelectedDialogProps) {
-  const [addingTagIds, setAddingTagIds] = useState<string[]>([]);
-  const [removingTagIds, setRemovingTagIds] = useState<string[]>([]);
+  const scanCount = selectedScanCount || 1;
+  const tagDataPerScan = existingTagIdsPerScan;
+
+  const fullyActiveInitially = useMemo(() => {
+    if (tagDataPerScan.length === 0) return [];
+    const initial = new Set(tagDataPerScan[0]);
+    for (let i = 1; i < tagDataPerScan.length; i++) {
+      const current = new Set(tagDataPerScan[i]);
+      for (const id of [...initial]) {
+        if (!current.has(id)) initial.delete(id);
+      }
+    }
+    return Array.from(initial);
+  }, [tagDataPerScan]);
+
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!open) {
-      setAddingTagIds([]);
-      setRemovingTagIds([]);
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedTagIds(fullyActiveInitially);
     }
-  }, [open]);
+  }, [open, fullyActiveInitially]);
 
-  const toggleAdding = (id: string) => {
-    setAddingTagIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-  };
-
-  const toggleRemoving = (id: string) => {
-    setRemovingTagIds((prev) =>
+  const toggleTag = (id: string) => {
+    setSelectedTagIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   };
 
   const handleOpenChange = (v: boolean) => {
-    if (!v) {
-      setAddingTagIds([]);
-      setRemovingTagIds([]);
-    }
     onOpenChange(v);
   };
 
   const handleConfirm = async () => {
+    const addingTagIds = selectedTagIds.filter(
+      (id) => !fullyActiveInitially.includes(id),
+    );
+    const removingTagIds = fullyActiveInitially.filter(
+      (id) => !selectedTagIds.includes(id),
+    );
     if (addingTagIds.length === 0 && removingTagIds.length === 0) return;
     setSaving(true);
     try {
       await onConfirm(addingTagIds, removingTagIds);
-      setAddingTagIds([]);
-      setRemovingTagIds([]);
-      handleOpenChange(false);
     } finally {
       setSaving(false);
     }
   };
 
-  const effectiveExisting = editMode
-    ? existingTagIds
-    : existingTagIds.filter((id) => !addingTagIds.includes(id));
+  const isBulkMode = scanCount > 1;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -91,111 +94,58 @@ export function TagSelectedDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base font-bold">
             <TagsIcon className="h-4 w-4" />
-            {editMode
-              ? "Edit Tags"
-              : `Tag Selected Report${(selectedScanCount ?? 1) !== 1 ? "s" : ""}`}
+            {isBulkMode
+              ? "Tag Selected Reports"
+              : "Edit Tags"}
           </DialogTitle>
           <DialogDescription className="text-slate-400 text-xs mt-1">
-            {editMode
-              ? "Manage tags for this scan."
-              : `Apply tags to ${selectedScanCount ?? 1} selected report${(selectedScanCount ?? 1) !== 1 ? "s" : ""}.`}
+            {isBulkMode
+              ? `Apply or remove tags from ${scanCount} selected report${scanCount !== 1 ? "s" : ""}.`
+              : "Toggle tags for this scan."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {editMode && effectiveExisting.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Current Tags
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              {isBulkMode ? "Available Tags" : "All Tags"}
+            </p>
+            {vocabulary.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-4">
+                No tags defined yet. Create tags in your{" "}
+                <a
+                  href="/dashboard/settings"
+                  className="text-blue-400 hover:underline"
+                >
+                  settings
+                </a>
+                .
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {effectiveExisting.map((tagId) => {
-                  const vocabEntry = vocabulary.find((v) => v.id === tagId);
-                  const displayName = vocabEntry?.name || tagId;
-                  const isRemoving = removingTagIds.includes(tagId);
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {vocabulary.map((tag) => {
+                  const isSelected = selectedTagIds.includes(tag.id);
                   return (
                     <button
-                      key={tagId}
+                      key={tag.id}
                       type="button"
-                      onClick={() => toggleRemoving(tagId)}
+                      onClick={() => toggleTag(tag.id)}
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all",
-                        isRemoving
-                          ? "border-red-400/40 bg-red-500/15 text-red-300"
-                          : "border-blue-500/30 bg-blue-500/10 text-blue-200 hover:border-red-400/40 hover:text-red-300",
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
+                        isSelected
+                          ? "border-blue-500 bg-blue-600/20 text-blue-300"
+                          : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600 hover:text-slate-300",
                       )}
-                      title={isRemoving ? "Cancel removal" : "Click to remove"}
                     >
-                      {displayName}
-                      <X className="h-3 w-3" />
+                      {isSelected && <X className="h-3 w-3" />}
+                      {isSelected ? "" : "Add "}
+                      {tag.name}
                     </button>
                   );
                 })}
               </div>
-            </div>
-          )}
-
-          {(editMode ? addingTagIds.length > 0 : true) && (
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                {editMode ? "Add Tags" : "Available Tags"}
-              </p>
-              {vocabulary.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-4">
-                  No tags defined yet. Create tags in your{" "}
-                  <a
-                    href="/dashboard/settings"
-                    className="text-blue-400 hover:underline"
-                  >
-                    settings
-                  </a>
-                  .
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {vocabulary.map((tag) => {
-                    const disabled =
-                      editMode && effectiveExisting.includes(tag.id);
-                    const isAdding = addingTagIds.includes(tag.id);
-                    return (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => !disabled && toggleAdding(tag.id)}
-                        disabled={disabled}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
-                          isAdding
-                            ? "border-blue-500 bg-blue-600/20 text-blue-300"
-                            : disabled
-                              ? "cursor-not-allowed opacity-50 border-slate-700 bg-slate-800/20 text-slate-500"
-                              : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600 hover:text-slate-300",
-                        )}
-                      >
-                        {isAdding && <X className="h-3 w-3" />}
-                        {disabled && !isAdding
-                          ? `${tag.name} (added)`
-                          : `${isAdding ? "" : "Add "}${tag.name}`}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {removingTagIds.length > 0 && (
-            <p className="text-xs text-red-400">
-              {removingTagIds.length} tag{removingTagIds.length > 1 ? "s" : ""}{" "}
-              will be removed
-            </p>
-          )}
-          {addingTagIds.length > 0 && removingTagIds.length === 0 && (
-            <p className="text-xs text-slate-500">
-              {addingTagIds.length} tag{addingTagIds.length > 1 ? "s" : ""}{" "}
-              selected
-            </p>
-          )}
+            )}
+          </div>
         </div>
 
         <DialogFooter className="mt-2 flex gap-2 justify-end">
@@ -210,7 +160,9 @@ export function TagSelectedDialog({
           <Button
             onClick={handleConfirm}
             disabled={
-              (addingTagIds.length === 0 && removingTagIds.length === 0) ||
+              (selectedTagIds.length === 0 && fullyActiveInitially.length === 0) ||
+              (JSON.stringify(selectedTagIds.sort()) ===
+                JSON.stringify(fullyActiveInitially.sort())) ||
               saving
             }
             className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -221,7 +173,7 @@ export function TagSelectedDialog({
                 Saving...
               </>
             ) : (
-              `${addingTagIds.length > 0 || removingTagIds.length > 0 ? "Update" : "Close"}`
+              "Update"
             )}
           </Button>
         </DialogFooter>

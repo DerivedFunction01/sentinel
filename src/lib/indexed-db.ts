@@ -1,8 +1,9 @@
 const DB_NAME = "sentinel-reports-cache";
-const DB_VERSION = 2;
+const DB_VERSION = 4;
 const STORE_SCANS_LIST = "scans-list";
 const STORE_SCAN_DETAILS = "scan-details";
 const STORE_TOOL_EXAMPLES = "tool-examples";
+const STORE_USER_TAGS = "user-tags";
 
 function getDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -26,11 +27,16 @@ function getDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_TOOL_EXAMPLES)) {
         db.createObjectStore(STORE_TOOL_EXAMPLES);
       }
+      if (!db.objectStoreNames.contains(STORE_USER_TAGS)) {
+        db.createObjectStore(STORE_USER_TAGS);
+      }
     };
   });
 }
 
-export async function getCachedScansList(userId: string): Promise<any[] | null> {
+export async function getCachedScansList(
+  userId: string,
+): Promise<any[] | null> {
   try {
     const db = await getDB();
     return new Promise((resolve, reject) => {
@@ -46,7 +52,10 @@ export async function getCachedScansList(userId: string): Promise<any[] | null> 
   }
 }
 
-export async function setCachedScansList(userId: string, data: any[]): Promise<void> {
+export async function setCachedScansList(
+  userId: string,
+  data: any[],
+): Promise<void> {
   try {
     const db = await getDB();
     return new Promise((resolve, reject) => {
@@ -61,7 +70,9 @@ export async function setCachedScansList(userId: string, data: any[]): Promise<v
   }
 }
 
-export async function getCachedScanDetail(reportId: string): Promise<any | null> {
+export async function getCachedScanDetail(
+  reportId: string,
+): Promise<any | null> {
   try {
     const db = await getDB();
     return new Promise((resolve, reject) => {
@@ -77,7 +88,10 @@ export async function getCachedScanDetail(reportId: string): Promise<any | null>
   }
 }
 
-export async function setCachedScanDetail(reportId: string, data: any): Promise<void> {
+export async function setCachedScanDetail(
+  reportId: string,
+  data: any,
+): Promise<void> {
   try {
     const db = await getDB();
     return new Promise((resolve, reject) => {
@@ -127,7 +141,10 @@ export async function clearCachedReports(): Promise<void> {
   try {
     const db = await getDB();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_SCANS_LIST, STORE_SCAN_DETAILS, STORE_TOOL_EXAMPLES], "readwrite");
+      const transaction = db.transaction(
+        [STORE_SCANS_LIST, STORE_SCAN_DETAILS, STORE_TOOL_EXAMPLES],
+        "readwrite",
+      );
       transaction.objectStore(STORE_SCANS_LIST).clear();
       transaction.objectStore(STORE_SCAN_DETAILS).clear();
       transaction.objectStore(STORE_TOOL_EXAMPLES).clear();
@@ -154,4 +171,39 @@ export async function deleteCachedScanDetail(reportId: string): Promise<void> {
   }
 }
 
+export async function getCachedUserTags(userId: string): Promise<any[] | null> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_USER_TAGS, "readonly");
+      const store = transaction.objectStore(STORE_USER_TAGS);
+      const request = store.get(userId);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error: any) {
+    if (error?.name === "NotFoundError") {
+      return null;
+    }
+    console.error("IndexedDB getCachedUserTags error:", error);
+    return null;
+  }
+}
 
+export async function setCachedUserTags(
+  userId: string,
+  data: any[],
+): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_USER_TAGS, "readwrite");
+      const store = transaction.objectStore(STORE_USER_TAGS);
+      const request = store.put(data, userId);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB setCachedUserTags error:", error);
+  }
+}

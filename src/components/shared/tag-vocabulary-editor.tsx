@@ -6,13 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { X, Plus, Loader2 } from "lucide-react";
+import { setCachedUserTags } from "@/lib/indexed-db";
 
 interface TagItem {
   id: string;
   name: string;
 }
 
-export function TagVocabularyEditor() {
+interface TagVocabularyEditorProps {
+  userId?: string;
+}
+
+export function TagVocabularyEditor({ userId }: TagVocabularyEditorProps) {
   const [tags, setTags] = useState<TagItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,11 +27,40 @@ export function TagVocabularyEditor() {
     try {
       const res = await fetch("/api/user/tags");
       const data = await res.json();
-      if (data.tags) setTags(data.tags);
+      if (data.tags) {
+        setTags(data.tags);
+        if (userId) {
+          setCachedUserTags(userId, data.tags);
+        }
+      }
     } catch {
       // ignore
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateTags = async (updated: TagItem[]) => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/user/tags", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: updated }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to save");
+      }
+      setTags(updated);
+      if (userId) {
+        setCachedUserTags(userId, updated);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save");
+      throw err;
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -50,24 +84,12 @@ export function TagVocabularyEditor() {
       "_" +
       Math.random().toString(36).slice(2, 6);
     const updated = [...tags, { id, name: trimmed }];
-    setSaving(true);
     try {
-      const res = await fetch("/api/user/tags", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tags: updated }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to save");
-      }
-      setTags(updated);
+      await updateTags(updated);
       setNewName("");
       toast.success("Tag added");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add tag");
-    } finally {
-      setSaving(false);
+    } catch {
+      // error shown in updateTags
     }
   };
 
@@ -81,46 +103,22 @@ export function TagVocabularyEditor() {
       return;
     }
     const updated = tags.map((t) => (t.id === tag.id ? { ...t, name: trimmed } : t));
-    setSaving(true);
     try {
-      const res = await fetch("/api/user/tags", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tags: updated }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to save");
-      }
-      setTags(updated);
+      await updateTags(updated);
       toast.success("Tag renamed");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to rename tag");
-    } finally {
-      setSaving(false);
+    } catch {
+      // error shown in updateTags
     }
   };
 
   const handleDelete = async (tagId: string) => {
     if (!confirm("Delete this tag? Existing scans will show the fallback name.")) return;
     const updated = tags.filter((t) => t.id !== tagId);
-    setSaving(true);
     try {
-      const res = await fetch("/api/user/tags", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tags: updated }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to save");
-      }
-      setTags(updated);
+      await updateTags(updated);
       toast.success("Tag deleted");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete tag");
-    } finally {
-      setSaving(false);
+    } catch {
+      // error shown in updateTags
     }
   };
 

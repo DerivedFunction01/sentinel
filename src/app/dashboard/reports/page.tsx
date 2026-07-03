@@ -17,7 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/dashboard-parts";
 import { getRiskStyle, truncate } from "@/lib/risk-utils";
-import { getCachedScansList, setCachedScansList } from "@/lib/indexed-db";
+import { getCachedScansList, getCachedUserTags, setCachedScansList } from "@/lib/indexed-db";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -125,7 +125,7 @@ export default function ReportsPage() {
     }
   };
 
-  useEffect(() => {
+   useEffect(() => {
     async function loadInitialData() {
       try {
         const userRes = await fetch("/api/user");
@@ -133,7 +133,7 @@ export default function ReportsPage() {
         if (userData?.user?.id) {
           setUserId(userData.user.id);
 
-          // Try loading from IndexedDB cache first
+          // Try loading list from IndexedDB cache first
           const cached = await getCachedScansList(userData.user.id);
           if (cached) {
             setReports(cached);
@@ -144,12 +144,17 @@ export default function ReportsPage() {
           await syncReports(userData.user.id, cached === null);
         }
 
-        // Fetch vocabulary
+        // Fetch vocabulary — prefer IndexedDB cache
         try {
-          const tagsRes = await fetch("/api/user/tags");
-          const tagsData = await tagsRes.json();
-          if (tagsData.tags) {
-            setVocabulary(tagsData.tags);
+          const cachedTags = await getCachedUserTags(userData?.user?.id || "");
+          if (cachedTags) {
+            setVocabulary(cachedTags);
+          } else {
+            const tagsRes = await fetch("/api/user/tags");
+            const tagsData = await tagsRes.json();
+            if (tagsData.tags) {
+              setVocabulary(tagsData.tags);
+            }
           }
         } catch {}
       } catch (err) {
@@ -532,6 +537,11 @@ export default function ReportsPage() {
             vocabulary={vocabulary}
             selectedScanCount={selectedIds.length}
             onConfirm={handleBulkTag}
+            existingTagIdsPerScan={reports
+              .filter((r) => selectedIds.includes(r.id))
+              .map((r) =>
+                (r.tags || []).map((t: string) => t.split("~")[0]).filter(Boolean),
+              )}
           />
         </>
       )}

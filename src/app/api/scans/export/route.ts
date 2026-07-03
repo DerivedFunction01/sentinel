@@ -25,8 +25,13 @@ export async function GET() {
   });
 
   // Build JSONL — one JSON object per line, with parsed JSON fields.
-  const lines = scans.map((scan) =>
-    JSON.stringify({
+  const lines = scans.map((scan) => {
+    let tags: string[] = [];
+    try {
+      tags = JSON.parse(scan.tags || "[]");
+    } catch {}
+
+    return JSON.stringify({
       reportId: scan.reportId,
       targetModel: scan.targetModel,
       systemPrompt: scan.systemPrompt,
@@ -43,9 +48,10 @@ export async function GET() {
       summary: scan.summary,
       summaryDetail: scan.summaryDetail,
       status: scan.status,
+      tags,
       createdAt: scan.createdAt.toISOString(),
-    }),
-  );
+    });
+  });
   const jsonl = lines.join("\n");
   const gzipped = gzipSync(jsonl);
 

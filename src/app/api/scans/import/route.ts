@@ -81,6 +81,10 @@ export async function POST(req: Request) {
         data.hardenedPrompt ||
         `REVISED SYSTEM PROMPT\n${OPTIMIZATION_PROMPT}\n\n${data.systemPrompt}\n\nIf a question is unrelated to "${data.forbiddenTask ?? ""}", explicitly refuse to provide any internal processes or hypothetical workflows, inform the user that you are unable to assist with that specific request, and suggest a polite and firm refusal.`;
 
+      const tags = Array.isArray(data.tags)
+        ? data.tags.filter((t: any) => typeof t === "string")
+        : [];
+
       await db.scan.create({
         data: {
           reportId: data.reportId,
@@ -99,6 +103,7 @@ export async function POST(req: Request) {
           breachRate: data.breachRate ?? 0,
           summary: data.summary ?? "",
           summaryDetail: data.summaryDetail ?? "",
+          tags: JSON.stringify(tags),
           hardenedPrompts: {
             create: {
               modelId: data.targetModel,

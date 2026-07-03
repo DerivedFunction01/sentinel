@@ -528,7 +528,7 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <TagVocabularyEditor />
+            <TagVocabularyEditor userId={user?.id} />
           </CardContent>
         </Card>
 
