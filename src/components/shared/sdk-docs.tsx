@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { Button } from "@/components/ui/button";
 import { Copy, Terminal, FileCode, Check } from "lucide-react";
@@ -36,20 +36,21 @@ export function SdkDocs({
 }: SdkDocsProps) {
   const [activeLang, setActiveLang] = useState<Lang>("curl");
   const [activeOp, setActiveOp] = useState<Op>("trigger");
-  const [origin, setOrigin] = useState(() => {
-    return process.env.NEXTAUTH_URL || "https://ToolRegistry.app";
-  });
   const [copied, setCopied] = useState(false);
+  // Track hydration to avoid mismatch between server and client
+  const [hasMounted, setHasMounted] = useState(false);
+  // Store origin in a ref to access it synchronously during render
+  const originRef = useRef("");
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      // Fallback to current browser origin if NEXTAUTH_URL is relative or not set
-      setOrigin(window.location.origin);
-    }
+    // Set origin on client mount - this only runs in browser
+    originRef.current = window.location.origin;
+    setHasMounted(true);
   }, []);
 
   const token = apiKey || "YOUR_API_KEY";
   const depId = deploymentId || "dep_clx123abc456";
+  const origin = originRef.current;
 
   const getCodeContent = (): string => {
     if (activeLang === "curl") {
@@ -108,28 +109,28 @@ export function SdkDocs({
       switch (activeOp) {
         case "trigger":
           return `import requests
- 
+
 url = "${origin}/api/deployments/${depId}/trigger"
 headers = {
     "Authorization": "Bearer ${token}",
     "Content-Type": "application/json"
 }
- 
+
 response = requests.post(url, headers=headers)
 print(response.json())`;
         case "list":
           return `import requests
- 
+
 url = "${origin}/api/deployments"
 headers = {
     "Authorization": "Bearer ${token}"
 }
- 
+
 response = requests.get(url, headers=headers)
 print(response.json())`;
         case "create":
           return `import requests
- 
+
 url = "${origin}/api/deployments"
 headers = {
     "Authorization": "Bearer ${token}",
@@ -149,12 +150,12 @@ data = {
     "mockToolResponses": "{\\"refund\\":{\\"status\\":\\"success\\"}}",
     "allowNoToolsFallback": True
 }
- 
+
 response = requests.post(url, headers=headers, json=data)
 print(response.json())`;
         case "update":
           return `import requests
- 
+
 url = "${origin}/api/deployments/${depId}"
 headers = {
     "Authorization": "Bearer ${token}",
@@ -175,17 +176,17 @@ data = {
     "allowNoToolsFallback": True,
     "status": "ACTIVE"
 }
- 
+
 response = requests.patch(url, headers=headers, json=data)
 print(response.json())`;
         case "reevaluate":
           return `import requests
- 
+
 url = "${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/auto-re-evaluate"
 headers = {
     "Authorization": "Bearer ${token}"
 }
- 
+
 response = requests.post(url, headers=headers)
 print(response.json())`;
       }
@@ -195,7 +196,7 @@ print(response.json())`;
       switch (activeOp) {
         case "trigger":
           return `import fetch from 'node-fetch'; // or use native fetch in Node 18+
- 
+
 const url = '${origin}/api/deployments/${depId}/trigger';
 const response = await fetch(url, {
   method: 'POST',
@@ -208,7 +209,7 @@ const result = await response.json();
 console.log(result);`;
         case "list":
           return `import fetch from 'node-fetch';
- 
+
 const url = '${origin}/api/deployments';
 const response = await fetch(url, {
   method: 'GET',
@@ -220,7 +221,7 @@ const result = await response.json();
 console.log(result);`;
         case "create":
           return `import fetch from 'node-fetch';
- 
+
 const url = '${origin}/api/deployments';
 const response = await fetch(url, {
   method: 'POST',
@@ -247,7 +248,7 @@ const result = await response.json();
 console.log(result);`;
         case "update":
           return `import fetch from 'node-fetch';
- 
+
 const url = '${origin}/api/deployments/${depId}';
 const response = await fetch(url, {
   method: 'PATCH',
@@ -275,7 +276,7 @@ const result = await response.json();
 console.log(result);`;
         case "reevaluate":
           return `import fetch from 'node-fetch'; // or use native fetch in Node 18+
- 
+
 const url = '${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/auto-re-evaluate';
 const response = await fetch(url, {
   method: 'POST',
@@ -366,11 +367,13 @@ console.log(result);`;
                 )}
               </Button>
             </div>
-            <CodeHighlight
-              code={getCodeContent()}
-              language={currentLangObj.langKey}
-              className="border-none bg-zinc-950 p-4"
-            />
+            {hasMounted && (
+              <CodeHighlight
+                code={getCodeContent()}
+                language={currentLangObj.langKey}
+                className="border-none bg-zinc-950 p-4"
+              />
+            )}
           </div>
         </div>
       </div>
@@ -392,9 +395,11 @@ console.log(result);`;
           <div className="space-y-4 text-xs">
             <div>
               <h4 className="font-semibold text-foreground">API Endpoint</h4>
-              <code className="text-xs px-1.5 py-0.5 rounded bg-muted text-blue-400">
-                POST {origin}/api/scan/[id]/harden
-              </code>
+              {hasMounted && (
+                <code className="text-xs px-1.5 py-0.5 rounded bg-muted text-blue-400">
+                  POST {origin}/api/scan/[id]/harden
+                </code>
+              )}
             </div>
 
             <div>
@@ -436,90 +441,23 @@ console.log(result);`;
               </ul>
             </div>
 
-            <div>
-              <h4 className="font-semibold text-foreground">
-                Usage Example (cURL)
-              </h4>
-              <CodeHighlight
-                code={`curl -X POST "${origin}/api/scan/SP-26-0617-3Q91/harden" \\
+            {hasMounted && (
+              <div>
+                <h4 className="font-semibold text-foreground">
+                  Usage Example (cURL)
+                </h4>
+                <CodeHighlight
+                  code={`curl -X POST "${origin}/api/scan/SP-26-0617-3Q91/harden" \\
   -H "Content-Type: application/json" \\
   -d '{
     "extractorModel": "~google/gemini-flash-latest",
     "granularity": "detailed"
   }'`}
-                language="bash"
-                className="bg-zinc-950/60 p-3"
-              />
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-semibold text-xs text-muted-foreground mb-2">
-              Example ToolRecommendation Response
-            </h4>
-            <CodeHighlight
-              code={JSON.stringify(
-                {
-                  originalPrompt:
-                    "You are a helpful customer support assistant. Never offer discounts...",
-                  hardenedPrompt:
-                    "You are a helpful customer support assistant. Never offer discounts...",
-                  modelId: "~google/gemini-flash-latest",
-                  modelName: "Gemini Flash Latest",
-                  toolRecommendation: {
-                    compatibilityScore: 85,
-                    rationale:
-                      "Prompt has extensive discount rules and loyalty programs that should be offloaded to a tool.",
-                    tools: [
-                      {
-                        type: "function",
-                        function: {
-                          name: "commerce_transactions_detailed",
-                          description:
-                            "Granular execution of loyalty programs, plan pricing, payments, and discount codes.",
-                          parameters: {
-                            type: "object",
-                            properties: {
-                              category: {
-                                type: "string",
-                                enum: [
-                                  "discount",
-                                  "loyalty_points",
-                                  "pricing_plans",
-                                ],
-                              },
-                              operation: {
-                                type: "string",
-                                enum: ["check_eligibility", "apply_code"],
-                              },
-                              query: { type: "string" },
-                            },
-                            required: ["category", "operation", "query"],
-                          },
-                        },
-                      },
-                    ],
-                    mockToolResponses: {
-                      commerce_transactions_detailed: {
-                        status: "success",
-                        eligible: true,
-                        details: "Discount structure applied successfully.",
-                      },
-                    },
-                    granularity: "detailed",
-                    extractorModel: "~google/gemini-flash-latest",
-                    extractorModelName: "Gemini Flash Latest",
-                  },
-                  compatibilityScore: 85,
-                  granularity: "detailed",
-                  extractorModel: "~google/gemini-flash-latest",
-                },
-                null,
-                2,
-              )}
-              language="json"
-              className="bg-zinc-950/60 p-3 text-[10px] max-h-72 overflow-y-auto"
-            />
+                  language="bash"
+                  className="bg-zinc-950/60 p-3"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

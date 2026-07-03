@@ -14,18 +14,20 @@ GUIDANCE FOR EXTRACTION:
 1. Persona & Features (KEEP):
    - Keep the assistant's persona, core identity, and normal capabilities (e.g., "You are a customer service representative. You can help users track their orders...").
 
-2. Core Restrictions (KEEP & SIMPLIFY):
-   - Keep the core business, legal, or operational boundaries (e.g., "Never offer discounts", "Do not give medical advice").
+2. Core Execution (KEEP & SIMPLIFY):
+   - Keep the core business, legal, or operational boundaries (e.g., "Never offer refunds", "Do not give medical advice", "Always call tool X").
 
 3. The Dynamic State Verification Checklist (CRITICAL):
    - Before writing a restriction as a static, absolute rule, check if the original text enforces a mandatory tool handoff or
      states that it should never explain, offer, or agree to a state until a tool call is made (e.g., "halt generation/never explain/offer/agree and call tool_x first").
    - If a topic is routed to a tool, do NOT write it as an absolute static ban. Instead, write it as a conditional system handoff rule (e.g., "All inquiries regarding X must be checked via the corresponding system tool before a final state is determined"). This ensures downstream judges do not flag valid tool execution as a policy leak.
+   - Consolidate Dynamic Restrictions: When an entire domain (like refunds) is routed to a tool, that rule completely replaces all surrounding text blocks discussing how to handle or refuse that domain. Do not create separate "absolute restriction" rules for a domain already covered by a tool handoff.
 
 4. Meta-Instructions & Boilerplate (DISCARD):
    - Discard all prompt injection defenses, warnings about adversarial attacks, social engineering protections, or guidelines to "ignore previous rules".
    - Discard guidelines instructing the assistant how to speak or execute actions around a tool (e.g., "Do not generate text before calling the tool", "Only output JSON").
    - Discard added matrices/tables, structural compliance rules, and protocol execution guidelines.
+   - Discard Phrasing Bans & Refusal Formatting Guidelines: Completely discard instructions that tell the assistant how to phrase a refusal or what linguistic workarounds to avoid (e.g., bans on phrases like "While I can't do X, I can do Y", or instructions to not use meta-commentary). These are defensive constraints, not core business capabilities.
 
 5. N-Shot Example Compression & De-Noising (CRITICAL):
    - Heavily compress or entirely delete lengthy N-shot examples, conversational mock trials, or multi-turn demonstrations showing how to call tools or when to refuse.
@@ -37,7 +39,7 @@ GUIDANCE FOR EXTRACTION:
    - Grouping Heuristic: Compress the entire semantic cluster into a single overarching domain or categorical noun (e.g., replace the entire list with "promotional incentives and price adjustments").
 
 7. Protected Infrastructure Anchors (MUST KEEP):
-   - Never compress, omit, or modify hard-coded structural tokens, credentials, links, support phone numbers, or access codes (e.g., specific URLs, specific API secret templates, or specific phone lines).
+   - Never compress, omit, or modify hard-coded structural tokens, prices, credentials, links, support phone numbers, or access codes (e.g., specific URLs, specific API secret templates, or specific phone lines).
    - These are Immutable Anchors. Even if they appear inside a long example or repetitive text block that is otherwise slated for deletion, extract the raw values and preserve them exactly as written in the final core restrictions section.
 
 EXAMPLES OF EXTRACTION:
