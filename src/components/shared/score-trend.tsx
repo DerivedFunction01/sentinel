@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
-import type { ScoreTrendPoint } from "@/lib/types";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-// Dynamically import Plotly with SSR disabled to avoid "self is not defined" error
-const Plot = dynamic(() => import("react-plotly.js"), {
-  ssr: false,
-  loading: () => <div className="w-full h-full animate-pulse bg-muted/20 rounded" />
-});
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import type { ScoreTrendPoint } from "@/lib/types";
 
 type TimePeriod = "all" | "weekly" | "monthly" | "annually";
 
@@ -23,10 +24,10 @@ export function ScoreTrendChart({ data }: ScoreTrendChartProps) {
 
   if (data.length === 0) return null;
 
-  // Filter data based on selected period
   const now = new Date();
   const filteredData = data.filter((d) => {
     const scanDate = new Date(d.date);
+    const validDate = !isNaN(scanDate.getTime());
     switch (period) {
       case "weekly":
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -42,49 +43,10 @@ export function ScoreTrendChart({ data }: ScoreTrendChartProps) {
     }
   });
 
-  const labels = filteredData.map((d) => d.date);
-  const scores = filteredData.map((d) => d.score);
-
-  const trace = {
-    type: "scatter",
-    mode: "lines+markers",
-    x: labels,
-    y: scores,
-    marker: { color: "#3B82F6", size: 7 },
-    line: { color: "#3B82F6", width: 2.5, shape: "spline" },
-    fill: "tozeroy",
-    fillcolor: "rgba(59,130,246,0.15)",
-    hovertemplate: "%{x}<br>Score: %{y}<extra></extra>",
-  };
-
-  const layout = {
-    paper_bgcolor: "rgba(0,0,0,0)",
-    plot_bgcolor: "rgba(0,0,0,0)",
-    font: { color: "#A1A1AA", size: 11 },
-    margin: { t: 20, r: 20, b: 60, l: 50 },
-    xaxis: {
-      type: "date",
-      tickangle: -45,
-      tickfont: { size: 10 },
-      showgrid: false,
-      dtick: "86400000", // Show one tick per day
-      tickformat: "%b %d",
-    },
-    yaxis: {
-      range: [0, 100],
-      showgrid: true,
-      gridcolor: "rgba(255,255,255,0.06)",
-      zeroline: false,
-      tickformat: ".0f",
-    },
-    showlegend: false,
-    autosize: true,
-  };
-
-  const config = {
-    responsive: true,
-    displayModeBar: false,
-  };
+  const chartData = filteredData.map((d) => ({
+    date: d.date ?? d.label,
+    score: d.score,
+  }));
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -98,7 +60,46 @@ export function ScoreTrendChart({ data }: ScoreTrendChartProps) {
       </Tabs>
       <div className="flex-1 min-h-0">
         {filteredData.length > 0 ? (
-          <Plot data={[trace]} layout={layout} config={config} style={{ width: "100%", height: "100%" }} useResizeHandler />
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 10, fill: "rgba(255,255,255,0.3)" }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+                tickFormatter={(value) => {
+                  const date = new Date(value);
+                  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                }}
+              />
+              <YAxis
+                domain={[0, 100]}
+                tick={{ fontSize: 10, fill: "rgba(255,255,255,0.3)" }}
+                tickFormatter={(value) => `${value}`}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(var(--popover))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                }}
+                labelStyle={{ color: "hsl(var(--popover-foreground))" }}
+                formatter={(value: number) => [`Score: ${value.toFixed(0)}`, ""]}
+                labelFormatter={(label) => `Date: ${label}`}
+              />
+              <Line
+                type="monotone"
+                dataKey="score"
+                stroke="#3B82F6"
+                strokeWidth={2.5}
+                dot={{ r: 4, fill: "#3B82F6", stroke: "#0a0e1a", strokeWidth: 2 }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         ) : (
           <p className="py-8 text-center text-sm text-muted-foreground">
             No data for selected period.

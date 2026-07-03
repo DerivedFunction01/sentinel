@@ -1,12 +1,16 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import type { PlotData } from "plotly.js-dist-min";
-
-const Plot = dynamic(() => import("react-plotly.js"), {
-  ssr: false,
-  loading: () => <div className="w-full h-full animate-pulse bg-muted/20 rounded" />
-});
+import {
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface ModelEntry {
   model: string;
@@ -26,80 +30,78 @@ export function ModelAnalyticsChart({ data }: AnalyticsChartProps) {
     );
   }
 
-  const labels = data.map((d) => d.name);
-  const scanCounts = data.map((d) => d.scans);
-  const defenseRates = data.map((d) => d.defenseRate);
-
-  const traces: Partial<PlotData>[] = [
-    {
-      type: "bar",
-      name: "Scans",
-      x: labels,
-      y: scanCounts,
-      marker: {
-        color: "#3B82F6",
-        opacity: 0.85,
-      },
-      hovertemplate: "%{x}<br>Scans: %{y}<extra></extra>",
-      yaxis: "y",
-    },
-    {
-      type: "scatter",
-      mode: "lines+markers",
-      name: "Defense Rate",
-      x: labels,
-      y: defenseRates,
-      marker: { color: "#10B981", size: 8 },
-      line: { color: "#10B981", width: 2 },
-      hovertemplate: "%{x}<br>Defense Rate: %{y}%<extra></extra>",
-      yaxis: "y2",
-    },
-  ];
-
-  const layout = {
-    barmode: "group",
-    paper_bgcolor: "rgba(0,0,0,0)",
-    plot_bgcolor: "rgba(0,0,0,0)",
-    font: { color: "#A1A1AA", size: 11 },
-    margin: { t: 10, r: 40, b: 120, l: 50 },
-    xaxis: {
-      tickangle: -45,
-      tickfont: { size: 10 },
-      showgrid: false,
-    },
-    yaxis: {
-      title: { text: "Scans", font: { size: 10 } },
-      showgrid: true,
-      gridcolor: "rgba(255,255,255,0.06)",
-      zeroline: false,
-    },
-    yaxis2: {
-      title: { text: "Defense Rate %", font: { size: 10 } },
-      overlaying: "y",
-      side: "right",
-      range: [0, 100],
-      showgrid: false,
-      tickformat: ".0f",
-    },
-    legend: {
-      orientation: "h",
-      yanchor: "bottom",
-      y: 1.02,
-      xanchor: "center",
-      x: 0.5,
-      font: { size: 10 },
-    },
-    autosize: true,
-  };
-
-  const config = {
-    responsive: true,
-    displayModeBar: false,
-  };
+  const chartData = data.map((d) => ({
+    name: d.name,
+    scans: d.scans,
+    defenseRate: d.defenseRate,
+  }));
 
   return (
     <div className="w-full h-full min-h-[220px]">
-      <Plot data={traces} layout={layout} config={config} style={{ width: "100%", height: "100%" }} useResizeHandler />
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+          <XAxis
+            dataKey="name"
+            tick={{ fontSize: 10, fill: "rgba(255,255,255,0.3)" }}
+            angle={-45}
+            textAnchor="end"
+            height={120}
+          />
+          <YAxis
+            yAxisId="left"
+            tick={{ fontSize: 10, fill: "rgba(255,255,255,0.3)" }}
+            label={{
+              value: "Scans",
+              angle: -90,
+              position: "insideLeft",
+              style: { fontSize: 10, fill: "rgba(255,255,255,0.3)" },
+            }}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            domain={[0, 100]}
+            tick={{ fontSize: 10, fill: "rgba(255,255,255,0.3)" }}
+            label={{
+              value: "Defense Rate %",
+              angle: 90,
+              position: "insideRight",
+              style: { fontSize: 10, fill: "rgba(255,255,255,0.3)" },
+            }}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "hsl(var(--popover))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "6px",
+              fontSize: "12px",
+            }}
+            labelStyle={{ color: "hsl(var(--popover-foreground))" }}
+          />
+          <Legend
+            wrapperStyle={{ fontSize: "10px" }}
+            verticalAlign="bottom"
+            height={36}
+          />
+          <Bar
+            yAxisId="left"
+            dataKey="scans"
+            name="Scans"
+            fill="#3B82F6"
+            opacity={0.85}
+          />
+          <Line
+            yAxisId="right"
+            type="monotone"
+            dataKey="defenseRate"
+            name="Defense Rate"
+            stroke="#10B981"
+            strokeWidth={2}
+            dot={{ r: 4, fill: "#10B981", stroke: "#0a0e1a", strokeWidth: 2 }}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
     </div>
   );
 }

@@ -1,7 +1,15 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import type { PlotData } from "plotly.js-dist-min";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface AttackEntry {
   category: string;
@@ -14,11 +22,6 @@ interface AttackChartProps {
   data: AttackEntry[];
 }
 
-const Plot = dynamic(() => import("react-plotly.js"), {
-  ssr: false,
-  loading: () => <div className="w-full h-full animate-pulse bg-muted/20 rounded" />
-});
-
 export function AttackSuccessChart({ data }: AttackChartProps) {
   if (data.length === 0) {
     return (
@@ -26,66 +29,50 @@ export function AttackSuccessChart({ data }: AttackChartProps) {
     );
   }
 
-  const categories = data.map((d) => d.category);
-  const breached = data.map((d) => d.breached);
-  const defended = data.map((d) => d.defended);
-
-  const traces: Partial<PlotData>[] = [
-    {
-      type: "bar",
-      name: "Breached",
-      x: categories,
-      y: breached,
-      marker: { color: "#EF4444", opacity: 0.85 },
-      hovertemplate: "%{x}<br>Breached: %{y}<extra></extra>",
-    },
-    {
-      type: "bar",
-      name: "Defended",
-      x: categories,
-      y: defended,
-      marker: { color: "#10B981", opacity: 0.85 },
-      hovertemplate: "%{x}<br>Defended: %{y}<extra></extra>",
-    },
-  ];
-
-  const layout = {
-    barmode: "group",
-    paper_bgcolor: "rgba(0,0,0,0)",
-    plot_bgcolor: "rgba(0,0,0,0)",
-    font: { color: "#A1A1AA", size: 11 },
-    margin: { t: 10, r: 20, b: 120, l: 50 },
-    xaxis: {
-      tickangle: -45,
-      tickfont: { size: 10 },
-      showgrid: false,
-    },
-    yaxis: {
-      title: { text: "Count", font: { size: 10 } },
-      showgrid: true,
-      gridcolor: "rgba(255,255,255,0.06)",
-      zeroline: false,
-      tickformat: ".0f",
-    },
-    legend: {
-      orientation: "h",
-      yanchor: "bottom",
-      y: 1.02,
-      xanchor: "center",
-      x: 0.5,
-      font: { size: 10 },
-    },
-    autosize: true,
-  };
-
-  const config = {
-    responsive: true,
-    displayModeBar: false,
-  };
-
   return (
     <div className="w-full h-full min-h-[220px]">
-      <Plot data={traces} layout={layout} config={config} style={{ width: "100%", height: "100%" }} useResizeHandler />
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+          <XAxis
+            dataKey="category"
+            tick={{ fontSize: 10, fill: "rgba(255,255,255,0.3)" }}
+            angle={-45}
+            textAnchor="end"
+            height={120}
+          />
+          <YAxis
+            tick={{ fontSize: 10, fill: "rgba(255,255,255,0.3)" }}
+            tickFormatter={(value) => `${value}`}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "hsl(var(--popover))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "6px",
+              fontSize: "12px",
+            }}
+            labelStyle={{ color: "hsl(var(--popover-foreground))" }}
+          />
+          <Legend
+            wrapperStyle={{ fontSize: "10px" }}
+            verticalAlign="bottom"
+            height={36}
+          />
+          <Bar
+            dataKey="breached"
+            name="Breached"
+            fill="#EF4444"
+            opacity={0.85}
+          />
+          <Bar
+            dataKey="defended"
+            name="Defended"
+            fill="#10B981"
+            opacity={0.85}
+          />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

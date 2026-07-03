@@ -25,6 +25,8 @@ export default async function OverviewPage() {
   const user = await requireUser();
   const scans = await getUserScans(user.id);
   const stats = computeDashboardStats(scans);
+  console.log('[Dashboard] scoreTrend:', stats.scoreTrend);
+  console.log('[Dashboard] scoreTrend length:', stats.scoreTrend.length);
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-1.5rem)] overflow-hidden p-4 sm:p-6 lg:p-8 space-y-4">
