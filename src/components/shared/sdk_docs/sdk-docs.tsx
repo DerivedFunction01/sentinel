@@ -298,30 +298,29 @@ export function SdkDocs({
             </div>
           )}
 
-          {/* Multi-Language Code Examples for Reevaluate */}
           <div className="space-y-4 pt-2">
-            <h4 className="font-semibold text-foreground">
-              Code Examples (All Languages):
-            </h4>
-            {LANGS.map((lang) => (
-              <div
-                key={lang.id}
-                className="space-y-2 border-l-2 border-muted pl-4"
-              >
-                <p className="text-xs font-medium text-foreground">
-                  {lang.label}
-                </p>
-                <CodeHighlight
-                  code={getCodeSample(lang.id as Lang, activeOp, {
-                    token,
-                    depId,
-                    origin,
-                  })}
-                  language={lang.langKey}
-                  className="bg-zinc-950/60 p-3"
-                />
-              </div>
-            ))}
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium text-sm">Examples</h4>
+            </div>
+            {LANGS.map((lang) => {
+              if (lang.id !== activeLang) return null;
+              return (
+                <div
+                  key={lang.id}
+                  className="space-y-2 border-l-2 border-muted pl-4"
+                >
+                  <CodeHighlight
+                    code={getCodeSample(lang.id as Lang, activeOp, {
+                      token,
+                      depId,
+                      origin,
+                    })}
+                    language={lang.langKey}
+                    className="bg-zinc-950/60 p-3"
+                  />
+                </div>
+              );
+            })}
           </div>
 
           {/* Workflow Explanation */}
