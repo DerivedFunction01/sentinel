@@ -53,25 +53,16 @@ export default async function OverviewPage() {
       {/* Stat cards */}
       {statCards(stats)}
 
-      {/* Main content grid */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 min-h-0">
-        
-        {/* Left Column: Risk Distribution and Score Trend stacked */}
-        <div className="flex flex-col gap-4 min-h-0">
+      {/* Main content */}
+      <div className="flex-1 flex flex-col gap-6 min-h-0">
+        <div className="h-[35%] min-h-0 grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-6 min-h-0">
           {riskDistribution(stats)}
-
           {scoreTrend(stats)}
         </div>
-
-        {/* Right Column: Model/Success Rate Tabs and Recent Activity stacked */}
-        <div className="flex flex-col gap-4 min-h-0">
-          {/* Top half: Model Usage and Defense Rate */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-6 min-h-0">
           {analytics(stats)}
-
-          {/* Bottom half: Recent Activity */}
           {recentActivity(scans)}
         </div>
-
       </div>
     </div>
   );
@@ -141,9 +132,7 @@ function riskDistribution(stats: any) {
     </CardHeader>
     <CardContent className="flex-1 min-h-0 flex items-center justify-center p-2">
       {stats.riskDistribution.length > 0 ? (
-        <div className="w-full h-full flex items-center justify-center scale-90">
-          <RiskDonut data={stats.riskDistribution} />
-        </div>
+        <RiskDonut data={stats.riskDistribution} />
       ) : (
         <p className="py-8 text-center text-sm text-muted-foreground">
           No scans yet.
@@ -154,7 +143,7 @@ function riskDistribution(stats: any) {
 }
 
 function analytics(stats: any) {
-  return <Card className="h-[45%] min-h-0 flex flex-col">
+  return <Card className="h-full min-h-0 flex flex-col">
     <Tabs defaultValue="scans" className="flex-1 flex flex-col min-h-0">
       <CardHeader className="py-2.5 px-4 flex flex-row items-center justify-between space-y-0 flex-none">
         <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Analytics</CardTitle>
@@ -176,7 +165,7 @@ function analytics(stats: any) {
 }
 
 function recentActivity(scans: ScanSummary[]) {
-  return <Card className="h-[55%] min-h-0 flex flex-col">
+  return <Card className="h-full min-h-0 flex flex-col">
     <CardHeader className="py-2.5 px-4 flex flex-row items-center justify-between space-y-0 flex-none">
       <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Recent Activity</CardTitle>
       <span className="text-xs text-muted-foreground">

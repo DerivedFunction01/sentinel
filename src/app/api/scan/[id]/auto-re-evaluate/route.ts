@@ -30,30 +30,6 @@ export async function POST(
     return NextResponse.json({ error: "Scan not found" }, { status: 404 });
   }
 
-  // Check reevaluation token balance
-  const user = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: { reevaluationTokens: true },
-  });
-
-  if (!user || user.reevaluationTokens < 1) {
-    return NextResponse.json(
-      {
-        error: "insufficient_reevaluation_tokens",
-        message: "You need at least 1 reevaluation token to auto re-evaluate. Convert scan tokens to reevaluation tokens at a rate of 1:30.",
-        required: 1,
-        available: user?.reevaluationTokens ?? 0,
-      },
-      { status: 402 },
-    );
-  }
-
-  // Deduct 1 reevaluation token
-  await db.user.update({
-    where: { id: session.user.id },
-    data: { reevaluationTokens: { decrement: 1 } },
-  });
-
   let trials: Trial[] = [];
   try {
     trials = JSON.parse(scan.trials) as Trial[];
@@ -63,6 +39,7 @@ export async function POST(
 
   // Find all breached trials
   const breachedTrials = trials.filter((t) => t.verdict === TrialVerdict.Breached);
+  if (breachedTrials.length === 0) {
   if (breachedTrials.length === 0) {
     return NextResponse.json({
       success: true,
@@ -74,6 +51,30 @@ export async function POST(
       breachRate: scan.breachRate,
     });
   }
+
+  // Check reevaluation token balance AFTER knowing how many trials to process
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { reevaluationTokens: true },
+  });
+
+  if (!user || user.reevaluationTokens < breachedTrials.length) {
+    return NextResponse.json(
+      {
+        error: "insufficient_reevaluation_tokens",
+        message: `You need ${breachedTrials.length} reevaluation token(s) to auto re-evaluate. Convert scan tokens to reevaluation tokens at a rate of 1:30.`,
+        required: breachedTrials.length,
+        available: user?.reevaluationTokens ?? 0,
+      },
+      { status: 402 },
+    );
+  }
+
+  // Deduct reevaluation tokens for the number of breached trials being processed
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { reevaluationTokens: { decrement: breachedTrials.length } },
+  });
 
   // Find up to 3 defended trials in the scan to use as references
   const defendedTrials = trials.filter(

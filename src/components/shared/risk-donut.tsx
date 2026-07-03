@@ -20,15 +20,15 @@ export function RiskDonut({ data }: RiskDonutProps) {
 
   return (
     <div className="flex w-full h-full items-center justify-center gap-4">
-      <div className="relative w-[160px] shrink-0">
-        <ResponsiveContainer width="100%" height={160}>
+      <div className="relative w-[120px] shrink-0">
+        <ResponsiveContainer width="100%" height={120}>
           <PieChart>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={70}
-              outerRadius={78}
+              innerRadius={50}
+              outerRadius={58}
               paddingAngle={2}
               dataKey="value"
               stroke="transparent"

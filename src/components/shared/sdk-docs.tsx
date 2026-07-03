@@ -13,14 +13,17 @@ interface SdkDocsProps {
 }
 
 type Lang = "curl" | "python" | "node";
-type Op = "trigger" | "list" | "create" | "update" | "reevaluate";
+type Op = "trigger" | "list" | "create" | "update" | "reevaluate" | "reevaluate-trial" | "confirm-reevaluate" | "confirm-batch-reevaluate";
 
 const OPS = [
   { id: "trigger", label: "Trigger Scan (POST)" },
   { id: "list", label: "List Profiles (GET)" },
   { id: "create", label: "Create Profile (POST)" },
   { id: "update", label: "Update Profile (PATCH)" },
-  { id: "reevaluate", label: "Auto Re-evaluate Scan (POST)" },
+  { id: "reevaluate", label: "Auto Re-evaluate All Breached (POST)" },
+  { id: "reevaluate-trial", label: "Re-evaluate Single Trial (POST)" },
+  { id: "confirm-reevaluate", label: "Confirm Single Re-evaluation (POST)" },
+  { id: "confirm-batch-reevaluate", label: "Confirm Batch Re-evaluation (POST)" },
 ] as const;
 
 const LANGS = [
@@ -102,6 +105,40 @@ export function SdkDocs({
         case "reevaluate":
           return `curl -X POST "${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/auto-re-evaluate" \\
   -H "Authorization: Bearer ${token}"`;
+        case "reevaluate-trial":
+          return `curl -X POST "${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/re-evaluate-trial" \\
+  -H "Authorization: Bearer ${token}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "trialNumber": 5
+  }'`;
+        case "confirm-reevaluate":
+          return `curl -X POST "${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/confirm-re-evaluation" \\
+  -H "Authorization: Bearer ${token}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "trialNumber": 5,
+    "verdict": "Defended",
+    "reasoning": "Upon reconsideration, the model successfully refused..."
+  }'`;
+        case "confirm-batch-reevaluate":
+          return `curl -X POST "${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/confirm-batch-re-evaluation" \\
+  -H "Authorization: Bearer ${token}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "proposals": [
+      {
+        "trialNumber": 5,
+        "verdict": "Defended",
+        "reasoning": "Upon reconsideration, the model successfully refused..."
+      },
+      {
+        "trialNumber": 7,
+        "verdict": "Defended",
+        "reasoning": "The model maintained defensive posture throughout..."
+      }
+    ]
+  }'`;
       }
     }
 
@@ -188,6 +225,61 @@ headers = {
 }
 
 response = requests.post(url, headers=headers)
+print(response.json())`;
+        case "reevaluate-trial":
+          return `import requests
+
+url = "${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/re-evaluate-trial"
+headers = {
+    "Authorization": "Bearer ${token}",
+    "Content-Type": "application/json"
+}
+data = {
+    "trialNumber": 5
+}
+
+response = requests.post(url, headers=headers, json=data)
+print(response.json())`;
+        case "confirm-reevaluate":
+          return `import requests
+
+url = "${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/confirm-re-evaluation"
+headers = {
+    "Authorization": "Bearer ${token}",
+    "Content-Type": "application/json"
+}
+data = {
+    "trialNumber": 5,
+    "verdict": "Defended",
+    "reasoning": "Upon reconsideration, the model successfully refused..."
+}
+
+response = requests.post(url, headers=headers, json=data)
+print(response.json())`;
+        case "confirm-batch-reevaluate":
+          return `import requests
+
+url = "${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/confirm-batch-re-evaluation"
+headers = {
+    "Authorization": "Bearer ${token}",
+    "Content-Type": "application/json"
+}
+data = {
+    "proposals": [
+        {
+            "trialNumber": 5,
+            "verdict": "Defended",
+            "reasoning": "Upon reconsideration, the model successfully refused..."
+        },
+        {
+            "trialNumber": 7,
+            "verdict": "Defended",
+            "reasoning": "The model maintained defensive posture throughout..."
+        }
+    ]
+}
+
+response = requests.post(url, headers=headers, json=data)
 print(response.json())`;
       }
     }
@@ -286,6 +378,67 @@ const response = await fetch(url, {
 });
 const result = await response.json();
 console.log(result);`;
+        case "reevaluate-trial":
+          return `import fetch from 'node-fetch'; // or use native fetch in Node 18+
+
+const url = '${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/re-evaluate-trial';
+const response = await fetch(url, {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer ${token}',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    trialNumber: 5
+  })
+});
+const result = await response.json();
+console.log(result);`;
+        case "confirm-reevaluate":
+          return `import fetch from 'node-fetch'; // or use native fetch in Node 18+
+
+const url = '${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/confirm-re-evaluation';
+const response = await fetch(url, {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer ${token}',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    trialNumber: 5,
+    verdict: "Defended",
+    reasoning: "Upon reconsideration, the model successfully refused..."
+  })
+});
+const result = await response.json();
+console.log(result);`;
+        case "confirm-batch-reevaluate":
+          return `import fetch from 'node-fetch'; // or use native fetch in Node 18+
+
+const url = '${origin}/api/scan/YOUR_SCAN_ID_OR_REPORT_ID/confirm-batch-re-evaluation';
+const response = await fetch(url, {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer ${token}',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    proposals: [
+        {
+            trialNumber: 5,
+            verdict: "Defended",
+            reasoning: "Upon reconsideration, the model successfully refused..."
+        },
+        {
+            trialNumber: 7,
+            verdict: "Defended",
+            reasoning: "The model maintained defensive posture throughout..."
+        }
+    ]
+  })
+});
+const result = await response.json();
+console.log(result);`;
       }
     }
 
@@ -373,6 +526,190 @@ console.log(result);`;
                 language={currentLangObj.langKey}
                 className="border-none bg-zinc-950 p-4"
               />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Re-evaluation Workflow Documentation */}
+      <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6 space-y-4">
+        <h3 className="font-semibold text-sm flex items-center gap-2">
+          <FileCode className="h-4 w-4 text-blue-400" />
+          Auto Re-evaluation Workflow
+        </h3>
+        
+        <div className="space-y-4 text-xs">
+          <div>
+            <h4 className="font-semibold text-foreground mb-2">What it does</h4>
+            <p className="text-muted-foreground leading-relaxed">
+              The auto re-evaluation endpoint allows you to programmatically request a judge AI to reconsider 
+              trials marked as <code className="text-blue-400 bg-muted px-1.5 py-0.5 rounded">BREACHED</code>. 
+              This is useful when you believe the initial evaluation may have been incorrect or overly strict.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-foreground mb-2">Token Cost Model</h4>
+            <p className="text-muted-foreground leading-relaxed mb-2">
+              Re-evaluation uses a <strong className="text-foreground">flat 1 token fee</strong> regardless of how many trials are processed. 
+              Confirmation costs <strong className="text-foreground">1 token per trial</strong> you choose to apply.
+            </p>
+            <div className="bg-muted/30 border border-border rounded-lg p-3 space-y-2">
+              <p className="text-xs font-medium text-foreground">Example: Re-evaluating 10 breached trials, getting 3 overturned</p>
+              <ul className="text-xs text-muted-foreground space-y-1 pl-4 list-disc">
+                <li><code className="text-blue-400">auto-re-evaluate</code> — 1 token (processes all 10)</li>
+                <li><code className="text-blue-400">confirm-batch-re-evaluation</code> — 3 tokens (applies 3 overturned trials)</li>
+                <li className="font-medium text-foreground">Total: 4 tokens</li>
+              </ul>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-foreground mb-2">Three-Endpoint Workflow</h4>
+            <p className="text-muted-foreground leading-relaxed mb-2">
+              <strong className="text-foreground">Step 1:</strong> Request re-evaluation (1 token flat fee)
+            </p>
+            <div className="space-y-2 pl-2 border-l-2 border-blue-500/30 mb-3">
+              <div>
+                <p className="text-xs font-medium text-foreground">A) Auto Re-evaluate (Bulk)</p>
+                <code className="text-blue-400 bg-muted px-1.5 py-0.5 rounded text-xs">
+                  POST /api/scan/{'{id}'}/auto-re-evaluate
+                </code>
+                <p className="text-muted-foreground mt-1">
+                  Re-evaluates <strong className="text-foreground">all BREACHED trials</strong>. Use this when you want the AI to reconsider every breach.
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-foreground">B) Re-evaluate Single Trial</p>
+                <code className="text-blue-400 bg-muted px-1.5 py-0.5 rounded text-xs">
+                  POST /api/scan/{'{id}'}/re-evaluate-trial
+                </code>
+                <p className="text-muted-foreground mt-1">
+                  Re-evaluates <strong className="text-foreground">one trial</strong> by number. Use this when you want to target a specific trial.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-muted-foreground leading-relaxed mb-2">
+              <strong className="text-foreground">Step 2:</strong> Review the proposals returned by the re-evaluation endpoint.
+            </p>
+
+            <p className="text-muted-foreground leading-relaxed mb-2">
+              <strong className="text-foreground">Step 3:</strong> Confirm accepted changes (1 token per trial)
+            </p>
+            <div className="space-y-2 pl-2 border-l-2 border-emerald-500/30">
+              <div>
+                <p className="text-xs font-medium text-foreground">Single Confirmation</p>
+                <code className="text-emerald-400 bg-muted px-1.5 py-0.5 rounded text-xs">
+                  POST /api/scan/{'{id}'}/confirm-re-evaluation
+                </code>
+                <p className="text-muted-foreground mt-1">
+                  Apply <strong className="text-foreground">one</strong> proposed change. Costs 1 token.
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-foreground">Batch Confirmation</p>
+                <code className="text-emerald-400 bg-muted px-1.5 py-0.5 rounded text-xs">
+                  POST /api/scan/{'{id}'}/confirm-batch-re-evaluation
+                </code>
+                <p className="text-muted-foreground mt-1">
+                  Apply <strong className="text-foreground">multiple</strong> proposals at once. Costs 1 token per trial confirmed.
+                </p>
+              </div>
+            </div>
+            <p className="text-muted-foreground mt-2">
+              <strong className="text-foreground">Important:</strong> Neither re-evaluation endpoint modifies the database. 
+              Changes are only applied when you call a confirmation endpoint.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-foreground mb-2">Response Format</h4>
+            <p className="text-muted-foreground mb-2">
+              The auto-re-evaluate endpoint returns:
+            </p>
+            {hasMounted && (
+              <CodeHighlight
+                code={`{
+  "success": true,
+  "proposals": [
+    {
+      "trialNumber": 5,
+      "verdict": "Defended",
+      "reasoning": "Upon reconsideration, the model successfully refused...",
+      "attack": "Original attack prompt...",
+      "response": "Model's original response...",
+      "originalReasoning": "Original breach reasoning..."
+    }
+  ]
+}`}
+                language="json"
+                className="bg-zinc-950/60 p-3"
+              />
+            )}
+            <p className="text-muted-foreground mt-2">
+              Only trials that were overturned from <code className="text-blue-400 bg-muted px-1.5 py-0.5 rounded">BREACHED</code> to{" "}
+              <code className="text-blue-400 bg-muted px-1.5 py-0.5 rounded">DEFENDED</code> are included in proposals.
+              Trials that remain breached are not returned.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-foreground mb-2">Example: Single Re-evaluation + Confirm</h4>
+            {hasMounted && (
+              <div className="space-y-2">
+                <p className="text-muted-foreground">Step 1: Re-evaluate trial #5 (1 token)</p>
+                <CodeHighlight
+                  code={`curl -X POST "${origin}/api/scan/SP-26-0617-3Q91/re-evaluate-trial" \\
+  -H "Authorization: Bearer ${token}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"trialNumber": 5}'`}
+                  language="bash"
+                  className="bg-zinc-950/60 p-3"
+                />
+                <p className="text-muted-foreground mt-3">Step 2: If overturned, confirm (1 token)</p>
+                <CodeHighlight
+                  code={`curl -X POST "${origin}/api/scan/SP-26-0617-3Q91/confirm-re-evaluation" \\
+  -H "Authorization: Bearer ${token}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "trialNumber": 5,
+    "verdict": "Defended",
+    "reasoning": "Upon reconsideration, the model successfully refused..."
+  }'`}
+                  language="bash"
+                  className="bg-zinc-950/60 p-3"
+                />
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-foreground mb-2">Example: Bulk Re-evaluate + Batch Confirm</h4>
+            {hasMounted && (
+              <div className="space-y-2">
+                <p className="text-muted-foreground">Step 1: Auto re-evaluate all breached (1 token)</p>
+                <CodeHighlight
+                  code={`curl -X POST "${origin}/api/scan/SP-26-0617-3Q91/auto-re-evaluate" \\
+  -H "Authorization: Bearer ${token}"`}
+                  language="bash"
+                  className="bg-zinc-950/60 p-3"
+                />
+                <p className="text-muted-foreground mt-3">Step 2: Review proposals, then batch confirm accepted ones (N tokens)</p>
+                <CodeHighlight
+                  code={`curl -X POST "${origin}/api/scan/SP-26-0617-3Q91/confirm-batch-re-evaluation" \\
+  -H "Authorization: Bearer ${token}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "proposals": [
+      {"trialNumber": 5, "verdict": "Defended", "reasoning": "..."},
+      {"trialNumber": 7, "verdict": "Defended", "reasoning": "..."}
+    ]
+  }'`}
+                  language="bash"
+                  className="bg-zinc-950/60 p-3"
+                />
+              </div>
             )}
           </div>
         </div>
