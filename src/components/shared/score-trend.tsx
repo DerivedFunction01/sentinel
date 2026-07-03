@@ -1,110 +1,110 @@
 "use client";
 
+import { useState } from "react";
+import dynamic from "next/dynamic";
 import type { ScoreTrendPoint } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Dynamically import Plotly with SSR disabled to avoid "self is not defined" error
+const Plot = dynamic(() => import("react-plotly.js"), {
+  ssr: false,
+  loading: () => <div className="w-full h-full animate-pulse bg-muted/20 rounded" />
+});
+
+type TimePeriod = "all" | "weekly" | "monthly" | "annually";
 
 interface ScoreTrendChartProps {
   data: ScoreTrendPoint[];
 }
 
 export function ScoreTrendChart({ data }: ScoreTrendChartProps) {
+  const [period, setPeriod] = useState<TimePeriod>("all");
+
   if (data.length === 0) return null;
 
-  const width = 480;
-  const height = 180;
-  const padding = { top: 20, right: 20, bottom: 30, left: 36 };
-  const chartW = width - padding.left - padding.right;
-  const chartH = height - padding.top - padding.bottom;
+  // Filter data based on selected period
+  const now = new Date();
+  const filteredData = data.filter((d) => {
+    const scanDate = new Date(d.date);
+    switch (period) {
+      case "weekly":
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return scanDate >= weekAgo;
+      case "monthly":
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return scanDate >= monthAgo;
+      case "annually":
+        const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        return scanDate >= yearAgo;
+      default:
+        return true;
+    }
+  });
 
-  const maxScore = 100;
-  const minScore = 0;
+  const labels = filteredData.map((d) => d.date);
+  const scores = filteredData.map((d) => d.score);
 
-  const xStep = data.length > 1 ? chartW / (data.length - 1) : 0;
-  const points = data.map((d, i) => ({
-    x: padding.left + i * xStep,
-    y: padding.top + chartH - ((d.score - minScore) / (maxScore - minScore)) * chartH,
-    ...d,
-  }));
+  const trace = {
+    type: "scatter",
+    mode: "lines+markers",
+    x: labels,
+    y: scores,
+    marker: { color: "#3B82F6", size: 7 },
+    line: { color: "#3B82F6", width: 2.5, shape: "spline" },
+    fill: "tozeroy",
+    fillcolor: "rgba(59,130,246,0.15)",
+    hovertemplate: "%{x}<br>Score: %{y}<extra></extra>",
+  };
 
-  const linePath = points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
-    .join(" ");
+  const layout = {
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { color: "#A1A1AA", size: 11 },
+    margin: { t: 20, r: 20, b: 60, l: 50 },
+    xaxis: {
+      type: "date",
+      tickangle: -45,
+      tickfont: { size: 10 },
+      showgrid: false,
+      dtick: "86400000", // Show one tick per day
+      tickformat: "%b %d",
+    },
+    yaxis: {
+      range: [0, 100],
+      showgrid: true,
+      gridcolor: "rgba(255,255,255,0.06)",
+      zeroline: false,
+      tickformat: ".0f",
+    },
+    showlegend: false,
+    autosize: true,
+  };
 
-  const areaPath =
-    `${linePath} L ${points[points.length - 1].x} ${padding.top + chartH}` +
-    ` L ${points[0].x} ${padding.top + chartH} Z`;
+  const config = {
+    responsive: true,
+    displayModeBar: false,
+  };
 
   return (
-    <div className="w-full">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full">
-        <defs>
-          <linearGradient id="scoreArea" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-
-        {/* Grid lines */}
-        {[0, 25, 50, 75, 100].map((val) => {
-          const y =
-            padding.top + chartH - ((val - minScore) / (maxScore - minScore)) * chartH;
-          return (
-            <g key={val}>
-              <line
-                x1={padding.left}
-                y1={y}
-                x2={width - padding.right}
-                y2={y}
-                stroke="currentColor"
-                strokeWidth="1"
-                className="text-muted/20"
-              />
-              <text
-                x={padding.left - 8}
-                y={y + 4}
-                textAnchor="end"
-                className="fill-muted-foreground text-[10px]"
-              >
-                {val}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Area */}
-        <path d={areaPath} fill="url(#scoreArea)" />
-
-        {/* Line */}
-        <path
-          d={linePath}
-          fill="none"
-          stroke="#3B82F6"
-          strokeWidth="2.5"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-
-        {/* Points */}
-        {points.map((p, i) => (
-          <g key={i}>
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r="4"
-              fill="#0B0F1A"
-              stroke="#3B82F6"
-              strokeWidth="2"
-            />
-            <text
-              x={p.x}
-              y={padding.top + chartH + 18}
-              textAnchor="middle"
-              className="fill-muted-foreground text-[10px]"
-            >
-              {p.label}
-            </text>
-          </g>
-        ))}
-      </svg>
+    <div className="w-full h-full flex flex-col">
+      <Tabs value={period} onValueChange={(v) => setPeriod(v as TimePeriod)} className="mb-2">
+        <TabsList className="h-7 p-0.5 bg-muted/65 border border-white/5">
+          <TabsTrigger value="all" className="text-[10px] px-2 py-1">All</TabsTrigger>
+          <TabsTrigger value="weekly" className="text-[10px] px-2 py-1">Weekly</TabsTrigger>
+          <TabsTrigger value="monthly" className="text-[10px] px-2 py-1">Monthly</TabsTrigger>
+          <TabsTrigger value="annually" className="text-[10px] px-2 py-1">Annually</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      <div className="flex-1 min-h-0">
+        {filteredData.length > 0 ? (
+          <Plot data={[trace]} layout={layout} config={config} style={{ width: "100%", height: "100%" }} useResizeHandler />
+        ) : (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No data for selected period.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

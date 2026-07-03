@@ -368,36 +368,61 @@ export function computeDashboardStats(scans: ScanSummary[]) {
   // Score trend (oldest → newest)
   const scoreTrend = [...scans]
     .reverse()
-    .map((s, i) => ({ label: `Scan ${i + 1}`, score: s.score }));
+    .map((s) => ({
+      label: new Date(s.issuedDate).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+      date: s.issuedDate,
+      score: s.score,
+    }));
 
   // Model usage — group by model id, keep the display name
-  const modelMap = {} as Record<string, { name: string; scans: number }>;
+  const modelMap = {} as Record<
+    string,
+    {
+      name: string;
+      scans: number;
+      totalTrials: number;
+      totalBreaches: number;
+    }
+  >;
   for (const s of scans) {
     if (!modelMap[s.targetModel]) {
       modelMap[s.targetModel] = {
         name: s.modelName || s.targetModel,
         scans: 0,
+        totalTrials: 0,
+        totalBreaches: 0,
       };
     }
     modelMap[s.targetModel].scans++;
+    modelMap[s.targetModel].totalTrials += s.totalTrials;
+    modelMap[s.targetModel].totalBreaches += s.breaches;
   }
   const modelUsage = Object.entries(modelMap)
-    .map(([model, info]) => ({ model, scans: info.scans, name: info.name }))
+    .map(([model, info]) => ({
+      model,
+      scans: info.scans,
+      name: info.name,
+      defenseRate:
+        info.totalTrials > 0
+          ? Math.round(((info.totalTrials - info.totalBreaches) / info.totalTrials) * 100)
+          : 0,
+    }))
     .sort((a, b) => b.scans - a.scans);
 
   // Attack success rate (aggregated across all scans)
   const totalTrials = scans.reduce((s, sc) => s + sc.totalTrials, 0);
   const totalDefended = totalTrials - totalBreaches;
-  const rate =
-    totalTrials > 0 ? Math.round((totalBreaches / totalTrials) * 100) : 0;
   const attackSuccessRate =
     totalTrials > 0
       ? [
           {
-            category: "Forbidden Task 1 — All scans",
+            category: "Overall",
             breached: totalBreaches,
             defended: totalDefended,
-            rate,
+            rate: totalTrials > 0 ? Math.round((totalBreaches / totalTrials) * 100) : 0,
           },
         ]
       : [];

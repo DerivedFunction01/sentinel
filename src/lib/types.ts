@@ -297,6 +297,7 @@ export interface AttackSuccessRateRow {
 /** A point on the score-trend line chart. */
 export interface ScoreTrendPoint {
   label: string;
+  date: string;
   score: number;
 }
 

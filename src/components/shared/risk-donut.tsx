@@ -1,9 +1,15 @@
 "use client";
 
-import { getRiskStyle } from "@/lib/risk-utils";
 import type { RiskDistributionSegment } from "@/lib/types";
-import { RiskLevel } from "@/lib/enums";
+import { getRiskStyle } from "@/lib/risk-utils";
+import dynamic from "next/dynamic";
 
+const Plot = dynamic(() => import("react-plotly.js"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full animate-pulse bg-muted/20 rounded-full" />
+  ),
+});
 interface RiskDonutProps {
   data: RiskDistributionSegment[];
 }
@@ -12,92 +18,60 @@ export function RiskDonut({ data }: RiskDonutProps) {
   const total = data.reduce((sum, s) => sum + s.count, 0);
   if (total === 0) return null;
 
-  const radius = 70;
-  const strokeWidth = 28;
-  const circumference = 2 * Math.PI * radius;
+  const labels = data.map((s) => getRiskStyle(s.level).label);
+  const counts = data.map((s) => s.count);
+  const colors = data.map((s) => getRiskStyle(s.level).hex);
 
-  // Functional accumulation — no mutation after render
-  const { segments } = data.reduce(
-    (acc, seg) => {
-      const fraction = seg.count / total;
-      const dash = fraction * circumference;
-      const segment = {
-        level: seg.level,
-        count: seg.count,
-        style: getRiskStyle(seg.level),
-        dash,
-        gap: circumference - dash,
-        offset: -acc.cumulative,
-      };
-      return {
-        cumulative: acc.cumulative + dash,
-        segments: [...acc.segments, segment],
-      };
+  const trace = {
+    type: "pie",
+    labels,
+    values: counts,
+    hole: 0.55,
+    marker: { colors, line: { color: "rgba(0,0,0,0)", width: 1 } },
+    textinfo: "percent",
+    textfont: { size: 11, color: "#A1A1AA" },
+    hovertemplate: "%{label}: %{value} scans<extra></extra>",
+    showlegend: true,
+  };
+
+  const layout = {
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { color: "#A1A1AA", size: 11 },
+    margin: { t: 20, r: 20, b: 20, l: 20 },
+    legend: {
+      orientation: "h",
+      yanchor: "bottom",
+      y: -0.25,
+      xanchor: "center",
+      x: 0.5,
+      font: { size: 11 },
     },
-    {
-      cumulative: 0,
-      segments: [] as Array<{
-        level: RiskLevel;
-        count: number;
-        style: ReturnType<typeof getRiskStyle>;
-        dash: number;
-        gap: number;
-        offset: number;
-      }>,
-    },
-  );
+    autosize: true,
+  };
+
+  const config = {
+    responsive: true,
+    displayModeBar: false,
+  };
 
   return (
-    <div className="flex items-center gap-6">
-      <div className="relative h-44 w-44 shrink-0">
-        <svg
-          viewBox="0 0 200 200"
-          className="h-full w-full -rotate-90"
-        >
-          <circle
-            cx="100"
-            cy="100"
-            r={radius}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={strokeWidth}
-            className="text-muted/30"
-          />
-          {segments.map((seg, i) => (
-            <circle
-              key={i}
-              cx="100"
-              cy="100"
-              r={radius}
-              fill="none"
-              stroke={seg.style.hex}
-              strokeWidth={strokeWidth}
-              strokeDasharray={`${seg.dash} ${seg.gap}`}
-              strokeDashoffset={seg.offset}
-              strokeLinecap="butt"
-            />
-          ))}
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
+    <div className="w-full h-full flex items-center justify-center p-2">
+      <div className="relative w-full max-w-[240px] aspect-square">
+        <Plot
+          data={[trace]}
+          layout={layout}
+          config={config}
+          style={{ width: "100%", height: "100%" }}
+          useResizeHandler
+          className="absolute inset-0"
+        />
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <span className="text-3xl font-bold text-foreground">{total}</span>
-          <span className="text-xs text-muted-foreground">total scans</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            Total Scans
+          </span>
         </div>
-      </div>
-      <div className="space-y-3">
-        {segments.map((seg) => (
-          <div key={seg.level} className="flex items-center gap-2.5">
-            <span
-              className="h-3 w-3 rounded-sm"
-              style={{ backgroundColor: seg.style.hex }}
-            />
-            <span className={`text-sm font-medium ${seg.style.textClass}`}>
-              {seg.style.label}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              {seg.count} scan{seg.count !== 1 ? "s" : ""}
-            </span>
-          </div>
-        ))}
       </div>
     </div>
   );

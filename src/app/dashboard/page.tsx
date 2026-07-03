@@ -10,22 +10,21 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatCard, PageHeader } from "@/components/dashboard/dashboard-parts";
 import { RiskDonut } from "@/components/shared/risk-donut";
 import { ScoreTrendChart } from "@/components/shared/score-trend";
+import { ModelAnalyticsChart } from "@/components/dashboard/model-analytics-chart";
+import { AttackSuccessChart } from "@/components/dashboard/attack-success-chart";
 import { computeDashboardStats, getUserScans } from "@/lib/scan-db";
 import { requireUser } from "@/lib/auth-helpers";
-import { getRiskStyle, truncate } from "@/lib/risk-utils";
+import { getRiskStyle } from "@/lib/risk-utils";
 import { ScanSummary } from "@/lib/types";
 
 export default async function OverviewPage() {
   const user = await requireUser();
   const scans = await getUserScans(user.id);
   const stats = computeDashboardStats(scans);
-  const maxModelScans = Math.max(...stats.modelUsage.map((m) => m.scans), 1);
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-1.5rem)] overflow-hidden p-4 sm:p-6 lg:p-8 space-y-4">
@@ -59,8 +58,8 @@ export default async function OverviewPage() {
 
         {/* Right Column: Model/Success Rate Tabs and Recent Activity stacked */}
         <div className="flex flex-col gap-4 min-h-0">
-          {/* Top half: Model Usage and Attack Success Rate Tabs */}
-          {analytics(stats, maxModelScans)}
+          {/* Top half: Model Usage and Defense Rate */}
+          {analytics(stats)}
 
           {/* Bottom half: Recent Activity */}
           {recentActivity(scans)}
@@ -103,11 +102,9 @@ function scoreTrend(stats: any) {
         Score Trend Over Time
       </CardTitle>
     </CardHeader>
-    <CardContent className="flex-1 min-h-0 p-2">
+    <CardContent className="flex-1 min-h-0 p-4 pt-1">
       {stats.scoreTrend.length > 0 ? (
-        <div className="w-full h-full scale-95">
-          <ScoreTrendChart data={stats.scoreTrend} />
-        </div>
+        <ScoreTrendChart data={stats.scoreTrend} />
       ) : (
         <p className="py-8 text-center text-sm text-muted-foreground">
           No scans yet.
@@ -136,7 +133,7 @@ function riskDistribution(stats: any) {
   </Card>;
 }
 
-function analytics(stats: any, maxModelScans: number) {
+function analytics(stats: any) {
   return <Card className="h-[45%] min-h-0 flex flex-col">
     <Tabs defaultValue="models" className="flex-1 flex flex-col min-h-0">
       <CardHeader className="py-2.5 px-4 flex flex-row items-center justify-between space-y-0 flex-none">
@@ -147,50 +144,11 @@ function analytics(stats: any, maxModelScans: number) {
         </TabsList>
       </CardHeader>
       <CardContent className="flex-1 min-h-0 p-4 pt-1">
-        <TabsContent value="models" className="h-full mt-0 overflow-y-auto scrollbar-thin space-y-3.5">
-          {stats.modelUsage.length > 0 ? (
-            stats.modelUsage.map((entry) => (
-              <div key={entry.model} className="text-xs">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="font-medium text-foreground">{entry.name}</span>
-                  <span className="text-muted-foreground">{entry.scans} scans</span>
-                </div>
-                <Progress value={(entry.scans / maxModelScans) * 100} className="h-1.5" />
-              </div>
-            ))
-          ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">No scans yet.</p>
-          )}
+        <TabsContent value="models" className="h-full mt-0">
+          <ModelAnalyticsChart data={stats.modelUsage} />
         </TabsContent>
-        <TabsContent value="attacks" className="h-full mt-0 overflow-y-auto scrollbar-thin">
-          {stats.attackSuccessRate.length > 0 ? (
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border text-left uppercase tracking-wider text-muted-foreground text-[10px]">
-                  <th className="pb-1.5 pr-2 font-medium">Category</th>
-                  <th className="pb-1.5 pr-2 font-medium">Breached</th>
-                  <th className="pb-1.5 pr-2 font-medium">Defended</th>
-                  <th className="pb-1.5 font-medium">Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.attackSuccessRate.map((row) => (
-                  <tr key={row.category} className="border-b border-border/50">
-                    <td className="py-1.5 pr-2">
-                      <p className="font-medium text-foreground">
-                        {truncate(row.category.split("—")[0].trim(), 24)}
-                      </p>
-                    </td>
-                    <td className="py-1.5 pr-2 font-semibold text-red-400">{row.breached}</td>
-                    <td className="py-1.5 pr-2 font-semibold text-emerald-400">{row.defended}</td>
-                    <td className="py-1.5 font-semibold text-amber-400">{row.rate}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">No scans yet.</p>
-          )}
+        <TabsContent value="attacks" className="h-full mt-0">
+          <AttackSuccessChart data={stats.attackSuccessRate} />
         </TabsContent>
       </CardContent>
     </Tabs>
