@@ -54,6 +54,7 @@ interface Deployment {
   attackerModel: string;
   judgeModel: string;
   hardenerModel: string;
+  seedExtractorModel: string;
   extractorModel: string;
   systemPrompt: string;
   forbiddenTask: string;
@@ -216,6 +217,7 @@ export default function AgentDeploymentPage() {
     setAttackerModel(dep.attackerModel);
     setJudgeModel(dep.judgeModel);
     setHardenerModel(dep.hardenerModel || "");
+    setSeedExtractorModel(dep.seedExtractorModel || "");
     setExtractorModel(dep.extractorModel || "");
     promptForm.setValue("systemPrompt", dep.systemPrompt);
     promptForm.setValue("forbiddenTask", dep.forbiddenTask);
@@ -229,6 +231,7 @@ export default function AgentDeploymentPage() {
     setEditingId(null);
     setName("");
     setHardenerModel("");
+    setSeedExtractorModel("");
     setExtractorModel("");
     promptForm.reset();
     toast.info("Cancelled editing mode");
@@ -267,6 +270,7 @@ export default function AgentDeploymentPage() {
             attackerModel,
             judgeModel,
             hardenerModel,
+            seedExtractorModel,
             extractorModel,
             ...payload,
           },
@@ -299,6 +303,7 @@ export default function AgentDeploymentPage() {
           attackerModel,
           judgeModel,
           hardenerModel,
+          seedExtractorModel,
           extractorModel,
           ...payload,
         });
@@ -390,7 +395,7 @@ export default function AgentDeploymentPage() {
           attackerModel: dep.attackerModel,
           judgeModel: dep.judgeModel,
           hardenerModel: dep.hardenerModel || DEFAULT_MODEL,
-          seedExtractorModel: seedExtractorModel,
+          seedExtractorModel: dep.seedExtractorModel || DEFAULT_MODEL,
           extractorModel: dep.extractorModel || DEFAULT_MODEL,
           systemPrompt: dep.systemPrompt,
           forbiddenTask: dep.forbiddenTask,
