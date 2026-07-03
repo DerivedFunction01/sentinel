@@ -14,7 +14,7 @@ import { ModelSelector } from "@/components/shared/model-selector";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { Sparkles, Check } from "lucide-react";
 import { Granularity } from "@/lib/enums";
-import { DEFAULT_MODEL } from "@/lib/model-utils";
+import { DEFAULT_MODEL, ModelSelectorRole } from "@/lib/model-utils";
 
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -120,6 +120,7 @@ export function GranularityPickerDialog({
               <ModelSelector
                 value={hardenerModel}
                 onChange={setHardenerModel}
+                role={ModelSelectorRole.Hardener}
               />
               <p className="text-[10px] text-slate-400 leading-normal">
                 The LLM that will analyze attack transcripts and rewrite your system prompt to defend against them.
@@ -231,6 +232,7 @@ export function GranularityPickerDialog({
                 <ModelSelector
                   value={extractorModel}
                   onChange={setExtractorModel}
+                  role={ModelSelectorRole.ToolExtractor}
                 />
                 <p className="text-[10px] text-slate-400 leading-normal">
                   For complex prompts with many rules, choosing a larger reasoning

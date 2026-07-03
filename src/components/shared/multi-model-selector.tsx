@@ -29,6 +29,11 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { formatModelName } from "@/lib/enums";
+import {
+  ModelSelectorRole,
+  incrementModelUsage,
+  getTopModelsForRole,
+} from "@/lib/model-utils";
 
 interface ModelOption {
   id: string;
@@ -44,33 +49,14 @@ interface MultiModelSelectorProps {
   /** Selected model ids. */
   value: string[];
   onChange: (ids: string[]) => void;
-}
-
-const RECENT_MODELS_KEY = "ToolRegistry_recent_models";
-
-function getRecentModels(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(RECENT_MODELS_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveRecentModel(modelId: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const recents = getRecentModels();
-    const filtered = recents.filter((id) => id !== modelId);
-    filtered.unshift(modelId);
-    if (filtered.length > 5) filtered.pop();
-    localStorage.setItem(RECENT_MODELS_KEY, JSON.stringify(filtered));
-  } catch {}
+  /** Role for per-role usage tracking (defaults to target). */
+  role?: ModelSelectorRole;
 }
 
 export function MultiModelSelector({
   value,
   onChange,
+  role = ModelSelectorRole.Target,
 }: MultiModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<ModelOption[]>([]);
@@ -125,7 +111,7 @@ export function MultiModelSelector({
   const others = models.filter((m) => !m.isRecommended);
 
   const toggleModel = (id: string) => {
-    saveRecentModel(id);
+    incrementModelUsage(id, role);
     if (value.includes(id)) {
       onChange(value.filter((v) => v !== id));
     } else {
@@ -141,8 +127,9 @@ export function MultiModelSelector({
     (id) => models.find((m) => m.id === id)?.name || formatModelName(id),
   );
 
-  const recentIds = getRecentModels();
-  const recentModels: ModelOption[] = recentIds.map((id) => {
+  // Get frequently used models for this role
+  const frequentIds = getTopModelsForRole(role, models.map(m => m.id));
+  const frequentModels: ModelOption[] = frequentIds.map((id) => {
     const found = models.find((m) => m.id === id);
     if (found) return found;
     return {
@@ -215,14 +202,14 @@ export function MultiModelSelector({
                 <CommandEmpty>No model found.</CommandEmpty>
               ) : (
                 <>
-                  {search.length === 0 && recentModels.length > 0 && (
+                  {search.length === 0 && frequentModels.length > 0 && (
                     <CommandGroup
-                      heading="RECENTLY USED"
+                      heading="FREQUENTLY USED"
                       className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2"
                     >
-                      {recentModels.map((model) => (
+                      {frequentModels.map((model) => (
                         <ModelItem
-                          key={`recent-${model.id}`}
+                          key={`frequent-${model.id}`}
                           model={model}
                           selected={value.includes(model.id)}
                           onSelect={() => toggleModel(model.id)}

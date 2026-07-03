@@ -26,6 +26,11 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { formatModelName } from "@/lib/enums";
+import {
+  ModelSelectorRole,
+  incrementModelUsage,
+  getTopModelsForRole,
+} from "@/lib/model-utils";
 
 interface ModelOption {
   id: string;
@@ -40,31 +45,11 @@ interface ModelOption {
 interface ModelSelectorProps {
   value: string;
   onChange: (modelId: string) => void;
+  /** Optional role for per-role usage tracking and defaults. */
+  role?: ModelSelectorRole;
 }
 
-const RECENT_MODELS_KEY = "ToolRegistry_recent_models";
-
-function getRecentModels(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(RECENT_MODELS_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveRecentModel(modelId: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const recents = getRecentModels();
-    const filtered = recents.filter((id) => id !== modelId);
-    filtered.unshift(modelId);
-    if (filtered.length > 5) filtered.pop();
-    localStorage.setItem(RECENT_MODELS_KEY, JSON.stringify(filtered));
-  } catch {}
-}
-
-export function ModelSelector({ value, onChange }: ModelSelectorProps) {
+export function ModelSelector({ value, onChange, role }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,8 +87,14 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
   const others = models.filter((m) => !m.isRecommended);
   const selectedModel = models.find((m) => m.id === value);
 
-  const recentIds = getRecentModels();
-  const recentModels: ModelOption[] = recentIds.map((id) => {
+  // Get frequently used models for this role (if role is provided)
+  const frequentIds = role
+    ? getTopModelsForRole(
+        role,
+        models.map((m) => m.id),
+      )
+    : [];
+  const frequentModels: ModelOption[] = frequentIds.map((id) => {
     const found = models.find((m) => m.id === id);
     if (found) return found;
     return {
@@ -153,18 +144,18 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
               <CommandEmpty>No model found.</CommandEmpty>
             ) : (
               <>
-                {search.length === 0 && recentModels.length > 0 && (
+                {search.length === 0 && role && frequentModels.length > 0 && (
                   <CommandGroup
-                    heading="RECENTLY USED"
+                    heading="FREQUENTLY USED"
                     className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2"
                   >
-                    {recentModels.map((model) => (
+                    {frequentModels.map((model) => (
                       <ModelItem
-                        key={`recent-${model.id}`}
+                        key={`frequent-${model.id}`}
                         model={model}
                         selected={model.id === value}
                         onSelect={(id) => {
-                          saveRecentModel(id);
+                          incrementModelUsage(id, role);
                           onChange(id);
                           setOpen(false);
                         }}
@@ -183,7 +174,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
                         model={model}
                         selected={model.id === value}
                         onSelect={(id) => {
-                          saveRecentModel(id);
+                          if (role) incrementModelUsage(id, role);
                           onChange(id);
                           setOpen(false);
                         }}
@@ -199,7 +190,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
                         model={model}
                         selected={model.id === value}
                         onSelect={(id) => {
-                          saveRecentModel(id);
+                          if (role) incrementModelUsage(id, role);
                           onChange(id);
                           setOpen(false);
                         }}

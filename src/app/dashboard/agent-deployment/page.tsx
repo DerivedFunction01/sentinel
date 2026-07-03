@@ -38,7 +38,12 @@ import { PromptFormSection } from "@/components/shared/prompt-form-section";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { SdkDocs } from "@/components/shared/sdk-docs";
 import { toast } from "sonner";
-import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
+import {
+  DEFAULT_MODEL,
+  findDefaultModel,
+  getMostUsedModelForRole,
+  ModelSelectorRole,
+} from "@/lib/model-utils";
 import { usePromptForm } from "@/hooks/use-prompt-form";
 import { useModelDefaults } from "@/hooks/use-model-defaults";
 
@@ -149,13 +154,14 @@ export default function AgentDeploymentPage() {
       .then((r) => r.json())
       .then((d) => {
         if (d.models && d.models.length > 0) {
-          const defaultModelId = findDefaultModel(d.models);
-          setTargetModel(defaultModelId);
-          setAttackerModel(defaultModelId);
-          setJudgeModel(defaultModelId);
-          setHardenerModel(defaultModelId);
-          setSeedExtractorModel(defaultModelId);
-          setExtractorModel(defaultModelId);
+          const fallbackModelId = findDefaultModel(d.models);
+          // Use most frequently used model for each role, falling back to system default
+          setTargetModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Target, fallbackModelId) : prev);
+          setAttackerModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Attack, fallbackModelId) : prev);
+          setJudgeModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Judge, fallbackModelId) : prev);
+          setHardenerModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Hardener, fallbackModelId) : prev);
+          setSeedExtractorModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.SeedExtractor, fallbackModelId) : prev);
+          setExtractorModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.ToolExtractor, fallbackModelId) : prev);
         }
       })
       .catch(() => {});
@@ -593,6 +599,7 @@ export default function AgentDeploymentPage() {
                   <ModelSelector
                     value={targetModel}
                     onChange={setTargetModel}
+                    role={ModelSelectorRole.Target}
                   />
                 </div>
               </div>
@@ -603,17 +610,19 @@ export default function AgentDeploymentPage() {
                   <ModelSelector
                     value={attackerModel}
                     onChange={setAttackerModel}
+                    role={ModelSelectorRole.Attack}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Judge Model</Label>
-                  <ModelSelector value={judgeModel} onChange={setJudgeModel} />
+                  <ModelSelector value={judgeModel} onChange={setJudgeModel} role={ModelSelectorRole.Judge} />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Hardener Model</Label>
                   <ModelSelector
                     value={hardenerModel}
                     onChange={setHardenerModel}
+                    role={ModelSelectorRole.Hardener}
                   />
                 </div>
               </div>
@@ -629,7 +638,7 @@ export default function AgentDeploymentPage() {
                 >
                   {showAdvancedModels ? "Hide Advanced Options" : "Show Advanced Options"}
                 </Button>
-                
+
                 {showAdvancedModels && (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4 pt-2">
                     <div className="space-y-2">
@@ -637,7 +646,11 @@ export default function AgentDeploymentPage() {
                         <Sparkles className="h-3.5 w-3.5 text-blue-400" />
                         Seed Extractor Model
                       </Label>
-                      <ModelSelector value={seedExtractorModel} onChange={setSeedExtractorModel} />
+                      <ModelSelector
+                        value={seedExtractorModel}
+                        onChange={setSeedExtractorModel}
+                        role={ModelSelectorRole.SeedExtractor}
+                      />
                       <p className="text-[10px] text-muted-foreground">
                         Custom model used to auto-suggest forbidden tasks and analyze prompt ontologies.
                       </p>
@@ -648,7 +661,11 @@ export default function AgentDeploymentPage() {
                         <Braces className="h-3.5 w-3.5 text-purple-400" />
                         Tool Extractor Model
                       </Label>
-                      <ModelSelector value={extractorModel} onChange={setExtractorModel} />
+                      <ModelSelector
+                        value={extractorModel}
+                        onChange={setExtractorModel}
+                        role={ModelSelectorRole.ToolExtractor}
+                      />
                       <p className="text-[10px] text-muted-foreground">
                         Custom model used to extract tools and analyze mock responses during hardening.
                       </p>

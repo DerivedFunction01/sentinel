@@ -234,3 +234,90 @@ export const DEFAULT_MOCK_RESPONSE = {
   next_steps:
     "Direct users to appropriate professionals or official channels for any requests.",
 };
+
+/** Model selector roles for per-role usage tracking. */
+export enum ModelSelectorRole {
+  Target = "target",
+  Attack = "attack",
+  Judge = "judge",
+  SeedExtractor = "seedExtractor",
+  ToolExtractor = "toolExtractor",
+  Hardener = "hardener",
+}
+
+/** Get model usage counts from localStorage. */
+export function getModelUsageCounts(): Record<
+  string,
+  Record<ModelSelectorRole, number>
+> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem("ToolRegistry_model_usage") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+/** Save usage counts to localStorage. */
+function saveModelUsageCounts(
+  counts: Record<string, Record<ModelSelectorRole, number>>,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("ToolRegistry_model_usage", JSON.stringify(counts));
+  } catch {}
+}
+
+/** Increment usage counter for a model in a specific role, and return the updated top models for that role. */
+export function incrementModelUsage(
+  modelId: string,
+  role: ModelSelectorRole,
+): void {
+  const counts = getModelUsageCounts();
+  if (!counts[modelId]) {
+    counts[modelId] = {
+      target: 0,
+      attack: 0,
+      judge: 0,
+      seedExtractor: 0,
+      toolExtractor: 0,
+      hardener: 0,
+    };
+  }
+  counts[modelId][role] = (counts[modelId][role] || 0) + 1;
+  saveModelUsageCounts(counts);
+}
+
+/** Get top N models for a specific role, sorted by usage count descending. */
+export function getTopModelsForRole(
+  role: ModelSelectorRole,
+  allModelIds: string[],
+  limit: number = 5,
+): string[] {
+  const counts = getModelUsageCounts();
+  const modelsWithCounts = allModelIds
+    .map((id) => ({
+      id,
+      count: counts[id]?.[role] || 0,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .filter((m) => m.count > 0)
+    .slice(0, limit);
+  return modelsWithCounts.map((m) => m.id);
+}
+
+/** Get the most frequently used model for a role (or fallback if none). */
+export function getMostUsedModelForRole(
+  role: ModelSelectorRole,
+  fallback: string,
+): string {
+  const counts = getModelUsageCounts();
+  const modelIds = Object.keys(counts);
+  if (modelIds.length === 0) return fallback;
+
+  const sorted = modelIds.sort(
+    (a, b) => (counts[b]?.[role] || 0) - (counts[a]?.[role] || 0),
+  );
+  const topModel = sorted[0];
+  return (counts[topModel]?.[role] || 0) > 0 ? topModel : fallback;
+}

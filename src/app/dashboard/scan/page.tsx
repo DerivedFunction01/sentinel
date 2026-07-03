@@ -42,7 +42,12 @@ import { FieldBlock } from "@/components/shared/field-block";
 import { PromptFormSection } from "@/components/shared/prompt-form-section";
 import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-dialog";
 import { toast } from "sonner";
-import { DEFAULT_MOCK_RESPONSE, findDefaultModel } from "@/lib/model-utils";
+import {
+  DEFAULT_MOCK_RESPONSE,
+  findDefaultModel,
+  getMostUsedModelForRole,
+  ModelSelectorRole,
+} from "@/lib/model-utils";
 import {
   sampleForbiddenTask,
   sampleJudgeInstructions,
@@ -153,17 +158,16 @@ export default function PenTestScanPage() {
       .then((r) => r.json())
       .then((d) => {
         if (d.models && d.models.length > 0) {
-          const defaultModelId = findDefaultModel(d.models);
+          const fallbackModelId = findDefaultModel(d.models);
+          // Use most frequently used model for each role, falling back to system default
           setTargetModels((prev) =>
-            prev.length === 0 ? [defaultModelId] : prev,
+            prev.length === 0 ? [getMostUsedModelForRole(ModelSelectorRole.Target, fallbackModelId)] : prev,
           );
-          setAttackerModel((prev) => (prev === "" ? defaultModelId : prev));
-          setJudgeModel((prev) => (prev === "" ? defaultModelId : prev));
-          setHardenerModel((prev) => (prev === "" ? defaultModelId : prev));
-          setSeedExtractorModel((prev) =>
-            prev === "" ? defaultModelId : prev,
-          );
-          setExtractorModel((prev) => (prev === "" ? defaultModelId : prev));
+          setAttackerModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Attack, fallbackModelId) : prev);
+          setJudgeModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Judge, fallbackModelId) : prev);
+          setHardenerModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.Hardener, fallbackModelId) : prev);
+          setSeedExtractorModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.SeedExtractor, fallbackModelId) : prev);
+          setExtractorModel((prev) => prev === "" ? getMostUsedModelForRole(ModelSelectorRole.ToolExtractor, fallbackModelId) : prev);
         }
       })
       .catch(() => {});
@@ -884,7 +888,11 @@ function ChooseModels({
       <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="space-y-2">
           <Label className="text-sm font-medium">Target AI Model(s)</Label>
-          <MultiModelSelector value={targetModels} onChange={setTargetModels} />
+          <MultiModelSelector
+            value={targetModels}
+            onChange={setTargetModels}
+            role={ModelSelectorRole.Target}
+          />
           <p className="text-xs text-muted-foreground">
             Select one or more models to test in parallel.
           </p>
@@ -894,7 +902,11 @@ function ChooseModels({
             <Swords className="h-3.5 w-3.5 text-red-400" />
             Attacker Model
           </Label>
-          <ModelSelector value={attackerModel} onChange={setAttackerModel} />
+          <ModelSelector
+            value={attackerModel}
+            onChange={setAttackerModel}
+            role={ModelSelectorRole.Attack}
+          />
           <p className="text-xs text-muted-foreground">
             Generates adversarial prompts targeting the forbidden task.
           </p>
@@ -904,7 +916,11 @@ function ChooseModels({
             <Gavel className="h-3.5 w-3.5 text-emerald-400" />
             Judge Model
           </Label>
-          <ModelSelector value={judgeModel} onChange={setJudgeModel} />
+          <ModelSelector
+            value={judgeModel}
+            onChange={setJudgeModel}
+            role={ModelSelectorRole.Judge}
+          />
           <p className="text-xs text-muted-foreground">
             Evaluates whether the target leaked restricted info.
           </p>
@@ -919,6 +935,7 @@ function ChooseModels({
               <ModelSelector
                 value={hardenerModel}
                 onChange={setHardenerModel}
+                role={ModelSelectorRole.Hardener}
               />
               <p className="text-xs text-muted-foreground">
                 Generates a hardened system prompt following the scan.
@@ -987,6 +1004,7 @@ function ChooseModels({
                 <ModelSelector
                   value={seedExtractorModel}
                   onChange={setSeedExtractorModel}
+                  role={ModelSelectorRole.SeedExtractor}
                 />
                 <p className="text-[10px] text-muted-foreground">
                   Custom model used to auto-suggest forbidden tasks and analyze
@@ -1002,6 +1020,7 @@ function ChooseModels({
                 <ModelSelector
                   value={extractorModel}
                   onChange={setExtractorModel}
+                  role={ModelSelectorRole.ToolExtractor}
                 />
                 <p className="text-[10px] text-muted-foreground">
                   Custom model used to extract tools and analyze mock responses
