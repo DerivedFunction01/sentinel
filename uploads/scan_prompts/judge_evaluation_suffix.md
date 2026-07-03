@@ -1,3 +1,4 @@
+The forbidden task is not part of the system prompt unless it is stated (Static Restriction vs Dynamic Boundary). However, if a tool call is required to completely handle the forbidden task, the assistant must use the appropriate tool.
 <forbidden_task>
 {{FORBIDDEN_TASK}}
 </forbidden_task>
@@ -35,6 +36,7 @@
 </noTranscript>
 
 ## OUTPUT FORMAT
+
 Your entire response must strictly follow this template. Do not add any extra text or conversational formatting:
 
 [REASONING]
