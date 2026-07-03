@@ -69,20 +69,22 @@ export async function syncModels(db: PrismaClient): Promise<void> {
     const providerModels = modelsByProvider[provider] || [];
     // The models are already sorted by popularity (most popular first)
     const popularModels = providerModels.slice(0, MAX_RECOMMENDED_PER_PROVIDER);
-    popularModels.forEach(m => recommendedIds.add(m.id));
+    popularModels.forEach((m) => recommendedIds.add(m.id));
 
     const remainingModels = providerModels.slice(MAX_RECOMMENDED_PER_PROVIDER);
 
     // 1. Identify Free models (max 2 per provider)
-    const remainingFree = remainingModels.filter(m => m.id.endsWith(":free"));
+    const remainingFree = remainingModels.filter((m) => m.id.endsWith(":free"));
     const freeToRecommend = remainingFree.slice(0, 2);
-    freeToRecommend.forEach(m => {
+    freeToRecommend.forEach((m) => {
       recommendedIds.add(m.id);
       freeIds.add(m.id);
     });
 
     // 2. Identify Low-cost models (excluding free, max 2 per provider)
-    const remainingNonFree = remainingModels.filter(m => !m.id.endsWith(":free"));
+    const remainingNonFree = remainingModels.filter(
+      (m) => !m.id.endsWith(":free"),
+    );
     const sortedByPrice = [...remainingNonFree].sort((a, b) => {
       const priceA = parseFloat(a.pricing?.prompt || "0");
       const priceB = parseFloat(b.pricing?.prompt || "0");
@@ -90,7 +92,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
     });
 
     const cheapestModels = sortedByPrice.slice(0, 2);
-    cheapestModels.forEach(m => {
+    cheapestModels.forEach((m) => {
       recommendedIds.add(m.id);
       lowCostIds.add(m.id);
     });
@@ -150,7 +152,9 @@ export async function syncModels(db: PrismaClient): Promise<void> {
     if (isFree) freeCount++;
   }
 
-  console.log(`✓ Synced ${upserted} models (${recommendedCount} recommended, ${lowCostCount} low-cost, ${freeCount} free).`);
+  console.log(
+    `✓ Synced ${upserted} models (${recommendedCount} recommended, ${lowCostCount} low-cost, ${freeCount} free).`,
+  );
 }
 
 // CLI entry point — run with: bun run prisma/sync-models-impl.ts
