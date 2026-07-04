@@ -714,6 +714,7 @@ function extractSystemPrompt(text: string): string {
   return result;
 }
 
+/* Old Code
 export async function executeMultiStepHardening(
   callModel: (prompt: string) => Promise<string>,
   systemPrompt: string,
@@ -852,7 +853,7 @@ export async function executeMultiStepHardening(
 
   return finalPrompt.trim();
 }
-
+*/
 export async function executeMultiStepHardeningFull(
   callModel: (prompt: string) => Promise<string>,
   systemPrompt: string,
