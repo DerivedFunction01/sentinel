@@ -1,13 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useMemo } from "react";
-import {
-  Coins,
-  AlertTriangle,
-  AlertCircle,
-  Loader2,
-  Paperclip,
-} from "lucide-react";
+import { Coins, AlertTriangle, AlertCircle, Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -15,78 +9,54 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import {
-  getCachedCostEstimate,
-  setCachedCostEstimate,
-  type CostEstimateEntry,
-} from "@/lib/indexed-db";
+import { getCachedCostEstimate, setCachedCostEstimate } from "@/lib/indexed-db";
 
-interface PrompConfigLike {
-  systemPrompt: string;
-  forbiddenTask: string;
-  judgeInstructions: string;
-  tools: string;
-  mockResponses: string;
-  allowNoToolsFallback?: boolean;
-  cachedSeedInfo?: unknown;
+/**
+ * A single item in the cost estimation formula.
+ * Mirrors the CostEstimationItem interface on the backend.
+ */
+export interface CostEstimationItem {
+  modelId: string;
+  type: "prompt" | "completion";
+  /** Server will tokenize this string with tiktoken */
+  text?: string;
+  /** Pre-computed token count (used when text is not provided) */
+  tokensCount?: number;
+  /**
+   * Additional pre-computed token count added on top of tokenized `text`.
+   * Use for stable template overhead (system prompt templates, few-shot examples, etc.)
+   */
+  additionalTokens?: number;
+  /** Quantity multiplier e.g. number of trials (default: 1) */
+  multiplier?: number;
 }
 
-interface CostPreviewWidgetProps {
-  prompts: PrompConfigLike[];
-  targetModels: string[];
-  attackerModel: string;
-  judgeModel: string;
-  hardenerModel: string;
-  seedExtractorModel: string;
-  extractorModel: string;
-  enableHardening: boolean;
+export interface CostPreviewWidgetProps {
+  /** The array of pricing formula items to pass to the estimator */
+  items: CostEstimationItem[];
+  /** User's current scanTokens balance */
   tokens: number | null;
+  /** Optional label shown in the breakdown footer (e.g. "2 models × 3 prompts") */
+  label?: string;
 }
 
 const DEBOUNCE_MS = 600;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
-function buildCacheKey(props: {
-  prompts: PrompConfigLike[];
-  targetModels: string[];
-  attackerModel: string;
-  judgeModel: string;
-  hardenerModel: string;
-  seedExtractorModel: string;
-  extractorModel: string;
-  enableHardening: boolean;
-}): string {
-  const parts = [
-    props.targetModels.sort().join(","),
-    props.attackerModel,
-    props.judgeModel,
-    props.hardenerModel,
-    props.seedExtractorModel,
-    props.extractorModel,
-    props.enableHardening ? "1" : "0",
-    props.prompts
-      .map((p) => [
-        (p.systemPrompt || "").length,
-        (p.forbiddenTask || "").length,
-        (p.judgeInstructions || "").length,
-        (p.tools || "").length,
-        (p.mockResponses || "").length,
-      ])
-      .join(";"),
-  ];
-  return `cost-estimate|${parts.join("|")}`;
+function buildCacheKey(items: CostEstimationItem[]): string {
+  const fingerprint = items
+    .map(
+      (i) =>
+        `${i.modelId}:${i.type}:${i.text !== undefined ? i.text.length : (i.tokensCount ?? 0)}:${i.multiplier ?? 1}`,
+    )
+    .join("|");
+  return `cost-estimate-v2|${fingerprint}`;
 }
 
 export function CostPreviewWidget({
-  prompts,
-  targetModels,
-  attackerModel,
-  judgeModel,
-  hardenerModel,
-  seedExtractorModel,
-  extractorModel,
-  enableHardening,
+  items,
   tokens,
+  label,
 }: CostPreviewWidgetProps) {
   const [upfrontHold, setUpfrontHold] = React.useState<number | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -94,52 +64,7 @@ export function CostPreviewWidget({
   const [cacheHit, setCacheHit] = React.useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const cacheKey = useMemo(
-    () =>
-      buildCacheKey({
-        prompts,
-        targetModels,
-        attackerModel,
-        judgeModel,
-        hardenerModel,
-        seedExtractorModel,
-        extractorModel,
-        enableHardening,
-      }),
-    [
-      prompts,
-      targetModels,
-      attackerModel,
-      judgeModel,
-      hardenerModel,
-      seedExtractorModel,
-      extractorModel,
-      enableHardening,
-    ],
-  );
-
-  const payload = useMemo(
-    () => ({
-      prompts,
-      targetModels,
-      attackerModel,
-      judgeModel,
-      hardenerModel,
-      seedExtractorModel,
-      extractorModel,
-      enableHardening,
-    }),
-    [
-      prompts,
-      targetModels,
-      attackerModel,
-      judgeModel,
-      hardenerModel,
-      seedExtractorModel,
-      extractorModel,
-      enableHardening,
-    ],
-  );
+  const cacheKey = useMemo(() => buildCacheKey(items), [items]);
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -147,9 +72,10 @@ export function CostPreviewWidget({
     setUpfrontHold(null);
     setCacheHit(false);
 
+    if (items.length === 0) return;
+
     timerRef.current = setTimeout(async () => {
       setLoading(true);
-
       try {
         const cached = await getCachedCostEstimate(cacheKey);
         const now = Date.now();
@@ -163,7 +89,7 @@ export function CostPreviewWidget({
         const res = await fetch("/api/scan/estimate-hold", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ items }),
         });
 
         const data = await res.json();
@@ -191,15 +117,14 @@ export function CostPreviewWidget({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-    // lint-disable-next-line react-hooks/exhaustive-deps
-  }, [cacheKey, payload]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cacheKey]);
 
   const formatter = new Intl.NumberFormat("en-US");
   const tokensFormatted =
     upfrontHold !== null ? formatter.format(upfrontHold) : null;
   const usd =
-    upfrontHold !== null ? (upfrontHold / 1_000_000).toFixed(2) : null;
-  const totalScans = targetModels.length * prompts.length;
+    upfrontHold !== null ? (upfrontHold / 1_000_000).toFixed(4) : null;
 
   const warningState = (() => {
     if (loading || upfrontHold === null || tokens === null || tokens === 0) {
@@ -211,55 +136,55 @@ export function CostPreviewWidget({
   })();
 
   return (
-    <Card className="border-slate-700/60 bg-slate-900/60 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
+    <Card className="border-slate-600 bg-slate-800 text-slate-100">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base text-slate-100">
           <Coins className="h-5 w-5 text-amber-400" />
           Cost Estimate
           {cacheHit && (
-            <span className="ml-2 rounded-full bg-slate-700/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-300">
+            <span className="ml-2 rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-300">
               Cached
             </span>
           )}
         </CardTitle>
-        <CardDescription>
-          Pre-launch token hold estimate based on current configuration
+        <CardDescription className="text-slate-400">
+          Pre-launch token hold estimate (includes 15% safety buffer)
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-4">
-          {/* Summary */}
+          {/* Hold line */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-baseline justify-between gap-4">
-              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
                 Upfront Hold
               </span>
               <div className="flex items-baseline gap-3">
                 {loading ? (
-                  <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-2 text-sm text-slate-400">
                     <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                    Calculating
+                    Calculating…
                   </span>
                 ) : tokensFormatted && usd ? (
                   <>
-                    <span className="text-sm font-semibold text-foreground tabular-nums">
+                    <span className="text-sm font-semibold text-white tabular-nums">
                       {tokensFormatted} tokens
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-slate-400">
                       (${usd} USD)
                     </span>
                   </>
                 ) : (
-                  <span className="text-sm text-muted-foreground">
-                    Update configuration
+                  <span className="text-sm text-slate-400">
+                    {error ? "Estimate failed" : "Update configuration"}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Balance */}
-            <div className="flex items-baseline justify-between gap-4 rounded-md bg-slate-800/60 px-3 py-2">
-              <span className="text-xs text-muted-foreground">
+            {/* Balance row */}
+            <div className="flex items-baseline justify-between gap-4 rounded-md bg-slate-700 px-3 py-2">
+              <span className="text-xs text-slate-400">
                 Your balance
               </span>
               <span
@@ -273,81 +198,65 @@ export function CostPreviewWidget({
               >
                 {tokens !== null
                   ? `${formatter.format(tokens)} tokens`
-                  : "Loading..."}
+                  : "Loading…"}
               </span>
             </div>
 
-            {/* Warning / Error State */}
+            {/* Status banner */}
             {!loading && upfrontHold !== null && (
               <div
                 className={`flex items-start gap-2 rounded-md border px-3 py-2 text-xs leading-relaxed ${
                   warningState === "error"
-                    ? "border-red-500/50 bg-red-500/10 text-red-200"
+                    ? "border-red-500/60 bg-red-950 text-red-200"
                     : warningState === "warning"
-                      ? "border-amber-500/40 bg-amber-500/10 text-amber-100"
-                      : "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
+                      ? "border-amber-500/50 bg-amber-950 text-amber-100"
+                      : "border-emerald-500/50 bg-emerald-950 text-emerald-100"
                 }`}
               >
                 {warningState === "error" && tokens !== null ? (
                   <>
                     <AlertCircle className="mt-[2px] h-4 w-4 shrink-0" />
                     <span>
-                      Insufficient tokens. You need{" "}
+                      Insufficient tokens — need{" "}
                       <span className="font-semibold">
                         {formatter.format(upfrontHold - tokens)}
                       </span>{" "}
-                      more tokens to launch this scan.
+                      more to proceed.
                     </span>
                   </>
                 ) : warningState === "warning" && tokens !== null ? (
                   <>
                     <AlertTriangle className="mt-[2px] h-4 w-4 shrink-0" />
                     <span>
-                      Your balance is{" "}
+                      Balance is low — only{" "}
                       <span className="font-semibold">
-                        {Math.round((1 - upfrontHold / tokens) * 100)}%
+                        {formatter.format(tokens - upfrontHold)}
                       </span>{" "}
-                      lower than the hold. Consider adding more tokens.
+                      tokens will remain.
                     </span>
                   </>
                 ) : warningState === "ok" && tokens !== null ? (
                   <>
                     <Coins className="mt-[2px] h-4 w-4 shrink-0" />
                     <span>
-                      You have enough tokens to launch (
+                      Sufficient balance —{" "}
                       <span className="font-semibold">
                         {formatter.format(tokens - upfrontHold)}
                       </span>{" "}
-                      will remain).
+                      tokens will remain after the hold.
                     </span>
                   </>
                 ) : null}
               </div>
             )}
+
+            {error && <p className="text-xs text-red-400">{error}</p>}
           </div>
 
-          {/* Breakdown */}
-          <div className="space-y-2 text-xs text-muted-foreground">
-            <Paperclip className="mr-1 inline h-3.5 w-3.5" />
-            <p className="inline">Hold breakdown</p>
-            <ul className="ml-5 list-disc space-y-1">
-              <li>
-                {targetModels.length} model{plural(targetModels.length)}
-              </li>
-              <li>
-                {prompts.length} prompt{plural(prompts.length)}
-              </li>
-              <li>
-                {totalScans} scan{plural(totalScans)}
-              </li>
-            </ul>
-          </div>
+          {/* Optional breakdown label */}
+          {label && <p className="text-xs text-slate-400">{label}</p>}
         </div>
       </CardContent>
     </Card>
   );
-}
-
-function plural(n: number) {
-  return n === 1 ? "" : "s";
 }

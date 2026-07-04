@@ -12,6 +12,8 @@ let cachedModels: Array<{
   id: string;
   name: string;
   defaultRank?: number | null;
+  promptPrice?: string | null;
+  completionPrice?: string | null;
 }> | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -21,7 +23,7 @@ import { db as dbInstance } from "@/lib/db";
  */
 export async function getCachedDbModels(
   db?: any,
-): Promise<Array<{ id: string; name: string; defaultRank?: number | null }>> {
+): Promise<Array<{ id: string; name: string; defaultRank?: number | null; promptPrice?: string | null; completionPrice?: string | null }>> {
   const now = Date.now();
   if (!cachedModels || now - cacheTimestamp > CACHE_TTL_MS) {
     if (!db) {

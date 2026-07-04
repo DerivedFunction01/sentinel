@@ -29,6 +29,7 @@ import { ChooseModels } from "@/components/shared/choose-models";
 import { PromptSectionCard } from "@/components/shared/prompt-section-card";
 import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-dialog";
 import { CostPreviewWidget } from "@/components/shared/cost-preview-widget";
+import type { CostEstimationItem } from "@/components/shared/cost-preview-widget";
 import { toast } from "sonner";
 import {
   DEFAULT_MOCK_RESPONSE,
@@ -135,10 +136,20 @@ export default function PenTestScanPage() {
   const [toolManagerOpen, setToolManagerOpen] = useState(false);
   const [managedPromptIdx, setManagedPromptIdx] = useState<number>(0);
 
+  /** Static template token counts fetched once from the server */
+  const [templateTokens, setTemplateTokens] = useState<Record<string, number> | null>(null);
+
   useEffect(() => {
     fetch("/api/user")
       .then((r) => r.json())
       .then((d) => d.user && setTokens(d.user.scanTokens));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/scan/template-tokens")
+      .then((r) => r.json())
+      .then(setTemplateTokens)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -224,6 +235,155 @@ export default function PenTestScanPage() {
       }
     }
   }, []);
+
+  /**
+   * Build the cost estimation items array for the CostPreviewWidget.
+   * Mirrors the logic in calculateUpfrontScanHold but encodes it as
+   * generic items so the server does only rate-lookup and multiplication.
+   */
+  const costItems = useMemo<CostEstimationItem[]>(() => {
+    if (!templateTokens || targetModels.length === 0) return [];
+    const t = templateTokens;
+    const items: CostEstimationItem[] = [];
+
+    for (const prompt of prompts) {
+      const userContent =
+        (prompt.systemPrompt || "") +
+        "\n" +
+        (prompt.forbiddenTask || "") +
+        "\n" +
+        (prompt.judgeInstructions || "");
+
+      // Estimate trial count from forbidden task paragraphs
+      let numThings = 3;
+      if (prompt.forbiddenTask?.trim()) {
+        numThings =
+          prompt.forbiddenTask
+            .split(/\n\s*\n/)
+            .map((s: string) => s.trim())
+            .filter(Boolean).length || 1;
+      }
+      const patternsCount: number = t.patternsCount ?? 20;
+      const totalTargetCount = patternsCount * 3;
+      const countPerThing = Math.max(
+        patternsCount,
+        Math.ceil(totalTargetCount / numThings),
+      );
+      const estimatedTrials = numThings * countPerThing;
+
+      // 1. Seed extraction (prompt input + template overhead)
+      items.push({
+        modelId: seedExtractorModel,
+        type: "prompt",
+        text: userContent,
+        additionalTokens: t.seedTemplate,
+      });
+      items.push({
+        modelId: seedExtractorModel,
+        type: "completion",
+        tokensCount: t.seedCompletionBuffer,
+      });
+
+      // 2. Attack generation (prompt input + template overhead)
+      items.push({
+        modelId: attackerModel,
+        type: "prompt",
+        text: userContent,
+        additionalTokens: t.attackGenerator,
+      });
+      items.push({
+        modelId: attackerModel,
+        type: "completion",
+        tokensCount: t.attackCompletionBuffer,
+      });
+
+      // 3. Per target model: target sim + judge eval + re-eval budget
+      for (const targetId of targetModels) {
+        // Target simulation (estimatedTrials runs)
+        items.push({
+          modelId: targetId,
+          type: "prompt",
+          text: userContent,
+          additionalTokens: t.targetSimBuffer,
+          multiplier: estimatedTrials,
+        });
+        items.push({
+          modelId: targetId,
+          type: "completion",
+          tokensCount: t.targetCompletionBuffer,
+          multiplier: estimatedTrials,
+        });
+
+        // Judge evaluation
+        items.push({
+          modelId: judgeModel,
+          type: "prompt",
+          text: userContent,
+          additionalTokens: t.judge,
+          multiplier: estimatedTrials,
+        });
+        items.push({
+          modelId: judgeModel,
+          type: "completion",
+          tokensCount: t.judgeCompletionBuffer,
+          multiplier: estimatedTrials,
+        });
+
+        // Re-evaluation budget (5 borderline trials)
+        items.push({
+          modelId: judgeModel,
+          type: "prompt",
+          text: userContent,
+          additionalTokens: t.judge,
+          multiplier: t.reEvalCount ?? 5,
+        });
+        items.push({
+          modelId: judgeModel,
+          type: "completion",
+          tokensCount: t.reEvalCompletionBuffer,
+          multiplier: t.reEvalCount ?? 5,
+        });
+      }
+
+      // 4. Hardening (if enabled)
+      if (enableHardening) {
+        items.push({
+          modelId: hardenerModel,
+          type: "prompt",
+          text: userContent,
+          additionalTokens: t.optimizationPrompt,
+        });
+        items.push({
+          modelId: hardenerModel,
+          type: "completion",
+          tokensCount: t.hardenCompletionBuffer,
+        });
+        items.push({
+          modelId: extractorModel,
+          type: "prompt",
+          text: userContent,
+          additionalTokens: t.extractSeedInfo,
+        });
+        items.push({
+          modelId: extractorModel,
+          type: "completion",
+          tokensCount: t.extractorCompletionBuffer,
+        });
+      }
+    }
+
+    return items;
+  }, [
+    templateTokens,
+    targetModels,
+    prompts,
+    seedExtractorModel,
+    attackerModel,
+    judgeModel,
+    hardenerModel,
+    extractorModel,
+    enableHardening,
+  ]);
 
   const handleLaunch = async () => {
     if (targetModels.length === 0) {
@@ -608,15 +768,9 @@ export default function PenTestScanPage() {
       />
       <div className="grid grid-cols-2 gap-2">
         <CostPreviewWidget
-          prompts={prompts}
-          targetModels={targetModels}
-          attackerModel={attackerModel}
-          judgeModel={judgeModel}
-          hardenerModel={hardenerModel}
-          seedExtractorModel={seedExtractorModel}
-          extractorModel={extractorModel}
-          enableHardening={enableHardening}
+          items={costItems}
           tokens={tokens}
+          label={`${targetModels.length} model${targetModels.length === 1 ? "" : "s"} × ${prompts.length} prompt${prompts.length === 1 ? "" : "s"}`}
         />
         <Card>
           <CardHeader>

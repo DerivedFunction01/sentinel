@@ -1,113 +1,70 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth-utils";
 import { getCachedDbModels } from "@/lib/models-cache";
-import { type ToolDef, type SeedInfo } from "@/lib/types";
-import { calculateUpfrontScanHold } from "@/lib/token-utils";
+import { estimateTokens } from "@/lib/token-utils";
 
-interface PromptPayload {
-  systemPrompt: string;
-  forbiddenTask: string;
-  judgeInstructions: string;
-  tools: string;
-  mockResponses: string;
-  allowNoToolsFallback?: boolean;
-  cachedSeedInfo?: SeedInfo;
-}
-
-interface PromptConfig {
-  systemPrompt: string;
-  forbiddenTask: string;
-  judgeInstructions: string;
-  tools: ToolDef[];
-  mockToolResponses: Record<string, unknown>;
-  allowNoToolsFallback?: boolean;
-  cachedSeedInfo?: SeedInfo;
+/**
+ * A single pricing item used to calculate an upfront token hold.
+ * The total cost is: sum of (tokens * modelRate * multiplier) for each item.
+ */
+export interface CostEstimationItem {
+  /** Model ID to look up pricing for */
+  modelId: string;
+  /** Whether to use the prompt or completion price for this item */
+  type: "prompt" | "completion";
+  /** Text to tokenize server-side using tiktoken (takes priority over tokensCount) */
+  text?: string;
+  /** Pre-computed or static token count (used when text is not provided) */
+  tokensCount?: number;
+  /**
+   * Additional pre-computed token count added on top of the tokenized `text`.
+   * Useful for encoding stable template overhead (system prompts, few-shot examples, etc.)
+   * so the client only needs to tokenize the dynamic user content server-side.
+   */
+  additionalTokens?: number;
+  /** Quantity multiplier — e.g. number of trials (default: 1) */
+  multiplier?: number;
 }
 
 export async function POST(req: Request) {
-  // Authenticate via session OR Bearer API key
   const authUser = await authenticateRequest(req);
   if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Auth is verified; we don't need to query the user table here.
-  // The client already knows its token balance.
-
   const body = await req.json().catch(() => ({}));
 
-  const targetModels: string[] = Array.isArray(body.targetModels)
-    ? body.targetModels
-    : body.targetModel
-      ? [body.targetModel]
-      : [];
+  const items: CostEstimationItem[] = Array.isArray(body.items)
+    ? body.items
+    : [];
 
-  const promptsRaw: PromptPayload[] = Array.isArray(body.prompts)
-    ? body.prompts
-    : [
-        {
-          systemPrompt: (body.systemPrompt as string) || "",
-          forbiddenTask: (body.forbiddenTask as string) || "",
-          judgeInstructions: (body.judgeInstructions as string) || "",
-          tools: (body.tools as string) || "",
-          mockResponses: (body.mockResponses as string) || "",
-          allowNoToolsFallback: !!body.allowNoToolsFallback,
-          cachedSeedInfo: body.cachedSeedInfo as any,
-        },
-      ];
+  if (items.length === 0) {
+    return NextResponse.json({ success: true, upfrontHold: 0 });
+  }
 
   const dbModels = await getCachedDbModels();
 
-  const seedExtractorModel = (body.seedExtractorModel as string) || "";
-  const attackGeneratorModel =
-    (body.attackerModel as string) ||
-    (body.attackGeneratorModel as string) ||
-    "";
-  const judgeModel = (body.judgeModel as string) || "";
-  const hardenerModel = (body.hardenerModel as string) || "";
-  const extractorModel = (body.extractorModel as string) || "";
-  const enableHardening = body.enableHardening !== false;
+  let totalCostUsd = 0;
 
-  const parsedPrompts: PromptConfig[] = promptsRaw.map((p) => {
-    let tools: ToolDef[] = [];
-    let mockToolResponses: Record<string, unknown> = {};
-    try {
-      tools = p.tools ? (JSON.parse(p.tools) as ToolDef[]) : [];
-    } catch {
-      /* keep empty */
-    }
-    try {
-      mockToolResponses = p.mockResponses
-        ? (JSON.parse(p.mockResponses) as Record<string, unknown>)
-        : {};
-    } catch {
-      /* keep empty */
-    }
-    return {
-      systemPrompt: p.systemPrompt,
-      forbiddenTask: p.forbiddenTask,
-      judgeInstructions: p.judgeInstructions,
-      tools,
-      mockToolResponses,
-      allowNoToolsFallback: !!p.allowNoToolsFallback,
-      cachedSeedInfo: p.cachedSeedInfo,
-    };
-  });
+  for (const item of items) {
+    const model = dbModels.find((m) => m.id === item.modelId);
+    const rate =
+      item.type === "prompt"
+        ? parseFloat(model?.promptPrice || "0.0000001")
+        : parseFloat(model?.completionPrice || "0.0000004");
 
-  const upfrontHold = calculateUpfrontScanHold(
-    parsedPrompts,
-    targetModels,
-    seedExtractorModel,
-    attackGeneratorModel,
-    judgeModel,
-    dbModels,
-    enableHardening,
-    hardenerModel,
-    extractorModel,
-  );
+    const baseTokens =
+      item.text !== undefined && item.text !== null
+        ? estimateTokens(item.text)
+        : item.tokensCount ?? 0;
+    const tokens = baseTokens + (item.additionalTokens ?? 0);
 
-  return NextResponse.json({
-    success: true,
-    upfrontHold,
-  });
+    const multiplier = item.multiplier ?? 1;
+    totalCostUsd += tokens * rate * multiplier;
+  }
+
+  // Scale to internal token units (1 token = $0.000001 USD) + 15% buffer
+  const upfrontHold = Math.ceil(totalCostUsd * 1_000_000 * 1.15);
+
+  return NextResponse.json({ success: true, upfrontHold });
 }

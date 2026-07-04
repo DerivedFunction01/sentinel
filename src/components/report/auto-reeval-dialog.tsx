@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Sparkles, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -16,6 +16,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { TrialVerdict } from "@/lib/enums";
 import type { Trial, Scan } from "@/lib/types";
+import {
+  CostPreviewWidget,
+  type CostEstimationItem,
+} from "@/components/shared/cost-preview-widget";
 
 interface AutoReevalDialogProps {
   open: boolean;
@@ -33,7 +37,6 @@ export function AutoReevalDialog({
   onConfirm,
 }: AutoReevalDialogProps) {
   const [selectedTrials, setSelectedTrials] = useState<number[]>([]);
-  const [dbModels, setDbModels] = useState<any[] | null>(null);
   const [confirming, setConfirming] = useState(false);
 
   // Reset selection when dialog opens
@@ -43,77 +46,6 @@ export function AutoReevalDialog({
       setConfirming(false);
     }
   }, [open]);
-
-  // Load dbModels for pricing from Client API
-  useEffect(() => {
-    if (!open) return;
-    fetch("/api/models")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && Array.isArray(data.models)) {
-          setDbModels(data.models);
-        }
-      })
-      .catch(() => {});
-  }, [open]);
-
-  const estimateTokensLocal = (text: string): number => {
-    if (!text) return 0;
-    return Math.ceil(text.split(/\s+/).filter(Boolean).length * 1.3);
-  };
-
-  const calculateSingleReevalHoldLocal = (
-    trial: any,
-    referenceExamples: Array<{
-      attack: string;
-      response: string;
-      reasoning: string;
-    }>,
-    forbiddenTask: string,
-    judgeModel: string,
-    models: any[],
-  ): number => {
-    const judge = models.find((m) => m.id === judgeModel);
-    const judgePrice = {
-      prompt: parseFloat(judge?.promptPrice || "0.0000001"),
-      completion: parseFloat(judge?.completionPrice || "0.0000004"),
-    };
-
-    const refText = referenceExamples
-      .map((r) => `${r.attack}\n${r.response}\n${r.reasoning}`)
-      .join("\n");
-
-    const forbiddenTaskTokens = estimateTokensLocal(forbiddenTask || "");
-    const attackTokens = estimateTokensLocal(trial.attack || "");
-    const responseTokens = estimateTokensLocal(trial.response || "");
-    const transcriptTokens = estimateTokensLocal(
-      typeof trial.transcript === "string"
-        ? trial.transcript
-        : JSON.stringify(trial.transcript || ""),
-    );
-    const toolCallsTokens = estimateTokensLocal(
-      typeof trial.toolCalls === "string"
-        ? trial.toolCalls
-        : JSON.stringify(trial.toolCalls || ""),
-    );
-
-    const inputTokens =
-      forbiddenTaskTokens +
-      attackTokens +
-      responseTokens +
-      transcriptTokens +
-      toolCallsTokens +
-      estimateTokensLocal(refText) +
-      1500; // system prompt overhead buffer
-
-    const upfrontHold = Math.ceil(
-      (inputTokens * judgePrice.prompt + 1000 * judgePrice.completion) *
-        1000000 *
-        1.15,
-    );
-
-    return upfrontHold;
-  };
 
   const breachedTrials = useMemo(
     () => scan.trials.filter((t: Trial) => t.verdict === TrialVerdict.Breached),
@@ -147,40 +79,80 @@ export function AutoReevalDialog({
     }));
   }, [scan.trials]);
 
-  const estimatedHold = useMemo(() => {
-    if (!dbModels || selectedTrials.length === 0) return 0;
+  /**
+   * Build CostEstimationItem[] for each selected trial.
+   * Each trial needs:
+   *   - judge prompt: forbiddenTask + attack + response + transcript + toolCalls + refExamples + overhead
+   *   - judge completion buffer
+   */
+  const costItems = useMemo<CostEstimationItem[]>(() => {
+    if (selectedTrials.length === 0) return [];
     const judgeModelId = scan.judgeModel;
-    const total = selectedTrials.reduce((sum, num) => {
+
+    const refText = referenceExamples
+      .map((r) => `${r.attack}\n${r.response}\n${r.reasoning}`)
+      .join("\n");
+
+    const items: CostEstimationItem[] = [];
+
+    for (const num of selectedTrials) {
       const trial = breachedTrials.find((t) => t.number === num);
-      if (!trial) return sum;
-      return (
-        sum +
-        calculateSingleReevalHoldLocal(
-          trial,
-          referenceExamples,
-          scan.forbiddenTask,
-          judgeModelId,
-          dbModels,
-        )
-      );
-    }, 0);
-    return total;
+      if (!trial) continue;
+
+      const transcriptStr =
+        typeof trial.transcript === "string"
+          ? trial.transcript
+          : JSON.stringify(trial.transcript || "");
+      const toolCallsStr =
+        typeof trial.toolCalls === "string"
+          ? trial.toolCalls
+          : JSON.stringify(trial.toolCalls || "");
+
+      // Concatenate all dynamic content into a single text for server-side tokenization
+      const inputText = [
+        scan.forbiddenTask || "",
+        trial.attack || "",
+        trial.response || "",
+        transcriptStr,
+        toolCallsStr,
+        refText,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      // Judge prompt: dynamic content + 1500 token template overhead
+      items.push({
+        modelId: judgeModelId,
+        type: "prompt",
+        text: inputText,
+        additionalTokens: 1500,
+      });
+      // Judge completion buffer
+      items.push({
+        modelId: judgeModelId,
+        type: "completion",
+        tokensCount: 1000,
+      });
+    }
+
+    return items;
   }, [
     selectedTrials,
     breachedTrials,
     referenceExamples,
     scan.forbiddenTask,
     scan.judgeModel,
-    dbModels,
   ]);
-
-  const insufficient = estimatedHold > 0 && scanTokens < estimatedHold;
 
   const toggleTrial = (num: number) => {
     setSelectedTrials((prev) =>
       prev.includes(num) ? prev.filter((n) => n !== num) : [...prev, num],
     );
   };
+
+  const selectAll = () =>
+    setSelectedTrials(breachedTrials.map((t) => t.number));
+  const deselectAll = () => setSelectedTrials([]);
 
   const handleConfirm = async () => {
     if (selectedTrials.length === 0) {
@@ -198,7 +170,7 @@ export function AutoReevalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-yellow-500/20 bg-slate-900 text-slate-100 max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="border-yellow-500/20 bg-slate-900 text-slate-100 max-w-5xl lg:min-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-yellow-400">
             <Sparkles className="h-5 w-5 text-yellow-400" />
@@ -210,71 +182,83 @@ export function AutoReevalDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-3 my-4 pr-1">
+        {/* Trial selection list */}
+        <div className="flex-1 overflow-y-auto space-y-2 my-2 pr-1 min-h-0">
           {breachedTrials.length === 0 ? (
             <p className="text-sm text-slate-400">
               No breached trials available for re-evaluation.
             </p>
           ) : (
-            breachedTrials.map((trial) => {
-              const checked = selectedTrials.includes(trial.number);
-              return (
-                <label
-                  key={trial.number}
-                  className={cn(
-                    "flex items-start gap-3 p-3 rounded border cursor-pointer transition-colors",
-                    checked
-                      ? "bg-yellow-500/5 border-yellow-500/30"
-                      : "bg-black/20 border-white/5 hover:border-yellow-500/20",
-                  )}
+            <>
+              {/* Select / Deselect all controls */}
+              <div className="flex gap-3 pb-1">
+                <button
+                  type="button"
+                  onClick={selectAll}
+                  className="text-xs text-yellow-400 hover:underline"
                 >
-                  <Checkbox
-                    checked={checked}
-                    onCheckedChange={() => toggleTrial(trial.number)}
-                    className="mt-0.5"
-                  />
-                  <div className="space-y-1">
-                    <span className="text-xs font-semibold text-yellow-400">
-                      Trial #{trial.number}
-                    </span>
-                    <p className="text-[11px] text-slate-300 font-mono whitespace-pre-wrap line-clamp-2">
-                      {trial.attack}
-                    </p>
-                  </div>
-                </label>
-              );
-            })
+                  Select all ({breachedTrials.length})
+                </button>
+                <span className="text-xs text-slate-600">·</span>
+                <button
+                  type="button"
+                  onClick={deselectAll}
+                  className="text-xs text-slate-400 hover:underline"
+                >
+                  Deselect all
+                </button>
+              </div>
+
+              {breachedTrials.map((trial) => {
+                const checked = selectedTrials.includes(trial.number);
+                return (
+                  <label
+                    key={trial.number}
+                    className={cn(
+                      "flex items-start gap-3 p-3 rounded border cursor-pointer transition-colors",
+                      checked
+                        ? "bg-yellow-500/5 border-yellow-500/30"
+                        : "bg-black/20 border-white/5 hover:border-yellow-500/20",
+                    )}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => toggleTrial(trial.number)}
+                      className="mt-0.5"
+                    />
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-yellow-400">
+                          Trial #{trial.number}
+                        </span>
+                        <span className="text-[10px] rounded-full bg-red-500/20 text-red-300 px-2 py-0.5 uppercase tracking-wide">
+                          Breached
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 font-mono whitespace-pre-wrap line-clamp-2 break-all">
+                        {trial.attack}
+                      </p>
+                      {trial.response && (
+                        <p className="text-[11px] text-slate-500 font-mono line-clamp-1 break-all">
+                          ↳ {trial.response}
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
+            </>
           )}
         </div>
 
-        {estimatedHold > 0 && (
-          <div
-            className={cn(
-              "rounded border p-3 text-xs",
-              insufficient
-                ? "border-red-500/30 bg-red-500/5 text-red-300"
-                : "border-emerald-500/30 bg-emerald-500/5 text-emerald-200",
-            )}
-          >
-            <div className="flex items-center gap-2 font-semibold mb-1">
-              {insufficient ? (
-                <AlertTriangle className="h-4 w-4 text-red-400" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-              )}
-              <span>
-                Estimated Upfront Hold: {estimatedHold.toLocaleString()} tokens
-              </span>
-            </div>
-            {insufficient && (
-              <p className="text-red-300">
-                Insufficient balance. You have {scanTokens.toLocaleString()}{" "}
-                scan tokens.
-              </p>
-            )}
-            {!insufficient && (
-              <p>Your balance: {scanTokens.toLocaleString()} scan tokens.</p>
-            )}
+        {/* Cost preview widget */}
+        {selectedTrials.length > 0 && (
+          <div className="shrink-0">
+            <CostPreviewWidget
+              items={costItems}
+              tokens={scanTokens}
+              label={`${selectedTrials.length} trial${selectedTrials.length === 1 ? "" : "s"} × 1 judge evaluation each`}
+            />
           </div>
         )}
 
@@ -289,7 +273,7 @@ export function AutoReevalDialog({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={confirming || selectedTrials.length === 0 || insufficient}
+            disabled={confirming || selectedTrials.length === 0}
             className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
           >
             {confirming && (
