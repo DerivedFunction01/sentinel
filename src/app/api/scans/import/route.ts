@@ -3,8 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { gunzipSync } from "zlib";
-import { RiskLevel, ScanStatus, TrialVerdict } from "@/lib/enums";
-import { OPTIMIZATION_PROMPT } from "@/lib/scan-prompts";
+import { RiskLevel, ScanStatus } from "@/lib/enums";
 
 /**
  * POST /api/scans/import
@@ -72,14 +71,12 @@ export async function POST(req: Request) {
       }
 
       // Stringify JSON fields for storage.
+      const metadata = data.metadata
+        ? JSON.stringify(data.metadata)
+        : null;
       const tools = JSON.stringify(data.tools ?? []);
       const mockToolResponses = JSON.stringify(data.mockToolResponses ?? {});
       const trials = JSON.stringify(data.trials ?? []);
-
-      // If imported data doesn't have a hardened prompt, generate it deterministically
-      const hardenedPrompt =
-        data.hardenedPrompt ||
-        `REVISED SYSTEM PROMPT\n${OPTIMIZATION_PROMPT}\n\n${data.systemPrompt}\n\nIf a question is unrelated to "${data.forbiddenTask ?? ""}", explicitly refuse to provide any internal processes or hypothetical workflows, inform the user that you are unable to assist with that specific request, and suggest a polite and firm refusal.`;
 
       const tags = Array.isArray(data.tags)
         ? data.tags.filter((t: any) => typeof t === "string")
@@ -90,12 +87,19 @@ export async function POST(req: Request) {
           reportId: data.reportId,
           userId: session.user.id,
           targetModel: data.targetModel,
+          seedExtractorModel: data.seedExtractorModel ?? "",
+          attackerModel: data.attackerModel ?? "",
+          judgeModel: data.judgeModel ?? "",
+          hardenerModel: data.hardenerModel ?? "",
           systemPrompt: data.systemPrompt,
           forbiddenTask: data.forbiddenTask ?? "",
           judgeInstructions: data.judgeInstructions ?? "",
           tools,
           mockToolResponses,
           trials,
+          metadata,
+          allowNoToolsFallback: data.allowNoToolsFallback ?? false,
+          apiCost: data.apiCost ?? 0,
           score: data.score ?? 0,
           riskLevel: data.riskLevel ?? RiskLevel.Low,
           totalTrials: data.totalTrials ?? 0,
@@ -105,11 +109,28 @@ export async function POST(req: Request) {
           summaryDetail: data.summaryDetail ?? "",
           tags: JSON.stringify(tags),
           hardenedPrompts: {
-            create: {
-              modelId: data.targetModel,
-              modelName: data.targetModel.split("/").pop() || data.targetModel,
-              prompt: hardenedPrompt,
-            },
+            create:
+              data.hardenedPrompts && data.hardenedPrompts.length > 0
+                ? data.hardenedPrompts.map((hp: any) => ({
+                    id: hp.id,
+                    modelId: hp.modelId,
+                    modelName: hp.modelName,
+                    prompt: hp.prompt,
+                    toolRecommendation: hp.toolRecommendation
+                      ? JSON.stringify(hp.toolRecommendation)
+                      : null,
+                    compatibilityScore: hp.compatibilityScore,
+                    granularity: hp.granularity,
+                    extractorModel: hp.extractorModel,
+                    createdAt: hp.createdAt ? new Date(hp.createdAt) : new Date(),
+                  }))
+                : [
+                    {
+                      modelId: data.targetModel,
+                      modelName: data.targetModel.split("/").pop() || data.targetModel,
+                      prompt: `REVISED SYSTEM PROMPT\n${data.systemPrompt}\n\nIf a question is unrelated to "${data.forbiddenTask ?? ""}", explicitly refuse to provide any internal processes or hypothetical workflows, inform the user that you are unable to assist with that specific request, and suggest a polite and firm refusal.`,
+                    },
+                  ],
           },
           status: data.status ?? ScanStatus.Completed,
         },

@@ -21,6 +21,7 @@ export async function GET() {
 
   const scans = await db.scan.findMany({
     where: { userId: session.user.id },
+    include: { hardenedPrompts: true },
     orderBy: { createdAt: "asc" },
   });
 
@@ -32,14 +33,35 @@ export async function GET() {
     } catch {}
 
     return JSON.stringify({
+      id: scan.id,
+      userId: scan.userId,
       reportId: scan.reportId,
       targetModel: scan.targetModel,
+      attackerModel: scan.attackerModel,
+      judgeModel: scan.judgeModel,
+      hardenerModel: scan.hardenerModel,
+      seedExtractorModel: scan.seedExtractorModel,
       systemPrompt: scan.systemPrompt,
       forbiddenTask: scan.forbiddenTask,
       judgeInstructions: scan.judgeInstructions,
       tools: JSON.parse(scan.tools),
       mockToolResponses: JSON.parse(scan.mockToolResponses),
       trials: JSON.parse(scan.trials),
+      metadata: scan.metadata ? JSON.parse(scan.metadata) : undefined,
+      hardenedPrompts: (scan.hardenedPrompts || []).map((hp) => ({
+        id: hp.id,
+        scanId: hp.scanId,
+        modelId: hp.modelId,
+        modelName: hp.modelName,
+        prompt: hp.prompt,
+        toolRecommendation: hp.toolRecommendation
+          ? JSON.parse(hp.toolRecommendation)
+          : null,
+        compatibilityScore: hp.compatibilityScore,
+        granularity: hp.granularity,
+        extractorModel: hp.extractorModel,
+        createdAt: hp.createdAt.toISOString(),
+      })),
       score: scan.score,
       riskLevel: scan.riskLevel,
       totalTrials: scan.totalTrials,
@@ -47,6 +69,9 @@ export async function GET() {
       breachRate: scan.breachRate,
       summary: scan.summary,
       summaryDetail: scan.summaryDetail,
+      allowNoToolsFallback: scan.allowNoToolsFallback,
+      apiCost: scan.apiCost,
+      progressMeta: scan.progressMeta ? JSON.parse(scan.progressMeta) : undefined,
       status: scan.status,
       tags,
       createdAt: scan.createdAt.toISOString(),
