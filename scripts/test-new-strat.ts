@@ -1,6 +1,7 @@
 /**
  * Dynamic Production-Grade Context-Tiered Fallback Engine.
  * Automatically discovers emerging popular providers and segments by strict Context Tiers.
+ * Promotes high-quality flagship models from trusted providers if they become extremely cheap.
  * Supports runtime CLI cost overrides to test dynamic market elasticity.
  *
  * Run with: bun run scripts/test-new-strat.ts [modelId costMultiplier] [...]
@@ -38,6 +39,18 @@ const PROVIDER_BANNED: Record<string, RegExp[]> = {
   anthropic: [],
 };
 
+/**
+ * 3. TRUSTED FLAGSHIP PROMOTION PARAMS
+ * High-tier providers whose flagship models we want to rescue and prioritize if their costs plunge.
+ */
+const TRUSTED_PROVIDERS = ["anthropic", "openai", "google", "meta-llama"];
+
+/**
+ * If a flagship model's cost is less than or equal to this multiplier times the median flash price,
+ * it is treated as "extremely cheap" and promoted.
+ */
+const CHEAP_FLAGSHIP_MULTIPLIER_OF_FLASH = 2.0;
+
 const PATTERN_PARAMETER_TAG = /[-_]\d+b/i;
 const PROVIDER_POPULARITY_MAX_DELTA = 40;
 
@@ -66,6 +79,7 @@ interface AnnotatedModel {
   hasParameterTag: boolean;
   isPopularityOutlier: boolean;
   modelClass: "flash-utility" | "standard-flagship" | "pro-reasoning";
+  isExtremelyCheapTrustedFlagship: boolean;
   contextTier: number; // 0: 1M+, 1: 256k-1M, 2: 128k-256k
   raw: any;
 }
@@ -201,11 +215,12 @@ function computeBaselinePrice(cohort: AnnotatedModel[]): number {
 // ARCHITECTURAL STEP SEPARATION EXECUTORS
 // ==================================================================================
 
-/** STEP A: Injects standard pricing and scales overrides from CLI arguments */
+/** STEP A: Injects standard pricing, scales overrides, and identifies rescued flagships */
 function buildAnnotatedPool(
   rawModels: any[],
   filteredPool: any[],
   overrides: Map<string, number>,
+  flashMedianCost: number,
 ): AnnotatedModel[] {
   return filteredPool.map((m) => {
     let baseCost = getCompositeCost(m);
@@ -215,7 +230,18 @@ function buildAnnotatedPool(
       baseCost = baseCost * multiplier;
     }
 
+    const provider = m.id.split("/")[0] || "unknown";
     const contextSize = m.context_length || 0;
+    const modelClass = inferModelCapabilityClass(m.id);
+
+    // Evaluate if this model meets the "extremely cheap trusted flagship" conditions
+    const isTrusted = TRUSTED_PROVIDERS.includes(provider);
+    const isFlagship = modelClass !== "flash-utility";
+    const isExtremelyCheapTrustedFlagship =
+      isTrusted &&
+      isFlagship &&
+      baseCost <= flashMedianCost * CHEAP_FLAGSHIP_MULTIPLIER_OF_FLASH;
+
     return {
       id: m.id,
       name: m.name,
@@ -226,7 +252,8 @@ function buildAnnotatedPool(
       supportsTools: true,
       hasParameterTag: PATTERN_PARAMETER_TAG.test(m.id),
       isPopularityOutlier: false,
-      modelClass: inferModelCapabilityClass(m.id),
+      modelClass,
+      isExtremelyCheapTrustedFlagship,
       contextTier: getContextTier(contextSize),
       raw: m,
     };
@@ -300,7 +327,7 @@ function resolveProviderLadders(
   return ladders;
 }
 
-/** STEP D: Executes the context-tiered global pool sort with premium horizon overrides */
+/** STEP D: Executes the context-tiered global pool sort with premium horizon overrides and cheap flagship promotions */
 function sortGlobalFallbackPool(
   ladders: Record<string, AnnotatedModel[]>,
   activeProviders: string[],
@@ -319,9 +346,22 @@ function sortGlobalFallbackPool(
     const bucketB = calculateGlobalPopularityBucket(b.globalPopularityRank);
     if (bucketA !== bucketB) return bucketA - bucketB;
 
-    const isFlashA = a.modelClass === "flash-utility" ? 0 : 1;
-    const isFlashB = b.modelClass === "flash-utility" ? 0 : 1;
-    if (isFlashA !== isFlashB) return isFlashA - isFlashB;
+    // Group rescued cheap trusted flagships and flash-utility models together.
+    // This allows them to compete strictly on cost within the high-availability bucket,
+    // ensuring cheaper flash utility models correctly rank above slightly more expensive rescued flagships.
+    const getPriorityScore = (m: AnnotatedModel) => {
+      if (
+        m.isExtremelyCheapTrustedFlagship ||
+        m.modelClass === "flash-utility"
+      ) {
+        return 0; // High-Efficiency Pool (Flash or Bargain Flagships)
+      }
+      return 1; // Standard Premium/Pro Pool
+    };
+
+    const scoreA = getPriorityScore(a);
+    const scoreB = getPriorityScore(b);
+    if (scoreA !== scoreB) return scoreA - scoreB;
 
     return a.cost - b.cost;
   });
@@ -355,6 +395,20 @@ async function main() {
   // Pass 1: Clean out structural syntax noise
   const filteredTextPool = rawModels.filter(passesOperationalFilters);
 
+  // Compute the median cost of the flash-utility tier dynamically
+  const flashModels = filteredTextPool.filter(
+    (m) => inferModelCapabilityClass(m.id) === "flash-utility",
+  );
+  const flashCosts = flashModels.map(getCompositeCost).sort((a, b) => a - b);
+  const flashMedianCost =
+    flashCosts.length > 0
+      ? flashCosts.length % 2 !== 0
+        ? flashCosts[Math.floor(flashCosts.length / 2)]
+        : (flashCosts[Math.floor(flashCosts.length / 2) - 1] +
+            flashCosts[Math.floor(flashCosts.length / 2)]) /
+          2
+      : 0.0000015; // fallback baseline placeholder
+
   // Compute our 70th percentile threshold cost cap dynamically
   const sortedCosts = filteredTextPool
     .map(getCompositeCost)
@@ -368,17 +422,40 @@ async function main() {
   console.log(
     `Statistical Utility Threshold Cost Cap (70th Percentile): ${DYNAMIC_COST_CAP.toFixed(8)}`,
   );
-
-  // Pass 2: Cost buffer limit filter
-  const eligibleRaw = filteredTextPool.filter(
-    (m) => getCompositeCost(m) <= DYNAMIC_COST_CAP,
+  console.log(
+    `Dynamic Flash Utility Median Price Benchmark: ${flashMedianCost.toFixed(8)}`,
   );
+
+  // Pass 2: Cost buffer limit filter (exempting rescued cheap flagships)
+  const eligibleRaw = filteredTextPool.filter((m) => {
+    const rawCost = getCompositeCost(m);
+    let finalCost = rawCost;
+    if (priceOverrides.has(m.id)) {
+      finalCost = rawCost * priceOverrides.get(m.id)!;
+    }
+
+    const provider = m.id.split("/")[0] || "unknown";
+    const modelClass = inferModelCapabilityClass(m.id);
+    const isTrusted = TRUSTED_PROVIDERS.includes(provider);
+    const isFlagship = modelClass !== "flash-utility";
+    const isExtremelyCheapTrustedFlagship =
+      isTrusted &&
+      isFlagship &&
+      finalCost <= flashMedianCost * CHEAP_FLAGSHIP_MULTIPLIER_OF_FLASH;
+
+    if (isExtremelyCheapTrustedFlagship) {
+      return true; // Bypass dynamic cost cap
+    }
+
+    return finalCost <= DYNAMIC_COST_CAP;
+  });
 
   // EXECUTE FUNCTION STEP PIPELINE RAMP
   const annotatedPool = buildAnnotatedPool(
     rawModels,
     eligibleRaw,
     priceOverrides,
+    flashMedianCost,
   );
   const activeProviders = discoverActiveProviders(annotatedPool);
   const providerLadders = resolveProviderLadders(
@@ -394,13 +471,28 @@ async function main() {
   const beforeFilter = finalSequence.length;
   finalSequence = finalSequence.filter((m) => {
     const mult = sanityBaseline <= 0 ? 1 : Math.ceil(m.cost / sanityBaseline);
-    return mult <= MAX_COST_MULTIPLIER;
+    return m.isExtremelyCheapTrustedFlagship || mult <= MAX_COST_MULTIPLIER;
   });
   const removed = beforeFilter - finalSequence.length;
   if (removed > 0) {
     console.log(
       `\nCost sanity filter: removed ${removed} models exceeding ${MAX_COST_MULTIPLIER}x baseline (${sanityBaseline.toFixed(8)})`,
     );
+  }
+
+  // Log information about rescued flagships
+  const rescuedFlagships = finalSequence.filter(
+    (m) => m.isExtremelyCheapTrustedFlagship,
+  );
+  if (rescuedFlagships.length > 0) {
+    console.log(
+      `\n✓ Rescued and Promoted ${rescuedFlagships.length} Cheap Trusted Flagship(s):`,
+    );
+    rescuedFlagships.forEach((m) => {
+      console.log(
+        `  → [PROMOTED] ${m.id} | Cost: ${m.cost.toFixed(8)} (${(m.cost / (flashMedianCost || 1)).toFixed(2)}x of Flash median)`,
+      );
+    });
   }
 
   console.log(
@@ -419,8 +511,11 @@ async function main() {
 
   finalSequence.slice(0, 15).forEach((m, idx) => {
     const bucket = calculateGlobalPopularityBucket(m.globalPopularityRank);
+    const promotionTag = m.isExtremelyCheapTrustedFlagship
+      ? "⭐ [BARGAIN-FLAGSHIP]"
+      : `Class: ${m.modelClass.toUpperCase()}`;
     console.log(
-      `  [Ramp Step ${idx + 1}] → ${m.id.padEnd(45)} | Cost: ${m.cost.toFixed(8)} | Global Pop: #${m.globalPopularityRank} (Bucket ${bucket}) | Class: ${m.modelClass.toUpperCase()} | Context: ${(m.contextWindow / 1000).toFixed(0)}k`,
+      `  [Ramp Step ${idx + 1}] → ${m.id.padEnd(45)} | Cost: ${m.cost.toFixed(8)} | Global Pop: #${m.globalPopularityRank} (Bucket ${bucket}) | ${promotionTag} | Context: ${(m.contextWindow / 1000).toFixed(0)}k`,
     );
   });
 
