@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { formatTokens } from "@/lib/token-formatter";
 
 interface PricingPlan {
   id: string;
@@ -41,11 +42,11 @@ const PLANS: PricingPlan[] = [
     id: "starter",
     name: "Starter",
     price: 0,
-    tokens: 10,
+    tokens: 0,
     description: "For trying out ToolRegistry",
     icon: Zap,
     features: [
-      "10 scan tokens",
+      "0 scan tokens",
       "Up to 3 prompts per scan",
       "Basic model catalog",
       "Community support",
@@ -55,12 +56,12 @@ const PLANS: PricingPlan[] = [
     id: "pro",
     name: "Pro",
     price: 49,
-    tokens: 100,
+    tokens: 49_000_000,
     description: "For teams testing regularly",
     icon: Rocket,
     highlighted: true,
     features: [
-      "100 scan tokens",
+      "49,000,000 scan tokens",
       "Unlimited prompts per scan",
       "Full model catalog (340+)",
       "Import / export configurations",
@@ -71,11 +72,11 @@ const PLANS: PricingPlan[] = [
     id: "enterprise",
     name: "Enterprise",
     price: 299,
-    tokens: 1000,
+    tokens: 299_000_000,
     description: "For organizations at scale",
     icon: Building2,
     features: [
-      "1,000 scan tokens",
+      "299,000,000 scan tokens",
       "Unlimited everything",
       "Custom model endpoints",
       "SSO & audit logs",
@@ -107,7 +108,7 @@ export default function BillingPage() {
         return;
       }
       toast.success("Payment request submitted", {
-        description: `An admin will approve your ${plan.name} plan (${plan.tokens} tokens). You'll be notified when it's ready.`,
+        description: `An admin will approve your ${plan.name} plan (${formatTokens(plan.tokens)}). You'll be notified when it's ready.`,
       });
       router.push("/dashboard/settings");
     } catch {
@@ -168,7 +169,7 @@ export default function BillingPage() {
                 </div>
                 <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-amber-400">
                   <Coins className="h-4 w-4" />
-                  {plan.tokens} tokens
+                  {formatTokens(plan.tokens)}
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">

@@ -65,38 +65,62 @@ export function calculateUpfrontScanHold(
   const extractorPrice = getModelPricing(extractorModel, dbModels);
 
   // Load template lengths dynamically for precise estimations
-  const suggestForbiddenTokens = estimateTokens(getPromptFile(PromptFileType.SuggestForbiddenTasks));
-  const systemPromptExtractorTokens = estimateTokens(getPromptFile(PromptFileType.SystemPromptExtractor));
-  const extractSeedInfoTokens = estimateTokens(getPromptFile(PromptFileType.ExtractSeedInfo));
-  const attackGeneratorTokens = estimateTokens(getPromptFile(PromptFileType.AttackGenerator));
-  const judgeTokens = estimateTokens(getPromptFile(PromptFileType.Judge)) + estimateTokens(getPromptFile(PromptFileType.JudgeEvaluationSuffix));
-  const optimizationPromptTokens = estimateTokens(getPromptFile(PromptFileType.OptimizationPrompt));
+  const suggestForbiddenTokens = estimateTokens(
+    getPromptFile(PromptFileType.SuggestForbiddenTasks),
+  );
+  const systemPromptExtractorTokens = estimateTokens(
+    getPromptFile(PromptFileType.SystemPromptExtractor),
+  );
+  const extractSeedInfoTokens = estimateTokens(
+    getPromptFile(PromptFileType.ExtractSeedInfo),
+  );
+  const attackGeneratorTokens = estimateTokens(
+    getPromptFile(PromptFileType.AttackGenerator),
+  );
+  const judgeTokens =
+    estimateTokens(getPromptFile(PromptFileType.Judge)) +
+    estimateTokens(getPromptFile(PromptFileType.JudgeEvaluationSuffix));
+  const optimizationPromptTokens = estimateTokens(
+    getPromptFile(PromptFileType.OptimizationPrompt),
+  );
 
   for (const prompt of prompts) {
     const sysPromptTokens = estimateTokens(prompt.systemPrompt || "");
     const forbiddenTokens = estimateTokens(prompt.forbiddenTask || "");
     const instructionsTokens = estimateTokens(prompt.judgeInstructions || "");
-    const basePromptTokens = sysPromptTokens + forbiddenTokens + instructionsTokens;
+    const basePromptTokens =
+      sysPromptTokens + forbiddenTokens + instructionsTokens;
 
     // Estimate trials dynamically instead of hardcoded 48
     const patternsCount = patterns.length;
     const totalTargetCount = patternsCount * 3;
     let numThings = 3;
     if (prompt.forbiddenTask?.trim()) {
-      numThings = prompt.forbiddenTask
-        .split(/\n\s*\n/)
-        .map((t: string) => t.trim())
-        .filter(Boolean).length || 1;
+      numThings =
+        prompt.forbiddenTask
+          .split(/\n\s*\n/)
+          .map((t: string) => t.trim())
+          .filter(Boolean).length || 1;
     }
-    const countPerThing = Math.max(patternsCount, Math.ceil(totalTargetCount / numThings));
+    const countPerThing = Math.max(
+      patternsCount,
+      Math.ceil(totalTargetCount / numThings),
+    );
     const estimatedTrials = numThings * countPerThing;
 
     // 1. Seed Extraction: includes domain classification + suggested tasks + seed extraction
-    const seedExtractorTemplateTokens = systemPromptExtractorTokens + suggestForbiddenTokens + extractSeedInfoTokens;
-    const seedHold = (basePromptTokens + seedExtractorTemplateTokens) * seedPrice.prompt + 1000 * seedPrice.completion;
+    const seedExtractorTemplateTokens =
+      systemPromptExtractorTokens +
+      suggestForbiddenTokens +
+      extractSeedInfoTokens;
+    const seedHold =
+      (basePromptTokens + seedExtractorTemplateTokens) * seedPrice.prompt +
+      1000 * seedPrice.completion;
 
     // 2. Attack Gen: uses AttackGenerator template instructions
-    const attackHold = (basePromptTokens + attackGeneratorTokens) * attackPrice.prompt + 7200 * attackPrice.completion;
+    const attackHold =
+      (basePromptTokens + attackGeneratorTokens) * attackPrice.prompt +
+      7200 * attackPrice.completion;
 
     totalHold += (seedHold + attackHold) * 1000000;
 
@@ -105,21 +129,34 @@ export function calculateUpfrontScanHold(
       const targetPrice = getModelPricing(targetId, dbModels);
 
       // Target Sim: system prompt + typical conversation history/tool schemas buffer
-      const targetSimHold = estimatedTrials * ((basePromptTokens + 1000) * targetPrice.prompt + 200 * targetPrice.completion);
+      const targetSimHold =
+        estimatedTrials *
+        ((basePromptTokens + 1000) * targetPrice.prompt +
+          200 * targetPrice.completion);
 
       // Judge: base prompt + Judge instructions + JudgeEvaluationSuffix + reasoning outputs
-      const judgeEvalHold = estimatedTrials * ((basePromptTokens + judgeTokens) * judgePrice.prompt + 100 * judgePrice.completion);
+      const judgeEvalHold =
+        estimatedTrials *
+        ((basePromptTokens + judgeTokens) * judgePrice.prompt +
+          100 * judgePrice.completion);
 
       // Re-evaluation borderline trials (budget up to 5) using JudgeReEvaluation template (roughly equal to judgeTokens)
-      const reEvalHold = 5 * ((basePromptTokens + judgeTokens) * judgePrice.prompt + 200 * judgePrice.completion);
+      const reEvalHold =
+        5 *
+        ((basePromptTokens + judgeTokens) * judgePrice.prompt +
+          200 * judgePrice.completion);
 
       totalHold += (targetSimHold + judgeEvalHold + reEvalHold) * 1000000;
     }
 
     // 4. Hardening
     if (enableHardening) {
-      const hardenHold = (basePromptTokens + optimizationPromptTokens) * hardenerPrice.prompt + 1500 * hardenerPrice.completion;
-      const toolExtractorHold = (basePromptTokens + extractSeedInfoTokens) * extractorPrice.prompt + 1500 * extractorPrice.completion;
+      const hardenHold =
+        (basePromptTokens + optimizationPromptTokens) * hardenerPrice.prompt +
+        1500 * hardenerPrice.completion;
+      const toolExtractorHold =
+        (basePromptTokens + extractSeedInfoTokens) * extractorPrice.prompt +
+        1500 * extractorPrice.completion;
       totalHold += (hardenHold + toolExtractorHold) * 1000000;
     }
   }

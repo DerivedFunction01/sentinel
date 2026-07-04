@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { UserRole } from "@/lib/enums";
+import { formatTokens } from "@/lib/token-formatter";
 
 interface UserRow {
   id: string;
@@ -364,10 +365,10 @@ export function UserManagementClient({
                         {u.company}
                       </span>
                     )}
-                    <span className="flex items-center gap-1">
-                      <Coins className="h-3 w-3" />
-                      {u.scanTokens} tokens
-                    </span>
+                     <span className="flex items-center gap-1">
+                       <Coins className="h-3 w-3" />
+                       {formatTokens(u.scanTokens)}
+                     </span>
                     <span>{u._count.scans} scans</span>
                     <span>{new Date(u.createdAt).toLocaleDateString()}</span>
                   </div>
@@ -443,19 +444,19 @@ export function UserManagementClient({
                     size="sm"
                     variant="outline"
                     className="h-8"
-                    onClick={() => handleTokenAdjust(u.id, 10)}
+                    onClick={() => handleTokenAdjust(u.id, 1_000_000)}
                     disabled={updating === u.id}
                   >
-                    +10
+                    +$1.00
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-8"
-                    onClick={() => handleTokenAdjust(u.id, -10)}
+                    onClick={() => handleTokenAdjust(u.id, -1_000_000)}
                     disabled={updating === u.id}
                   >
-                    -10
+                    -$1.00
                   </Button>
                   {updating === u.id && (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

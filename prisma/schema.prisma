@@ -16,7 +16,7 @@ model User {
   password   String // bcrypt hash
   role       String   @default("USER") // UserRole enum: USER | CUSTOMER_ADMIN | SUPER_ADMIN
   company    String?
-  scanTokens Int      @default(10000000)
+  scanTokens Int      @default(3000000)
   userTags   String   @default("[]") // JSON: Array<{ id: string, name: string }>
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

@@ -1009,11 +1009,11 @@ function ChooseModels({
               {tokens ?? "..."}
             </span>
             <span className="ml-2 text-xs text-muted-foreground">
-              scans remaining
+              tokens remaining
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Each scan consumes 1 token. Request more in Settings.
+            Request more in Settings.
           </p>
         </div>
 

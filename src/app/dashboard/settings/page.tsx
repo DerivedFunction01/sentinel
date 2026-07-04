@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatCard, PageHeader } from "@/components/dashboard/dashboard-parts";
 import { toast } from "sonner";
 import { TokenRequestStatus } from "@/lib/enums";
+import { formatTokens } from "@/lib/token-formatter";
 import { TagVocabularyEditor } from "@/components/shared/tag-vocabulary-editor";
 
 interface UserData {
@@ -79,7 +80,7 @@ export default function SettingsPage() {
   const [company, setCompany] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const [requestAmount, setRequestAmount] = useState(10);
+  const [requestAmount, setRequestAmount] = useState(1_000_000);
   const [requestReason, setRequestReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [requests, setRequests] = useState<TokenRequest[]>([]);
@@ -156,8 +157,8 @@ export default function SettingsPage() {
   };
 
   const handleSubmitRequest = async () => {
-    if (requestAmount < 1 || requestAmount > 1000) {
-      toast.error("Amount must be between 1 and 1000");
+    if (requestAmount < 1 || requestAmount > 1_000_000_000) {
+      toast.error("Amount must be between $0.000001 and $1,000");
       return;
     }
     setSubmitting(true);
@@ -169,10 +170,10 @@ export default function SettingsPage() {
     setSubmitting(false);
     if (res.ok) {
       toast.success("Request submitted", {
-        description: `Requested ${requestAmount} scan tokens. An admin will review it.`,
+        description: `Requested ${formatTokens(requestAmount)}. An admin will review it.`,
       });
       setRequestReason("");
-      setRequestAmount(10);
+      setRequestAmount(1_000_000);
       loadRequests();
     } else {
       const data = await res.json();
@@ -326,14 +327,14 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-4">
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  Scan Tokens
+                  USD Baseline Balance
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {user.scanTokens} scans remaining
+                  {formatTokens(user.scanTokens)} remaining
                 </p>
               </div>
               <p className="text-2xl font-bold text-amber-400">
-                {user.scanTokens}
+                {formatTokens(user.scanTokens)}
               </p>
             </div>
             <Separator />
@@ -445,9 +446,9 @@ export default function SettingsPage() {
                       className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-3"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground">
-                          +{req.amount} tokens
-                        </p>
+                       <p className="text-sm font-medium text-foreground">
+                           +{formatTokens(req.amount)}
+                         </p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(req.createdAt).toLocaleDateString("en-US", {
                             month: "short",
@@ -493,8 +494,8 @@ export default function SettingsPage() {
           <CardContent>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <StatCard
-                label="Tokens Remaining"
-                value={user.scanTokens}
+                label="USD Balance"
+                value={formatTokens(user.scanTokens)}
                 icon={Coins}
                 accent="amber"
               />

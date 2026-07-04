@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/dashboard-parts";
+import { formatTokens } from "@/lib/token-formatter";
 
 export default async function BillingManagementPage() {
   const admin = await requireAdmin();
@@ -49,10 +50,10 @@ export default async function BillingManagementPage() {
         </Card>
         <Card className="p-5">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Tokens Balance</p>
+            <p className="text-xs text-muted-foreground">USD Baseline Balance</p>
             <TrendingUp className="h-4 w-4 text-amber-400" />
           </div>
-          <p className="mt-1 text-2xl font-bold text-amber-400">{admin.scanTokens}</p>
+          <p className="mt-1 text-2xl font-bold text-amber-400">{formatTokens(admin.scanTokens)}</p>
         </Card>
       </div>
 
@@ -102,7 +103,7 @@ export default async function BillingManagementPage() {
                       </Badge>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {new Date(p.createdAt).toLocaleDateString()} · {p.amount} tokens ·
+                      {new Date(p.createdAt).toLocaleDateString()} · {formatTokens(p.amount)} ·
                       ${planPrices[p.plan ?? ""] ?? 0}
                     </p>
                   </div>

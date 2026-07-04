@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { TokenRequestStatus, UserRole } from "@/lib/enums";
+import { formatTokens } from "@/lib/token-formatter";
 
 interface AdminRequest {
   id: string;
@@ -115,7 +116,7 @@ export function TokenRequestsClient({ requests: initialRequests, currentUser }: 
         <p className="mt-1 text-sm text-muted-foreground">
           {currentUser.role === UserRole.SuperAdmin 
             ? "Review and fulfill scan token requests from all users."
-            : `Review and fulfill scan token requests from users in ${currentUser.company || "your company"}. Approved tokens are deducted from your pool (Balance: ${adminBalance} tokens).`}
+            : `Review and fulfill scan token requests from users in ${currentUser.company || "your company"}. Approved tokens are deducted from your pool (Balance: ${formatTokens(adminBalance)}).`}
         </p>
       </div>
 
@@ -168,20 +169,20 @@ export function TokenRequestsClient({ requests: initialRequests, currentUser }: 
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-lg font-bold text-foreground">+{req.amount} tokens</span>
-                        <Badge variant="outline" className={style.cls}>
-                          <StatusIcon className="mr-1 h-3 w-3" />
-                          {style.label}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{req.user.email}</span>
-                        {req.user.company && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{req.user.company}</span>}
-                        {req.plan && <span className="rounded bg-blue-600/15 px-1.5 py-0.5 font-medium text-blue-400">Plan: {req.plan}</span>}
-                        <span>Balance: {req.user.scanTokens}</span>
-                        <span>{new Date(req.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
-                      </div>
+                       <div className="flex flex-wrap items-center gap-2">
+                         <span className="text-lg font-bold text-foreground">+{formatTokens(req.amount)}</span>
+                         <Badge variant="outline" className={style.cls}>
+                           <StatusIcon className="mr-1 h-3 w-3" />
+                           {style.label}
+                         </Badge>
+                       </div>
+                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                         <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{req.user.email}</span>
+                         {req.user.company && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{req.user.company}</span>}
+                         {req.plan && <span className="rounded bg-blue-600/15 px-1.5 py-0.5 font-medium text-blue-400">Plan: {req.plan}</span>}
+                         <span>Balance: {formatTokens(req.user.scanTokens)}</span>
+                         <span>{new Date(req.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                       </div>
                       {req.reason && <p className="text-sm text-muted-foreground">{req.reason}</p>}
                     </div>
                     {isPending && (

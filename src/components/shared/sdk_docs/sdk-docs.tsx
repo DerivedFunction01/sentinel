@@ -441,7 +441,7 @@ export function SdkDocs({
   "extractorModel": "anthropic/claude-3-5-sonnet",
   "tokenCost": 2,
   "tokensRefunded": 0,
-  "hardeningTokensRemaining": 8
+  "scanTokensRemaining": 3000000
 }`}
                 language="json"
                 className="bg-zinc-950/60 p-3"

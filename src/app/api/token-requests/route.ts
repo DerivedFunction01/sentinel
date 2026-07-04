@@ -27,9 +27,9 @@ export async function POST(req: Request) {
   }
 
   const { amount, reason, plan } = await req.json();
-  if (!amount || amount < 1 || amount > 10000) {
+  if (!amount || amount < 1 || amount > 1_000_000_000) {
     return NextResponse.json(
-      { error: "Amount must be between 1 and 10000." },
+      { error: "Amount must be between $0.000001 and $1,000." },
       { status: 400 },
     );
   }
