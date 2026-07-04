@@ -51,7 +51,10 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [isSavingBatch, setIsSavingBatch] = useState(false);
   const [autoReevalDialogOpen, setAutoReevalDialogOpen] = useState(false);
 
-  const handleAutoReevaluate = async (trialNumbers?: number[]) => {
+  const handleAutoReevaluate = async (
+    trialNumbers?: number[],
+    referenceExamples?: Array<{ attack: string; response: string; reasoning: string }>,
+  ) => {
     setIsAutoReevaluating(true);
     const toastId = toast.loading(
       trialNumbers
@@ -59,10 +62,15 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         : "Auto re-evaluating all breached trials...",
     );
     try {
+      const bodyObj: Record<string, unknown> = {};
+      if (trialNumbers) bodyObj.trialNumbers = trialNumbers;
+      if (referenceExamples && referenceExamples.length > 0) {
+        bodyObj.referenceExamples = referenceExamples;
+      }
       const res = await fetch(`/api/scan/${scan.id}/auto-re-evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: trialNumbers ? JSON.stringify({ trialNumbers }) : undefined,
+        body: JSON.stringify(bodyObj),
       });
       if (!res.ok) {
         const err = await res.json();

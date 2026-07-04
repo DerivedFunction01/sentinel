@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { estimateTokens } from "@/lib/token-utils";
 import { getPromptFile, PromptFileType } from "@/lib/prompt-loader";
+import { getJudgeEvaluationFixedPrefix } from "@/lib/scan-prompts";
 import { patterns } from "@/lib/attack-templates";
 
 let cached: Record<string, number> | null = null;
@@ -34,6 +35,12 @@ export async function GET() {
     getPromptFile(PromptFileType.OptimizationPrompt),
   );
 
+  // Re-evaluation specific templates
+  const judgeReEvalTemplate = estimateTokens(
+    getPromptFile(PromptFileType.JudgeReEvaluation),
+  );
+  const judgeFixedPrefix = estimateTokens(getJudgeEvaluationFixedPrefix());
+
   const patternsCount = patterns.length;
 
   cached = {
@@ -56,9 +63,15 @@ export async function GET() {
     targetCompletionBuffer: 200,
     /** per-trial judge completion buffer */
     judgeCompletionBuffer: 100,
+    /** re-eval user message template (JudgeReEvaluation.md) */
+    judgeReEvalTemplate,
+    /** re-eval system prompt (Judge.md with verdict labels filled in) */
+    judgeFixedPrefix,
+    /** combined static overhead for one re-eval call (system + user template) */
+    judgeReEvalOverhead: judgeReEvalTemplate + judgeFixedPrefix,
     /** re-eval completion buffer */
-    reEvalCompletionBuffer: 200,
-    /** number of re-eval trials budgeted */
+    reEvalCompletionBuffer: 1000,
+    /** number of re-eval trials budgeted (scan pipeline) */
     reEvalCount: 5,
     /** hardening completion buffer */
     hardenCompletionBuffer: 1500,
