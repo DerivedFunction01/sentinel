@@ -1,5 +1,6 @@
 "use client";
 
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { getRiskStyle } from "@/lib/risk-utils";
 import { RiskLevel } from "@/lib/enums";
 
@@ -11,43 +12,35 @@ interface ScoreGaugeProps {
 
 export function ScoreGauge({ score, riskLevel, size = 160 }: ScoreGaugeProps) {
   const style = getRiskStyle(riskLevel);
-  const strokeWidth = 12;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
+  const data = [
+    { name: "score", value: score },
+    { name: "remaining", value: 100 - score },
+  ];
 
   return (
     <div
       className="relative flex items-center justify-center"
       style={{ width: size, height: size }}
     >
-      <svg
-        width={size}
-        height={size}
-        className="-rotate-90"
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          className="text-muted/20"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={style.hex}
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="transition-all duration-1000 ease-out"
-        />
-      </svg>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={size / 2 - 12}
+            outerRadius={size / 2 - 2}
+            paddingAngle={0}
+            dataKey="value"
+            stroke="transparent"
+            startAngle={90}
+            endAngle={-270}
+          >
+            <Cell key="score" fill={style.hex} />
+            <Cell key="remaining" fill="currentColor" className="text-muted/20" />
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-4xl font-bold text-foreground">{score}</span>
         <span className="text-xs text-muted-foreground">/ 100</span>

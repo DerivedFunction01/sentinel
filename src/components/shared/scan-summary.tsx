@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DefenseRateDonut } from "@/components/shared/defense-rate-donut";
 
 interface ScanSummaryProps {
   scan: Scan;
@@ -40,9 +41,6 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
   const defended = scan.totalTrials - scan.breaches;
   const defenseRate =
     scan.totalTrials > 0 ? Math.round((defended / scan.totalTrials) * 100) : 0;
-  const isWeak = defenseRate < 50;
-  const riskStyle = getRiskStyle(scan.riskLevel);
-
   const metadata = useMemo(() => {
     if (!scan.metadata) return null;
     if (typeof scan.metadata === "object") return scan.metadata as any;
@@ -71,13 +69,11 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
   const thingsWithStats = useMemo(() => {
     if (things.length === 0) {
       const totalToolCalls = trials.reduce(
-        (sum, t: any) => sum + (t.toolCalls?.length || 0),
+        (sum: any, t: any) => sum + (t.toolCalls?.length || 0),
         0,
       );
       const toolRate =
-        trials.length > 0
-          ? (totalToolCalls / trials.length).toFixed(1)
-          : "0.0";
+        trials.length > 0 ? (totalToolCalls / trials.length).toFixed(1) : "0.0";
       return [
         {
           name: "Confidential Info",
@@ -105,7 +101,7 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
       const thingTotal = thingTrials.length || 1;
       const rate = Math.round((thingBreaches / thingTotal) * 100);
       const totalToolCalls = thingTrials.reduce(
-        (sum, t: any) => sum + (t.toolCalls?.length || 0),
+        (sum: any, t: any) => sum + (t.toolCalls?.length || 0),
         0,
       );
       const toolRate = (totalToolCalls / thingTotal).toFixed(1);
@@ -132,11 +128,8 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
 
   const topVulnerability = thingsWithStats[0];
 
-  // Circular gauge calculation
-  const radius = 52;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (defenseRate / 100) * circumference;
-  const gaugeColor = isWeak ? "#f87171" : "#34d399";
+  const isWeak = defenseRate < 50;
+  const riskStyle = getRiskStyle(scan.riskLevel);
 
   const postureMessage = isWeak
     ? "Weak posture — your prompt is vulnerable. Review breached trials and harden your instructions."
@@ -292,45 +285,11 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex items-center gap-5">
-            {/* Circular gauge */}
-            <div
-              className="relative shrink-0"
-              style={{ width: 128, height: 128 }}
-            >
-              <svg width={128} height={128} className="-rotate-90">
-                <circle
-                  cx={64}
-                  cy={64}
-                  r={radius}
-                  fill="none"
-                  stroke="rgba(255,255,255,0.06)"
-                  strokeWidth={10}
-                />
-                <circle
-                  cx={64}
-                  cy={64}
-                  r={radius}
-                  fill="none"
-                  stroke={gaugeColor}
-                  strokeWidth={10}
-                  strokeLinecap="round"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={offset}
-                  style={{ transition: "stroke-dashoffset 800ms ease-out" }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span
-                  className="text-3xl font-bold"
-                  style={{ color: gaugeColor }}
-                >
-                  {defenseRate}%
-                </span>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  defended
-                </span>
-              </div>
-            </div>
+            <DefenseRateDonut
+              defended={defended}
+              breached={scan.breaches}
+              defenseRate={defenseRate}
+            />
             {/* Counts */}
             <div className="min-w-0 flex-1 space-y-2.5">
               <div className="flex items-center justify-between text-sm">
