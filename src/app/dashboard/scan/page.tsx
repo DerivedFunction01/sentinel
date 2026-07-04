@@ -962,60 +962,6 @@ function ChooseModels({
             Evaluates whether the target leaked restricted info.
           </p>
         </div>
-        {enableHardening && (
-          <>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm font-medium">
-                <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                Hardener Model
-              </Label>
-              <ModelSelector
-                value={hardenerModel}
-                onChange={setHardenerModel}
-                role={ModelSelectorRole.Hardener}
-              />
-              <p className="text-xs text-muted-foreground">
-                Generates a hardened system prompt following the scan.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label
-                  htmlFor="enable-hardening"
-                  className="text-sm font-medium"
-                >
-                  Enable Prompt Hardening
-                </Label>
-                <Switch
-                  id="enable-hardening"
-                  checked={enableHardening}
-                  onCheckedChange={setEnableHardening}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                When enabled, generates a hardened system prompt after the scan
-                completes. Disable to skip hardening and save API costs.
-              </p>
-            </div>
-          </>
-        )}
-        <div className="space-y-2">
-          <Label className="flex items-center gap-1.5 text-sm font-medium">
-            <Coins className="h-3.5 w-3.5 text-amber-400" />
-            Tokens Remaining
-          </Label>
-          <div className="flex h-9 items-center rounded-md border border-input bg-muted/30 px-3">
-            <span className="text-lg font-bold text-foreground">
-              {tokens ?? "..."}
-            </span>
-            <span className="ml-2 text-xs text-muted-foreground">
-              tokens remaining
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Request more in Settings.
-          </p>
-        </div>
 
         {/* Advanced Options Toggle */}
         <div className="col-span-full border-t border-white/5 pt-4 mt-2">
@@ -1048,7 +994,21 @@ function ChooseModels({
                   prompt ontologies.
                 </p>
               </div>
-
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                  <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                  Hardener Model
+                </Label>
+                <ModelSelector
+                  value={hardenerModel}
+                  onChange={setHardenerModel}
+                  role={ModelSelectorRole.Hardener}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Sets the model used to generate a hardened system prompt
+                  following the scan. (Does not run automatically)
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
                   <Braces className="h-3.5 w-3.5 text-purple-400" />
