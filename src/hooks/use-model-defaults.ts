@@ -1,30 +1,8 @@
-import { useEffect, useState } from "react";
 import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
+import { useModelsCache } from "./use-models-cache";
 
 export function useModelDefaults() {
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/models")
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled) return;
-        if (d.error) {
-          setError(d.error);
-        }
-        setLoaded(true);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setError(e.message);
-        setLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { models, loading, error } = useModelsCache();
 
   function getDefaults(models: Array<{ id: string; name: string }>) {
     if (models.length === 0) {
@@ -44,5 +22,5 @@ export function useModelDefaults() {
     };
   }
 
-  return { loaded, error, getDefaults };
+  return { loaded: !loading, error, getDefaults };
 }

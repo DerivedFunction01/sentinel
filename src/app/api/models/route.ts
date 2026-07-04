@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     take: 200, // cap to keep the dropdown snappy
   });
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     models: models.map((m) => ({
       id: m.id,
       name: m.name,
@@ -45,4 +45,11 @@ export async function GET(req: Request) {
       isFree: m.isFree,
     })),
   });
+
+  response.headers.set(
+    "Cache-Control",
+    "s-maxage=3600, stale-while-revalidate",
+  );
+
+  return response;
 }

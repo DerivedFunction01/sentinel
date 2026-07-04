@@ -1,9 +1,10 @@
 const DB_NAME = "sentinel-reports-cache";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const STORE_SCANS_LIST = "scans-list";
 const STORE_SCAN_DETAILS = "scan-details";
 const STORE_TOOL_EXAMPLES = "tool-examples";
 const STORE_USER_TAGS = "user-tags";
+const STORE_MODELS = "models";
 
 function getDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -29,6 +30,9 @@ function getDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_USER_TAGS)) {
         db.createObjectStore(STORE_USER_TAGS);
+      }
+      if (!db.objectStoreNames.contains(STORE_MODELS)) {
+        db.createObjectStore(STORE_MODELS);
       }
     };
   });
@@ -205,5 +209,72 @@ export async function setCachedUserTags(
     });
   } catch (error) {
     console.error("IndexedDB setCachedUserTags error:", error);
+  }
+}
+
+export interface CachedModelsEntry {
+  lastUpdated: number;
+  data: Array<{
+    id: string;
+    name: string;
+    description?: string | null;
+    contextLength?: number | null;
+    modality?: string | null;
+    promptPrice?: string | null;
+    completionPrice?: string | null;
+    isRecommended: boolean;
+    aiSuggest: boolean;
+    popularityRank: number;
+    supportsTools: boolean;
+    isLowCost: boolean;
+    isFree: boolean;
+  }>;
+}
+
+const MODELS_CACHE_KEY = "all-models";
+
+export async function getCachedModels(): Promise<CachedModelsEntry | null> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_MODELS, "readonly");
+      const store = transaction.objectStore(STORE_MODELS);
+      const request = store.get(MODELS_CACHE_KEY);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB getCachedModels error:", error);
+    return null;
+  }
+}
+
+export async function setCachedModels(entry: CachedModelsEntry): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_MODELS, "readwrite");
+      const store = transaction.objectStore(STORE_MODELS);
+      const request = store.put(entry, MODELS_CACHE_KEY);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB setCachedModels error:", error);
+  }
+}
+
+export async function clearCachedModels(): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_MODELS, "readwrite");
+      const store = transaction.objectStore(STORE_MODELS);
+      const request = store.clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB clearCachedModels error:", error);
   }
 }
