@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { Button } from "@/components/ui/button";
 import { Copy, Terminal, FileCode, Check } from "lucide-react";
@@ -68,18 +68,16 @@ export function SdkDocs({
   const [copied, setCopied] = useState(false);
   // Track hydration to avoid mismatch between server and client
   const [hasMounted, setHasMounted] = useState(false);
-  // Store origin in a ref to access it synchronously during render
-  const originRef = useRef("");
+  const [origin, setOrigin] = useState("");
 
   useEffect(() => {
     // Set origin on client mount - this only runs in browser
-    originRef.current = window.location.origin;
+    setOrigin(window.location.origin);
     setHasMounted(true);
   }, []);
 
   const token = apiKey || "YOUR_API_KEY";
   const depId = deploymentId || "DEPLOYMENT_ID";
-  const origin = originRef.current;
 
   const handleCopy = () => {
     const code = getCodeSample(activeLang, activeOp, {
