@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getCachedDbModels } from "@/lib/models-cache";
 
 /**
  * GET /api/models?q=<search>
@@ -12,21 +13,23 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim().toLowerCase() || "";
 
-  const where = q.length >= 2
-    ? {
+  let models;
+  if (q.length >= 2) {
+    models = await db.model.findMany({
+      where: {
         OR: [
           { id: { contains: q } },
           { name: { contains: q } },
           { description: { contains: q } },
         ],
-      }
-    : {};
-
-  const models = await db.model.findMany({
-    where,
-    orderBy: [{ isRecommended: "desc" }, { popularityRank: "asc" }],
-    take: 200, // cap to keep the dropdown snappy
-  });
+      },
+      orderBy: [{ isRecommended: "desc" }, { popularityRank: "asc" }],
+      take: 200, // cap to keep the dropdown snappy
+    });
+  } else {
+    const cached = await getCachedDbModels(db);
+    models = cached.slice(0, 200);
+  }
 
   const response = NextResponse.json({
     models: models.map((m) => ({
@@ -44,6 +47,7 @@ export async function GET(req: Request) {
       supportsTools: m.supportsTools,
       isLowCost: m.isLowCost,
       isFree: m.isFree,
+      multiplier: m.multiplier,
     })),
   });
 

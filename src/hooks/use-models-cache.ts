@@ -21,6 +21,7 @@ export interface ModelOption {
   supportsTools: boolean;
   isLowCost: boolean;
   isFree: boolean;
+  multiplier: number;
 }
 
 interface UseModelsCacheResult {

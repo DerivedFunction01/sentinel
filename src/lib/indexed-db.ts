@@ -229,6 +229,7 @@ export interface CachedModelsEntry {
     supportsTools: boolean;
     isLowCost: boolean;
     isFree: boolean;
+    multiplier: number;
   }>;
 }
 
