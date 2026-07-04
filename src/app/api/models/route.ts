@@ -40,6 +40,7 @@ export async function GET(req: Request) {
       isRecommended: m.isRecommended,
       aiSuggest: m.aiSuggest,
       popularityRank: m.popularityRank,
+      defaultRank: m.defaultRank,
       supportsTools: m.supportsTools,
       isLowCost: m.isLowCost,
       isFree: m.isFree,

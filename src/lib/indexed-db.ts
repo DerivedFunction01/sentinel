@@ -225,6 +225,7 @@ export interface CachedModelsEntry {
     isRecommended: boolean;
     aiSuggest: boolean;
     popularityRank: number;
+    defaultRank?: number | null;
     supportsTools: boolean;
     isLowCost: boolean;
     isFree: boolean;

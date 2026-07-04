@@ -4,7 +4,9 @@ import { useModelsCache } from "./use-models-cache";
 export function useModelDefaults() {
   const { models, loading, error } = useModelsCache();
 
-  function getDefaults(models: Array<{ id: string; name: string }>) {
+  function getDefaults(
+    models: Array<{ id: string; name: string; defaultRank?: number | null }>,
+  ) {
     if (models.length === 0) {
       return {
         targetModel: DEFAULT_MODEL,

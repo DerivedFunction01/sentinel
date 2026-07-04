@@ -1,39 +1,23 @@
 import { ToolDef } from "./types";
-/**
- * Find a default model from a list of models that is not a thinking/pro model
- * but is a fast/cheap one (flash, lite, mini, haiku, llama-3-8b, etc.).
- */
 
 export const DEFAULT_MODEL = "~google/gemini-flash-latest";
 
+/**
+ * Find the best default model using the server-computed `defaultRank`.
+ * The `defaultRank` is set by sync-models-impl.ts via a sophisticated
+ * context-tier, popularity, and cost-based sorting algorithm. Model with
+ * `defaultRank === 1` is the optimal choice.
+ */
 export function findDefaultModel(
-  models: Array<{ id: string; name: string }>,
+  models: Array<{ id: string; name: string; defaultRank?: number | null }>,
 ): string {
-  const match = models.find((m) => {
-    const id = m.id.toLowerCase();
-    const name = m.name.toLowerCase();
+  if (models.length === 0) return DEFAULT_MODEL;
 
-    // Must NOT match forbidden keywords (thinking/pro/reasoning/etc.)
-    const forbiddenRegex = /thinking|pro|[-_]r1|reasoning|preview/i;
-    const hasForbidden = forbiddenRegex.test(id) || forbiddenRegex.test(name);
+  const ranked = models
+    .filter((m) => m.defaultRank != null && m.defaultRank > 0)
+    .sort((a, b) => a.defaultRank! - b.defaultRank!);
 
-    // Check if name/id contains a small parameter count (e.g. <= 14B like 8b, 7b, 3b, 1b, etc.)
-    const paramMatch =
-      id.match(/(?:^|[^a-z0-9])(\d+)[bB](?:$|[^a-z0-9])/) ||
-      name.match(/(?:^|[^a-z0-9])(\d+)[bB](?:$|[^a-z0-9])/);
-    const isSmallParamModel = paramMatch
-      ? parseInt(paramMatch[1], 10) <= 14
-      : false;
-
-    // MUST match allowed keywords (flash/lite/mini/haiku) or be a small parameter model
-    const allowedRegex = /flash|lite|mini|haiku/i;
-    const hasAllowed =
-      allowedRegex.test(id) || allowedRegex.test(name) || isSmallParamModel;
-
-    return !hasForbidden && hasAllowed;
-  });
-
-  return match ? match.id : DEFAULT_MODEL; // fallback if none found
+  return ranked[0]?.id ?? DEFAULT_MODEL;
 }
 
 export function extractTaggedContent(
