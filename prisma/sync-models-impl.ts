@@ -89,29 +89,16 @@ function getCompositeCost(model: OpenRouterModel): number {
   return promptPrice + completionPrice * 2;
 }
 
-/** Categorizes models into functional optimization clusters */
 function inferModelCapabilityClass(
   modelId: string,
 ): "flash-utility" | "standard-flagship" | "pro-reasoning" {
-  const normalizedId = modelId.toLowerCase();
-  if (
-    normalizedId.includes("flash") ||
-    normalizedId.includes("lite") ||
-    normalizedId.includes("nano") ||
-    normalizedId.includes("mini")
-  ) {
-    return "flash-utility";
-  }
-  if (
-    normalizedId.includes("pro") ||
-    normalizedId.includes("max") ||
-    normalizedId.includes("plus") ||
-    normalizedId.includes("opus") ||
-    normalizedId.includes("r1") ||
-    normalizedId.includes("reasoning")
-  ) {
-    return "pro-reasoning";
-  }
+  const id = modelId.toLowerCase();
+
+  const flashUtilityRe = /(flash|lite|nano|mini)/i;
+  const proReasoningRe = /(pro|max|plus|opus|r1|reasoning)/i;
+
+  if (flashUtilityRe.test(id)) return "flash-utility";
+  if (proReasoningRe.test(id)) return "pro-reasoning";
   return "standard-flagship";
 }
 
