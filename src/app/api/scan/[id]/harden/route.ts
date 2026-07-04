@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { callOpenRouter, FALLBACK_DEFAULT_MODEL } from "@/lib/model-utils";
+import { callOpenRouter, FALLBACK_DEFAULT_MODEL, UsageTracker } from "@/lib/model-utils";
 import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
@@ -112,7 +112,7 @@ export async function POST(
     }
 
     const body = await req.json().catch(() => ({}));
-    const dbModels = await getCachedDbModels(db);
+    const dbModels = await getCachedDbModels(db) as any[];
     const defaultModel = findDefaultModelFromCache(FALLBACK_DEFAULT_MODEL);
 
     const modelId =
@@ -124,33 +124,50 @@ export async function POST(
     const extractorModel = body.extractorModel || defaultModel;
     const includeToolRecommendation = body.includeToolRecommendation !== false;
 
-    // ── Token gating ─────────────────────────────────────────────────────────
-    // Fast path (hardening only)  → costs 1 hardening token
-    // Slow path (+ tool extract)  → costs 3 hardening tokens upfront;
-    //                                refund 1 if the LLM extraction loop was skipped
-    const tokenCost = includeToolRecommendation ? 3 : 1;
+    // ── Token hold calculation ────────────────────────────────────────────────
+    const { estimateTokens } = await import("@/lib/token-utils");
+    const sysPromptTokens = estimateTokens(scanRow.systemPrompt || "");
+    const basePromptTokens = sysPromptTokens + estimateTokens(scanRow.forbiddenTask || "") + estimateTokens(scanRow.judgeInstructions || "");
+
+    const hardener = dbModels.find(m => m.id === modelId);
+    const extractor = dbModels.find(m => m.id === extractorModel);
+
+    const hardenerPrice = {
+      prompt: parseFloat(hardener?.promptPrice || "0.0000001"),
+      completion: parseFloat(hardener?.completionPrice || "0.0000004"),
+    };
+    const extractorPrice = {
+      prompt: parseFloat(extractor?.promptPrice || "0.0000001"),
+      completion: parseFloat(extractor?.completionPrice || "0.0000004"),
+    };
+
+    let upfrontHoldUsd = (basePromptTokens + 2000) * hardenerPrice.prompt + 1500 * hardenerPrice.completion;
+    if (includeToolRecommendation) {
+      upfrontHoldUsd += (basePromptTokens + 2000) * extractorPrice.prompt + 1500 * extractorPrice.completion;
+    }
+    const upfrontHold = Math.ceil(upfrontHoldUsd * 1000000 * 1.15); // 15% safety buffer
 
     const userBefore = await db.user.findUnique({
       where: { id: session.user.id },
-      select: { hardeningTokens: true },
+      select: { id: true, scanTokens: true },
     });
 
-    if (!userBefore || userBefore.hardeningTokens < tokenCost) {
+    if (!userBefore || userBefore.scanTokens < upfrontHold) {
       return NextResponse.json(
         {
-          error: "insufficient_hardening_tokens",
-          message: `This operation requires ${tokenCost} hardening token${tokenCost > 1 ? "s" : ""}. You have ${userBefore?.hardeningTokens ?? 0}. Convert scan tokens to hardening tokens first.`,
-          required: tokenCost,
-          available: userBefore?.hardeningTokens ?? 0,
+          error: "insufficient_scan_tokens",
+          message: `This operation requires an upfront hold of ${upfrontHold} tokens. You have ${userBefore?.scanTokens ?? 0}.`,
+          required: upfrontHold,
+          available: userBefore?.scanTokens ?? 0,
         },
         { status: 402 },
       );
     }
 
-    // Deduct upfront
+    // Deduct upfront hold tokens
     await db.user.update({
       where: { id: session.user.id },
-      data: { hardeningTokens: { decrement: tokenCost } },
+      data: { scanTokens: { decrement: upfrontHold } },
     });
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -171,6 +188,11 @@ export async function POST(
       ? JSON.parse(scanRow.mockToolResponses)
       : {};
 
+    const tracker: UsageTracker = {
+      totalCost: 0,
+      dbModels,
+    };
+
     // Use the shared hardening workflow
     const existingTools = scanRow.tools
       ? (JSON.parse(scanRow.tools) as ToolDef[])
@@ -184,7 +206,7 @@ export async function POST(
         const summaryText = await summarizeBreachedAttacks(async (promptText) => {
           const response = await callOpenRouter(modelId, [
             { role: "user", content: promptText },
-          ]);
+          ], undefined, tracker);
           return response.content || "";
         }, breachedAttacks);
 
@@ -218,11 +240,12 @@ export async function POST(
         trials,
         trace,
         includeToolRecommendation,
+        tracker,
       },
       async (promptText) => {
         const response = await callOpenRouter(modelId, [
           { role: "user", content: promptText },
-        ]);
+        ], undefined, tracker);
         return response.content || "";
       },
     );
@@ -230,20 +253,6 @@ export async function POST(
     const promptTextToExtract = hardeningResult.hardenedPrompt;
     const toolRecommendation = hardeningResult.toolRecommendation;
     const compatibilityScore = hardeningResult.compatibilityScore;
-
-    // ── Conditional refund ───────────────────────────────────────────────────
-    // If the slow path was requested but the LLM extraction loop was NOT
-    // executed (directMatch fast path inside generateToolRecommendation),
-    // refund 1 hardening token back to the user.
-    let tokensRefunded = 0;
-    if (includeToolRecommendation && !hardeningResult.slowPathHit) {
-      tokensRefunded = 1;
-      await db.user.update({
-        where: { id: session.user.id },
-        data: { hardeningTokens: { increment: 1 } },
-      });
-    }
-    // ─────────────────────────────────────────────────────────────────────────
 
     // Always create a new record (no unique constraint on scanId+modelId anymore)
     const saved = await db.hardenedPrompt.create({
@@ -266,10 +275,19 @@ export async function POST(
       } catch {}
     }
 
+    // Refund unused portion of the upfront hold
+    const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
+    const refund = upfrontHold - finalTokenCost;
+
+    await db.user.update({
+      where: { id: session.user.id },
+      data: { scanTokens: { increment: refund } },
+    });
+
     // Fetch updated balance to return in response
     const userAfter = await db.user.findUnique({
       where: { id: session.user.id },
-      select: { hardeningTokens: true },
+      select: { scanTokens: true },
     });
 
     return NextResponse.json({
@@ -283,9 +301,9 @@ export async function POST(
       granularity: saved.granularity,
       extractorModel: saved.extractorModel,
       trace,
-      tokenCost: tokenCost - tokensRefunded,
-      tokensRefunded,
-      hardeningTokensRemaining: userAfter?.hardeningTokens ?? 0,
+      tokenCost: finalTokenCost,
+      tokensRefunded: refund,
+      scanTokensRemaining: userAfter?.scanTokens ?? 0,
     });
   } catch (error: any) {
     console.error("Error generating/updating hardened prompt:", error);

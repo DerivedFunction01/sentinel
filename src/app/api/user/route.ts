@@ -20,8 +20,6 @@ export async function GET() {
       company: true,
       role: true,
       scanTokens: true,
-      hardeningTokens: true,
-      reevaluationTokens: true,
       createdAt: true,
     },
   });
@@ -55,8 +53,6 @@ export async function PATCH(req: Request) {
       company: true,
       role: true,
       scanTokens: true,
-      hardeningTokens: true,
-      reevaluationTokens: true,
     },
   });
 

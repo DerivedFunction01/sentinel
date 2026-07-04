@@ -80,19 +80,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // Calculate total scans for token deduction
-  const totalScans = targetModels.length * promptsRaw.length;
-
-  // Check token balance.
-  if (user.scanTokens < totalScans) {
-    return NextResponse.json(
-      {
-        error: `Not enough tokens. You need ${totalScans} but have ${user.scanTokens}.`,
-      },
-      { status: 403 },
-    );
-  }
-
   // Fetch dbModels once to get pricing rates and defaults
   const dbModels = await getCachedDbModels(db);
   const defaultModel = findDefaultModel(dbModels);
@@ -107,6 +94,8 @@ export async function POST(req: Request) {
   const judgeModel = (body.judgeModel as string) || defaultModel;
   const hardenerModel = (body.hardenerModel as string) || defaultModel;
   const extractorModel = (body.extractorModel as string) || defaultModel;
+
+  const enableHardening = body.enableHardening !== false;
 
   // Parse each prompt's tools and mock responses
   const parsedPrompts = promptsRaw.map((p) => {
@@ -135,10 +124,36 @@ export async function POST(req: Request) {
     };
   });
 
-  // Decrement tokens atomically
+  // Import hold calculation utility
+  const { calculateUpfrontScanHold } = await import("@/lib/token-utils");
+
+  // Calculate upfront hold tokens
+  const upfrontHold = calculateUpfrontScanHold(
+    parsedPrompts,
+    targetModels,
+    seedExtractorModel,
+    attackGeneratorModel,
+    judgeModel,
+    dbModels,
+    enableHardening,
+    hardenerModel,
+    extractorModel,
+  );
+
+  // Check token balance
+  if (user.scanTokens < upfrontHold) {
+    return NextResponse.json(
+      {
+        error: `Not enough tokens. You need ${upfrontHold} tokens for this hold but have ${user.scanTokens}.`,
+      },
+      { status: 403 },
+    );
+  }
+
+  // Deduct upfront hold tokens atomically
   await db.user.update({
     where: { id: user.id },
-    data: { scanTokens: { decrement: totalScans } },
+    data: { scanTokens: { decrement: upfrontHold } },
   });
 
   // Initialize a shared tracker for cost aggregation (rough estimate)
@@ -153,7 +168,7 @@ export async function POST(req: Request) {
   // Phase 1: Pre-generate attack sets for each unique prompt
   // Attack generation uses the same attacker model + seedExtractor for all
   // If seed extraction fails (returns zero things after retry), we refund
-  // tokens for that prompt and skip it.
+  // the hold for that prompt and skip it.
   const attackSets: Record<
     number,
     Awaited<ReturnType<typeof generateAttackSet>>
@@ -176,49 +191,29 @@ export async function POST(req: Request) {
         tracker,
       );
       attackSets[idx] = attackSet;
-
-      // Charge additional tokens if trials count exceeds patterns.length * 3
-      const trialsCount = attackSet.attacks.length;
-      const tokensPerModel = Math.ceil(trialsCount / (patterns.length * 3));
-      const additionalDeduction = (tokensPerModel - 1) * targetModels.length;
-
-      if (additionalDeduction > 0) {
-        const freshUser = await db.user.findUnique({
-          where: { id: user.id },
-          select: { scanTokens: true },
-        });
-        if (!freshUser || freshUser.scanTokens < additionalDeduction) {
-          console.warn(
-            `[launch] Insufficient tokens for prompt ${idx} (needs ${additionalDeduction} more) — canceling and refunding initial tokens.`,
-          );
-          failedPromptIndices.push(idx);
-          // Refund the 1 token per model we already deducted
-          await db.user.update({
-            where: { id: user.id },
-            data: { scanTokens: { increment: targetModels.length } },
-          });
-          return;
-        }
-
-        // Deduct extra tokens
-        await db.user.update({
-          where: { id: user.id },
-          data: { scanTokens: { decrement: additionalDeduction } },
-        });
-        console.log(
-          `[launch] Deducted additional ${additionalDeduction} token(s) for large scan on prompt ${idx} (${trialsCount} trials).`,
-        );
-      }
     } catch (err: any) {
-      if (err.message?.startsWith("SeedExtractionFailed")) {
+      if (err.message?.startsWith("SeedExtractionFailed") || err.message?.includes("failed")) {
         console.warn(
-          `[launch] Seed extraction failed for prompt ${idx} — refunding ${targetModels.length} token(s) and skipping.`,
+          `[launch] Seed extraction failed for prompt ${idx} — refunding upfront hold and skipping.`,
         );
         failedPromptIndices.push(idx);
-        // Refund tokens for this prompt (one per target model)
+
+        // Refund the specific hold calculated for this prompt across all target models
+        const promptHold = calculateUpfrontScanHold(
+          [prompt],
+          targetModels,
+          seedExtractorModel,
+          attackGeneratorModel,
+          judgeModel,
+          dbModels,
+          enableHardening,
+          hardenerModel,
+          extractorModel,
+        );
+
         await db.user.update({
           where: { id: user.id },
-          data: { scanTokens: { increment: targetModels.length } },
+          data: { scanTokens: { increment: promptHold } },
         });
       } else {
         throw err; // rethrow unexpected errors
@@ -235,6 +230,9 @@ export async function POST(req: Request) {
     promptIndex: number;
   }> = [];
 
+  // Track total hold refunded or consumed
+  let totalNetHoldDeduction = 0;
+
   for (const targetModel of targetModels) {
     for (let promptIdx = 0; promptIdx < parsedPrompts.length; promptIdx++) {
       // Skip prompts that failed seed extraction
@@ -245,6 +243,20 @@ export async function POST(req: Request) {
       const prompt = parsedPrompts[promptIdx];
       const reportId = generateReportId();
       scanInfos.push({ reportId, targetModel, promptIndex: promptIdx });
+
+      const promptTargetHold = calculateUpfrontScanHold(
+        [prompt],
+        [targetModel],
+        seedExtractorModel,
+        attackGeneratorModel,
+        judgeModel,
+        dbModels,
+        enableHardening,
+        hardenerModel,
+        extractorModel,
+      );
+
+      totalNetHoldDeduction += promptTargetHold;
 
       const toolsJson = JSON.stringify(prompt.tools);
       const mockJson = JSON.stringify(prompt.mockToolResponses);
@@ -282,7 +294,7 @@ export async function POST(req: Request) {
       });
 
       // Start pipeline asynchronously with shared attack set
-      const pipelineConfig: RunSingleScanPipelineConfig = {
+      const pipelineConfig: RunSingleScanPipelineConfig & { upfrontHold?: number } = {
         systemPrompt: prompt.systemPrompt,
         forbiddenTask: prompt.forbiddenTask,
         judgeInstructions: prompt.judgeInstructions,
@@ -299,6 +311,7 @@ export async function POST(req: Request) {
         includeToolRecommendation: true,
         enableHardening: body.enableHardening !== false,
         allowNoToolsFallback: prompt.allowNoToolsFallback,
+        upfrontHold: promptTargetHold,
       };
 
       runSingleScanPipeline(
@@ -312,8 +325,11 @@ export async function POST(req: Request) {
     }
   }
 
-  const netTokensDeducted =
-    (parsedPrompts.length - failedPromptIndices.length) * targetModels.length;
+  // Get current user token balance to return
+  const finalUser = await db.user.findUnique({
+    where: { id: user.id },
+    select: { scanTokens: true },
+  });
 
   if (scanInfos.length === 0) {
     return NextResponse.json(
@@ -321,7 +337,7 @@ export async function POST(req: Request) {
         error:
           "All prompts failed seed extraction. Your tokens have been fully refunded.",
         failedPrompts: failedPromptIndices,
-        tokensRemaining: user.scanTokens,
+        tokensRemaining: finalUser?.scanTokens ?? user.scanTokens,
       },
       { status: 400 },
     );
@@ -330,8 +346,8 @@ export async function POST(req: Request) {
   return NextResponse.json({
     batchId,
     scans: scanInfos,
-    tokensRemaining: user.scanTokens - netTokensDeducted,
-    totalScans,
+    tokensRemaining: finalUser?.scanTokens ?? user.scanTokens,
+    totalScans: targetModels.length * parsedPrompts.length,
     failedPrompts:
       failedPromptIndices.length > 0 ? failedPromptIndices : undefined,
   });

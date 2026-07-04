@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth-utils";
-import { FALLBACK_DEFAULT_MODEL } from "@/lib/model-utils";
+import { FALLBACK_DEFAULT_MODEL, type UsageTracker } from "@/lib/model-utils";
 import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
 import { db } from "@/lib/db";
 import { extractSeedInfo } from "@/lib/seed-extractor";
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
 
   try {
     // Ensure cache is populated before synchronous fallback lookup
-    await getCachedDbModels(db);
+    const dbModels = await getCachedDbModels(db) as any[];
     const body = await req.json().catch(() => ({}));
     const {
       systemPrompt = "",
@@ -23,13 +23,59 @@ export async function POST(req: Request) {
       forbiddenTask = "",
     } = body;
 
+    const { estimateTokens } = await import("@/lib/token-utils");
+
+    const extractor = dbModels.find(m => m.id === extractorModel);
+    const extractorPrice = {
+      prompt: parseFloat(extractor?.promptPrice || "0.0000001"),
+      completion: parseFloat(extractor?.completionPrice || "0.0000004"),
+    };
+
+    const sysPromptTokens = estimateTokens(systemPrompt || "");
+    const basePromptTokens = sysPromptTokens + estimateTokens(forbiddenTask || "") + estimateTokens(tools || "");
+    const upfrontHold = Math.ceil((basePromptTokens * extractorPrice.prompt + 1000 * extractorPrice.completion) * 1000000 * 1.15);
+
+    // Check user balance
+    const userBefore = await db.user.findUnique({
+      where: { id: authUser.userId },
+      select: { id: true, scanTokens: true },
+    });
+
+    if (!userBefore || userBefore.scanTokens < upfrontHold) {
+      return NextResponse.json(
+        {
+          error: "insufficient_scan_tokens",
+          message: `This operation requires an upfront hold of ${upfrontHold} tokens. You have ${userBefore?.scanTokens ?? 0}.`,
+        },
+        { status: 402 },
+      );
+    }
+
+    // Deduct hold
+    await db.user.update({
+      where: { id: authUser.userId },
+      data: { scanTokens: { decrement: upfrontHold } },
+    });
+
+    const tracker: UsageTracker = { totalCost: 0, dbModels };
+
     const seedInfo = await extractSeedInfo(
       extractorModel,
       systemPrompt,
       tools,
       mockResponses,
       forbiddenTask,
+      tracker,
     );
+
+    // Refund unused hold
+    const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
+    const refund = upfrontHold - finalTokenCost;
+
+    await db.user.update({
+      where: { id: authUser.userId },
+      data: { scanTokens: { increment: refund } },
+    });
 
     const vulnerabilities = Array.from(
       new Set(seedInfo.things.flatMap((t) => t.vulnerabilities)),
@@ -41,6 +87,7 @@ export async function POST(req: Request) {
       things: seedInfo.things,
       vulnerabilities,
       categories: seedInfo.businessCategories,
+      scanTokensRemaining: userBefore.scanTokens - finalTokenCost,
     });
   } catch (error: any) {
     console.error("Error in suggest-forbidden API:", error);

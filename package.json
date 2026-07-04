@@ -65,6 +65,7 @@
     "framer-motion": "^12.23.2",
     "highlight.js": "^11.11.1",
     "input-otp": "^1.4.2",
+    "js-tiktoken": "^1.0.21",
     "lucide-react": "^0.525.0",
     "next": "^16.1.1",
     "next-auth": "^4.24.11",

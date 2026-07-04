@@ -45,15 +45,7 @@ interface HardenedPromptSectionProps {
   activeToolIdx: number;
   setActiveToolIdx: React.Dispatch<React.SetStateAction<number>>;
   historyModels: any[];
-  hardeningTokens: number | null;
-  reevaluationTokens: number | null;
-  convertOpen: boolean;
-  onConvertOpenChange: (open: boolean) => void;
-  converting: boolean;
-  onConvertTokens: (
-    n: number,
-    target?: "hardening" | "reevaluation",
-  ) => Promise<void>;
+  scanTokens: number | null;
 }
 
 export function HardenedPromptSection({
@@ -70,12 +62,7 @@ export function HardenedPromptSection({
   activeToolIdx,
   setActiveToolIdx,
   historyModels,
-  hardeningTokens,
-  reevaluationTokens,
-  convertOpen,
-  onConvertOpenChange,
-  converting,
-  onConvertTokens,
+  scanTokens,
 }: HardenedPromptSectionProps) {
   const modelVersionCounts = new Map<string, number>();
   for (const hm of historyModels) {
@@ -155,15 +142,12 @@ export function HardenedPromptSection({
                 View Step Traces
               </Button>
             )}
-            <button
-              type="button"
-              onClick={() => onConvertOpenChange(true)}
-              className="flex items-center gap-1.5 rounded-md border border-purple-500/30 bg-purple-600/10 px-2 py-1 text-[11px] font-semibold text-purple-300 hover:bg-purple-600/20 transition-colors"
-              title="Convert scan tokens to hardening tokens"
-            >
-              <Zap className="h-3 w-3" />
-              {hardeningTokens === null ? "…" : hardeningTokens} hardening
-            </button>
+            {scanTokens !== undefined && (
+              <div className="flex items-center gap-1.5 rounded-md border border-purple-500/30 bg-purple-600/10 px-2 py-1 text-[11px] font-semibold text-purple-300">
+                <Zap className="h-3 w-3" />
+                <span>{scanTokens === null ? "…" : scanTokens} tokens</span>
+              </div>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -441,173 +425,6 @@ export function HardenedPromptSection({
           currentHardenedPrompt?.extractorModel || FALLBACK_DEFAULT_MODEL
         }
       />
-
-      <TokenConversionDialog
-        open={convertOpen}
-        onOpenChange={onConvertOpenChange}
-        hardeningTokens={hardeningTokens}
-        reevaluationTokens={reevaluationTokens}
-        converting={converting}
-        onConvert={onConvertTokens}
-      />
     </section>
-  );
-}
-
-interface TokenConversionDialogProps {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  hardeningTokens: number | null;
-  reevaluationTokens: number | null;
-  converting: boolean;
-  onConvert: (n: number, target: "hardening" | "reevaluation") => Promise<void>;
-}
-
-function TokenConversionDialog({
-  open,
-  onOpenChange,
-  hardeningTokens,
-  reevaluationTokens,
-  converting,
-  onConvert,
-}: TokenConversionDialogProps) {
-  const [target, setTarget] = useState<"hardening" | "reevaluation">(
-    "hardening",
-  );
-  const [customAmount, setCustomAmount] = useState("1");
-  const parsed = parseInt(customAmount, 10);
-  const isValid = !isNaN(parsed) && parsed >= 1;
-  const conversionRate = target === "hardening" ? 10 : 30;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="dark max-w-sm border-border bg-slate-900 text-slate-100">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base font-bold">
-            <Zap className="h-4 w-4 text-purple-400" />
-            Convert Scan Tokens
-          </DialogTitle>
-          <DialogDescription className="text-slate-400 text-xs mt-1">
-            Convert your scan tokens into{" "}
-            {target === "hardening" ? "hardening" : "re-evaluation"} tokens at a
-            rate of{" "}
-            <span className="font-semibold text-purple-300">
-              1&nbsp;scan&nbsp;→&nbsp;{conversionRate}&nbsp;
-              {target === "hardening" ? "hardening" : "re-evaluation"}
-            </span>
-            .
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/50 p-1">
-            <button
-              type="button"
-              onClick={() => setTarget("hardening")}
-              className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-colors ${
-                target === "hardening"
-                  ? "bg-purple-600/20 text-purple-300"
-                  : "text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              Hardening
-            </button>
-            <button
-              type="button"
-              onClick={() => setTarget("reevaluation")}
-              className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-colors ${
-                target === "reevaluation"
-                  ? "bg-emerald-600/20 text-emerald-300"
-                  : "text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              Re-evaluation
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-4 py-2.5">
-              <span className="text-xs text-slate-400">Hardening</span>
-              <span className="text-sm font-bold text-purple-300">
-                {hardeningTokens === null ? "…" : hardeningTokens}
-              </span>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-4 py-2.5">
-              <span className="text-xs text-slate-400">Re-evaluation</span>
-              <span className="text-sm font-bold text-emerald-300">
-                {reevaluationTokens === null ? "…" : reevaluationTokens}
-              </span>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              Quick select
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {[1, 2, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => onConvert(n, target)}
-                  disabled={converting}
-                  className={`flex flex-col items-center rounded-lg border py-2.5 disabled:opacity-50 transition-colors ${
-                    target === "hardening"
-                      ? "border-purple-500/30 bg-purple-600/10 text-purple-200 hover:bg-purple-600/25"
-                      : "border-emerald-500/30 bg-emerald-600/10 text-emerald-200 hover:bg-emerald-600/25"
-                  }`}
-                >
-                  <span className="text-sm font-bold">{n}</span>
-                  <span className="text-[10px] text-slate-400">
-                    → {n * conversionRate}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              Custom amount
-            </p>
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                min={1}
-                value={customAmount}
-                onChange={(e) => setCustomAmount(e.target.value)}
-                className="bg-slate-950/50 border-slate-700 text-slate-100 h-9 text-sm"
-                placeholder="e.g. 3"
-              />
-              <Button
-                size="sm"
-                onClick={() => isValid && onConvert(parsed, target)}
-                disabled={!isValid || converting}
-                className={
-                  target === "hardening"
-                    ? "bg-purple-600 hover:bg-purple-700 text-white shrink-0"
-                    : "bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
-                }
-              >
-                {converting
-                  ? "Converting…"
-                  : `→ ${isValid ? parsed * conversionRate : "?"}`}
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="border-t border-slate-800/80 pt-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-            className="text-slate-400 hover:text-slate-200 w-full"
-          >
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

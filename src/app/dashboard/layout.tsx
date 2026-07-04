@@ -20,8 +20,6 @@ export default async function DashboardLayout({
       email: true,
       company: true,
       scanTokens: true,
-      hardeningTokens: true,
-      reevaluationTokens: true,
       role: true,
     },
   });

@@ -10,18 +10,16 @@ datasource db {
 }
 
 model User {
-  id                 String   @id @default(cuid())
-  email              String   @unique
-  name               String?
-  password           String // bcrypt hash
-  role               String   @default("USER") // UserRole enum: USER | CUSTOMER_ADMIN | SUPER_ADMIN
-  company            String?
-  scanTokens         Int      @default(10)
-  hardeningTokens    Int      @default(0)
-  reevaluationTokens Int      @default(0)
-  userTags           String   @default("[]") // JSON: Array<{ id: string, name: string }>
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String?
+  password   String // bcrypt hash
+  role       String   @default("USER") // UserRole enum: USER | CUSTOMER_ADMIN | SUPER_ADMIN
+  company    String?
+  scanTokens Int      @default(10000000)
+  userTags   String   @default("[]") // JSON: Array<{ id: string, name: string }>
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   tokenRequests TokenRequest[]
   scans         Scan[]

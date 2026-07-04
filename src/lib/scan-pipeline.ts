@@ -1160,6 +1160,7 @@ export interface RunSingleScanPipelineConfig {
   includeToolRecommendation: boolean;
   enableHardening: boolean;
   allowNoToolsFallback: boolean;
+  upfrontHold?: number;
 }
 
 /**
@@ -1639,4 +1640,17 @@ export async function runSingleScanPipeline(
       totalSteps,
     },
   });
+
+  // Dynamic token hold refund
+  if (options.upfrontHold != null) {
+    const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
+    const refund = options.upfrontHold - finalTokenCost;
+    await db.user.update({
+      where: { id: options.userId },
+      data: { scanTokens: { increment: refund } },
+    });
+    console.log(
+      `[pipeline] Scan ${reportId} finished. Upfront hold: ${options.upfrontHold}, actual USD cost: $${tracker.totalCost.toFixed(6)} (${finalTokenCost} tokens). Refunded ${refund} tokens.`
+    );
+  }
 }

@@ -59,12 +59,10 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
       if (!res.ok) {
         const err = await res.json();
         if (res.status === 402) {
-          toast.error(err.message || "Insufficient reevaluation tokens.", {
+          toast.error(err.message || "Insufficient scan tokens.", {
             id: toastId,
             duration: 6000,
           });
-          setConvertTarget("reevaluation");
-          setConvertOpen(true);
           return;
         }
         throw new Error(err.error || "Failed to auto re-evaluate");
@@ -166,7 +164,9 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [selectedHardenedId, setSelectedHardenedId] = useState<string>(() => {
     const active = [...scan.hardenedPrompts]
       .reverse()
-      .find((hp) => hp.modelId === (scan.hardenerModel || FALLBACK_DEFAULT_MODEL));
+      .find(
+        (hp) => hp.modelId === (scan.hardenerModel || FALLBACK_DEFAULT_MODEL),
+      );
     return (
       active?.id ||
       scan.hardenedPrompts[scan.hardenedPrompts.length - 1]?.id ||
@@ -178,7 +178,9 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     () => {
       const active = [...scan.hardenedPrompts]
         .reverse()
-      .find((hp) => hp.modelId === (scan.hardenerModel || FALLBACK_DEFAULT_MODEL));
+        .find(
+          (hp) => hp.modelId === (scan.hardenerModel || FALLBACK_DEFAULT_MODEL),
+        );
       return (
         active || scan.hardenedPrompts[scan.hardenedPrompts.length - 1] || null
       );
@@ -194,15 +196,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [traceOpen, setTraceOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [activeToolIdx, setActiveToolIdx] = useState(0);
-  const [hardeningTokens, setHardeningTokens] = useState<number | null>(null);
-  const [reevaluationTokens, setReevaluationTokens] = useState<number | null>(
-    null,
-  );
-  const [convertOpen, setConvertOpen] = useState(false);
-  const [converting, setConverting] = useState(false);
-  const [convertTarget, setConvertTarget] = useState<
-    "hardening" | "reevaluation"
-  >("hardening");
+  const [scanTokens, setScanTokens] = useState<number | null>(null);
 
   const [summarizedPatterns, setSummarizedPatterns] = useState<
     string | undefined
@@ -218,8 +212,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     fetch("/api/user")
       .then((r) => r.json())
       .then((d) => {
-        setHardeningTokens(d.user?.hardeningTokens ?? 0);
-        setReevaluationTokens(d.user?.reevaluationTokens ?? 0);
+        setScanTokens(d.user?.scanTokens ?? 0);
       })
       .catch(() => {});
     // Load vocabulary from IndexedDB cache first
@@ -274,37 +267,6 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
       toast.error(err.message || "Failed to generate summary", { id: toastId });
     } finally {
       setGeneratingSummary(false);
-    }
-  };
-
-  const handleConvertTokens = async (
-    scanTokensToConvert: number,
-    target: "hardening" | "reevaluation" = "hardening",
-  ) => {
-    setConverting(true);
-    try {
-      const res = await fetch("/api/tokens/convert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scanTokens: scanTokensToConvert, target }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.message || "Conversion failed");
-      } else {
-        if (target === "hardening") {
-          setHardeningTokens(data.hardeningTokensRemaining);
-        }
-        setReevaluationTokens(data.reevaluationTokensRemaining);
-        toast.success(
-          `Converted ${scanTokensToConvert} scan token${scanTokensToConvert > 1 ? "s" : ""} → ${data.tokensGained} ${target} tokens`,
-        );
-        setConvertOpen(false);
-      }
-    } catch {
-      toast.error("Conversion failed");
-    } finally {
-      setConverting(false);
     }
   };
 
@@ -370,22 +332,17 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         if (res.status === 402) {
-          toast.error(errData.message || "Insufficient hardening tokens.", {
+          toast.error(errData.message || "Insufficient scan tokens.", {
             id: toastId,
             duration: 6000,
           });
-          setConvertOpen(true); // auto-open conversion dialog
           return;
         }
         throw new Error(errData.message || "Extraction failed");
       }
       const data = await res.json();
-      // Update local token balance from response
-      if (typeof data.hardeningTokensRemaining === "number") {
-        setHardeningTokens(data.hardeningTokensRemaining);
-        if (data.tokensRefunded > 0) {
-          toast.info(`1 hardening token refunded (fast path used)`);
-        }
+      if (typeof data.scanTokensRemaining === "number") {
+        setScanTokens(data.scanTokensRemaining);
       }
       const newPrompt = {
         id: data.id,
@@ -518,9 +475,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         onDelete={() => setDeleteDialogOpen(true)}
         isAutoReevaluating={isAutoReevaluating}
         onAutoReevaluate={handleAutoReevaluate}
-        setConvertTarget={setConvertTarget}
-        setConvertOpen={setConvertOpen}
-        reevaluationTokens={reevaluationTokens}
+        scanTokens={scanTokens}
         onTag={() => setTagDialogOpen(true)}
       />
 
@@ -561,12 +516,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
           activeToolIdx={activeToolIdx}
           setActiveToolIdx={setActiveToolIdx}
           historyModels={historyModels}
-          hardeningTokens={hardeningTokens}
-          reevaluationTokens={reevaluationTokens}
-          convertOpen={convertOpen}
-          onConvertOpenChange={setConvertOpen}
-          converting={converting}
-          onConvertTokens={handleConvertTokens}
+          scanTokens={scanTokens}
         />
 
         <Separator />
@@ -646,9 +596,9 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         onOpenChange={setTagDialogOpen}
         vocabulary={vocabulary}
         selectedScanCount={1}
-        existingTagIdsPerScan={[(scan.tags || [])
-          .map((t) => t.split("~")[0])
-          .filter(Boolean)]}
+        existingTagIdsPerScan={[
+          (scan.tags || []).map((t) => t.split("~")[0]).filter(Boolean),
+        ]}
         onConfirm={handleTagConfirm}
       />
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

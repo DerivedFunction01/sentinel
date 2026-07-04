@@ -6,6 +6,8 @@ import { runJudgeReEvaluation } from "@/lib/scan-pipeline";
 import { TrialVerdict, RiskLevel } from "@/lib/enums";
 import type { Trial } from "@/lib/types";
 import { revalidateTag } from "next/cache";
+import { FALLBACK_DEFAULT_MODEL, type UsageTracker } from "@/lib/model-utils";
+import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
 
 export async function POST(
   req: Request,
@@ -51,30 +53,6 @@ export async function POST(
     });
   }
 
-  // Check reevaluation token balance AFTER knowing how many trials to process
-  const user = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: { reevaluationTokens: true },
-  });
-
-  if (!user || user.reevaluationTokens < breachedTrials.length) {
-    return NextResponse.json(
-      {
-        error: "insufficient_reevaluation_tokens",
-        message: `You need ${breachedTrials.length} reevaluation token(s) to auto re-evaluate. Convert scan tokens to reevaluation tokens at a rate of 1:30.`,
-        required: breachedTrials.length,
-        available: user?.reevaluationTokens ?? 0,
-      },
-      { status: 402 },
-    );
-  }
-
-  // Deduct reevaluation tokens for the number of breached trials being processed
-  await db.user.update({
-    where: { id: session.user.id },
-    data: { reevaluationTokens: { decrement: breachedTrials.length } },
-  });
-
   // Find up to 3 defended trials in the scan to use as references
   const defendedTrials = trials.filter(
     (t) =>
@@ -104,6 +82,52 @@ export async function POST(
     });
   }
 
+  const dbModels = await getCachedDbModels(db) as any[];
+  const judgeModelId = scan.judgeModel || findDefaultModelFromCache(FALLBACK_DEFAULT_MODEL);
+
+  const { estimateTokens } = await import("@/lib/token-utils");
+
+  const judge = dbModels.find(m => m.id === judgeModelId);
+  const judgePrice = {
+    prompt: parseFloat(judge?.promptPrice || "0.0000001"),
+    completion: parseFloat(judge?.completionPrice || "0.0000004"),
+  };
+
+  const refText = referenceExamples.map(r => `${r.attack}\n${r.response}\n${r.reasoning}`).join("\n");
+  let upfrontHold = 0;
+
+  for (const targetTrial of breachedTrials) {
+    const inputTokens = estimateTokens(refText) + estimateTokens(targetTrial.attack) + estimateTokens(targetTrial.response) + 1500;
+    const trialHold = Math.ceil((inputTokens * judgePrice.prompt + 1000 * judgePrice.completion) * 1000000 * 1.15);
+    upfrontHold += trialHold;
+  }
+
+  // Check reevaluation token balance AFTER knowing how many trials to process
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, scanTokens: true },
+  });
+
+  if (!user || user.scanTokens < upfrontHold) {
+    return NextResponse.json(
+      {
+        error: "insufficient_scan_tokens",
+        message: `You need an upfront hold of ${upfrontHold} scan tokens to auto re-evaluate these ${breachedTrials.length} trials. You have ${user?.scanTokens ?? 0}.`,
+        required: upfrontHold,
+        available: user?.scanTokens ?? 0,
+      },
+      { status: 402 },
+    );
+  }
+
+  // Deduct upfront hold tokens
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { scanTokens: { decrement: upfrontHold } },
+  });
+
+  const tracker: UsageTracker = { totalCost: 0, dbModels };
+
   const proposalsList: Array<{
     trialNumber: number;
     verdict: TrialVerdict;
@@ -117,12 +141,12 @@ export async function POST(
   for (const targetTrial of breachedTrials) {
     try {
       const result = await runJudgeReEvaluation(
-        scan.judgeModel,
+        judgeModelId,
         scan.forbiddenTask,
         targetTrial.attack,
         targetTrial.response,
         referenceExamples,
-        undefined, // tracker
+        tracker,
         targetTrial.toolCalls,
         targetTrial.transcript,
       );
@@ -142,8 +166,19 @@ export async function POST(
     }
   }
 
+  // Refund unused portion of hold
+  const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
+  const refund = upfrontHold - finalTokenCost;
+
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { scanTokens: { increment: refund } },
+  });
+
   return NextResponse.json({
     success: true,
     proposals: proposalsList,
+    tokenCost: finalTokenCost,
+    tokensRefunded: refund,
   });
 }

@@ -22,9 +22,7 @@ interface ReportHeaderProps {
   onDelete?: () => void;
   isAutoReevaluating?: boolean;
   onAutoReevaluate?: () => void;
-  setConvertTarget?: (target: "hardening" | "reevaluation") => void;
-  setConvertOpen?: (open: boolean) => void;
-  reevaluationTokens?: number | null;
+  scanTokens?: number | null;
   onTag?: () => void;
 }
 
@@ -35,9 +33,7 @@ export function ReportHeader({
   onDelete,
   isAutoReevaluating,
   onAutoReevaluate,
-  setConvertTarget,
-  setConvertOpen,
-  reevaluationTokens,
+  scanTokens,
   onTag,
 }: ReportHeaderProps) {
   return (
@@ -102,23 +98,12 @@ export function ReportHeader({
               <span>Auto Re-evaluate</span>
             </Button>
           )}
-          {onAutoReevaluate &&
-            scan.breaches > 0 &&
-            setConvertTarget &&
-            setConvertOpen && (
-              <button
-                type="button"
-                onClick={() => {
-                  setConvertTarget("reevaluation");
-                  setConvertOpen(true);
-                }}
-                className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-600/10 px-2 py-1.5 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-600/20 transition-colors"
-                title="Convert scan tokens to re-evaluation tokens"
-              >
-                <Sparkles className="h-3 w-3" />
-                {reevaluationTokens === null ? "…" : reevaluationTokens} re-eval
-              </button>
-            )}
+          {scanTokens !== undefined && (
+            <div className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-600/10 px-2 py-1.5 text-[11px] font-semibold text-emerald-300">
+              <Sparkles className="h-3 w-3" />
+              <span>{scanTokens === null ? "…" : scanTokens} tokens</span>
+            </div>
+          )}
           {onDelete && (
             <Button
               variant="outline"

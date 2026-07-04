@@ -74,35 +74,7 @@ export async function POST(
       );
     }
 
-    // 4. Verify scan tokens
-    const user = await db.user.findUnique({
-      where: { id: matchingKey.userId },
-      select: { id: true, scanTokens: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    if (user.scanTokens < 1) {
-      return NextResponse.json(
-        { error: "Not enough scan tokens" },
-        { status: 403 },
-      );
-    }
-
-    // 5. Decrement user tokens & update API key lastUsedAt
-    await db.user.update({
-      where: { id: user.id },
-      data: { scanTokens: { decrement: 1 } },
-    });
-
-    await db.apiKey.update({
-      where: { id: matchingKey.id },
-      data: { lastUsedAt: new Date() },
-    });
-
-    // 6. Fetch dbModels (cached) and build config
+    // 4. Fetch dbModels (cached) and build config
     const dbModels = await getCachedDbModels(db);
     const defaultModel = findDefaultModel(dbModels);
 
@@ -129,8 +101,52 @@ export async function POST(
         : {};
     } catch {}
 
-    // 7. Generate the attack set
-    // If seed extraction fails (returns zero things after retry), refund the token and abort.
+    // Calculate upfront hold tokens
+    const { calculateUpfrontScanHold } = await import("@/lib/token-utils");
+    const upfrontHold = calculateUpfrontScanHold(
+      [{ systemPrompt, forbiddenTask, judgeInstructions }],
+      [deployment.targetModel],
+      seedExtractorModel,
+      attackerModel,
+      judgeModel,
+      dbModels,
+      true, // enableHardening is true for SDK/deployment runs
+      hardenerModel,
+      extractorModel,
+    );
+
+    // Verify scan tokens
+    const user = await db.user.findUnique({
+      where: { id: matchingKey.userId },
+      select: { id: true, scanTokens: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (user.scanTokens < upfrontHold) {
+      return NextResponse.json(
+        {
+          error: `Not enough scan tokens. This scan requires an upfront hold of ${upfrontHold} tokens, but you only have ${user.scanTokens}.`,
+        },
+        { status: 403 },
+      );
+    }
+
+    // Deduct user tokens & update API key lastUsedAt
+    await db.user.update({
+      where: { id: user.id },
+      data: { scanTokens: { decrement: upfrontHold } },
+    });
+
+    await db.apiKey.update({
+      where: { id: matchingKey.id },
+      data: { lastUsedAt: new Date() },
+    });
+
+    // 5. Generate the attack set
+    // If seed extraction fails (returns zero things after retry), refund the token hold and abort.
     let attackSet;
     try {
       attackSet = await generateAttackSet({
@@ -144,59 +160,24 @@ export async function POST(
         extractorModel,
       });
     } catch (err: any) {
-      if (err.message?.startsWith("SeedExtractionFailed")) {
-        // Refund the scan token
+      if (err.message?.startsWith("SeedExtractionFailed") || err.message?.includes("failed")) {
+        // Refund the upfront hold
         await db.user.update({
           where: { id: user.id },
-          data: { scanTokens: { increment: 1 } },
+          data: { scanTokens: { increment: upfrontHold } },
         });
         console.warn(
-          `[deploy-trigger] Seed extraction failed for deployment ${id} — refunded 1 token.`,
+          `[deploy-trigger] Seed extraction failed for deployment ${id} — refunded ${upfrontHold} tokens.`,
         );
         return NextResponse.json(
           {
-            error: "Seed extraction failed: unable to extract restrictions from the system prompt. Token has been refunded.",
+            error: "Seed extraction failed: unable to extract restrictions from the system prompt. Token hold has been fully refunded.",
           },
           { status: 422 },
         );
+      } else {
+        throw err;
       }
-    }
-
-    // Check dynamic cost based on generated trials count
-    const trialsCount = attackSet.attacks.length;
-    const tokensNeeded = Math.ceil(trialsCount / (patterns.length * 3));
-    const additionalDeduction = tokensNeeded - 1;
-
-    if (additionalDeduction > 0) {
-      const freshUser = await db.user.findUnique({
-        where: { id: user.id },
-        select: { scanTokens: true },
-      });
-      if (!freshUser || freshUser.scanTokens < additionalDeduction) {
-        // Refund initial token
-        await db.user.update({
-          where: { id: user.id },
-          data: { scanTokens: { increment: 1 } },
-        });
-        console.warn(
-          `[deploy-trigger] Insufficient tokens for dynamic pricing (needs ${additionalDeduction} more) — refunded initial token.`,
-        );
-        return NextResponse.json(
-          {
-            error: `Not enough scan tokens for this large deployment scan. It requires ${tokensNeeded} tokens (based on ${trialsCount} trials) but only 1 was available.`,
-          },
-          { status: 403 },
-        );
-      }
-
-      // Deduct extra tokens
-      await db.user.update({
-        where: { id: user.id },
-        data: { scanTokens: { decrement: additionalDeduction } },
-      });
-      console.log(
-        `[deploy-trigger] Deducted additional ${additionalDeduction} token(s) for large scan on deployment ${id} (${trialsCount} trials).`,
-      );
     }
 
     const reportId = generateReportId();
@@ -232,7 +213,7 @@ export async function POST(
     });
 
     // 9. Execute the shared pipeline (synchronous — caller waits for result)
-    const pipelineConfig: RunSingleScanPipelineConfig = {
+    const pipelineConfig: RunSingleScanPipelineConfig & { upfrontHold?: number } = {
       systemPrompt,
       forbiddenTask,
       judgeInstructions,
@@ -249,6 +230,7 @@ export async function POST(
       includeToolRecommendation: false,
       enableHardening: true,
       allowNoToolsFallback: deployment.allowNoToolsFallback,
+      upfrontHold,
     };
 
     await runSingleScanPipeline(pipelineConfig, reportId, attackSet, dbModels);

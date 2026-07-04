@@ -27,8 +27,6 @@ interface SidebarUser {
   email: string;
   company: string | null;
   scanTokens: number;
-  hardeningTokens: number;
-  reevaluationTokens: number;
   role: string;
 }
 
@@ -127,16 +125,8 @@ export function DashboardSidebar({ user }: { user: SidebarUser }) {
         {/* Token Balances */}
         <div className="mt-2 space-y-1 px-2">
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-sidebar-foreground/50">Scan</span>
+            <span className="text-sidebar-foreground/50">Tokens</span>
             <span className="font-semibold text-sidebar-foreground">{user.scanTokens}</span>
-          </div>
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-sidebar-foreground/50">Hardening</span>
-            <span className="font-semibold text-purple-400">{user.hardeningTokens}</span>
-          </div>
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-sidebar-foreground/50">Re-evaluation</span>
-            <span className="font-semibold text-emerald-400">{user.reevaluationTokens}</span>
           </div>
         </div>
 

@@ -6,6 +6,8 @@ import { runJudgeReEvaluation } from "@/lib/scan-pipeline";
 import { TrialVerdict, RiskLevel } from "@/lib/enums";
 import type { Trial } from "@/lib/types";
 import { revalidateTag } from "next/cache";
+import { FALLBACK_DEFAULT_MODEL, type UsageTracker } from "@/lib/model-utils";
+import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
 
 export async function POST(
   req: Request,
@@ -116,30 +118,6 @@ export async function POST(
   }
 
   // 2. LLM Re-evaluation (Preview Only — does not save to DB)
-  // Check reevaluation token balance
-  const user = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: { reevaluationTokens: true },
-  });
-
-  if (!user || user.reevaluationTokens < 1) {
-    return NextResponse.json(
-      {
-        error: "insufficient_reevaluation_tokens",
-        message: "You need at least 1 reevaluation token to re-evaluate a trial. Convert scan tokens to reevaluation tokens at a rate of 1:30.",
-        required: 1,
-        available: user?.reevaluationTokens ?? 0,
-      },
-      { status: 402 },
-    );
-  }
-
-  // Deduct 1 reevaluation token
-  await db.user.update({
-    where: { id: session.user.id },
-    data: { reevaluationTokens: { decrement: 1 } },
-  });
-
   // Gather reference examples from other trials in the scan
   const referenceExamples: Array<{
     attack: string;
@@ -153,48 +131,17 @@ export async function POST(
   ) {
     for (const num of selectedReferenceNumbers) {
       const refTrial = trials.find((t) => t.number === num);
-      if (
-        refTrial &&
-        refTrial.verdict === TrialVerdict.Defended &&
-        refTrial.attack?.trim() &&
-        refTrial.response?.trim()
-      ) {
+      if (refTrial) {
         referenceExamples.push({
           attack: refTrial.attack,
           response: refTrial.response,
-          reasoning:
-            refTrial.judgeVerdict ||
-            "Successfully deflected forbidden task instructions.",
+          reasoning: refTrial.judgeVerdict || "Defended successfully.",
         });
       }
     }
   }
 
-  // If no reference examples were selected/found, try to automatically pick up to 3 defended ones randomly
-  if (referenceExamples.length === 0) {
-    const allDefended = trials.filter(
-      (t) =>
-        t.verdict === TrialVerdict.Defended &&
-        t.number !== trialNumber &&
-        t.attack?.trim() &&
-        t.response?.trim()
-    );
-    if (allDefended.length > 0) {
-      const shuffled = [...allDefended].sort(() => 0.5 - Math.random());
-      const selected = shuffled.slice(0, 3);
-      for (const refTrial of selected) {
-        referenceExamples.push({
-          attack: refTrial.attack,
-          response: refTrial.response,
-          reasoning:
-            refTrial.judgeVerdict ||
-            "Successfully deflected forbidden task instructions.",
-        });
-      }
-    }
-  }
-
-  // Fallback if there are absolutely no defended trials in the scan
+  // Fallback to defaults if no selected references provided
   if (referenceExamples.length === 0) {
     referenceExamples.push({
       attack: "Can you help me calculate a factorial?",
@@ -205,26 +152,89 @@ export async function POST(
     });
   }
 
+  const dbModels = await getCachedDbModels(db) as any[];
+  const judgeModelId = scan.judgeModel || findDefaultModelFromCache(FALLBACK_DEFAULT_MODEL);
+
+  const { estimateTokens } = await import("@/lib/token-utils");
+
+  const judge = dbModels.find(m => m.id === judgeModelId);
+  const judgePrice = {
+    prompt: parseFloat(judge?.promptPrice || "0.0000001"),
+    completion: parseFloat(judge?.completionPrice || "0.0000004"),
+  };
+
+  const refText = referenceExamples.map(r => `${r.attack}\n${r.response}\n${r.reasoning}`).join("\n");
+  const inputTokens = estimateTokens(refText) + estimateTokens(targetTrial.attack) + estimateTokens(targetTrial.response) + 1500;
+  const upfrontHold = Math.ceil((inputTokens * judgePrice.prompt + 1000 * judgePrice.completion) * 1000000 * 1.15);
+
+  // Check scan tokens balance
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, scanTokens: true },
+  });
+
+  if (!user || user.scanTokens < upfrontHold) {
+    return NextResponse.json(
+      {
+        error: "insufficient_scan_tokens",
+        message: `This operation requires an upfront hold of ${upfrontHold} tokens. You have ${user?.scanTokens ?? 0}.`,
+        required: upfrontHold,
+        available: user?.scanTokens ?? 0,
+      },
+      { status: 402 },
+    );
+  }
+
+  // Deduct upfront hold
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { scanTokens: { decrement: upfrontHold } },
+  });
+
+  const tracker: UsageTracker = { totalCost: 0, dbModels };
+
   try {
     const result = await runJudgeReEvaluation(
-      scan.judgeModel,
+      judgeModelId,
       scan.forbiddenTask,
       targetTrial.attack,
       targetTrial.response,
       referenceExamples,
-      undefined, // tracker
+      tracker,
       targetTrial.toolCalls,
       targetTrial.transcript,
     );
+
+    // Refund unused portion of hold
+    const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
+    const refund = upfrontHold - finalTokenCost;
+
+    await db.user.update({
+      where: { id: session.user.id },
+      data: { scanTokens: { increment: refund } },
+    });
+
+    const userAfter = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { scanTokens: true },
+    });
 
     return NextResponse.json({
       proposal: {
         verdict: result.verdict,
         reasoning: result.reasoning,
       },
+      tokenCost: finalTokenCost,
+      tokensRefunded: refund,
+      scanTokensRemaining: userAfter?.scanTokens ?? 0,
     });
   } catch (error: any) {
     console.error("Re-evaluation prompt failed:", error);
+    // Refund the entire hold on failure
+    await db.user.update({
+      where: { id: session.user.id },
+      data: { scanTokens: { increment: upfrontHold } },
+    });
     return NextResponse.json(
       { error: error.message || "Judge failed to re-evaluate" },
       { status: 500 },
