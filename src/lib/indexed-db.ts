@@ -1,10 +1,11 @@
 const DB_NAME = "sentinel-reports-cache";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const STORE_SCANS_LIST = "scans-list";
 const STORE_SCAN_DETAILS = "scan-details";
 const STORE_TOOL_EXAMPLES = "tool-examples";
 const STORE_USER_TAGS = "user-tags";
 const STORE_MODELS = "models";
+const STORE_SCAN_COST_ESTIMATES = "scan-cost-estimates";
 
 function getDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -33,6 +34,9 @@ function getDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_MODELS)) {
         db.createObjectStore(STORE_MODELS);
+      }
+      if (!db.objectStoreNames.contains(STORE_SCAN_COST_ESTIMATES)) {
+        db.createObjectStore(STORE_SCAN_COST_ESTIMATES);
       }
     };
   });
@@ -277,5 +281,50 @@ export async function clearCachedModels(): Promise<void> {
     });
   } catch (error) {
     console.error("IndexedDB clearCachedModels error:", error);
+  }
+}
+
+export interface CostEstimateEntry {
+  key: string;
+  upfrontHold: number;
+  timestamp: number;
+}
+
+export async function getCachedCostEstimate(
+  key: string,
+): Promise<CostEstimateEntry | null> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_SCAN_COST_ESTIMATES, "readonly");
+      const store = transaction.objectStore(STORE_SCAN_COST_ESTIMATES);
+      const request = store.get(key);
+      request.onsuccess = () =>
+        resolve((request.result as CostEstimateEntry) || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB getCachedCostEstimate error:", error);
+    return null;
+  }
+}
+
+export async function setCachedCostEstimate(
+  entry: CostEstimateEntry,
+): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(
+        STORE_SCAN_COST_ESTIMATES,
+        "readwrite",
+      );
+      const store = transaction.objectStore(STORE_SCAN_COST_ESTIMATES);
+      const request = store.put(entry, entry.key);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB setCachedCostEstimate error:", error);
   }
 }

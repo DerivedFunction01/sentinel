@@ -28,6 +28,7 @@ import { MultiScanProgress } from "@/components/shared/multi-scan-progress";
 import { ChooseModels } from "@/components/shared/choose-models";
 import { PromptSectionCard } from "@/components/shared/prompt-section-card";
 import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-dialog";
+import { CostPreviewWidget } from "@/components/shared/cost-preview-widget";
 import { toast } from "sonner";
 import {
   DEFAULT_MOCK_RESPONSE,
@@ -486,8 +487,7 @@ export default function PenTestScanPage() {
         title="PenTest Scan"
         description="A multi-LLM agent tests your system prompt: an Attacker generates adversarial prompts from seed templates, the Target model responds, and a Judge determines if secrets were leaked."
       />
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="space-y-6">
         <ChooseModels
           targetModels={targetModels}
           setTargetModels={setTargetModels}
@@ -507,59 +507,49 @@ export default function PenTestScanPage() {
           showAdvancedModels={showAdvancedModels}
           setShowAdvancedModels={setShowAdvancedModels}
         />
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Pipeline Diagram</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AgentPipeline />
-          </CardContent>
-        </Card>
       </div>
-
       <div className="space-y-6">
-      {prompts.map((prompt, idx) => (
-        <PromptSectionCard
-          key={idx}
-          title={`Prompt ${idx + 1}`}
-          description="Configure the system prompt, tools, mock responses, and judge instructions for this prompt."
-          values={prompt}
-          onChange={(field, value) =>
-            updatePrompt(prompts, setPrompts, idx, field, value)
-          }
-          onUseSample={(field) => {
-            const sampleMap: Partial<Record<keyof PromptConfig, string>> = {
-              systemPrompt: sampleSystemPrompt,
-              forbiddenTask: sampleForbiddenTask,
-              judgeInstructions: sampleJudgeInstructions,
-              tools: JSON.stringify(sampleTools, null, 2),
-              mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
-            };
-            const sample = sampleMap[field];
-            if (sample) {
-              updatePrompt(prompts, setPrompts, idx, field, sample);
-              toast.success(`Sample ${field} loaded`);
+        {prompts.map((prompt, idx) => (
+          <PromptSectionCard
+            key={idx}
+            title={`Prompt ${idx + 1}`}
+            description="Configure the system prompt, tools, mock responses, and judge instructions for this prompt."
+            values={prompt}
+            onChange={(field, value) =>
+              updatePrompt(prompts, setPrompts, idx, field, value)
             }
-          }}
-          formOptions={{
-            showCharCount: true,
-            showToolManager: true,
-            onOpenToolManager: () => openToolManager(idx),
-            showPrettify: true,
-            onPrettifyTools: () =>
-              prettifyJson(prompts, setPrompts, idx, "tools"),
-            onPrettifyMocks: () =>
-              prettifyJson(prompts, setPrompts, idx, "mockResponses"),
-            extractorModel: seedExtractorModel,
-          }}
-          showCopyFromPrevious={idx > 0}
-          onCopyFromPrevious={() => copyFromPrevious(idx)}
-          copyLabel={`Copy from ${idx}`}
-          showRemove={prompts.length > 1}
-          onRemove={() => removePrompt(idx)}
-        />
-      ))}
+            onUseSample={(field) => {
+              const sampleMap: Partial<Record<keyof PromptConfig, string>> = {
+                systemPrompt: sampleSystemPrompt,
+                forbiddenTask: sampleForbiddenTask,
+                judgeInstructions: sampleJudgeInstructions,
+                tools: JSON.stringify(sampleTools, null, 2),
+                mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
+              };
+              const sample = sampleMap[field];
+              if (sample) {
+                updatePrompt(prompts, setPrompts, idx, field, sample);
+                toast.success(`Sample ${field} loaded`);
+              }
+            }}
+            formOptions={{
+              showCharCount: true,
+              showToolManager: true,
+              onOpenToolManager: () => openToolManager(idx),
+              showPrettify: true,
+              onPrettifyTools: () =>
+                prettifyJson(prompts, setPrompts, idx, "tools"),
+              onPrettifyMocks: () =>
+                prettifyJson(prompts, setPrompts, idx, "mockResponses"),
+              extractorModel: seedExtractorModel,
+            }}
+            showCopyFromPrevious={idx > 0}
+            onCopyFromPrevious={() => copyFromPrevious(idx)}
+            copyLabel={`Copy from ${idx}`}
+            showRemove={prompts.length > 1}
+            onRemove={() => removePrompt(idx)}
+          />
+        ))}
 
         <PromptActionButtons
           addPrompt={addPrompt}
@@ -569,7 +559,6 @@ export default function PenTestScanPage() {
           handleImportFile={handleImportFile}
         />
       </div>
-
       {scanning && batchId ? (
         <MultiScanProgress
           batchId={batchId}
@@ -588,7 +577,6 @@ export default function PenTestScanPage() {
           templateLoading={templateLoading}
         />
       )}
-
       <ToolManagerDialog
         open={toolManagerOpen}
         onOpenChange={setToolManagerOpen}
@@ -618,31 +606,27 @@ export default function PenTestScanPage() {
           }
         })()}
       />
-
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-3">
-            <FileText className="h-5 w-5 shrink-0 text-blue-400" />
-            <div>
-              <h4 className="text-sm font-semibold text-foreground">
-                Multi-LLM Agent Pipeline
-              </h4>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Paste your system prompt and select target models. The
-                ToolRegistry multi-agent workflow uses adversarial attack
-                prompts, tests them against the target, and has a Judge
-                determine if secrets leaked. Run up as many prompts in parallel
-                across multiple models — use "Copy from" to test variations of
-                the same prompt.
-              </p>
-              <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Tool calls are simulated with mock responses
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-2 gap-2">
+        <CostPreviewWidget
+          prompts={prompts}
+          targetModels={targetModels}
+          attackerModel={attackerModel}
+          judgeModel={judgeModel}
+          hardenerModel={hardenerModel}
+          seedExtractorModel={seedExtractorModel}
+          extractorModel={extractorModel}
+          enableHardening={enableHardening}
+          tokens={tokens}
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Pipeline Diagram</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AgentPipeline />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -669,31 +653,6 @@ function SingleScanProgress({
   return (
     <Card>
       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/15">
-            <Coins className="h-5 w-5 text-amber-400" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              {tokens ?? "..."} tokens remaining
-            </p>
-            <p className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">
-                {targetModels.length} model
-                {targetModels.length !== 1 ? "s" : ""}
-              </span>{" "}
-              ×{" "}
-              <span className="font-semibold text-foreground">
-                {prompts.length} prompt{prompts.length !== 1 ? "s" : ""}
-              </span>{" "}
-              ={" "}
-              <span className="font-semibold text-amber-400">
-                {targetModels.length * prompts.length} token
-                {targetModels.length * prompts.length !== 1 ? "s" : ""}
-              </span>
-            </p>
-          </div>
-        </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button
             onClick={handleLaunch}
@@ -791,4 +750,3 @@ function PromptActionButtons({
     </>
   );
 }
-
