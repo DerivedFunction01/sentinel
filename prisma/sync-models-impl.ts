@@ -22,6 +22,9 @@ const KNOWN_PROVIDERS = [
 
 const MAX_RECOMMENDED_PER_PROVIDER = 3;
 
+/** Target threshold for scanning dynamic default rank suggestions */
+const MAX_DYNAMIC_SUGGEST_LIMIT = 15;
+
 /** Global structural exclusion list for invalid or system helper layers */
 const GLOBAL_BANNED = [
   /openrouter\/(fusion|pareto|bodybuilder|auto)/i,
@@ -53,8 +56,6 @@ const PREMIUM_GLOBAL_HORIZON = 25;
 const TRAILING_BUCKET_SIZE = 15;
 const BASELINE_COHORT_SIZE = 10;
 const MAX_COST_MULTIPLIER = 5;
-
-const AI_SUGGEST_IDS: string[] = [];
 
 interface OpenRouterModel {
   id: string;
@@ -89,16 +90,29 @@ function getCompositeCost(model: OpenRouterModel): number {
   return promptPrice + completionPrice * 2;
 }
 
+/** Categorizes models into functional optimization clusters */
 function inferModelCapabilityClass(
   modelId: string,
 ): "flash-utility" | "standard-flagship" | "pro-reasoning" {
-  const id = modelId.toLowerCase();
-
-  const flashUtilityRe = /(flash|lite|nano|mini)/i;
-  const proReasoningRe = /(pro|max|plus|opus|r1|reasoning)/i;
-
-  if (flashUtilityRe.test(id)) return "flash-utility";
-  if (proReasoningRe.test(id)) return "pro-reasoning";
+  const normalizedId = modelId.toLowerCase();
+  if (
+    normalizedId.includes("flash") ||
+    normalizedId.includes("lite") ||
+    normalizedId.includes("nano") ||
+    normalizedId.includes("mini")
+  ) {
+    return "flash-utility";
+  }
+  if (
+    normalizedId.includes("pro") ||
+    normalizedId.includes("max") ||
+    normalizedId.includes("plus") ||
+    normalizedId.includes("opus") ||
+    normalizedId.includes("r1") ||
+    normalizedId.includes("reasoning")
+  ) {
+    return "pro-reasoning";
+  }
   return "standard-flagship";
 }
 
@@ -371,6 +385,37 @@ export async function syncModels(db: PrismaClient): Promise<void> {
     defaultRankMap.set(m.id, index + 1);
   });
 
+  // Initialize resolving AI Suggest Set based entirely on runtime performance ranks
+  const resolvedAiSuggestIds = new Set<string>();
+
+  // 1. Dynamically suggest the absolute top 3 overall best-performing models (Ramp Steps 1-3)
+  finalSequence.slice(0, 3).forEach((m) => resolvedAiSuggestIds.add(m.id));
+
+  // 2. Diversify: Suggest the top-ranking model from each capability class (utility, flagship, reasoning) within the top 15
+  const classWinners = new Set<string>();
+  for (const m of finalSequence.slice(0, MAX_DYNAMIC_SUGGEST_LIMIT)) {
+    if (!classWinners.has(m.modelClass)) {
+      classWinners.add(m.modelClass);
+      resolvedAiSuggestIds.add(m.id);
+    }
+  }
+
+  // 3. Diversify: Suggest the top-ranking model for each distinct Context Tier (0, 1, 2) within the top 15
+  const tierWinners = new Set<number>();
+  for (const m of finalSequence.slice(0, MAX_DYNAMIC_SUGGEST_LIMIT)) {
+    if (!tierWinners.has(m.contextTier)) {
+      tierWinners.add(m.contextTier);
+      resolvedAiSuggestIds.add(m.id);
+    }
+  }
+
+  // 4. Boost: Automatically promote exceptionally cheap premium bargain flagships that claim a top 15 rank
+  for (const m of finalSequence.slice(0, MAX_DYNAMIC_SUGGEST_LIMIT)) {
+    if (m.isExtremelyCheapTrustedFlagship) {
+      resolvedAiSuggestIds.add(m.id);
+    }
+  }
+
   const modelsByProvider: Record<string, OpenRouterModel[]> = {};
   finalSequence.forEach((m) => {
     const provider = m.id.split("/")[0] || "";
@@ -435,7 +480,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
     const isFree = m.id.endsWith(":free") || freeIds.has(m.id) || rawCost <= 0;
     const isLowCost =
       lowCostIds.has(m.id) || (!isFree && parsedMultiplier === 1);
-    const aiSuggest = AI_SUGGEST_IDS.includes(m.id);
+    const aiSuggest = resolvedAiSuggestIds.has(m.id);
     const popularityRank = i + 1;
     const supportsTools = m.supported_parameters?.includes("tools") ?? false;
 
