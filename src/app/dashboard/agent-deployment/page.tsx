@@ -12,9 +12,7 @@ import {
   Loader2,
   Trash2,
   Copy,
-  FileText,
   ExternalLink,
-  CheckCircle2,
   Settings as SettingsIcon,
 } from "lucide-react";
 import {
