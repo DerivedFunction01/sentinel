@@ -2,11 +2,7 @@ import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth-utils";
 import { db } from "@/lib/db";
 import { RiskLevel, ScanStatus } from "@/lib/enums";
-import {
-  FALLBACK_DEFAULT_MODEL,
-  findDefaultModel,
-  UsageTracker,
-} from "@/lib/model-utils";
+import { findDefaultModel, UsageTracker } from "@/lib/model-utils";
 import { getCachedDbModels } from "@/lib/models-cache";
 import { type ToolDef, type SeedInfo } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
@@ -316,12 +312,14 @@ export async function POST(req: Request) {
     }
   }
 
-  const netTokensDeducted = (parsedPrompts.length - failedPromptIndices.length) * targetModels.length;
+  const netTokensDeducted =
+    (parsedPrompts.length - failedPromptIndices.length) * targetModels.length;
 
   if (scanInfos.length === 0) {
     return NextResponse.json(
       {
-        error: "All prompts failed seed extraction. Your tokens have been fully refunded.",
+        error:
+          "All prompts failed seed extraction. Your tokens have been fully refunded.",
         failedPrompts: failedPromptIndices,
         tokensRemaining: user.scanTokens,
       },
@@ -334,6 +332,7 @@ export async function POST(req: Request) {
     scans: scanInfos,
     tokensRemaining: user.scanTokens - netTokensDeducted,
     totalScans,
-    failedPrompts: failedPromptIndices.length > 0 ? failedPromptIndices : undefined,
+    failedPrompts:
+      failedPromptIndices.length > 0 ? failedPromptIndices : undefined,
   });
 }

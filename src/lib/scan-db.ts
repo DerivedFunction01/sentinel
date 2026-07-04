@@ -19,7 +19,7 @@ import type {
   Trial,
   TrialTurn,
 } from "@/lib/types";
-import { FALLBACK_DEFAULT_MODEL } from "./model-utils";
+import { findDefaultModelFromCache } from "@/lib/models-cache";
 
 /** Convert a Prisma Scan row to the typed Scan structure. */
 export function deserializeScan(row: {
@@ -164,7 +164,7 @@ export function deserializeScan(row: {
     targetModel: row.targetModel,
     attackerModel: row.attackerModel || "",
     judgeModel: row.judgeModel || "",
-    hardenerModel: row.hardenerModel || FALLBACK_DEFAULT_MODEL,
+    hardenerModel: row.hardenerModel || "",
     systemPrompt: row.systemPrompt,
     forbiddenTask: row.forbiddenTask,
     judgeInstructions: row.judgeInstructions,
@@ -210,7 +210,14 @@ export function deserializeScan(row: {
     attackerModelName: "", // filled by caller via lookupModelNames
     judgeModelName: "", // filled by caller via lookupModelNames
     hardenerModelName: "", // filled by caller via lookupModelNames
-  };
+  } as Scan;
+}
+
+/** Resolve empty model fields using the cached ranked default. */
+export function fillMissingModels(scan: Scan): Scan {
+  const defaultModel = findDefaultModelFromCache(""); // empty = no DB hit if cache warm
+  if (!scan.hardenerModel) scan.hardenerModel = defaultModel;
+  return scan;
 }
 
 /** Look up human-readable model names for a set of model ids. */
@@ -233,11 +240,12 @@ export async function getScanByReportId(
   userId: string,
 ): Promise<Scan | null> {
   const row = await db.scan.findFirst({
-    where: { reportId: reportId, userId: userId },
+    where: { reportId, userId },
     include: { hardenedPrompts: true },
   });
   if (!row) return null;
-  const scan = deserializeScan(row);
+  const scan = await deserializeScan(row);
+  fillMissingModels(scan);
   const allIds = [
     scan.targetModel,
     scan.attackerModel,

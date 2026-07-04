@@ -22,7 +22,7 @@ import {
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
 import { TrialVerdict } from "@/lib/enums";
-import { FALLBACK_DEFAULT_MODEL, type UsageTracker } from "@/lib/model-utils";
+import { type UsageTracker } from "@/lib/model-utils";
 import {
   type ToolDef,
   type Trial,
@@ -132,7 +132,7 @@ export async function generateHardenedPrompt(
       } as RestrictionThing);
     inspirationExamples = await retrieveInspirationExamples(
       targetThing,
-      extractorModel || FALLBACK_DEFAULT_MODEL,
+      extractorModel,
       granularity,
       metadata,
       tracker,
