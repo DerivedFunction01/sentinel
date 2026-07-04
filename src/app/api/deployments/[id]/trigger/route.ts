@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { ScanStatus } from "@/lib/enums";
-import { FALLBACK_DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
+import { findDefaultModel } from "@/lib/model-utils";
 import { getCachedDbModels } from "@/lib/models-cache";
 import { type ToolDef } from "@/lib/types";
 import { Granularity } from "@/lib/enums";

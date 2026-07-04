@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { Button } from "@/components/ui/button";
-import { Copy, Terminal, FileCode, Check } from "lucide-react";
+import { Copy, Terminal, FileCode, Check, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { FALLBACK_DEFAULT_MODEL } from "@/lib/model-utils";
 import {
   TrialVerdict,
   ScanStatus,
@@ -69,12 +70,40 @@ export function SdkDocs({
   // Track hydration to avoid mismatch between server and client
   const [hasMounted, setHasMounted] = useState(false);
   const [origin, setOrigin] = useState("");
+  const [useServerDefault, setUseServerDefault] = useState(false);
+  const [serverDefaultModel, setServerDefaultModel] = useState<string | null>(
+    null,
+  );
+  const [lastFetched, setLastFetched] = useState<Date | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
+
+  const fetchDefaultModel = useCallback(async () => {
+    setIsFetching(true);
+    try {
+      const res = await fetch("/api/models/default");
+      const data = await res.json();
+      setServerDefaultModel(data.modelId);
+      setLastFetched(new Date(data.fetchedAt));
+    } catch (err) {
+      console.error("Failed to fetch default model:", err);
+      toast.error("Could not fetch server default model");
+    } finally {
+      setIsFetching(false);
+    }
+  }, []);
 
   useEffect(() => {
     // Set origin on client mount - this only runs in browser
     setOrigin(window.location.origin);
     setHasMounted(true);
   }, []);
+
+  // Pre-fetch default model on mount
+  useEffect(() => {
+    if (hasMounted) {
+      fetchDefaultModel();
+    }
+  }, [hasMounted, fetchDefaultModel]);
 
   const token = apiKey || "YOUR_API_KEY";
   const depId = deploymentId || "DEPLOYMENT_ID";
@@ -100,7 +129,24 @@ export function SdkDocs({
     return null; // or return a loading state
   }
 
-  const code = getCodeSample(activeLang, activeOp, { token, depId, origin });
+  const activeDefaultModel =
+    useServerDefault && serverDefaultModel ? serverDefaultModel : undefined;
+
+  const code = getCodeSample(activeLang, activeOp, {
+    token,
+    depId,
+    origin,
+    defaultModel: activeDefaultModel,
+  });
+
+  const formatTimeAgo = (date: Date) => {
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ago`;
+  };
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -163,6 +209,48 @@ export function SdkDocs({
               {op.label}
             </button>
           ))}
+        </div>
+
+        {/* Default Model Toggle Bar */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
+          <span className="font-medium text-foreground">Model:</span>
+          <button
+            onClick={() => setUseServerDefault(false)}
+            className={`px-2 py-0.5 rounded transition-colors ${
+              !useServerDefault
+                ? "bg-blue-500/20 text-blue-400 font-medium"
+                : "hover:text-foreground"
+            }`}
+          >
+            Fallback: {FALLBACK_DEFAULT_MODEL}
+          </button>
+          <span className="text-muted-foreground/50">|</span>
+          <button
+            onClick={() => setUseServerDefault(true)}
+            disabled={!serverDefaultModel}
+            className={`px-2 py-0.5 rounded transition-colors ${
+              useServerDefault
+                ? "bg-blue-500/20 text-blue-400 font-medium"
+                : "hover:text-foreground"
+            } ${!serverDefaultModel ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            Server default: {serverDefaultModel || "loading..."}
+          </button>
+          {lastFetched && (
+            <span className="text-[10px] text-muted-foreground/60">
+              (fetched {formatTimeAgo(lastFetched)})
+            </span>
+          )}
+          <button
+            onClick={fetchDefaultModel}
+            disabled={isFetching}
+            className="ml-auto p-1 rounded hover:bg-muted transition-colors disabled:opacity-50"
+            title="Refresh server default model"
+          >
+            <RefreshCw
+              className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`}
+            />
+          </button>
         </div>
 
         {/* Code Display */}
