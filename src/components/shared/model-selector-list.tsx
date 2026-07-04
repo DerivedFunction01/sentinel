@@ -15,18 +15,8 @@ import {
   ModelSelectorRole,
   getTopModelsForRole,
 } from "@/lib/model-utils";
-import { useModelsCache } from "@/hooks/use-models-cache";
+import { useModelsCache, type ModelOption } from "@/hooks/use-models-cache";
 import { useMemo } from "react";
-
-export interface ModelOption {
-  id: string;
-  name: string;
-  isRecommended: boolean;
-  aiSuggest: boolean;
-  supportsTools: boolean;
-  isLowCost: boolean;
-  isFree: boolean;
-}
 
 interface ModelSelectorListProps {
   /** Currently selected model id(s). */
@@ -64,9 +54,9 @@ export function ModelSelectorList({
     const q = search.toLowerCase();
     return allModels.filter(
       (m) =>
-        m.id.toLowerCase().includes(q) ||
-        m.name.toLowerCase().includes(q) ||
-        (m.description && m.description.toLowerCase().includes(q)),
+          m.id.toLowerCase().includes(q) ||
+          m.name.toLowerCase().includes(q) ||
+          (m.description && m.description.toLowerCase().includes(q)),
     );
   }, [allModels, search]);
 
@@ -89,6 +79,8 @@ export function ModelSelectorList({
       supportsTools: false,
       isLowCost: false,
       isFree: false,
+      multiplier: 1,
+      popularityRank: 9999,
     };
   });
 
