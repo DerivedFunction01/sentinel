@@ -8,19 +8,10 @@ import {
   FileText,
   CheckCircle2,
   Coins,
-  Code2,
-  Braces,
-  Gavel,
-  Swords,
   Loader2,
-  Copy,
   Plus,
-  Trash2,
-  Ban,
   Upload,
   Download,
-  AlertTriangle,
-  CheckCheck,
 } from "lucide-react";
 import {
   Card,
@@ -31,15 +22,11 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/dashboard/dashboard-parts";
 import { AgentPipeline } from "@/components/shared/agent-pipeline";
 import { MultiScanProgress } from "@/components/shared/multi-scan-progress";
-import { MultiModelSelector } from "@/components/shared/multi-model-selector";
-import { ModelSelector } from "@/components/shared/model-selector";
-import { FieldBlock } from "@/components/shared/field-block";
-import { PromptFormSection } from "@/components/shared/prompt-form-section";
+import { ChooseModels } from "@/components/shared/choose-models";
+import { PromptSectionCard } from "@/components/shared/prompt-section-card";
 import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-dialog";
 import { toast } from "sonner";
 import {
@@ -531,21 +518,48 @@ export default function PenTestScanPage() {
         </Card>
       </div>
 
-      {/* Renders each item through our extracted stable component */}
       <div className="space-y-6">
-        {prompts.map((prompt, idx) => (
-          <PromptSectionItem
-            key={idx}
-            prompt={prompt}
-            idx={idx}
-            prompts={prompts}
-            setPrompts={setPrompts}
-            copyFromPrevious={copyFromPrevious}
-            removePrompt={removePrompt}
-            openToolManager={openToolManager}
-            seedExtractorModel={seedExtractorModel}
-          />
-        ))}
+      {prompts.map((prompt, idx) => (
+        <PromptSectionCard
+          key={idx}
+          title={`Prompt ${idx + 1}`}
+          description="Configure the system prompt, tools, mock responses, and judge instructions for this prompt."
+          values={prompt}
+          onChange={(field, value) =>
+            updatePrompt(prompts, setPrompts, idx, field, value)
+          }
+          onUseSample={(field) => {
+            const sampleMap: Partial<Record<keyof PromptConfig, string>> = {
+              systemPrompt: sampleSystemPrompt,
+              forbiddenTask: sampleForbiddenTask,
+              judgeInstructions: sampleJudgeInstructions,
+              tools: JSON.stringify(sampleTools, null, 2),
+              mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
+            };
+            const sample = sampleMap[field];
+            if (sample) {
+              updatePrompt(prompts, setPrompts, idx, field, sample);
+              toast.success(`Sample ${field} loaded`);
+            }
+          }}
+          formOptions={{
+            showCharCount: true,
+            showToolManager: true,
+            onOpenToolManager: () => openToolManager(idx),
+            showPrettify: true,
+            onPrettifyTools: () =>
+              prettifyJson(prompts, setPrompts, idx, "tools"),
+            onPrettifyMocks: () =>
+              prettifyJson(prompts, setPrompts, idx, "mockResponses"),
+            extractorModel: seedExtractorModel,
+          }}
+          showCopyFromPrevious={idx > 0}
+          onCopyFromPrevious={() => copyFromPrevious(idx)}
+          copyLabel={`Copy from ${idx}`}
+          showRemove={prompts.length > 1}
+          onRemove={() => removePrompt(idx)}
+        />
+      ))}
 
         <PromptActionButtons
           addPrompt={addPrompt}
@@ -630,108 +644,6 @@ export default function PenTestScanPage() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-/** Extracted item component preventing the Rules of Hooks exception */
-function PromptSectionItem({
-  prompt,
-  idx,
-  prompts,
-  setPrompts,
-  copyFromPrevious,
-  removePrompt,
-  openToolManager,
-  seedExtractorModel,
-}: {
-  prompt: PromptConfig;
-  idx: number;
-  prompts: PromptConfig[];
-  setPrompts: React.Dispatch<React.SetStateAction<PromptConfig[]>>;
-  copyFromPrevious: (idx: number) => void;
-  removePrompt: (idx: number) => void;
-  openToolManager: (idx: number) => void;
-  seedExtractorModel: string;
-}) {
-  const handleChange = (field: keyof PromptConfig, value: any) => {
-    updatePrompt(prompts, setPrompts, idx, field, value);
-  };
-
-  const handleUseSample = (field: keyof PromptConfig) => {
-    const sampleMap: Partial<Record<keyof PromptConfig, string>> = {
-      systemPrompt: sampleSystemPrompt,
-      forbiddenTask: sampleForbiddenTask,
-      judgeInstructions: sampleJudgeInstructions,
-      tools: JSON.stringify(sampleTools, null, 2),
-      mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
-    };
-    const sample = sampleMap[field];
-    if (sample) {
-      updatePrompt(prompts, setPrompts, idx, field, sample);
-      toast.success(`Sample ${field} loaded`);
-    }
-  };
-
-  const prettifyTools = () => prettifyJson(prompts, setPrompts, idx, "tools");
-  const prettifyMocks = () =>
-    prettifyJson(prompts, setPrompts, idx, "mockResponses");
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
-              Prompt {idx + 1}
-            </CardTitle>
-            <CardDescription>
-              Configure the system prompt, tools, mock responses, and judge
-              instructions for this prompt.
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            {idx > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => copyFromPrevious(idx)}
-              >
-                <Copy className="mr-1 h-3 w-3" />
-                Copy from {idx}
-              </Button>
-            )}
-            {prompts.length > 1 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-red-400 hover:text-red-500"
-                onClick={() => removePrompt(idx)}
-              >
-                <Trash2 className="mr-1 h-3 w-3" />
-                Remove
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <PromptFormSection
-          values={prompt}
-          onChange={handleChange}
-          onUseSample={handleUseSample}
-          options={{
-            showCharCount: true,
-            showToolManager: true,
-            onOpenToolManager: () => openToolManager(idx),
-            showPrettify: true,
-            onPrettifyTools: prettifyTools,
-            onPrettifyMocks: prettifyMocks,
-            extractorModel: seedExtractorModel,
-          }}
-        />
-      </CardContent>
-    </Card>
   );
 }
 
@@ -880,154 +792,3 @@ function PromptActionButtons({
   );
 }
 
-function ChooseModels({
-  targetModels,
-  setTargetModels,
-  attackerModel,
-  setAttackerModel,
-  judgeModel,
-  setJudgeModel,
-  enableHardening,
-  hardenerModel,
-  setHardenerModel,
-  setEnableHardening,
-  tokens,
-  seedExtractorModel,
-  setSeedExtractorModel,
-  extractorModel,
-  setExtractorModel,
-  showAdvancedModels,
-  setShowAdvancedModels,
-}: {
-  targetModels: string[];
-  setTargetModels: (models: string[]) => void;
-  attackerModel: string;
-  setAttackerModel: (model: string) => void;
-  judgeModel: string;
-  setJudgeModel: (model: string) => void;
-  enableHardening: boolean;
-  hardenerModel: string;
-  setHardenerModel: (model: string) => void;
-  setEnableHardening: (enabled: boolean) => void;
-  tokens: number | null;
-  seedExtractorModel: string;
-  setSeedExtractorModel: (model: string) => void;
-  extractorModel: string;
-  setExtractorModel: (model: string) => void;
-  showAdvancedModels: boolean;
-  setShowAdvancedModels: (show: boolean) => void;
-}) {
-  return (
-    <Card className="lg:col-span-2">
-      <CardHeader>
-        <CardTitle className="text-base">Models & Tokens</CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Target AI Model(s)</Label>
-          <MultiModelSelector
-            value={targetModels}
-            onChange={setTargetModels}
-            role={ModelSelectorRole.Target}
-          />
-          <p className="text-xs text-muted-foreground">
-            Select one or more models to test in parallel.
-          </p>
-        </div>
-        <div className="space-y-2">
-          <Label className="flex items-center gap-1.5 text-sm font-medium">
-            <Swords className="h-3.5 w-3.5 text-red-400" />
-            Attacker Model
-          </Label>
-          <ModelSelector
-            value={attackerModel}
-            onChange={setAttackerModel}
-            role={ModelSelectorRole.Attack}
-          />
-          <p className="text-xs text-muted-foreground">
-            Generates adversarial prompts targeting the forbidden task.
-          </p>
-        </div>
-        <div className="space-y-2">
-          <Label className="flex items-center gap-1.5 text-sm font-medium">
-            <Gavel className="h-3.5 w-3.5 text-emerald-400" />
-            Judge Model
-          </Label>
-          <ModelSelector
-            value={judgeModel}
-            onChange={setJudgeModel}
-            role={ModelSelectorRole.Judge}
-          />
-          <p className="text-xs text-muted-foreground">
-            Evaluates whether the target leaked restricted info.
-          </p>
-        </div>
-
-        {/* Advanced Options Toggle */}
-        <div className="col-span-full border-t border-white/5 pt-4 mt-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="flex items-center gap-1 text-xs text-slate-400 hover:text-white px-2 h-7"
-            onClick={() => setShowAdvancedModels(!showAdvancedModels)}
-          >
-            {showAdvancedModels
-              ? "Hide Advanced Options"
-              : "Show Advanced Options"}
-          </Button>
-
-          {showAdvancedModels && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4 pt-2">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                  <Sparkles className="h-3.5 w-3.5 text-blue-400" />
-                  Seed Extractor Model
-                </Label>
-                <ModelSelector
-                  value={seedExtractorModel}
-                  onChange={setSeedExtractorModel}
-                  role={ModelSelectorRole.SeedExtractor}
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Custom model used to auto-suggest forbidden tasks and analyze
-                  prompt ontologies.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                  <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                  Hardener Model
-                </Label>
-                <ModelSelector
-                  value={hardenerModel}
-                  onChange={setHardenerModel}
-                  role={ModelSelectorRole.Hardener}
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Sets the model used to generate a hardened system prompt
-                  following the scan. (Does not run automatically)
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                  <Braces className="h-3.5 w-3.5 text-purple-400" />
-                  Tool Extractor Model
-                </Label>
-                <ModelSelector
-                  value={extractorModel}
-                  onChange={setExtractorModel}
-                  role={ModelSelectorRole.ToolExtractor}
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Custom model used to extract tools and analyze mock responses
-                  during hardening.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}

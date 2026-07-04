@@ -13,14 +13,9 @@ import {
   Trash2,
   Copy,
   FileText,
-  Gavel,
-  Ban,
-  Braces,
-  Code2,
   ExternalLink,
   CheckCircle2,
   Settings as SettingsIcon,
-  Sparkles,
 } from "lucide-react";
 import {
   Card,
@@ -31,10 +26,9 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ModelSelector } from "@/components/shared/model-selector";
-import { PromptFormSection } from "@/components/shared/prompt-form-section";
+import { ChooseModels } from "@/components/shared/choose-models";
+import { PromptSectionCard } from "@/components/shared/prompt-section-card";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { SdkDocs } from "@/components/shared/sdk_docs/sdk-docs";
 import { toast } from "sonner";
@@ -632,108 +626,33 @@ export default function AgentDeploymentPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Deployment Name</Label>
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Production Payment Flow"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Target AI Model</Label>
-                  <ModelSelector
-                    value={targetModel}
-                    onChange={setTargetModel}
-                    role={ModelSelectorRole.Target}
-                  />
-                </div>
-              </div>
+              <ChooseModels
+                multiple={false}
+                name={name}
+                setName={setName}
+                targetModel={targetModel}
+                setTargetModel={setTargetModel}
+                attackerModel={attackerModel}
+                setAttackerModel={setAttackerModel}
+                judgeModel={judgeModel}
+                setJudgeModel={setJudgeModel}
+                hardenerModel={hardenerModel}
+                setHardenerModel={setHardenerModel}
+                seedExtractorModel={seedExtractorModel}
+                setSeedExtractorModel={setSeedExtractorModel}
+                extractorModel={extractorModel}
+                setExtractorModel={setExtractorModel}
+                showAdvancedModels={showAdvancedModels}
+                setShowAdvancedModels={setShowAdvancedModels}
+              />
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Attacker Model</Label>
-                  <ModelSelector
-                    value={attackerModel}
-                    onChange={setAttackerModel}
-                    role={ModelSelectorRole.Attack}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Judge Model</Label>
-                  <ModelSelector
-                    value={judgeModel}
-                    onChange={setJudgeModel}
-                    role={ModelSelectorRole.Judge}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Hardener Model</Label>
-                  <ModelSelector
-                    value={hardenerModel}
-                    onChange={setHardenerModel}
-                    role={ModelSelectorRole.Hardener}
-                  />
-                </div>
-              </div>
-
-              {/* Advanced Options Toggle */}
-              <div className="border-t border-white/5 pt-4 mt-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-white px-2 h-7"
-                  onClick={() => setShowAdvancedModels(!showAdvancedModels)}
-                >
-                  {showAdvancedModels
-                    ? "Hide Advanced Options"
-                    : "Show Advanced Options"}
-                </Button>
-
-                {showAdvancedModels && (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4 pt-2">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                        <Sparkles className="h-3.5 w-3.5 text-blue-400" />
-                        Seed Extractor Model
-                      </Label>
-                      <ModelSelector
-                        value={seedExtractorModel}
-                        onChange={setSeedExtractorModel}
-                        role={ModelSelectorRole.SeedExtractor}
-                      />
-                      <p className="text-[10px] text-muted-foreground">
-                        Custom model used to auto-suggest forbidden tasks and
-                        analyze prompt ontologies.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                        <Braces className="h-3.5 w-3.5 text-purple-400" />
-                        Tool Extractor Model
-                      </Label>
-                      <ModelSelector
-                        value={extractorModel}
-                        onChange={setExtractorModel}
-                        role={ModelSelectorRole.ToolExtractor}
-                      />
-                      <p className="text-[10px] text-muted-foreground">
-                        Custom model used to extract tools and analyze mock
-                        responses during hardening.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <PromptFormSection
+              <PromptSectionCard
+                title="Prompt Configuration"
+                description="Define the system prompt, tools, mock responses, and judge instructions."
                 values={promptForm.values}
                 onChange={promptForm.setValue}
                 onUseSample={promptForm.loadSample}
-                options={{
+                formOptions={{
                   showCharCount: true,
                   showPrettify: true,
                   onPrettifyTools: prettifyTools,
