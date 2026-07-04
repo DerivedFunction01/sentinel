@@ -4,7 +4,7 @@ import { getScanByReportId } from "@/lib/scan-db";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const user = await authenticateRequest(req);
@@ -12,7 +12,8 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const scan = await getScanByReportId(params.id, user.userId);
+    const { id } = await params;
+    const scan = await getScanByReportId(id, user.userId);
     if (!scan) {
       return NextResponse.json({ error: "Scan not found" }, { status: 404 });
     }
@@ -20,6 +21,9 @@ export async function GET(
     return NextResponse.json({ scan });
   } catch (error: any) {
     console.error("Error fetching scan:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
