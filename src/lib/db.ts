@@ -2,6 +2,7 @@ import "dotenv/config";
 import { PrismaClient } from "../../generated/prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -15,7 +16,6 @@ function getPrismaClient(): PrismaClient {
     databaseUrl.startsWith("postgres://")
   ) {
     // Prisma Postgres / PostgreSQL
-    const { Pool } = require("pg");
     const pool = new Pool({ connectionString: databaseUrl });
     const adapter = new PrismaPg(pool);
     return new PrismaClient({ adapter, log: ["query"] });
