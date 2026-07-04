@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { ScanStatus } from "@/lib/enums";
-import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
+import { FALLBACK_DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
+import { getCachedDbModels } from "@/lib/models-cache";
 import { type ToolDef } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
 import {
@@ -101,10 +102,8 @@ export async function POST(
       data: { lastUsedAt: new Date() },
     });
 
-    // 6. Fetch dbModels and build config
-    const dbModels = await db.model.findMany({
-      orderBy: [{ isRecommended: "desc" }, { popularityRank: "asc" }],
-    });
+    // 6. Fetch dbModels (cached) and build config
+    const dbModels = await getCachedDbModels(db);
     const defaultModel = findDefaultModel(dbModels);
 
     const systemPrompt = deployment.systemPrompt;
@@ -115,7 +114,7 @@ export async function POST(
     const judgeModel = deployment.judgeModel || defaultModel;
     const hardenerModel = deployment.hardenerModel || defaultModel;
     const seedExtractorModel = deployment.seedExtractorModel || defaultModel;
-    const extractorModel = deployment.extractorModel || DEFAULT_MODEL;
+    const extractorModel = deployment.extractorModel || defaultModel;
 
     let tools: ToolDef[] = [];
     let mockToolResponses: Record<string, unknown> = {};

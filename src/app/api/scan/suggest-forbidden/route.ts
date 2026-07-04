@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth-utils";
-import { DEFAULT_MODEL } from "@/lib/model-utils";
+import { FALLBACK_DEFAULT_MODEL } from "@/lib/model-utils";
+import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
+import { db } from "@/lib/db";
 import { extractSeedInfo } from "@/lib/seed-extractor";
 
 export async function POST(req: Request) {
@@ -10,12 +12,14 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Ensure cache is populated before synchronous fallback lookup
+    await getCachedDbModels(db);
     const body = await req.json().catch(() => ({}));
     const {
       systemPrompt = "",
       tools = "[]",
       mockResponses = "{}",
-      extractorModel = DEFAULT_MODEL,
+      extractorModel = findDefaultModelFromCache(FALLBACK_DEFAULT_MODEL),
       forbiddenTask = "",
     } = body;
 

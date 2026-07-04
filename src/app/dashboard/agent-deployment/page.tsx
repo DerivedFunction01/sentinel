@@ -39,7 +39,7 @@ import { CodeHighlight } from "@/components/shared/code-highlight";
 import { SdkDocs } from "@/components/shared/sdk_docs/sdk-docs";
 import { toast } from "sonner";
 import {
-  DEFAULT_MODEL,
+  FALLBACK_DEFAULT_MODEL,
   findDefaultModel,
   getMostUsedModelForRole,
   ModelSelectorRole,
@@ -394,9 +394,9 @@ export default function AgentDeploymentPage() {
           targetModels: [dep.targetModel],
           attackerModel: dep.attackerModel,
           judgeModel: dep.judgeModel,
-          hardenerModel: dep.hardenerModel || DEFAULT_MODEL,
-          seedExtractorModel: dep.seedExtractorModel || DEFAULT_MODEL,
-          extractorModel: dep.extractorModel || DEFAULT_MODEL,
+          hardenerModel: dep.hardenerModel || FALLBACK_DEFAULT_MODEL,
+          seedExtractorModel: dep.seedExtractorModel || FALLBACK_DEFAULT_MODEL,
+          extractorModel: dep.extractorModel || FALLBACK_DEFAULT_MODEL,
           systemPrompt: dep.systemPrompt,
           forbiddenTask: dep.forbiddenTask,
           judgeInstructions: dep.judgeInstructions,

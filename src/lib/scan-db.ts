@@ -19,7 +19,7 @@ import type {
   Trial,
   TrialTurn,
 } from "@/lib/types";
-import { DEFAULT_MODEL } from "./model-utils";
+import { FALLBACK_DEFAULT_MODEL } from "./model-utils";
 
 /** Convert a Prisma Scan row to the typed Scan structure. */
 export function deserializeScan(row: {
@@ -164,7 +164,7 @@ export function deserializeScan(row: {
     targetModel: row.targetModel,
     attackerModel: row.attackerModel || "",
     judgeModel: row.judgeModel || "",
-    hardenerModel: row.hardenerModel || DEFAULT_MODEL,
+    hardenerModel: row.hardenerModel || FALLBACK_DEFAULT_MODEL,
     systemPrompt: row.systemPrompt,
     forbiddenTask: row.forbiddenTask,
     judgeInstructions: row.judgeInstructions,

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateRequest } from "@/lib/auth-utils";
-import { DEFAULT_MODEL } from "@/lib/model-utils";
+import { FALLBACK_DEFAULT_MODEL } from "@/lib/model-utils";
+import { findDefaultModelFromCache } from "@/lib/models-cache";
 
 /**
  * GET /api/deployments
@@ -74,11 +75,13 @@ export async function POST(req: Request) {
     }
 
     // Default attacker/judge/seed-extractor to target model if not explicitly specified
+    const defaultModel = findDefaultModelFromCache(FALLBACK_DEFAULT_MODEL);
+
     const finalAttacker = attackerModel || targetModel;
     const finalJudge = judgeModel || targetModel;
-    const finalHardener = hardenerModel || DEFAULT_MODEL;
-    const finalSeedExtractor = seedExtractorModel || DEFAULT_MODEL;
-    const finalExtractor = extractorModel || DEFAULT_MODEL;
+    const finalHardener = hardenerModel || defaultModel;
+    const finalSeedExtractor = seedExtractorModel || defaultModel;
+    const finalExtractor = extractorModel || defaultModel;
 
     // Create record
     const deployment = await db.deployment.create({

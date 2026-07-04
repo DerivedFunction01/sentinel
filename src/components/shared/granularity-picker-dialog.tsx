@@ -14,7 +14,7 @@ import { ModelSelector } from "@/components/shared/model-selector";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { Sparkles, Check } from "lucide-react";
 import { Granularity } from "@/lib/enums";
-import { DEFAULT_MODEL, ModelSelectorRole } from "@/lib/model-utils";
+import { FALLBACK_DEFAULT_MODEL, ModelSelectorRole } from "@/lib/model-utils";
 
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -38,13 +38,12 @@ export function GranularityPickerDialog({
   open,
   onOpenChange,
   onConfirm,
-  defaultHardenerModel = DEFAULT_MODEL,
+  defaultHardenerModel = FALLBACK_DEFAULT_MODEL,
   defaultGranularity = Granularity.Compact,
-  defaultExtractorModel = DEFAULT_MODEL,
+  defaultExtractorModel = FALLBACK_DEFAULT_MODEL,
 }: GranularityPickerDialogProps) {
-  const [hardenerModel, setHardenerModel] = useState<string>(
-    defaultHardenerModel,
-  );
+  const [hardenerModel, setHardenerModel] =
+    useState<string>(defaultHardenerModel);
   const [granularity, setGranularity] =
     useState<Granularity>(defaultGranularity);
   const [extractorModel, setExtractorModel] = useState<string>(
@@ -93,7 +92,12 @@ export function GranularityPickerDialog({
 }`;
 
   const handleConfirm = () => {
-    onConfirm(hardenerModel, granularity, extractorModel, includeToolRecommendation);
+    onConfirm(
+      hardenerModel,
+      granularity,
+      extractorModel,
+      includeToolRecommendation,
+    );
     onOpenChange(false);
   };
 
@@ -106,7 +110,8 @@ export function GranularityPickerDialog({
             Harden System Prompt
           </DialogTitle>
           <DialogDescription className="text-slate-400 text-xs mt-1">
-            Optimize instructions to defend your system prompt against adversarial jailbreaks.
+            Optimize instructions to defend your system prompt against
+            adversarial jailbreaks.
           </DialogDescription>
         </DialogHeader>
 
@@ -123,7 +128,8 @@ export function GranularityPickerDialog({
                 role={ModelSelectorRole.Hardener}
               />
               <p className="text-[10px] text-slate-400 leading-normal">
-                The LLM that will analyze attack transcripts and rewrite your system prompt to defend against them.
+                The LLM that will analyze attack transcripts and rewrite your
+                system prompt to defend against them.
               </p>
             </div>
           </div>
@@ -138,21 +144,24 @@ export function GranularityPickerDialog({
                 Extract Tool Recommendations
               </Label>
               <p className="text-[11px] text-slate-400 max-w-md">
-                Offload conditional business logic to structured tool definitions.
-                Uncheck this if you only want to harden the system prompt.
+                Offload conditional business logic to structured tool
+                definitions. Uncheck this if you only want to harden the system
+                prompt.
               </p>
             </div>
             <Checkbox
               id="include-tools"
               checked={includeToolRecommendation}
-              onCheckedChange={(checked) => setIncludeToolRecommendation(!!checked)}
+              onCheckedChange={(checked) =>
+                setIncludeToolRecommendation(!!checked)
+              }
             />
           </div>
 
           <div
             className={cn(
               "space-y-6 transition-all duration-200",
-              !includeToolRecommendation && "opacity-40 pointer-events-none"
+              !includeToolRecommendation && "opacity-40 pointer-events-none",
             )}
           >
             {/* Granularity Selection */}
@@ -180,8 +189,8 @@ export function GranularityPickerDialog({
                       )}
                     </div>
                     <p className="text-[11px] leading-relaxed text-slate-400 mb-3">
-                      Best for simple prompts. Consolidates gatekeeper checks into
-                      1–3 broad tools with simple parameters.
+                      Best for simple prompts. Consolidates gatekeeper checks
+                      into 1–3 broad tools with simple parameters.
                     </p>
                   </div>
                   <CodeHighlight
@@ -210,8 +219,8 @@ export function GranularityPickerDialog({
                       )}
                     </div>
                     <p className="text-[11px] leading-relaxed text-slate-400 mb-3">
-                      Best for complex environments. Creates separate domain tools
-                      with rich category enums and specific parameters.
+                      Best for complex environments. Creates separate domain
+                      tools with rich category enums and specific parameters.
                     </p>
                   </div>
                   <CodeHighlight
@@ -235,9 +244,9 @@ export function GranularityPickerDialog({
                   role={ModelSelectorRole.ToolExtractor}
                 />
                 <p className="text-[10px] text-slate-400 leading-normal">
-                  For complex prompts with many rules, choosing a larger reasoning
-                  model (e.g., Anthropic Claude or GPT-4o) can yield cleaner, more
-                  precise tool schemas.
+                  For complex prompts with many rules, choosing a larger
+                  reasoning model (e.g., Anthropic Claude or GPT-4o) can yield
+                  cleaner, more precise tool schemas.
                 </p>
               </div>
             </div>
@@ -258,7 +267,9 @@ export function GranularityPickerDialog({
             onClick={handleConfirm}
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
           >
-            {includeToolRecommendation ? "Harden & Extract Tools" : "Harden Prompt"}
+            {includeToolRecommendation
+              ? "Harden & Extract Tools"
+              : "Harden Prompt"}
           </Button>
         </DialogFooter>
       </DialogContent>

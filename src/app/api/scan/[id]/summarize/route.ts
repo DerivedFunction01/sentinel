@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { callOpenRouter, DEFAULT_MODEL } from "@/lib/model-utils";
+import { callOpenRouter, FALLBACK_DEFAULT_MODEL } from "@/lib/model-utils";
+import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
 import { TrialVerdict } from "@/lib/enums";
 import { summarizeBreachedAttacks } from "@/lib/scan-pipeline";
 
@@ -40,7 +41,8 @@ export async function POST(
       });
     }
 
-    const hardenerModel = scanRow.hardenerModel || DEFAULT_MODEL;
+    const dbModels = await getCachedDbModels(db);
+    const hardenerModel = scanRow.hardenerModel || findDefaultModelFromCache(FALLBACK_DEFAULT_MODEL);
 
     const summaryText = await summarizeBreachedAttacks(async (promptText) => {
       const response = await callOpenRouter(hardenerModel, [

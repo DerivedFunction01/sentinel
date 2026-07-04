@@ -1,4 +1,4 @@
-import { DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
+import { FALLBACK_DEFAULT_MODEL, findDefaultModel } from "@/lib/model-utils";
 import { useModelsCache } from "./use-models-cache";
 
 export function useModelDefaults() {
@@ -9,10 +9,10 @@ export function useModelDefaults() {
   ) {
     if (models.length === 0) {
       return {
-        targetModel: DEFAULT_MODEL,
-        attackerModel: DEFAULT_MODEL,
-        judgeModel: DEFAULT_MODEL,
-        hardenerModel: DEFAULT_MODEL,
+        targetModel: FALLBACK_DEFAULT_MODEL,
+        attackerModel: FALLBACK_DEFAULT_MODEL,
+        judgeModel: FALLBACK_DEFAULT_MODEL,
+        hardenerModel: FALLBACK_DEFAULT_MODEL,
       };
     }
     const defaultModelId = findDefaultModel(models);

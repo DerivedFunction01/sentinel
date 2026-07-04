@@ -7,6 +7,7 @@
  */
 
 import type { PrismaClient } from "../generated/prisma/client.js";
+import { invalidateModelsCache } from "../src/lib/models-cache";
 
 const KNOWN_PROVIDERS = [
   "anthropic",
@@ -534,6 +535,9 @@ export async function syncModels(db: PrismaClient): Promise<void> {
   console.log(
     `  → Dynamic Lenient Baseline cost established at: ${baselinePrice.toFixed(8)} per token.`,
   );
+
+  // Invalidate server-side in-memory cache so API routes pick up new rankings
+  invalidateModelsCache();
 }
 
 // CLI entry point

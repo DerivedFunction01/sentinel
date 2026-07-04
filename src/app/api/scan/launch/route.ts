@@ -3,10 +3,11 @@ import { authenticateRequest } from "@/lib/auth-utils";
 import { db } from "@/lib/db";
 import { RiskLevel, ScanStatus } from "@/lib/enums";
 import {
-  DEFAULT_MODEL,
+  FALLBACK_DEFAULT_MODEL,
   findDefaultModel,
   UsageTracker,
 } from "@/lib/model-utils";
+import { getCachedDbModels } from "@/lib/models-cache";
 import { type ToolDef, type SeedInfo } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
 import {
@@ -97,9 +98,7 @@ export async function POST(req: Request) {
   }
 
   // Fetch dbModels once to get pricing rates and defaults
-  const dbModels = await db.model.findMany({
-    orderBy: [{ isRecommended: "desc" }, { popularityRank: "asc" }],
-  });
+  const dbModels = await getCachedDbModels(db);
   const defaultModel = findDefaultModel(dbModels);
 
   // Custom pipeline model overrides
@@ -111,7 +110,7 @@ export async function POST(req: Request) {
     defaultModel;
   const judgeModel = (body.judgeModel as string) || defaultModel;
   const hardenerModel = (body.hardenerModel as string) || defaultModel;
-  const extractorModel = (body.extractorModel as string) || DEFAULT_MODEL;
+  const extractorModel = (body.extractorModel as string) || defaultModel;
 
   // Parse each prompt's tools and mock responses
   const parsedPrompts = promptsRaw.map((p) => {

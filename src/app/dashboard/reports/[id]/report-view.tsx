@@ -26,7 +26,7 @@ import { Scan, HardeningTrace } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
 import { ScanSummary } from "@/components/shared/scan-summary";
 import { ExtractionTraceDialog } from "@/components/shared/extraction-trace-dialog";
-import { DEFAULT_MODEL } from "@/lib/model-utils";
+import { FALLBACK_DEFAULT_MODEL } from "@/lib/model-utils";
 import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-dialog";
 import { ReportHeader } from "@/components/report/report-header";
 import { TagSelectedDialog } from "@/components/shared/tag-selected-dialog";
@@ -166,7 +166,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [selectedHardenedId, setSelectedHardenedId] = useState<string>(() => {
     const active = [...scan.hardenedPrompts]
       .reverse()
-      .find((hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL));
+      .find((hp) => hp.modelId === (scan.hardenerModel || FALLBACK_DEFAULT_MODEL));
     return (
       active?.id ||
       scan.hardenedPrompts[scan.hardenedPrompts.length - 1]?.id ||
@@ -178,7 +178,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     () => {
       const active = [...scan.hardenedPrompts]
         .reverse()
-        .find((hp) => hp.modelId === (scan.hardenerModel || DEFAULT_MODEL));
+      .find((hp) => hp.modelId === (scan.hardenerModel || FALLBACK_DEFAULT_MODEL));
       return (
         active || scan.hardenedPrompts[scan.hardenedPrompts.length - 1] || null
       );

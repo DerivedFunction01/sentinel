@@ -1,6 +1,6 @@
 import { ToolDef } from "./types";
 
-export const DEFAULT_MODEL = "~google/gemini-flash-latest";
+export const FALLBACK_DEFAULT_MODEL = "~google/gemini-flash-latest";
 
 /**
  * Find the best default model using the server-computed `defaultRank`.
@@ -11,13 +11,13 @@ export const DEFAULT_MODEL = "~google/gemini-flash-latest";
 export function findDefaultModel(
   models: Array<{ id: string; name: string; defaultRank?: number | null }>,
 ): string {
-  if (models.length === 0) return DEFAULT_MODEL;
+  if (models.length === 0) return FALLBACK_DEFAULT_MODEL;
 
   const ranked = models
     .filter((m) => m.defaultRank != null && m.defaultRank > 0)
     .sort((a, b) => a.defaultRank! - b.defaultRank!);
 
-  return ranked[0]?.id ?? DEFAULT_MODEL;
+  return ranked[0]?.id ?? FALLBACK_DEFAULT_MODEL;
 }
 
 export function extractTaggedContent(

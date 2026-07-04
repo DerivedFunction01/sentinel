@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { GranularityPickerDialog } from "@/components/shared/granularity-picker-dialog";
 import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
-import { DEFAULT_MODEL } from "@/lib/model-utils";
+import { FALLBACK_DEFAULT_MODEL } from "@/lib/model-utils";
 import { Granularity, formatModelName } from "@/lib/enums";
 import { HardeningTrace } from "@/lib/types";
 
@@ -201,14 +201,18 @@ export function HardenedPromptSection({
                     </span>
                     <div className="flex items-center gap-2 text-xs">
                       <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-white/5">
-                        Extractor: {currentHardenedPrompt.extractorModel?.split("/").pop() || "gemini-2.5-flash"}
+                        Extractor:{" "}
+                        {currentHardenedPrompt.extractorModel
+                          ?.split("/")
+                          .pop() || "gemini-2.5-flash"}
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-4">
                     {currentHardenedPrompt.toolRecommendation.tools &&
-                      currentHardenedPrompt.toolRecommendation.tools.length > 1 && (
+                      currentHardenedPrompt.toolRecommendation.tools.length >
+                        1 && (
                         <div className="flex items-center justify-between bg-slate-900/50 p-2.5 rounded-lg border border-white/5 mb-3">
                           <button
                             onClick={() =>
@@ -299,9 +303,8 @@ export function HardenedPromptSection({
                       const toolJson = recTool.toolJson || recTool;
                       const mockVal =
                         recTool.mockResponse ||
-                        currentHardenedPrompt.toolRecommendation.mockToolResponses?.[
-                          toolName
-                        ] ||
+                        currentHardenedPrompt.toolRecommendation
+                          .mockToolResponses?.[toolName] ||
                         {};
 
                       return (
@@ -362,7 +365,8 @@ export function HardenedPromptSection({
                     })()}
                   </div>
 
-                  {currentHardenedPrompt.toolRecommendation.tools?.length > 0 && (
+                  {currentHardenedPrompt.toolRecommendation.tools?.length >
+                    0 && (
                     <div className="pt-2 flex justify-end">
                       <Button
                         size="sm"
@@ -434,7 +438,7 @@ export function HardenedPromptSection({
           (currentHardenedPrompt?.granularity as any) || Granularity.Compact
         }
         defaultExtractorModel={
-          currentHardenedPrompt?.extractorModel || DEFAULT_MODEL
+          currentHardenedPrompt?.extractorModel || FALLBACK_DEFAULT_MODEL
         }
       />
 
@@ -467,7 +471,9 @@ function TokenConversionDialog({
   converting,
   onConvert,
 }: TokenConversionDialogProps) {
-  const [target, setTarget] = useState<"hardening" | "reevaluation">("hardening");
+  const [target, setTarget] = useState<"hardening" | "reevaluation">(
+    "hardening",
+  );
   const [customAmount, setCustomAmount] = useState("1");
   const parsed = parseInt(customAmount, 10);
   const isValid = !isNaN(parsed) && parsed >= 1;
@@ -482,7 +488,9 @@ function TokenConversionDialog({
             Convert Scan Tokens
           </DialogTitle>
           <DialogDescription className="text-slate-400 text-xs mt-1">
-            Convert your scan tokens into {target === "hardening" ? "hardening" : "re-evaluation"} tokens at a rate of{" "}
+            Convert your scan tokens into{" "}
+            {target === "hardening" ? "hardening" : "re-evaluation"} tokens at a
+            rate of{" "}
             <span className="font-semibold text-purple-300">
               1&nbsp;scan&nbsp;→&nbsp;{conversionRate}&nbsp;
               {target === "hardening" ? "hardening" : "re-evaluation"}

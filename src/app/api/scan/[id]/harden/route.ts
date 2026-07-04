@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { callOpenRouter, DEFAULT_MODEL } from "@/lib/model-utils";
+import { callOpenRouter, FALLBACK_DEFAULT_MODEL } from "@/lib/model-utils";
+import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
 import { db } from "@/lib/db";
 import { TrialVerdict } from "@/lib/enums";
 import { type ToolDef, type HardeningTrace } from "@/lib/types";
@@ -111,13 +112,16 @@ export async function POST(
     }
 
     const body = await req.json().catch(() => ({}));
+    const dbModels = await getCachedDbModels(db);
+    const defaultModel = findDefaultModelFromCache(FALLBACK_DEFAULT_MODEL);
+
     const modelId =
       body.modelId ||
       scanRow.judgeModel ||
       scanRow.attackerModel ||
-      DEFAULT_MODEL;
+      defaultModel;
     const granularity = body.granularity || Granularity.Compact;
-    const extractorModel = body.extractorModel || DEFAULT_MODEL;
+    const extractorModel = body.extractorModel || defaultModel;
     const includeToolRecommendation = body.includeToolRecommendation !== false;
 
     // ── Token gating ─────────────────────────────────────────────────────────
