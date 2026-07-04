@@ -51,6 +51,13 @@ const TRUSTED_PROVIDERS = ["anthropic", "openai", "google", "meta-llama"];
  */
 const CHEAP_FLAGSHIP_MULTIPLIER_OF_FLASH = 2.0;
 
+/**
+ * Leniency multiplier applied to the baseline median price.
+ * For example, 1.5 scales up the baseline price, lowering the resulting multipliers
+ * for other models and making the post-override sanity filter more forgiving.
+ */
+const BASELINE_LENIENCY_MULTIPLIER = 1.5;
+
 const PATTERN_PARAMETER_TAG = /[-_]\d+b/i;
 const PROVIDER_POPULARITY_MAX_DELTA = 40;
 
@@ -465,9 +472,10 @@ async function main() {
   let finalSequence = sortGlobalFallbackPool(providerLadders, activeProviders);
 
   // Post-override cost sanity filter: compute baseline from the sorted sequence,
-  // then drop any model whose cost exceeds baseline × MAX_COST_MULTIPLIER.
+  // apply leniency modifier, then drop any model whose cost exceeds baseline × MAX_COST_MULTIPLIER.
   const sanityCohort = finalSequence.slice(0, BASELINE_COHORT_SIZE);
-  const sanityBaseline = computeBaselinePrice(sanityCohort);
+  const rawSanityBaseline = computeBaselinePrice(sanityCohort);
+  const sanityBaseline = rawSanityBaseline * BASELINE_LENIENCY_MULTIPLIER;
   const beforeFilter = finalSequence.length;
   finalSequence = finalSequence.filter((m) => {
     const mult = sanityBaseline <= 0 ? 1 : Math.ceil(m.cost / sanityBaseline);
@@ -476,7 +484,7 @@ async function main() {
   const removed = beforeFilter - finalSequence.length;
   if (removed > 0) {
     console.log(
-      `\nCost sanity filter: removed ${removed} models exceeding ${MAX_COST_MULTIPLIER}x baseline (${sanityBaseline.toFixed(8)})`,
+      `\nCost sanity filter: removed ${removed} models exceeding ${MAX_COST_MULTIPLIER}x baseline (${sanityBaseline.toFixed(8)} [lenient raw: ${rawSanityBaseline.toFixed(8)}])`,
     );
   }
 
@@ -523,14 +531,18 @@ async function main() {
   // BASELINE PRICE CALCULATION
   // ==================================================================================
   const baselineCohort = finalSequence.slice(0, BASELINE_COHORT_SIZE);
-  const baselinePrice = computeBaselinePrice(baselineCohort);
+  const rawBaselinePrice = computeBaselinePrice(baselineCohort);
+  const baselinePrice = rawBaselinePrice * BASELINE_LENIENCY_MULTIPLIER;
 
   console.log("\n=== Baseline Price Calculation ===");
   console.log(
     `Cohort size: ${BASELINE_COHORT_SIZE} (top models from final sequence)`,
   );
   console.log(
-    `Baseline composite cost (median): ${baselinePrice.toFixed(8)} per token`,
+    `Raw baseline composite cost (median): ${rawBaselinePrice.toFixed(8)} per token`,
+  );
+  console.log(
+    `Lenient baseline cost (applied ${BASELINE_LENIENCY_MULTIPLIER}x multiplier): ${baselinePrice.toFixed(8)} per token`,
   );
   console.log("");
   baselineCohort.forEach((m, idx) => {
@@ -559,6 +571,42 @@ async function main() {
   for (const mult of uniqueMults) {
     console.log(`  ${mult}x → ${byMult[mult]} models`);
   }
+
+  // ==================================================================================
+  // GLOBAL CATALOG COMPARISON & EXTREME COST LEADERBOARD
+  // ==================================================================================
+  console.log("\n=== Top 15 Most Expensive Models in the Entire Catalog ===");
+  console.log(
+    `Evaluated against Lenient Baseline Price: ${baselinePrice.toFixed(8)}`,
+  );
+
+  const catalogWithMultipliers = filteredTextPool
+    .map((m) => {
+      const rawCost = getCompositeCost(m);
+      let finalCost = rawCost;
+      if (priceOverrides.has(m.id)) {
+        finalCost = rawCost * priceOverrides.get(m.id)!;
+      }
+      const mult =
+        baselinePrice <= 0
+          ? 1
+          : Math.max(1, Math.ceil(finalCost / baselinePrice));
+      const survived = finalSequence.some((fm) => fm.id === m.id);
+      return {
+        id: m.id,
+        cost: finalCost,
+        multiplier: mult,
+        survived,
+      };
+    })
+    .sort((a, b) => b.cost - a.cost);
+
+  catalogWithMultipliers.slice(0, 15).forEach((m, idx) => {
+    const statusTag = m.survived ? "✅ [ACTIVE]" : "❌ [PRUNED]";
+    console.log(
+      `  [${idx + 1}] ${m.id.padEnd(45)} cost: ${m.cost.toFixed(8)} | mult: ${String(m.multiplier).padEnd(4)}x | ${statusTag}`,
+    );
+  });
 
   console.log("\n=== Absolute System Baseline Default Recommendation ===");
   const bestAnchor = finalSequence[0];
