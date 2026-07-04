@@ -135,6 +135,8 @@ model Model {
   popularityRank  Int      @default(9999)
   supportsTools   Boolean  @default(false)
   isLowCost       Boolean  @default(false)
+  defaultRank     Int? // Position in the ranked sequence (1 = best/cheapest)
+  multiplier      Int      @default(1) // Cost multiplier relative to baseline
   isFree          Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
