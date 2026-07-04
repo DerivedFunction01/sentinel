@@ -8,16 +8,20 @@
  * TTL: 1 hour — stale data is tolerable because models change infrequently.
  */
 
-import type { Model } from "../../generated/prisma/client";
-
-let cachedModels: Model[] | null = null;
+let cachedModels: Array<{
+  id: string;
+  name: string;
+  defaultRank?: number | null;
+}> | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 /**
  * Return cached dbModels (or fetch + cache on first call / after TTL expiry).
  */
-export async function getCachedDbModels(db: any): Promise<Model[]> {
+export async function getCachedDbModels(
+  db: any,
+): Promise<Array<{ id: string; name: string; defaultRank?: number | null }>> {
   const now = Date.now();
   if (!cachedModels || now - cacheTimestamp > CACHE_TTL_MS) {
     cachedModels = await db.model.findMany({
@@ -32,7 +36,9 @@ export async function getCachedDbModels(db: any): Promise<Model[]> {
  * Return the fallback model ID computed from the cached model list.
  * Uses the server-rated `defaultRank` from sync-models-impl.ts.
  */
-export function findDefaultModelFromCache(fallback: string): string {
+export function findDefaultModelFromCache(
+  fallback: string,
+): string {
   if (!cachedModels || cachedModels.length === 0) return fallback;
   const ranked = cachedModels
     .filter((m) => m.defaultRank != null && m.defaultRank > 0)

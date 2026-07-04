@@ -11,12 +11,19 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { formatModelName } from "@/lib/enums";
-import {
-  ModelSelectorRole,
-  getTopModelsForRole,
-} from "@/lib/model-utils";
-import { useModelsCache, type ModelOption } from "@/hooks/use-models-cache";
+import { ModelSelectorRole, getTopModelsForRole } from "@/lib/model-utils";
+import { useModelsCache } from "@/hooks/use-models-cache";
 import { useMemo } from "react";
+
+export interface ModelOption {
+  id: string;
+  name: string;
+  isRecommended: boolean;
+  aiSuggest: boolean;
+  supportsTools: boolean;
+  isLowCost: boolean;
+  isFree: boolean;
+}
 
 interface ModelSelectorListProps {
   /** Currently selected model id(s). */
@@ -54,9 +61,9 @@ export function ModelSelectorList({
     const q = search.toLowerCase();
     return allModels.filter(
       (m) =>
-          m.id.toLowerCase().includes(q) ||
-          m.name.toLowerCase().includes(q) ||
-          (m.description && m.description.toLowerCase().includes(q)),
+        m.id.toLowerCase().includes(q) ||
+        m.name.toLowerCase().includes(q) ||
+        (m.description && m.description.toLowerCase().includes(q)),
     );
   }, [allModels, search]);
 
@@ -66,7 +73,10 @@ export function ModelSelectorList({
   // Get frequently used models for this role
   const frequentIds =
     role && showFrequent
-      ? getTopModelsForRole(role, allModels.map((m) => m.id))
+      ? getTopModelsForRole(
+          role,
+          allModels.map((m) => m.id),
+        )
       : [];
   const frequentModels: ModelOption[] = frequentIds.map((id) => {
     const found = allModels.find((m) => m.id === id);
@@ -79,8 +89,6 @@ export function ModelSelectorList({
       supportsTools: false,
       isLowCost: false,
       isFree: false,
-      multiplier: 1,
-      popularityRank: 9999,
     };
   });
 
