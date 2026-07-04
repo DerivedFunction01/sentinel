@@ -13,7 +13,6 @@ import {
   runSingleScanPipeline,
   RunSingleScanPipelineConfig,
 } from "@/lib/scan-pipeline";
-import { patterns } from "@/lib/attack-templates";
 
 /** Shape of a prompt config received from the frontend. */
 interface PromptPayload {
@@ -81,7 +80,7 @@ export async function POST(req: Request) {
   }
 
   // Fetch dbModels once to get pricing rates and defaults
-  const dbModels = await getCachedDbModels(db);
+  const dbModels = await getCachedDbModels();
   const defaultModel = findDefaultModel(dbModels);
 
   // Custom pipeline model overrides
@@ -192,7 +191,10 @@ export async function POST(req: Request) {
       );
       attackSets[idx] = attackSet;
     } catch (err: any) {
-      if (err.message?.startsWith("SeedExtractionFailed") || err.message?.includes("failed")) {
+      if (
+        err.message?.startsWith("SeedExtractionFailed") ||
+        err.message?.includes("failed")
+      ) {
         console.warn(
           `[launch] Seed extraction failed for prompt ${idx} — refunding upfront hold and skipping.`,
         );
@@ -294,7 +296,9 @@ export async function POST(req: Request) {
       });
 
       // Start pipeline asynchronously with shared attack set
-      const pipelineConfig: RunSingleScanPipelineConfig & { upfrontHold?: number } = {
+      const pipelineConfig: RunSingleScanPipelineConfig & {
+        upfrontHold?: number;
+      } = {
         systemPrompt: prompt.systemPrompt,
         forbiddenTask: prompt.forbiddenTask,
         judgeInstructions: prompt.judgeInstructions,

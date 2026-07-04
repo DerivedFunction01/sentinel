@@ -8,6 +8,7 @@ import type { Trial } from "@/lib/types";
 import { revalidateTag } from "next/cache";
 import { FALLBACK_DEFAULT_MODEL, type UsageTracker } from "@/lib/model-utils";
 import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
+import { calculateSingleReevalHold } from "@/lib/token-utils";
 
 export async function POST(
   req: Request,
@@ -155,17 +156,13 @@ export async function POST(
   const dbModels = await getCachedDbModels(db) as any[];
   const judgeModelId = scan.judgeModel || findDefaultModelFromCache(FALLBACK_DEFAULT_MODEL);
 
-  const { estimateTokens } = await import("@/lib/token-utils");
-
-  const judge = dbModels.find(m => m.id === judgeModelId);
-  const judgePrice = {
-    prompt: parseFloat(judge?.promptPrice || "0.0000001"),
-    completion: parseFloat(judge?.completionPrice || "0.0000004"),
-  };
-
-  const refText = referenceExamples.map(r => `${r.attack}\n${r.response}\n${r.reasoning}`).join("\n");
-  const inputTokens = estimateTokens(refText) + estimateTokens(targetTrial.attack) + estimateTokens(targetTrial.response) + 1500;
-  const upfrontHold = Math.ceil((inputTokens * judgePrice.prompt + 1000 * judgePrice.completion) * 1000000 * 1.15);
+  const upfrontHold = calculateSingleReevalHold(
+    targetTrial,
+    referenceExamples,
+    scan.forbiddenTask,
+    judgeModelId,
+    dbModels,
+  );
 
   // Check scan tokens balance
   const user = await db.user.findUnique({

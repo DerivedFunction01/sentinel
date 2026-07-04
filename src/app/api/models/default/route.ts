@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import {
   getCachedDbModels,
   findDefaultModelFromCache,
@@ -8,7 +7,7 @@ import { FALLBACK_DEFAULT_MODEL } from "@/lib/model-utils";
 
 export async function GET() {
   try {
-    await getCachedDbModels(db);
+    await getCachedDbModels();
     const modelId = findDefaultModelFromCache(FALLBACK_DEFAULT_MODEL);
     return NextResponse.json({
       modelId,

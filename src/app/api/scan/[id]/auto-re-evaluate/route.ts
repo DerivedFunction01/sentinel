@@ -53,6 +53,31 @@ export async function POST(
     });
   }
 
+  // Optional filter by trial numbers
+  let selectedTrials = breachedTrials;
+  try {
+    const body = await req.json().catch(() => ({}));
+    if (Array.isArray(body.trialNumbers) && body.trialNumbers.length > 0) {
+      selectedTrials = breachedTrials.filter((t) =>
+        body.trialNumbers.includes(t.number),
+      );
+    }
+  } catch {
+    // ignore parse errors, default to all breached trials
+  }
+
+  if (selectedTrials.length === 0) {
+    return NextResponse.json({
+      success: true,
+      message: "No matching breached trials selected for re-evaluation.",
+      updatedTrials: [],
+      score: scan.score,
+      riskLevel: scan.riskLevel,
+      breaches: scan.breaches,
+      breachRate: scan.breachRate,
+    });
+  }
+
   // Find up to 3 defended trials in the scan to use as references
   const defendedTrials = trials.filter(
     (t) =>
@@ -96,7 +121,7 @@ export async function POST(
   const refText = referenceExamples.map(r => `${r.attack}\n${r.response}\n${r.reasoning}`).join("\n");
   let upfrontHold = 0;
 
-  for (const targetTrial of breachedTrials) {
+  for (const targetTrial of selectedTrials) {
     const inputTokens = estimateTokens(refText) + estimateTokens(targetTrial.attack) + estimateTokens(targetTrial.response) + 1500;
     const trialHold = Math.ceil((inputTokens * judgePrice.prompt + 1000 * judgePrice.completion) * 1000000 * 1.15);
     upfrontHold += trialHold;
@@ -112,7 +137,7 @@ export async function POST(
     return NextResponse.json(
       {
         error: "insufficient_scan_tokens",
-        message: `You need an upfront hold of ${upfrontHold} scan tokens to auto re-evaluate these ${breachedTrials.length} trials. You have ${user?.scanTokens ?? 0}.`,
+        message: `You need an upfront hold of ${upfrontHold} scan tokens to auto re-evaluate these ${selectedTrials.length} trials. You have ${user?.scanTokens ?? 0}.`,
         required: upfrontHold,
         available: user?.scanTokens ?? 0,
       },
@@ -137,8 +162,8 @@ export async function POST(
     originalReasoning: string;
   }> = [];
 
-  // Run re-evaluation on all breached trials
-  for (const targetTrial of breachedTrials) {
+  // Run re-evaluation on selected trials
+  for (const targetTrial of selectedTrials) {
     try {
       const result = await runJudgeReEvaluation(
         judgeModelId,

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth-utils";
-import { db } from "@/lib/db";
 import { getCachedDbModels } from "@/lib/models-cache";
 import { type ToolDef, type SeedInfo } from "@/lib/types";
 import { calculateUpfrontScanHold } from "@/lib/token-utils";
@@ -57,7 +56,7 @@ export async function POST(req: Request) {
         },
       ];
 
-  const dbModels = await getCachedDbModels(db);
+  const dbModels = await getCachedDbModels();
 
   const seedExtractorModel = (body.seedExtractorModel as string) || "";
   const attackGeneratorModel =

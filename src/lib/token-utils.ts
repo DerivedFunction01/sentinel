@@ -164,3 +164,47 @@ export function calculateUpfrontScanHold(
   // 15% safety buffer
   return Math.ceil(totalHold * 1.15);
 }
+
+/**
+ * Calculates the upfront token hold for a single trial re-evaluation.
+ */
+export function calculateSingleReevalHold(
+  trial: any,
+  referenceExamples: Array<{ attack: string; response: string; reasoning: string }>,
+  forbiddenTask: string,
+  judgeModel: string,
+  dbModels: any[],
+): number {
+  const judge = dbModels.find((m) => m.id === judgeModel);
+  const judgePrice = {
+    prompt: parseFloat(judge?.promptPrice || "0.0000001"),
+    completion: parseFloat(judge?.completionPrice || "0.0000004"),
+  };
+
+  const refText = referenceExamples.map(r => `${r.attack}\n${r.response}\n${r.reasoning}`).join("\n");
+  
+  const forbiddenTaskTokens = estimateTokens(forbiddenTask || "");
+  const attackTokens = estimateTokens(trial.attack || "");
+  const responseTokens = estimateTokens(trial.response || "");
+  const transcriptTokens = estimateTokens(
+    typeof trial.transcript === "string" ? trial.transcript : JSON.stringify(trial.transcript || ""),
+  );
+  const toolCallsTokens = estimateTokens(
+    typeof trial.toolCalls === "string" ? trial.toolCalls : JSON.stringify(trial.toolCalls || ""),
+  );
+  
+  const inputTokens =
+    forbiddenTaskTokens +
+    attackTokens +
+    responseTokens +
+    transcriptTokens +
+    toolCallsTokens +
+    estimateTokens(refText) +
+    1500; // system prompt overhead buffer
+
+  const upfrontHold = Math.ceil(
+    (inputTokens * judgePrice.prompt + 1000 * judgePrice.completion) * 1000000 * 1.15,
+  );
+
+  return upfrontHold;
+}

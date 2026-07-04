@@ -31,6 +31,7 @@ import { ToolManagerDialog } from "@/components/shared/tool_editor/tool-manager-
 import { ReportHeader } from "@/components/report/report-header";
 import { TagSelectedDialog } from "@/components/shared/tag-selected-dialog";
 import { getCachedUserTags } from "@/lib/indexed-db";
+import { AutoReevalDialog } from "@/components/report/auto-reeval-dialog";
 
 interface ReportViewProps {
   scan: Scan;
@@ -48,13 +49,20 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [proposalsPreview, setProposalsPreview] = useState<any[] | null>(null);
   const [deselectedProposals, setDeselectedProposals] = useState<number[]>([]);
   const [isSavingBatch, setIsSavingBatch] = useState(false);
+  const [autoReevalDialogOpen, setAutoReevalDialogOpen] = useState(false);
 
-  const handleAutoReevaluate = async () => {
+  const handleAutoReevaluate = async (trialNumbers?: number[]) => {
     setIsAutoReevaluating(true);
-    const toastId = toast.loading("Auto re-evaluating all breached trials...");
+    const toastId = toast.loading(
+      trialNumbers
+        ? `Auto re-evaluating ${trialNumbers.length} selected trial(s)...`
+        : "Auto re-evaluating all breached trials...",
+    );
     try {
       const res = await fetch(`/api/scan/${scan.id}/auto-re-evaluate`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: trialNumbers ? JSON.stringify({ trialNumbers }) : undefined,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -474,7 +482,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         onRefresh={onRefresh}
         onDelete={() => setDeleteDialogOpen(true)}
         isAutoReevaluating={isAutoReevaluating}
-        onAutoReevaluate={handleAutoReevaluate}
+        onOpenAutoReeval={() => setAutoReevalDialogOpen(true)}
         onTag={() => setTagDialogOpen(true)}
       />
 
@@ -754,6 +762,14 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AutoReevalDialog
+        open={autoReevalDialogOpen}
+        onOpenChange={setAutoReevalDialogOpen}
+        scan={scan}
+        scanTokens={scanTokens ?? 0}
+        onConfirm={handleAutoReevaluate}
+      />
     </div>
   );
 }

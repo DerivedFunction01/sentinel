@@ -12,7 +12,6 @@ import {
   runSingleScanPipeline,
   RunSingleScanPipelineConfig,
 } from "@/lib/scan-pipeline";
-import { patterns } from "@/lib/attack-templates";
 
 export async function POST(
   req: Request,
@@ -75,7 +74,7 @@ export async function POST(
     }
 
     // 4. Fetch dbModels (cached) and build config
-    const dbModels = await getCachedDbModels(db);
+    const dbModels = await getCachedDbModels();
     const defaultModel = findDefaultModel(dbModels);
 
     const systemPrompt = deployment.systemPrompt;
@@ -160,7 +159,10 @@ export async function POST(
         extractorModel,
       });
     } catch (err: any) {
-      if (err.message?.startsWith("SeedExtractionFailed") || err.message?.includes("failed")) {
+      if (
+        err.message?.startsWith("SeedExtractionFailed") ||
+        err.message?.includes("failed")
+      ) {
         // Refund the upfront hold
         await db.user.update({
           where: { id: user.id },
@@ -171,7 +173,8 @@ export async function POST(
         );
         return NextResponse.json(
           {
-            error: "Seed extraction failed: unable to extract restrictions from the system prompt. Token hold has been fully refunded.",
+            error:
+              "Seed extraction failed: unable to extract restrictions from the system prompt. Token hold has been fully refunded.",
           },
           { status: 422 },
         );
@@ -213,7 +216,9 @@ export async function POST(
     });
 
     // 9. Execute the shared pipeline (synchronous — caller waits for result)
-    const pipelineConfig: RunSingleScanPipelineConfig & { upfrontHold?: number } = {
+    const pipelineConfig: RunSingleScanPipelineConfig & {
+      upfrontHold?: number;
+    } = {
       systemPrompt,
       forbiddenTask,
       judgeInstructions,

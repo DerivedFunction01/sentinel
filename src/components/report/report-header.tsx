@@ -23,6 +23,7 @@ interface ReportHeaderProps {
   isAutoReevaluating?: boolean;
   onAutoReevaluate?: () => void;
   onTag?: () => void;
+  onOpenAutoReeval?: () => void;
 }
 
 export function ReportHeader({
@@ -33,6 +34,7 @@ export function ReportHeader({
   isAutoReevaluating,
   onAutoReevaluate,
   onTag,
+  onOpenAutoReeval,
 }: ReportHeaderProps) {
   return (
     <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md">
@@ -75,12 +77,14 @@ export function ReportHeader({
               Refresh
             </Button>
           )}
-          {onAutoReevaluate && scan.breaches > 0 && (
+          {(onAutoReevaluate || onOpenAutoReeval) && scan.breaches > 0 && (
             <Button
               variant="outline"
               size="sm"
-              onClick={onAutoReevaluate}
-              disabled={isAutoReevaluating || refreshing}
+              onClick={onOpenAutoReeval || onAutoReevaluate}
+              disabled={
+                (onOpenAutoReeval ? false : isAutoReevaluating) || refreshing
+              }
               className={cn(
                 "flex items-center gap-1.5",
                 scan.breachRate >= 80
