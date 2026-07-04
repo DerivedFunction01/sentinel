@@ -22,7 +22,6 @@ interface ReportHeaderProps {
   onDelete?: () => void;
   isAutoReevaluating?: boolean;
   onAutoReevaluate?: () => void;
-  scanTokens?: number | null;
   onTag?: () => void;
 }
 
@@ -33,7 +32,6 @@ export function ReportHeader({
   onDelete,
   isAutoReevaluating,
   onAutoReevaluate,
-  scanTokens,
   onTag,
 }: ReportHeaderProps) {
   return (
@@ -97,12 +95,6 @@ export function ReportHeader({
               )}
               <span>Auto Re-evaluate</span>
             </Button>
-          )}
-          {scanTokens !== undefined && (
-            <div className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-600/10 px-2 py-1.5 text-[11px] font-semibold text-emerald-300">
-              <Sparkles className="h-3 w-3" />
-              <span>{scanTokens === null ? "…" : scanTokens} tokens</span>
-            </div>
           )}
           {onDelete && (
             <Button

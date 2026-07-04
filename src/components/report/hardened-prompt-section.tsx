@@ -45,7 +45,6 @@ interface HardenedPromptSectionProps {
   activeToolIdx: number;
   setActiveToolIdx: React.Dispatch<React.SetStateAction<number>>;
   historyModels: any[];
-  scanTokens: number | null;
 }
 
 export function HardenedPromptSection({
@@ -62,7 +61,6 @@ export function HardenedPromptSection({
   activeToolIdx,
   setActiveToolIdx,
   historyModels,
-  scanTokens,
 }: HardenedPromptSectionProps) {
   const modelVersionCounts = new Map<string, number>();
   for (const hm of historyModels) {
@@ -141,12 +139,6 @@ export function HardenedPromptSection({
               >
                 View Step Traces
               </Button>
-            )}
-            {scanTokens !== undefined && (
-              <div className="flex items-center gap-1.5 rounded-md border border-purple-500/30 bg-purple-600/10 px-2 py-1 text-[11px] font-semibold text-purple-300">
-                <Zap className="h-3 w-3" />
-                <span>{scanTokens === null ? "…" : scanTokens} tokens</span>
-              </div>
             )}
             <Button
               variant="outline"

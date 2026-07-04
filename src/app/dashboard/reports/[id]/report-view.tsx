@@ -475,7 +475,6 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         onDelete={() => setDeleteDialogOpen(true)}
         isAutoReevaluating={isAutoReevaluating}
         onAutoReevaluate={handleAutoReevaluate}
-        scanTokens={scanTokens}
         onTag={() => setTagDialogOpen(true)}
       />
 
@@ -516,7 +515,6 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
           activeToolIdx={activeToolIdx}
           setActiveToolIdx={setActiveToolIdx}
           historyModels={historyModels}
-          scanTokens={scanTokens}
         />
 
         <Separator />
