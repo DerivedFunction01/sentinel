@@ -179,6 +179,11 @@ export async function executeFastHardening(
     }
   }
 
+  // Apply deduplication to recommended tools before passing to hardening
+  const deduplicatedTools = recommendedTools.length > 0
+    ? deduplicateTools(recommendedTools, granularity)
+    : [];
+
   // Step 3: Generate hardened prompt with routing matrix
   let hardenedPrompt = "";
   try {
@@ -187,7 +192,7 @@ export async function executeFastHardening(
       systemPrompt,
       forbiddenTask,
       breachedAttacks,
-      recommendedTools.length > 0 ? recommendedTools : undefined,
+      deduplicatedTools.length > 0 ? deduplicatedTools : undefined,
       inspirationExamplesBlock,
       trace,
       metadata?.attackSummary?.summarizedPatterns,
@@ -215,16 +220,16 @@ export async function executeFastHardening(
       compatibilityScore: 100,
       extractorModel,
     });
-  } else if (recommendedTools.length > 0) {
+  } else if (deduplicatedTools.length > 0) {
     // Calculate average compatibility score
     // For now, use a default since direct matches already have scores embedded
     compatibilityScore = 85; // Default score for recommended tools
     toolRecommendation = JSON.stringify({
-      tools: recommendedTools.map((t) => {
-        // Try to extract from ToolRecommendationItem format if possible
-        const fn = t.function || t;
+      tools: deduplicatedTools.map((t) => {
+        // ToolDef format: t.function.name is the canonical name
+        const fn = t.function;
         return {
-          name: fn.name || "unknown",
+          name: fn?.name || "unknown",
           granularity,
           compatibilityScore: (t as any).compatibilityScore || 85,
           rationale: (t as any).rationale || "Recommended tool for restriction",
@@ -250,6 +255,76 @@ export async function executeFastHardening(
     hardeningModelName,
     slowPathHit,
   };
+}
+
+/**
+ * Convert a Detailed-granularity ToolDef to Compact format.
+ * Strips all parameters except `query` and `operation_mode`.
+ * Preserves type, function.name, and function.description.
+ */
+function compactToolSchema(detailedTool: ToolDef): ToolDef {
+  const params = detailedTool.function?.parameters || {};
+  const compactParams: Record<string, unknown> = {};
+
+  // Only keep query and operation_mode parameters
+  if (params && typeof params === "object" && !Array.isArray(params)) {
+    const rawParams = params as Record<string, unknown>;
+    if ("query" in rawParams) {
+      compactParams.query = rawParams.query;
+    }
+    if ("operation_mode" in rawParams) {
+      compactParams.operation_mode = rawParams.operation_mode;
+    }
+  }
+
+  return {
+    type: "function",
+    function: {
+      name: detailedTool.function?.name || "",
+      description: detailedTool.function?.description || "",
+      parameters: compactParams,
+    },
+  };
+}
+
+/**
+ * Deduplicate tools by name, keeping the first occurrence.
+ * If granularity is Compact, convert Detailed tools to Compact first.
+ */
+function deduplicateTools(
+  tools: ToolDef[],
+  targetGranularity: Granularity,
+): ToolDef[] {
+  const seen = new Set<string>();
+  const result: ToolDef[] = [];
+
+  for (const tool of tools) {
+    const name = tool.function?.name || "";
+    if (!name) continue;
+
+    // Convert to target granularity if needed
+    let processedTool = tool;
+    if (targetGranularity === Granularity.Compact) {
+      // Check if this is a Detailed tool (has more than just query/operation_mode params)
+      const params = tool.function?.parameters as Record<string, unknown> | undefined;
+      const paramKeys = params ? Object.keys(params) : [];
+      const hasExtraParams = paramKeys.some(
+        (k) => k !== "query" && k !== "operation_mode",
+      );
+      if (hasExtraParams) {
+        processedTool = compactToolSchema(tool);
+      }
+    }
+
+    // Deduplicate by name after conversion
+    const processedName = processedTool.function?.name || name;
+    if (!seen.has(processedName)) {
+      seen.add(processedName);
+      result.push(processedTool);
+    }
+  }
+
+  return result;
 }
 
 /**

@@ -559,6 +559,46 @@ export function getHardenedPromptStep1Instructions(
   });
 }
 
+/**
+ * Build an indexed tool text block for the hardening prompt.
+ * Returns each tool in [PREFIX#] Name / Description / Parameters format.
+ * The prefix distinguishes tool type, e.g. "T" for recommended tools,
+ * "P" for protected tools. This embeds the index directly for unambiguous
+ * tool reference.
+ *
+ * @param tools - Array of tool objects (ToolDef or ToolRecommendationItem)
+ * @param prefix - The letter to use for the index prefix (e.g. "T", "P")
+ * @param filterNames - Optional: only include tools whose names are in this set
+ */
+function buildIndexedToolTextBlock(
+  tools: any[],
+  prefix: string,
+  filterNames?: string[],
+): string {
+  if (!tools || tools.length === 0) return "";
+  let filtered = tools;
+  if (filterNames && filterNames.length > 0) {
+    filtered = tools.filter((t: any) =>
+      filterNames.includes(t.function?.name || t.name || ""),
+    );
+  }
+  return filtered
+    .map((t, i) => {
+      const toolObj = t.toolJson || t;
+      const fn = toolObj.function || toolObj;
+      const name = t.name || fn?.name || toolObj.name || "unknown";
+      const description = fn?.description || toolObj.description || "";
+      const parameters =
+        fn?.parameters &&
+        typeof fn.parameters === "object" &&
+        "properties" in fn.parameters
+          ? Object.keys((fn.parameters as any).properties || {}).join(", ")
+          : "";
+      return `[${prefix}${i}] Name: "${name}"\n    Description: ${description}\n    Parameters: ${parameters}`;
+    })
+    .join("\n\n");
+}
+
 export function getHardenedPromptStep1FullInstructions(
   systemPrompt: string,
   forbiddenTask: string,
@@ -603,15 +643,28 @@ export function getHardenedPromptStep1FullInstructions(
 
   const processed = processTemplateConditions(template, conditions);
 
-  const toolsJson = hasTools
+  // Build [T#] indexed text block for recommended tools
+  const toolsText = hasTools
+    ? buildIndexedToolTextBlock(recommendedTools, "T")
+    : "";
+
+  // Build [P#] indexed text block for protected tools
+  const protectedToolsText = hasProtectedRestrictions
+    ? buildIndexedToolTextBlock(
+        recommendedTools && recommendedTools.length > 0 ? recommendedTools : [],
+        "P",
+        protectedThings.flatMap((t) => t.protectedByTools || []),
+      )
+    : "";
+
+  // Build tool index JSON for LLM output reference
+  const toolIndexBlock = hasTools
     ? JSON.stringify(
-        recommendedTools.map((t) => {
+        recommendedTools.map((t, i) => {
           const toolObj = t.toolJson || t;
           const fn = toolObj.function;
-          return {
-            name: t.name || fn?.name || toolObj.name,
-            description: fn?.description || toolObj.description,
-          };
+          const name = t.name || fn?.name || toolObj.name || "unknown";
+          return { index: i, name };
         }),
         null,
         2,
@@ -622,25 +675,16 @@ export function getHardenedPromptStep1FullInstructions(
     ? breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")
     : "";
 
-  // Build protected tools block for the prompt
-  const protectedToolsBlock = hasProtectedRestrictions
-    ? protectedThings
-        .map((t) => {
-          const tools = t.protectedByTools?.join(", ") || "";
-          return `- Restriction "${t.forbiddenTask}" is covered by tool(s): ${tools}`;
-        })
-        .join("\n")
-    : "";
-
   return replacePlaceholders(processed, {
     SYSTEM_PROMPT: systemPrompt,
     FORBIDDEN_TASK: forbiddenTask,
     STEP_1_TEXT: step1Text,
-    TOOLS_JSON: toolsJson,
+    TOOLS_TEXT: toolsText,
+    PROTECTED_TOOLS_TEXT: protectedToolsText,
+    TOOL_INDEX: toolIndexBlock,
     SUMMARIZED_PATTERNS: summarizedPatterns || "",
     BREACHED_ATTACKS_LIST: attacksList,
     ONTOLOGY_CONTENT: ontologyContent,
-    PROTECTED_TOOLS_BLOCK: protectedToolsBlock,
   });
 }
 
