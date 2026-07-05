@@ -75,6 +75,8 @@ export interface RestrictionThing {
   businessScenarios: string[];
   ontologySection?: string;
   isPresent: boolean;
+  /** Concrete user scenarios generated for this specific restriction/debugging */
+  concreteScenarios?: string[];
 }
 
 export interface SeedInfo {
@@ -87,8 +89,6 @@ export interface SeedInfo {
   extractedAt?: string;
   relevantFiles?: string[];
   coreSystemPrompt?: string;
-  /** Concrete user scenarios generated for debugging/display purposes */
-  concreteScenarios?: string[];
 }
 
 export interface AttackEntry {

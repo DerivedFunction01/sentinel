@@ -333,6 +333,22 @@ export function ScanConfigurationSection({
                                   </ul>
                                 </>
                               )}
+
+                            {t.concreteScenarios &&
+                              t.concreteScenarios.length > 0 && (
+                                <>
+                                  <span className="text-muted-foreground">
+                                    Concrete Scenarios
+                                  </span>
+                                  <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
+                                    {t.concreteScenarios.map(
+                                      (v: string, i: number) => (
+                                        <li key={i}>{v}</li>
+                                      ),
+                                    )}
+                                  </ul>
+                                </>
+                              )}
                           </div>
                         </div>
                       ))}
@@ -348,21 +364,7 @@ export function ScanConfigurationSection({
                       </div>
                     )}
 
-                    {seed.concreteScenarios &&
-                      seed.concreteScenarios.length > 0 && (
-                        <div className="col-span-3 border-t border-white/5 pt-3 mt-2 space-y-1.5">
-                          <span className="text-muted-foreground block font-semibold text-[11px] uppercase tracking-wider">
-                            Generated Concrete Scenarios
-                          </span>
-                          <ul className="list-disc pl-4 space-y-1 text-foreground text-xs leading-relaxed">
-                            {seed.concreteScenarios.map(
-                              (s: string, i: number) => (
-                                <li key={i}>{s}</li>
-                              ),
-                            )}
-                          </ul>
-                        </div>
-                      )}
+                    {/* Concrete scenarios are shown per-restriction below */}
                   </div>
                 </div>
               );

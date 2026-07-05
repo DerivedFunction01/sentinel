@@ -385,13 +385,12 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
     }
 
     // Augment scenarios with concrete, generated user queries
-    const { things: thingsWithScenarios, scenarios: allScenarios } =
-      await augmentThingsWithConcreteScenarios(
-        things,
-        extractorModel,
-        coreSystemPrompt,
-        tracker,
-      );
+    const thingsWithScenarios = await augmentThingsWithConcreteScenarios(
+      things,
+      extractorModel,
+      coreSystemPrompt,
+      tracker,
+    );
 
     return {
       things: thingsWithScenarios,
@@ -405,7 +404,7 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
       extractedAt: new Date().toISOString(),
       relevantFiles,
       coreSystemPrompt,
-      concreteScenarios: allScenarios.length > 0 ? allScenarios : undefined,
+      // concreteScenarios are now on each thing, not top-level
     };
   } catch (error) {
     console.error("Error extracting seed info:", error);
@@ -428,74 +427,63 @@ async function augmentThingsWithConcreteScenarios(
   extractorModel: string,
   coreSystemPrompt: string,
   tracker?: UsageTracker,
-): Promise<{ things: RestrictionThing[]; scenarios: string[] }> {
-  if (!things || things.length === 0) return { things, scenarios: [] };
+): Promise<RestrictionThing[]> {
+  if (!things || things.length === 0) return things;
 
-  const targets = things
-    .filter((t) => t.isPresent !== false)
-    .map((t) => ({
-      forbiddenTask: t.forbiddenTask,
-      thingName: t.thingName,
-      thingDescription: t.thingDescription,
-    }));
+  for (const thing of things) {
+    const isPresentFalse = thing.isPresent === false;
+    if (isPresentFalse) continue;
 
-  if (targets.length === 0) return { things, scenarios: [] };
+    try {
+      const targets = JSON.stringify(
+        [
+          {
+            forbiddenTask: thing.forbiddenTask,
+            thingName: thing.thingName,
+            thingDescription: thing.thingDescription,
+          },
+        ],
+        null,
+        2,
+      );
 
-  const template = getPromptFile(PromptFileType.GenerateConcreteScenarios);
-  const targetsJson = JSON.stringify(targets, null, 2);
+      const template = getPromptFile(PromptFileType.GenerateConcreteScenarios);
+      const promptContent = replacePlaceholders(template, {
+        CORE_SYSTEM_PROMPT: coreSystemPrompt,
+        TARGETS_JSON: targets,
+      });
 
-  const promptContent = replacePlaceholders(template, {
-    CORE_SYSTEM_PROMPT: coreSystemPrompt,
-    TARGETS_JSON: targetsJson,
-  });
+      const messages = [{ role: "user", content: promptContent }];
 
-  const messages = [
-    {
-      role: "user",
-      content: promptContent,
-    },
-  ];
+      const response = await callOpenRouter(
+        extractorModel,
+        messages,
+        undefined,
+        tracker,
+      );
 
-  try {
-    const response = await callOpenRouter(
-      extractorModel,
-      messages,
-      undefined,
-      tracker,
-    );
+      const text = response.content || "";
+      const scenariosJson =
+        extractTaggedContent(text, "<JSON>", "</JSON>") || text;
+      const cleaned = scenariosJson
+        .replace(/```json/gi, "")
+        .replace(/```/g, "")
+        .trim();
 
-    const text = response.content || "";
-    const scenariosJson =
-      extractTaggedContent(text, "<JSON>", "</JSON>") || text;
-    const cleaned = scenariosJson
-      .replace(/```json/gi, "")
-      .replace(/```/g, "")
-      .trim();
+      const parsed = JSON.parse(cleaned);
+      const scenarios = Array.isArray(parsed.scenarios) ? parsed.scenarios : [];
 
-    const parsed = JSON.parse(cleaned);
-    const scenarioMap = new Map<string, string[]>();
-    if (Array.isArray(parsed.scenarios)) {
-      scenarioMap.set("__all__", parsed.scenarios);
+      if (scenarios.length > 0) {
+        thing.concreteScenarios = scenarios;
+      }
+    } catch (error) {
+      console.error(
+        "Error generating concrete scenarios for thing:",
+        thing.thingName,
+        error,
+      );
     }
-
-    const scenarioArrays = Array.from(scenarioMap.values());
-    const allScenarios = scenarioArrays.flat();
-
-    if (allScenarios.length === 0) return { things, scenarios: [] };
-
-    const result = things.map((thing) => {
-      const isPresentFalse = !thing.isPresent;
-      if (isPresentFalse) return thing;
-      const existing = thing.businessScenarios || [];
-      return {
-        ...thing,
-        businessScenarios: [...existing, ...allScenarios],
-      };
-    });
-
-    return { things: result, scenarios: allScenarios };
-  } catch (error) {
-    console.error("Error generating concrete scenarios:", error);
-    return { things, scenarios: [] };
   }
+
+  return things;
 }

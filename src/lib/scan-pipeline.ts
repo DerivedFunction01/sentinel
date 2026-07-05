@@ -297,12 +297,14 @@ export async function generateAttackSet(
         businessScenarios: thing.businessScenarios,
       };
 
-      // Select concrete scenario if this index is marked for it
+      // Prefer per-thing concrete scenarios; fall back to businessScenarios
+      const scenarioPool = thing.concreteScenarios?.length
+        ? thing.concreteScenarios
+        : thing.businessScenarios;
+
       const concreteScenario = concreteScenarioIndices.has(idx)
-        ? (thing.businessScenarios?.length
-            ? thing.businessScenarios[
-                Math.floor(Math.random() * thing.businessScenarios.length)
-              ]
+        ? (scenarioPool?.length
+            ? scenarioPool[Math.floor(Math.random() * scenarioPool.length)]
             : undefined)
         : undefined;
 
