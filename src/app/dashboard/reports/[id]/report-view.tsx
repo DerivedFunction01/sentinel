@@ -53,7 +53,11 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
 
   const handleAutoReevaluate = async (
     trialNumbers?: number[],
-    referenceExamples?: Array<{ attack: string; response: string; reasoning: string }>,
+    referenceExamples?: Array<{
+      attack: string;
+      response: string;
+      reasoning: string;
+    }>,
   ) => {
     setIsAutoReevaluating(true);
     const toastId = toast.loading(
@@ -518,6 +522,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
 
         {/* ── 02 Hardened Prompt & Tool Recommendations ── */}
         <HardenedPromptSection
+          scan={scan}
           selectedHardenedId={selectedHardenedId}
           onModelChange={handleModelChange}
           currentHardenedPrompt={currentHardenedPrompt}

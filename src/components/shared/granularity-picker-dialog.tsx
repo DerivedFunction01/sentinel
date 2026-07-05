@@ -16,10 +16,9 @@ import { Sparkles, Check } from "lucide-react";
 import { Granularity } from "@/lib/enums";
 import {
   FALLBACK_DEFAULT_MODEL,
-  getMostUsedModelForRole,
   ModelSelectorRole,
 } from "@/lib/model-utils";
-import { useModelsCache } from "@/hooks/use-models-cache";
+import { Scan } from "@/lib/types";
 
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,6 +36,7 @@ interface GranularityPickerDialogProps {
   defaultHardenerModel?: string;
   defaultGranularity?: Granularity;
   defaultExtractorModel?: string;
+  scan?: Scan;
 }
 
 export function GranularityPickerDialog({
@@ -46,38 +46,10 @@ export function GranularityPickerDialog({
   defaultHardenerModel,
   defaultGranularity = Granularity.Compact,
   defaultExtractorModel,
+  scan,
 }: GranularityPickerDialogProps) {
-  const { models: allModels, loading: modelsLoading } = useModelsCache();
-  const [serverDefaultModel, setServerDefaultModel] = useState<string | null>(null);
-  const [hasMounted, setHasMounted] = useState(false);
-
-  useEffect(() => {
-    setHasMounted(true);
-    fetch("/api/models/default")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.modelId) setServerDefaultModel(data.modelId);
-      })
-      .catch(() => {});
-  }, []);
-
-  const modelsReady = hasMounted && !modelsLoading && allModels.length > 0;
-
-  const resolvedHardener = modelsReady
-    ? (() => {
-        const candidate = defaultHardenerModel ||
-          getMostUsedModelForRole(ModelSelectorRole.Hardener, serverDefaultModel || FALLBACK_DEFAULT_MODEL);
-        return allModels.some((m) => m.id === candidate) ? candidate : FALLBACK_DEFAULT_MODEL;
-      })()
-    : FALLBACK_DEFAULT_MODEL;
-
-  const resolvedExtractor = modelsReady
-    ? (() => {
-        const candidate = defaultExtractorModel ||
-          getMostUsedModelForRole(ModelSelectorRole.ToolExtractor, serverDefaultModel || FALLBACK_DEFAULT_MODEL);
-        return allModels.some((m) => m.id === candidate) ? candidate : FALLBACK_DEFAULT_MODEL;
-      })()
-    : FALLBACK_DEFAULT_MODEL;
+  const resolvedHardener = defaultHardenerModel || scan?.hardenerModel || FALLBACK_DEFAULT_MODEL;
+  const resolvedExtractor = defaultExtractorModel || scan?.metadata?.seedExtraction?.extractorModel || FALLBACK_DEFAULT_MODEL;
 
   const [hardenerModel, setHardenerModel] = useState<string>(resolvedHardener);
   const [granularity, setGranularity] =
@@ -91,6 +63,7 @@ export function GranularityPickerDialog({
   useEffect(() => {
     setExtractorModel(resolvedExtractor);
   }, [resolvedExtractor]);
+
   const [includeToolRecommendation, setIncludeToolRecommendation] =
     useState<boolean>(true);
 

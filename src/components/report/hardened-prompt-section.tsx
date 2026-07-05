@@ -24,9 +24,10 @@ import { GranularityPickerDialog } from "@/components/shared/granularity-picker-
 import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
 import { FALLBACK_DEFAULT_MODEL } from "@/lib/model-utils";
 import { Granularity, formatModelName } from "@/lib/enums";
-import { HardeningTrace } from "@/lib/types";
+import { HardeningTrace, Scan } from "@/lib/types";
 
 interface HardenedPromptSectionProps {
+  scan?: Scan;
   selectedHardenedId: string;
   onModelChange: (id: string) => void;
   currentHardenedPrompt: any;
@@ -48,6 +49,7 @@ interface HardenedPromptSectionProps {
 }
 
 export function HardenedPromptSection({
+  scan,
   selectedHardenedId,
   onModelChange,
   currentHardenedPrompt,
@@ -406,10 +408,11 @@ export function HardenedPromptSection({
       </Card>
 
       <GranularityPickerDialog
+        scan={scan}
         open={pickerOpen}
         onOpenChange={onPickerOpenChange}
         onConfirm={onExtractTools}
-        defaultHardenerModel={selectedHardenedId}
+        defaultHardenerModel={currentHardenedPrompt?.modelId}
         defaultGranularity={
           (currentHardenedPrompt?.granularity as any) || Granularity.Compact
         }
