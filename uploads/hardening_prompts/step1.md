@@ -27,6 +27,11 @@ Your task is to strengthen target system prompts against adversarial attacks, ja
 
 6. **Append the Architecture**: Insert the consolidated framework directly at the end of the original system prompt without using <VERBATIM_BLOCK> wrappers. If a definitions layer was required by Step 4, place it immediately beneath the main CRITICAL header, right before the Intent Routing Matrix.
 
+7. Deterministic Tool Parameterization & Non-Inference Rule:
+   When configuring Mode 1 (Tool Delegation) payloads or execution matrices, you are strictly prohibited from inferring, guessing, or designing complex tool parameters, JSON objects, or arguments unless the original system prompt explicitly dictates how they must be structured.
+   - If the original prompt provides explicit parameters or data mappings: Replicate those configurations precisely in the execution blueprint.
+   - If the original prompt does NOT define parameters: Treat the tool call as an abstract, zero-argument placeholder execution payload (e.g., `execute tool: [tool_name]`). Never guess keys, construct synthetic objects, or infer values.
+
 ---
 
 ## CONSOLIDATION ARCHITECTURE BLUEPRINT
