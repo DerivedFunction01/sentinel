@@ -108,25 +108,28 @@ Ontology-aware extraction of the forbidden task.
 | `businessFeatures`   | string[] | Extracted business capabilities         |
 | `businessCategories` | string[] | High-level domain categories            |
 | `isGenerative`       | boolean  | Whether task involves generative output |
-| `extractorModel`     | string   | Model used for extraction               |
-| `extractedAt`        | ISO 8601 | When extraction occurred                |
-| `relevantFiles`      | string[] | Supporting reference files              |
-| `coreSystemPrompt`   | string   | Detected core prompt theme              |
+| `extractorModel`     | string   | (optional) Model used for extraction    |
+| `extractedAt`        | ISO 8601 | (optional) When extraction occurred     |
+| `relevantFiles`      | string[] | (optional) Supporting reference files   |
+| `coreSystemPrompt`   | string   | (optional) Detected core prompt theme   |
 | `things`             | object[] | **See RestrictionThing below**          |
 
 ##### `RestrictionThing` (inside `metadata.seedExtraction.things`)
 
-| Field                      | Type     | Notes                              |
-| -------------------------- | -------- | ---------------------------------- |
-| `forbiddenTask`            | string   | The restricted capability          |
-| `thingName`                | string   | Canonical ontology term            |
-| `thingDescription`         | string   | Description for display            |
-| `thingNameVariants`        | string[] | Synonyms and alternative phrasings |
-| `thingDescriptionVariants` | string[] | Variant descriptions for attacks   |
-| `credentials`              | string[] | Simulated credential contexts      |
-| `businessScenarios`        | string[] | Business narrative scenarios       |
-| `ontologySection`          | string   | Source ontology section reference  |
-| `isPresent`                | boolean  | Whether restriction is active      |
+| Field                      | Type     | Notes                                                                                                                                  |
+| -------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `forbiddenTask`            | string   | The restricted capability                                                                                                              |
+| `thingName`                | string   | Canonical ontology term                                                                                                                |
+| `thingDescription`         | string   | Description for display                                                                                                                |
+| `thingNameVariants`        | string[] | Synonyms and alternative phrasings                                                                                                     |
+| `thingDescriptionVariants` | string[] | Variant descriptions for attacks                                                                                                       |
+| `credentials`              | string[] | Simulated credential contexts                                                                                                          |
+| `businessScenarios`        | string[] | Business narrative scenarios                                                                                                           |
+| `ontologySection`          | string   | (optional) Source ontology section reference                                                                                           |
+| `behaviorType`             | enum     | Enforcement mechanism (HARD_REFUSAL, DISCLAIMER_APPEND, POSITIVE_CONFIRMATION, CONTENT_POLICE_FILTER, CONTEXTUAL_UPDATE, TOOL_HANDOFF) |
+| `concreteScenarios`        | string[] | (optional) Concrete user scenarios for this restriction                                                                                |
+| `coversRestriction`        | boolean  | (optional) Whether existing tools handle this restriction                                                                              |
+| `protectedByTools`         | string[] | (optional) Tool names covering this restriction                                                                                        |
 
 #### `metadata.attackSummary`
 
