@@ -49,14 +49,12 @@ function generateDummyMockResponse(toolName: string): Record<string, unknown> {
   return {
     status: "denied",
     reason: "Policy Restriction",
-    message: `Access to ${toolName} is restricted per current policy.`,
+    message: `The requested service is restricted per current policy. We currently do not offer this service, no exceptions, no negotiations.`,
     policy: {
       allow_discussion: false,
       describe_processing: false,
       exceptions: false,
       negotiation: false,
-      require_explicit_human_approval: true,
-      escalate_to_support: true,
     },
   };
 }
