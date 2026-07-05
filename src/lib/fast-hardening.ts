@@ -14,6 +14,7 @@ import {
   type BreachedAttack,
   type HardeningTrace,
   RestrictionThing,
+  ToolRecommendationItem,
 } from "@/lib/types";
 import { Granularity } from "./enums";
 import {
@@ -25,7 +26,11 @@ import {
   executeMultiStepHardeningFull,
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
-import { generateToolRecommendation } from "@/lib/tool-extractor";
+import {
+  generateToolRecommendation,
+  parseSectionedRecommendation,
+  deriveToolRequirements,
+} from "@/lib/tool-extractor";
 
 export interface FastHardeningParams {
   systemPrompt: string;
@@ -44,8 +49,12 @@ export interface FastHardeningParams {
 
 export interface FastHardeningResult {
   hardenedPrompt: string;
-  protectedTools: string[]; // Tools that already cover restrictions
-  recommendedTools: ToolDef[]; // New tools needed (empty if all protected)
+  toolRecommendation: string;
+  compatibilityScore: number;
+  protectedTools: string[];
+  recommendedTools: ToolDef[];
+  hardeningModelId: string;
+  hardeningModelName: string;
   slowPathHit: boolean;
 }
 
@@ -103,6 +112,12 @@ export async function executeFastHardening(
     );
   } else {
     // Not protected: run full tool extraction
+    // Derive tool requirements from seed extraction (zero LLM cost)
+    const { toolRequirements } = deriveToolRequirements(
+      metadata,
+      forbiddenTask,
+    );
+
     const inspirationExamples = await retrieveInspirationExamples(
       targetThing || createDefaultThing(forbiddenTask),
       extractorModel,
@@ -111,7 +126,7 @@ export async function executeFastHardening(
       tracker,
       trace,
       tools,
-      forbiddenTask,
+      toolRequirements,
     );
 
     inspirationExamplesBlock =
@@ -125,7 +140,19 @@ export async function executeFastHardening(
     if (directMatches.length > 0) {
       // Fast path: use direct match examples
       slowPathHit = false;
-      recommendedTools = directMatches.map((ex) => ex.toolJson);
+      // Convert ToolRecommendationItem to ToolDef format
+      recommendedTools = directMatches.map((ex) => {
+        const toolRec: ToolRecommendationItem = {
+          name: ex.name,
+          granularity: granularity,
+          compatibilityScore: ex.requirementScore || 80,
+          rationale: ex.rationale || ex.description,
+          toolJson: ex.toolJson,
+          mockResponse: ex.mockResponse,
+          businessCategories: ex.businessCategories,
+        };
+        return toolRec.toolJson as ToolDef;
+      });
     } else {
       // Slow path: need LLM extraction
       slowPathHit = true;
@@ -143,8 +170,12 @@ export async function executeFastHardening(
         mockToolResponses,
         inspirationExamples,
       );
-      const parsed = parseToolRecommendation(result.toolRecommendation || "");
-      recommendedTools = Array.isArray(parsed) ? parsed : [];
+      // Use the correct parser that returns ToolRecommendationItem[]
+      const parsed = parseSectionedRecommendation(
+        result.toolRecommendation || "",
+      );
+      // Extract toolJson from each recommendation
+      recommendedTools = parsed.map((item) => item.toolJson as ToolDef);
     }
   }
 
@@ -167,10 +198,56 @@ export async function executeFastHardening(
     hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt);
   }
 
+  // Build tool recommendation JSON
+  let toolRecommendation = "";
+  let compatibilityScore = 0;
+
+  if (isProtected && protectedTools.length > 0) {
+    // Protected: build recommendation from existing tools
+    compatibilityScore = 100;
+    toolRecommendation = JSON.stringify({
+      tools: protectedTools.map((t) => ({
+        name: t,
+        granularity,
+        compatibilityScore: 100,
+        rationale: `Already configured tool covering: ${forbiddenTask}`,
+      })),
+      compatibilityScore: 100,
+      extractorModel,
+    });
+  } else if (recommendedTools.length > 0) {
+    // Calculate average compatibility score
+    // For now, use a default since direct matches already have scores embedded
+    compatibilityScore = 85; // Default score for recommended tools
+    toolRecommendation = JSON.stringify({
+      tools: recommendedTools.map((t) => {
+        // Try to extract from ToolRecommendationItem format if possible
+        const fn = t.function || t;
+        return {
+          name: fn.name || "unknown",
+          granularity,
+          compatibilityScore: (t as any).compatibilityScore || 85,
+          rationale: (t as any).rationale || "Recommended tool for restriction",
+          toolJson: t,
+        };
+      }),
+      compatibilityScore,
+      extractorModel,
+    });
+  }
+
+  // Resolve model ID/name
+  const hardeningModelId = hardenerModel;
+  const hardeningModelName = hardenerModel.split("/").pop() || hardenerModel;
+
   return {
     hardenedPrompt,
+    toolRecommendation,
+    compatibilityScore,
     protectedTools,
     recommendedTools,
+    hardeningModelId,
+    hardeningModelName,
     slowPathHit,
   };
 }
@@ -189,19 +266,4 @@ function createDefaultThing(forbiddenTask: string): RestrictionThing {
     businessScenarios: [],
     isPresent: true,
   };
-}
-
-/**
- * Parse tool recommendation to extract ToolDef array
- */
-function parseToolRecommendation(recommendation: string): ToolDef[] {
-  try {
-    const parsed = JSON.parse(recommendation);
-    if (parsed.tools && Array.isArray(parsed.tools)) {
-      return parsed.tools.map((t: any) => t.toolJson || t);
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  return [];
 }
