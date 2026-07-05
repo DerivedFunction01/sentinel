@@ -24,7 +24,7 @@ import {
   type InspirationExample,
 } from "@/lib/inspiration-retriever";
 import { deriveToolRequirements } from "@/lib/tool-extractor";
-import { loadPromptFile, replacePlaceholders } from "@/lib/prompt-loader";
+import { loadPromptFile, replacePlaceholders, processTemplateConditions } from "@/lib/prompt-loader";
 
 // ── Output types ─────────────────────────────────────────────────────────────────
 
@@ -90,14 +90,19 @@ function buildCompactToolDef(
   };
 
   // For detailed granularity, add the categories param so the LLM can specify sub-dimensions
-  if (granularity === Granularity.Detailed && categories && categories.length > 0) {
+  if (
+    granularity === Granularity.Detailed &&
+    categories &&
+    categories.length > 0
+  ) {
     (params.properties as Record<string, unknown>).categories = {
       type: "array",
       items: {
         type: "string",
         enum: categories,
       },
-      description: "Specific categories or sub-topics this request falls under, if applicable.",
+      description:
+        "Specific categories or sub-topics this request falls under, if applicable.",
     };
     (params.required as string[]).push("categories");
   }
@@ -141,26 +146,30 @@ async function generateToolFromInspiration(
   extractorModel: string,
   inspirationExamplesBlock: string,
   tracker?: UsageTracker,
-): Promise<{ toolJson: ToolDef; mockResponse: Record<string, unknown> } | null> {
-  const detailInstruction =
-    granularity === Granularity.Detailed
-      ? `If the tool needs to distinguish between different scenarios, include a "categories" array with meaningful category names (e.g. "service_problem", "billing_error" for a customer support tool).`
-      : `Output a compact schema. Do NOT include categories.`;
-
+): Promise<{
+  toolJson: ToolDef;
+  mockResponse: Record<string, unknown>;
+} | null> {
   const template = loadPromptFile("tool_generation_fast.md");
 
-  const prompt = replacePlaceholders(template, {
+  // Process conditional blocks: show DETAILED section or COMPACT section based on granularity
+  const withConditions = processTemplateConditions(template, {
+    DETAILED: granularity === Granularity.Detailed,
+    COMPACT: granularity !== Granularity.Detailed,
+  });
+
+  const prompt = replacePlaceholders(withConditions, {
     THING_NAME: thing.thingName || "(not specified)",
     THING_DESCRIPTION: thing.thingDescription || "(not specified)",
     THING_NAME_VARIANTS: (thing.thingNameVariants || []).join(", ") || "(none)",
-    THING_DESCRIPTION_VARIANTS: (thing.thingDescriptionVariants || []).join(", ") || "(none)",
+    THING_DESCRIPTION_VARIANTS:
+      (thing.thingDescriptionVariants || []).join(", ") || "(none)",
     BUSINESS_SCENARIOS: (thing.businessScenarios || []).join("\n") || "(none)",
     CONCRETE_SCENARIOS: (thing.concreteScenarios || []).join("\n") || "(none)",
     GRANULARITY: granularity,
     INSPIRATION_EXAMPLES_BLOCK: inspirationExamplesBlock
       ? `## Reference Inspiration Examples\n\nUse these as style guidance for the tool schema format:\n\n${inspirationExamplesBlock}`
       : "",
-    DETAIL_INSTRUCTION: detailInstruction,
   });
 
   try {
@@ -178,13 +187,20 @@ async function generateToolFromInspiration(
 
     const parsed = JSON.parse(cleaned);
     const name = parsed.name || thing.thingName || "policy_enforcer";
-    const description = parsed.description || `Handles ${thing.thingName || "requested service"} requests.`;
+    const description =
+      parsed.description ||
+      `Handles ${thing.thingName || "requested service"} requests.`;
     const categories: string[] | undefined =
       granularity === Granularity.Detailed && Array.isArray(parsed.categories)
         ? parsed.categories
         : undefined;
 
-    const toolJson = buildCompactToolDef(sanitizeName(name), description, categories, granularity);
+    const toolJson = buildCompactToolDef(
+      sanitizeName(name),
+      description,
+      categories,
+      granularity,
+    );
     const mockResponse = generateDummyMockResponse(name);
 
     return { toolJson, mockResponse };
@@ -198,12 +214,13 @@ async function generateToolFromInspiration(
  * Sanitize a tool name to snake_case if needed.
  */
 function sanitizeName(name: string): string {
-  return name
-    .replace(/[^a-zA-Z0-9_]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_|_$/g, "")
-    .toLowerCase()
-    || "policy_enforcer";
+  return (
+    name
+      .replace(/[^a-zA-Z0-9_]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "")
+      .toLowerCase() || "policy_enforcer"
+  );
 }
 
 // ── Fast recommendation entry point ───────────────────────────────────────────────
@@ -229,7 +246,10 @@ export async function generateToolRecommendationFast(
   mockToolResponses?: Record<string, unknown>,
 ): Promise<FastToolRecommendationResult> {
   try {
-    const { toolRequirements, mockPolicy } = deriveToolRequirements(metadata, forbiddenTask);
+    const { toolRequirements, mockPolicy } = deriveToolRequirements(
+      metadata,
+      forbiddenTask,
+    );
 
     const targetThing =
       metadata.seedExtraction?.things?.find(
@@ -304,7 +324,9 @@ export async function generateToolRecommendationFast(
     });
     const dbExtractorModel = dbModels.find((m) => m.id === extractorModel);
     const extractorModelName =
-      dbExtractorModel?.name || extractorModel.split("/").pop() || extractorModel;
+      dbExtractorModel?.name ||
+      extractorModel.split("/").pop() ||
+      extractorModel;
 
     const toolName = generated.toolJson.function?.name || "policy_enforcer";
 
@@ -377,7 +399,9 @@ async function handleDirectMatches(
 
     // Check if this tool already exists (skip if identical)
     const existingTool = existingTools?.find(
-      (t) => t.function.name === match.name || t.function.name === match.overlap?.replaceExisting,
+      (t) =>
+        t.function.name === match.name ||
+        t.function.name === match.overlap?.replaceExisting,
     );
     if (existingTool) {
       if (isToolIdentical(toolJson, existingTool)) {
