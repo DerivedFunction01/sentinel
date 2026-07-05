@@ -79,3 +79,80 @@ Do not attempt to solve complex math equations, financial interest calculations,
 
 **Sample:**
 If a user request lacks necessary parameters to safely or accurately fulfill it, do not guess or hallucinate the missing details. Pause execution immediately and provide a single, concise clarifying question to isolate the missing variables before proceeding.
+
+---
+
+### 8. Text Classification & Information Extraction (NER / POS)
+
+- **Scope:** Identifying, sorting, and tagging specific tokens or spans of text into predefined categories (e.g., Named Entity Recognition (NER), Part-of-Speech (POS) tagging, sentiment classification, intent mapping).
+- **Prohibitions:** Cannot generate new content or rewrite text; must output strictly structured labels, spans, or classification indices.
+
+---
+
+### 9. Text Summarization & Compression
+
+- **Scope:** Condensing long-form text documents, articles, or transcripts into shorter, highly objective abstracts, bullet points, or executive summaries while preserving original meaning.
+- **Prohibitions:** Strictly forbidden from adding outside information, hallucinating facts, or injecting creative flair or interpretation not found in the source text.
+
+---
+
+### 10. Language Translation & Localization
+
+- **Scope:** Converting text from a source language to a target language while preserving semantic meaning, technical terminology, and contextual nuance.
+- **Prohibitions:** Do not alter the core structure, facts, or intent of the text; do not add creative prose or conversational embellishments.
+
+---
+
+### 11. Feature Extraction & Embedding Generation
+
+- **Scope:** Transforming raw text inputs into high-dimensional numerical vectors (embeddings) or extracting structural features for machine learning models.
+- **Prohibitions:** No user-facing text generation; outputs strictly mathematical or feature-space representations.
+
+---
+
+### 12. Creative Writing & Content Generation
+
+- **Scope:** Authoring open-ended prose, storytelling, scripts, marketing copy, poetry, roleplay scenarios, or highly stylistic conversational text.
+- **Prohibitions:** Cannot be used for factual data extraction, structured compliance auditing, or deterministic code execution.
+
+---
+
+### 13. Code Generation & Software Design
+
+- **Scope:** Writing original source code, drafting software architecture patterns, designing database schemas, or compiling scripting sequences from natural language instructions.
+- **Prohibitions:** No native execution of code without a sandboxed environment; cannot bypass security linting protocols.
+
+---
+
+### 14. Computer Vision & Static Image Understanding (Input)
+
+- **Scope:** Processing, analyzing, and describing static image files, diagrams, UI layouts, document scans, or desktop screenshots.
+- **Prohibitions:** Cannot process moving video frames, temporal sequences, or native live camera feeds in real time.
+
+---
+
+### 15. Image Generation & Modification (Output)
+
+- **Scope:** Synthesizing completely new visual assets, graphics, or diagrams, or altering existing static images based on textual descriptions.
+- **Prohibitions:** Cannot compile sequential frames into video animations or export raw vector CAD files natively.
+
+---
+
+### 16. Audio Transcription & Speech-to-Text (Input)
+
+- **Scope:** Converting raw audio waveforms, voice notes, or spoken dialog files into structured text strings.
+- **Prohibitions:** Cannot capture visual indicators or process video files natively without an isolated audio extraction step.
+
+---
+
+### 17. Speech Synthesis & Text-to-Speech (Output)
+
+- **Scope:** Generating spoken audio output, vocal patterns, or sound synthesis from written text strings.
+- **Prohibitions:** Cannot output multi-track music files or complex environmental soundscapes natively.
+
+---
+
+### 18. Video & Temporal Sequence Analysis (Input/Output)
+
+- **Scope:** Processing or generating multiple sequential frames over a timeline, tracking temporal changes, reading video files, or creating video clips.
+- **Prohibitions:** Strictly isolated from simple static image processing pipelines; requires heavy temporal sequencing architectures.
