@@ -116,18 +116,17 @@ Ontology-aware extraction of the forbidden task.
 
 ##### `RestrictionThing` (inside `metadata.seedExtraction.things`)
 
-| Field                      | Type     | Notes                                        |
-| -------------------------- | -------- | -------------------------------------------- |
-| `forbiddenTask`            | string   | The restricted capability                    |
-| `thingName`                | string   | Canonical ontology term                      |
-| `thingDescription`         | string   | Description for display                      |
-| `thingNameVariants`        | string[] | Synonyms and alternative phrasings           |
-| `thingDescriptionVariants` | string[] | Variant descriptions for attacks             |
-| `vulnerabilities`          | string[] | Possible weakness surfaces (pre-trial guess) |
-| `credentials`              | string[] | Simulated credential contexts                |
-| `businessScenarios`        | string[] | Business narrative scenarios                 |
-| `ontologySection`          | string   | Source ontology section reference            |
-| `isPresent`                | boolean  | Whether restriction is active                |
+| Field                      | Type     | Notes                              |
+| -------------------------- | -------- | ---------------------------------- |
+| `forbiddenTask`            | string   | The restricted capability          |
+| `thingName`                | string   | Canonical ontology term            |
+| `thingDescription`         | string   | Description for display            |
+| `thingNameVariants`        | string[] | Synonyms and alternative phrasings |
+| `thingDescriptionVariants` | string[] | Variant descriptions for attacks   |
+| `credentials`              | string[] | Simulated credential contexts      |
+| `businessScenarios`        | string[] | Business narrative scenarios       |
+| `ontologySection`          | string   | Source ontology section reference  |
+| `isPresent`                | boolean  | Whether restriction is active      |
 
 #### `metadata.attackSummary`
 
