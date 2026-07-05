@@ -385,12 +385,13 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
     }
 
     // Augment scenarios with concrete, generated user queries
-    const thingsWithScenarios = await augmentThingsWithConcreteScenarios(
-      things,
-      extractorModel,
-      coreSystemPrompt,
-      tracker,
-    );
+    const { things: thingsWithScenarios, scenarios: allScenarios } =
+      await augmentThingsWithConcreteScenarios(
+        things,
+        extractorModel,
+        coreSystemPrompt,
+        tracker,
+      );
 
     return {
       things: thingsWithScenarios,
@@ -404,6 +405,7 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
       extractedAt: new Date().toISOString(),
       relevantFiles,
       coreSystemPrompt,
+      concreteScenarios: allScenarios.length > 0 ? allScenarios : undefined,
     };
   } catch (error) {
     console.error("Error extracting seed info:", error);
@@ -426,8 +428,8 @@ async function augmentThingsWithConcreteScenarios(
   extractorModel: string,
   coreSystemPrompt: string,
   tracker?: UsageTracker,
-): Promise<RestrictionThing[]> {
-  if (!things || things.length === 0) return things;
+): Promise<{ things: RestrictionThing[]; scenarios: string[] }> {
+  if (!things || things.length === 0) return { things, scenarios: [] };
 
   const targets = things
     .filter((t) => t.isPresent !== false)
@@ -437,7 +439,7 @@ async function augmentThingsWithConcreteScenarios(
       thingDescription: t.thingDescription,
     }));
 
-  if (targets.length === 0) return things;
+  if (targets.length === 0) return { things, scenarios: [] };
 
   const template = getPromptFile(PromptFileType.GenerateConcreteScenarios);
   const targetsJson = JSON.stringify(targets, null, 2);
@@ -479,7 +481,7 @@ async function augmentThingsWithConcreteScenarios(
     const scenarioArrays = Array.from(scenarioMap.values());
     const allScenarios = scenarioArrays.flat();
 
-    if (allScenarios.length === 0) return things;
+    if (allScenarios.length === 0) return { things, scenarios: [] };
 
     const result = things.map((thing) => {
       const isPresentFalse = !thing.isPresent;
@@ -491,9 +493,9 @@ async function augmentThingsWithConcreteScenarios(
       };
     });
 
-    return result;
+    return { things: result, scenarios: allScenarios };
   } catch (error) {
     console.error("Error generating concrete scenarios:", error);
-    return things;
+    return { things, scenarios: [] };
   }
 }

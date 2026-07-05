@@ -87,6 +87,8 @@ export interface SeedInfo {
   extractedAt?: string;
   relevantFiles?: string[];
   coreSystemPrompt?: string;
+  /** Concrete user scenarios generated for debugging/display purposes */
+  concreteScenarios?: string[];
 }
 
 export interface AttackEntry {

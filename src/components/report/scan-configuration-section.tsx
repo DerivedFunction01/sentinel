@@ -199,34 +199,42 @@ export function ScanConfigurationSection({
                         </span>
                       </div>
                     )}
-                    {seed.businessCategories && seed.businessCategories.length > 0 && (
-                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                        <span className="text-muted-foreground">Categories</span>
-                        <div className="flex flex-wrap gap-1">
-                          {seed.businessCategories.map((cat: string, i: number) => (
-                            <Badge
-                              key={i}
-                              variant="outline"
-                              className="text-[10px] border-slate-700 text-slate-300 font-normal px-2 py-0"
-                            >
-                              {cat}
-                            </Badge>
-                          ))}
+                    {seed.businessCategories &&
+                      seed.businessCategories.length > 0 && (
+                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                          <span className="text-muted-foreground">
+                            Categories
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {seed.businessCategories.map(
+                              (cat: string, i: number) => (
+                                <Badge
+                                  key={i}
+                                  variant="outline"
+                                  className="text-[10px] border-slate-700 text-slate-300 font-normal px-2 py-0"
+                                >
+                                  {cat}
+                                </Badge>
+                              ),
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {seed.businessFeatures && seed.businessFeatures.length > 0 && (
-                      <div className="space-y-1.5 pt-1">
-                        <span className="text-muted-foreground block font-semibold text-[11px] uppercase tracking-wider">
-                          Features
-                        </span>
-                        <ul className="list-disc pl-4 space-y-1 text-foreground text-xs leading-relaxed">
-                          {seed.businessFeatures.map((feat: string, i: number) => (
-                            <li key={i}>{feat}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                      )}
+                    {seed.businessFeatures &&
+                      seed.businessFeatures.length > 0 && (
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-muted-foreground block font-semibold text-[11px] uppercase tracking-wider">
+                            Features
+                          </span>
+                          <ul className="list-disc pl-4 space-y-1 text-foreground text-xs leading-relaxed">
+                            {seed.businessFeatures.map(
+                              (feat: string, i: number) => (
+                                <li key={i}>{feat}</li>
+                              ),
+                            )}
+                          </ul>
+                        </div>
+                      )}
 
                     {seed.things &&
                       seed.things.map((t: any, idx: number) => (
@@ -245,27 +253,34 @@ export function ScanConfigurationSection({
                             )}
                           </div>
                           <div className="grid grid-cols-3 gap-2 text-xs">
-                            <span className="text-muted-foreground">Description</span>
+                            <span className="text-muted-foreground">
+                              Description
+                            </span>
                             <span className="text-foreground col-span-2">
                               {t.thingDescription}
                             </span>
 
-                            {t.thingNameVariants && t.thingNameVariants.length > 0 && (
-                              <>
-                                <span className="text-muted-foreground">Name Variants</span>
-                                <div className="flex flex-wrap gap-1 col-span-2">
-                                  {t.thingNameVariants.map((v: string, i: number) => (
-                                    <Badge
-                                      key={i}
-                                      variant="secondary"
-                                      className="text-[10px] bg-slate-900 border-slate-800 text-slate-300 font-normal px-2 py-0"
-                                    >
-                                      {v}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </>
-                            )}
+                            {t.thingNameVariants &&
+                              t.thingNameVariants.length > 0 && (
+                                <>
+                                  <span className="text-muted-foreground">
+                                    Name Variants
+                                  </span>
+                                  <div className="flex flex-wrap gap-1 col-span-2">
+                                    {t.thingNameVariants.map(
+                                      (v: string, i: number) => (
+                                        <Badge
+                                          key={i}
+                                          variant="secondary"
+                                          className="text-[10px] bg-slate-900 border-slate-800 text-slate-300 font-normal px-2 py-0"
+                                        >
+                                          {v}
+                                        </Badge>
+                                      ),
+                                    )}
+                                  </div>
+                                </>
+                              )}
 
                             {t.thingDescriptionVariants &&
                               t.thingDescriptionVariants.length > 0 && (
@@ -274,39 +289,50 @@ export function ScanConfigurationSection({
                                     Description Variants
                                   </span>
                                   <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
-                                    {t.thingDescriptionVariants.map((v: string, i: number) => (
-                                      <li key={i}>{v}</li>
-                                    ))}
+                                    {t.thingDescriptionVariants.map(
+                                      (v: string, i: number) => (
+                                        <li key={i}>{v}</li>
+                                      ),
+                                    )}
                                   </ul>
                                 </>
                               )}
 
                             {t.credentials && t.credentials.length > 0 && (
                               <>
-                                <span className="text-muted-foreground">Credentials</span>
+                                <span className="text-muted-foreground">
+                                  Credentials
+                                </span>
                                 <div className="flex flex-wrap gap-1 col-span-2">
-                                  {t.credentials.map((cred: string, i: number) => (
-                                    <code
-                                      key={i}
-                                      className="bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-[10px] text-amber-300 font-mono"
-                                    >
-                                      {cred}
-                                    </code>
-                                  ))}
+                                  {t.credentials.map(
+                                    (cred: string, i: number) => (
+                                      <code
+                                        key={i}
+                                        className="bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-[10px] text-amber-300 font-mono"
+                                      >
+                                        {cred}
+                                      </code>
+                                    ),
+                                  )}
                                 </div>
                               </>
                             )}
 
-                            {t.businessScenarios && t.businessScenarios.length > 0 && (
-                              <>
-                                <span className="text-muted-foreground">Scenarios</span>
-                                <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
-                                  {t.businessScenarios.slice(0, 3).map((v: string, i: number) => (
-                                    <li key={i}>{v}</li>
-                                  ))}
-                                </ul>
-                              </>
-                            )}
+                            {t.businessScenarios &&
+                              t.businessScenarios.length > 0 && (
+                                <>
+                                  <span className="text-muted-foreground">
+                                    Scenarios
+                                  </span>
+                                  <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
+                                    {t.businessScenarios
+                                      .slice(0, 3)
+                                      .map((v: string, i: number) => (
+                                        <li key={i}>{v}</li>
+                                      ))}
+                                  </ul>
+                                </>
+                              )}
                           </div>
                         </div>
                       ))}
@@ -321,6 +347,22 @@ export function ScanConfigurationSection({
                         </pre>
                       </div>
                     )}
+
+                    {seed.concreteScenarios &&
+                      seed.concreteScenarios.length > 0 && (
+                        <div className="col-span-3 border-t border-white/5 pt-3 mt-2 space-y-1.5">
+                          <span className="text-muted-foreground block font-semibold text-[11px] uppercase tracking-wider">
+                            Generated Concrete Scenarios
+                          </span>
+                          <ul className="list-disc pl-4 space-y-1 text-foreground text-xs leading-relaxed">
+                            {seed.concreteScenarios.map(
+                              (s: string, i: number) => (
+                                <li key={i}>{s}</li>
+                              ),
+                            )}
+                          </ul>
+                        </div>
+                      )}
                   </div>
                 </div>
               );
