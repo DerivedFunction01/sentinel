@@ -12,6 +12,8 @@ import {
   runSingleScanPipeline,
   RunSingleScanPipelineConfig,
 } from "@/lib/scan-pipeline";
+import fs from "fs";
+import path from "path";
 
 export async function POST(
   req: Request,
@@ -100,8 +102,39 @@ export async function POST(
         : {};
     } catch {}
 
+    // Import hold calculation utility and estimateTokens
+    const { calculateUpfrontScanHold, estimateTokens } = await import("@/lib/token-utils");
+
+    // Compute ontology token sizes (same as scan/launch route)
+    const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
+    const ontologyFiles = fs.readdirSync(ONTOLOGY_DIR).filter((f) => f.endsWith(".md"));
+    const ontologySizes: Record<string, number> = {};
+    for (const file of ontologyFiles) {
+      try {
+        const content = fs.readFileSync(path.join(ONTOLOGY_DIR, file), "utf-8");
+        const match = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/m);
+        const body = match ? match[1].trim() : content.trim();
+        ontologySizes[file] = estimateTokens(body);
+      } catch {
+        ontologySizes[file] = 0;
+      }
+    }
+    const domainFiles = Object.keys(ontologySizes).filter(
+      (f) => f !== "main_agent.md" && f !== "general_business.md" && ontologySizes[f] > 0,
+    );
+    const avgDomainTokens =
+      domainFiles.length > 0
+        ? Math.round(
+            domainFiles.reduce((sum, f) => sum + ontologySizes[f], 0) / domainFiles.length,
+          )
+        : 1000;
+    const templateTokens = {
+      mainAgentTokens: ontologySizes["main_agent.md"] || 100,
+      generalBusinessTokens: ontologySizes["general_business.md"] || 2000,
+      avgDomainTokens,
+    };
+
     // Calculate upfront hold tokens
-    const { calculateUpfrontScanHold } = await import("@/lib/token-utils");
     const upfrontHold = calculateUpfrontScanHold(
       [{ systemPrompt, forbiddenTask, judgeInstructions }],
       [deployment.targetModel],
@@ -112,6 +145,7 @@ export async function POST(
       true, // enableHardening is true for SDK/deployment runs
       hardenerModel,
       extractorModel,
+      templateTokens,
     );
 
     // Verify scan tokens
