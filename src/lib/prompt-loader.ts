@@ -43,7 +43,7 @@ export function getPromptFile(type: PromptFileType): string {
       const filePath = path.join(
         process.cwd(),
         "uploads",
-        "scan_prompts",
+        type.includes("/") ? "" : "scan_prompts/",
         type,
       );
       promptCache[type] = fs.readFileSync(filePath, "utf-8").trim();
