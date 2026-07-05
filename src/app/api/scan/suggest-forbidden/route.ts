@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth-utils";
 import { FALLBACK_DEFAULT_MODEL, type UsageTracker } from "@/lib/model-utils";
-import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
+import {
+  getCachedDbModels,
+  findDefaultModelFromCache,
+} from "@/lib/models-cache";
 import { db } from "@/lib/db";
 import { extractSeedInfo } from "@/lib/seed-extractor";
 
@@ -13,7 +16,7 @@ export async function POST(req: Request) {
 
   try {
     // Ensure cache is populated before synchronous fallback lookup
-    const dbModels = await getCachedDbModels(db) as any[];
+    const dbModels = (await getCachedDbModels(db)) as any[];
     const body = await req.json().catch(() => ({}));
     const {
       systemPrompt = "",
@@ -25,15 +28,23 @@ export async function POST(req: Request) {
 
     const { estimateTokens } = await import("@/lib/token-utils");
 
-    const extractor = dbModels.find(m => m.id === extractorModel);
+    const extractor = dbModels.find((m) => m.id === extractorModel);
     const extractorPrice = {
       prompt: parseFloat(extractor?.promptPrice || "0.0000001"),
       completion: parseFloat(extractor?.completionPrice || "0.0000004"),
     };
 
     const sysPromptTokens = estimateTokens(systemPrompt || "");
-    const basePromptTokens = sysPromptTokens + estimateTokens(forbiddenTask || "") + estimateTokens(tools || "");
-    const upfrontHold = Math.ceil((basePromptTokens * extractorPrice.prompt + 1000 * extractorPrice.completion) * 1000000 * 1.15);
+    const basePromptTokens =
+      sysPromptTokens +
+      estimateTokens(forbiddenTask || "") +
+      estimateTokens(tools || "");
+    const upfrontHold = Math.ceil(
+      (basePromptTokens * extractorPrice.prompt +
+        1000 * extractorPrice.completion) *
+        1000000 *
+        1.15,
+    );
 
     // Check user balance
     const userBefore = await db.user.findUnique({
@@ -77,15 +88,10 @@ export async function POST(req: Request) {
       data: { scanTokens: { increment: refund } },
     });
 
-    const vulnerabilities = Array.from(
-      new Set(seedInfo.things.flatMap((t) => t.vulnerabilities)),
-    );
-
     return NextResponse.json({
       success: true,
       seedInfo,
       things: seedInfo.things,
-      vulnerabilities,
       categories: seedInfo.businessCategories,
       scanTokensRemaining: userBefore.scanTokens - finalTokenCost,
     });

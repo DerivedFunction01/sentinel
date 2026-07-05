@@ -225,6 +225,7 @@ function cleanMockJson(mockJsonStr: string): string {
 /**
  * Step 2: Rich Seed and Restriction Extraction
  * Uses loaded ontologies and the system prompt/tools to extract structured seed information.
+ * If coreSystemPrompt is provided, it will be used instead of extracting it.
  */
 export async function extractSeedInfo(
   extractorModel: string,
@@ -233,6 +234,7 @@ export async function extractSeedInfo(
   mockJson: string,
   forbiddenTask?: string,
   tracker?: UsageTracker,
+  coreSystemPrompt?: string,
 ): Promise<SeedInfo> {
   const cleanedMockJson = cleanMockJson(mockJson);
 
@@ -321,12 +323,16 @@ export async function extractSeedInfo(
     META_SECTIONS: metaText,
   });
 
+  // Use the core sanitized prompt (computed after try block resolves)
+  // This saves tokens by sending a compacted prompt instead of the full defensive one
+  const promptForExtraction = coreSystemPrompt ?? systemPrompt;
+
   const userPromptExtractor = `<target_forbidden_tasks>
 ${targetTasks.map((t) => `- ${t}`).join("\n")}
 </target_forbidden_tasks>
 
   <system_prompt>
-  ${systemPrompt}
+  ${promptForExtraction}
   </system_prompt>
 
   <tools>
@@ -372,23 +378,11 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
       Array.isArray(parsed.things) ? parsed.things : []
     ).filter((t: any) => t.isPresent !== false && t.isPresent !== "false");
 
-    // 5. Extract Core System Prompt for the Judge
-    let coreSystemPrompt = systemPrompt;
-    try {
-      coreSystemPrompt = await extractCoreSystemPrompt(
-        extractorModel,
-        systemPrompt,
-        tracker,
-      );
-    } catch (err) {
-      console.error("Failed to extract core system prompt:", err);
-    }
-
     // Augment scenarios with concrete, generated user queries
     const thingsWithScenarios = await augmentThingsWithConcreteScenarios(
       things,
       extractorModel,
-      coreSystemPrompt,
+      promptForExtraction,
       tracker,
     );
 
@@ -403,7 +397,7 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
       extractorModel,
       extractedAt: new Date().toISOString(),
       relevantFiles,
-      coreSystemPrompt,
+      coreSystemPrompt: promptForExtraction,
       // concreteScenarios are now on each thing, not top-level
     };
   } catch (error) {
@@ -413,7 +407,7 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
       extractorModel,
       extractedAt: new Date().toISOString(),
       relevantFiles,
-      coreSystemPrompt: systemPrompt,
+      coreSystemPrompt: coreSystemPrompt ?? systemPrompt,
     };
   }
 }

@@ -810,21 +810,20 @@ export async function generateToolRecommendation(
     // Derive tool requirements from seed extraction (zero LLM cost)
     const { toolRequirements, mockPolicy } = deriveToolRequirements(metadata, forbiddenTask);
 
-    // Step 1: Retrieve inspiration examples from DB with full business context
-    const targetThing = metadata.seedExtraction?.things?.find(
-      (t: any) => t.forbiddenTask === forbiddenTask
-    ) || ({
-      forbiddenTask,
-      thingName: "",
-      thingDescription: "",
-      thingNameVariants: [],
-      thingDescriptionVariants: [],
-      vulnerabilities: [],
-      credentials: [],
-      businessScenarios: [],
-      ontologySection: undefined,
-      isPresent: true
-    } as RestrictionThing);
+     // Step 1: Retrieve inspiration examples from DB with full business context
+     const targetThing = metadata.seedExtraction?.things?.find(
+       (t: any) => t.forbiddenTask === forbiddenTask
+     ) || ({
+       forbiddenTask,
+       thingName: "",
+       thingDescription: "",
+       thingNameVariants: [],
+       thingDescriptionVariants: [],
+       credentials: [],
+       businessScenarios: [],
+       ontologySection: undefined,
+       isPresent: true
+     } as RestrictionThing);
 
     const examples =
       inspirationExamples ??

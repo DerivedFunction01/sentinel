@@ -33,7 +33,7 @@ import {
   getJudgeEvaluationFixedPrefix,
   buildJudgeEvaluationSuffix,
 } from "@/lib/scan-prompts";
-import { extractSeedInfo } from "@/lib/seed-extractor";
+import { extractSeedInfo, extractCoreSystemPrompt } from "@/lib/seed-extractor";
 import {
   ToolDef,
   Trial,
@@ -165,6 +165,19 @@ export async function generateAttackSet(
   // Adjust this constant to control retries: value of 1 = no retry, 2 = one retry, etc.
   const MAX_SEED_RETRIES = 2;
 
+  // Step 0: Extract core system prompt first (saves tokens for seed extraction + concrete scenarios)
+  // This strips defensive boilerplate before analyzing the prompt
+  let coreSystemPrompt = systemPrompt;
+  try {
+    coreSystemPrompt = await extractCoreSystemPrompt(
+      options.seedExtractorModel,
+      systemPrompt,
+      tracker,
+    );
+  } catch (err) {
+    console.warn("Core system prompt extraction failed, using original:", err);
+  }
+
   // Step 1: Seed extraction with retry loop
   const hasCachedSeed = !!options.cachedSeedInfo;
   let seedInfo: SeedInfo | null = null;
@@ -174,15 +187,16 @@ export async function generateAttackSet(
     seedInfo = options.cachedSeedInfo!;
   } else {
     for (let attempt = 1; attempt <= MAX_SEED_RETRIES; attempt++) {
-      try {
-        seedInfo = await extractSeedInfo(
-          options.seedExtractorModel,
-          systemPrompt,
-          toolsJson,
-          mockJson,
-          options.forbiddenTask,
-          tracker,
-        );
+       try {
+         seedInfo = await extractSeedInfo(
+           options.seedExtractorModel,
+           systemPrompt,
+           toolsJson,
+           mockJson,
+           options.forbiddenTask,
+           tracker,
+           coreSystemPrompt,
+         );
       } catch (err) {
         lastSeedError = (err as Error).message;
         console.warn(

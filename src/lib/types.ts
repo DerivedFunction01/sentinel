@@ -70,7 +70,6 @@ export interface RestrictionThing {
   thingDescription: string;
   thingNameVariants: string[];
   thingDescriptionVariants: string[];
-  vulnerabilities: string[];
   credentials: string[];
   businessScenarios: string[];
   ontologySection?: string;

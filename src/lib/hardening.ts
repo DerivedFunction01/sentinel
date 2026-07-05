@@ -112,22 +112,21 @@ export async function generateHardenedPrompt(
     );
 
     // Step 2: Get inspiration examples from the database
-    const targetThing =
-      metadata.seedExtraction?.things?.find(
-        (t: any) => t.forbiddenTask === forbiddenTask,
-      ) ||
-      ({
-        forbiddenTask,
-        thingName: "",
-        thingDescription: "",
-        thingNameVariants: [],
-        thingDescriptionVariants: [],
-        vulnerabilities: [],
-        credentials: [],
-        businessScenarios: [],
-        ontologySection: undefined,
-        isPresent: true,
-      } as RestrictionThing);
+     const targetThing =
+       metadata.seedExtraction?.things?.find(
+         (t: any) => t.forbiddenTask === forbiddenTask,
+       ) ||
+       ({
+         forbiddenTask,
+         thingName: "",
+         thingDescription: "",
+         thingNameVariants: [],
+         thingDescriptionVariants: [],
+         credentials: [],
+         businessScenarios: [],
+         ontologySection: undefined,
+         isPresent: true,
+       } as RestrictionThing);
     inspirationExamples = await retrieveInspirationExamples(
       targetThing,
       extractorModel,
