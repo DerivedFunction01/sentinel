@@ -16,7 +16,7 @@ import {
   RestrictionThing,
   ToolRecommendationItem,
 } from "@/lib/types";
-import { Granularity } from "./enums";
+import { Granularity, RestrictionBehavior } from "./enums";
 import {
   retrieveInspirationExamples,
   formatInspirationExamplesBlock,
@@ -319,6 +319,8 @@ function createDefaultThing(forbiddenTask: string): RestrictionThing {
     thingDescriptionVariants: [],
     credentials: [],
     businessScenarios: [],
+    ontologySection: undefined,
     isPresent: true,
+    behaviorType: RestrictionBehavior.TOOL_HANDOFF,
   };
 }

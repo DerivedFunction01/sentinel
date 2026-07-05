@@ -11,7 +11,7 @@
  */
 import { db } from "@/lib/db";
 import { callOpenRouter, type UsageTracker } from "@/lib/model-utils";
-import { Granularity } from "./enums";
+import { Granularity, RestrictionBehavior } from "./enums";
 import {
   type ToolDef,
   type HardeningTrace,
@@ -267,7 +267,20 @@ export async function generateToolRecommendationFast(
         credentials: [],
         businessScenarios: [],
         isPresent: true,
+        behaviorType: RestrictionBehavior.HARD_REFUSAL,
       } as RestrictionThing);
+
+    // Skip tool generation for non-tool-gated restrictions
+    if (
+      targetThing.behaviorType === RestrictionBehavior.HARD_REFUSAL ||
+      targetThing.behaviorType === RestrictionBehavior.DISCLAIMER_APPEND
+    ) {
+      return {
+        toolRecommendation: null,
+        compatibilityScore: null,
+        fastPathHit: true,
+      };
+    }
 
     // ── Step 1: Get inspiration examples ─────────────────────────────────
     const examples =

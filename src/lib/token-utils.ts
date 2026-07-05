@@ -98,6 +98,12 @@ export function calculateUpfrontScanHold(
   const generateConcreteScenariosTokens = estimateTokens(
     getPromptFile(PromptFileType.GenerateConcreteScenarios),
   );
+  const classifyDomainTokens = estimateTokens(
+    getPromptFile(PromptFileType.ClassifyDomain),
+  );
+  const classifyRestrictionsTokens = estimateTokens(
+    getPromptFile(PromptFileType.ClassifyRestrictions),
+  );
   const attackGeneratorTokens = estimateTokens(
     getPromptFile(PromptFileType.AttackGenerator),
   );
@@ -153,7 +159,9 @@ export function calculateUpfrontScanHold(
       systemPromptExtractorTokens +
       suggestForbiddenTokens +
       extractSeedInfoTokens +
-      generateConcreteScenariosTokens;
+      generateConcreteScenariosTokens +
+      classifyDomainTokens +
+      classifyRestrictionsTokens;
     const seedHold =
       (basePromptTokens + seedExtractorTemplateTokens + ontologyContentTokens) * seedPrice.prompt +
       1500 * seedPrice.completion;

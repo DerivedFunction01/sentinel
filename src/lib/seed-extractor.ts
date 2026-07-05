@@ -13,6 +13,7 @@ import {
   replacePlaceholders,
 } from "@/lib/prompt-loader";
 import { extractTaggedContent } from "@/lib/model-utils";
+import { RestrictionBehavior } from "./enums";
 
 const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
 
@@ -87,19 +88,10 @@ async function classifyDomain(
       }
     }
 
-    const systemMessage = `You are a security architect. Your task is to analyze an AI agent's system prompt and tools to select the most relevant policy ontology files from the available list.
-    
-    The policy sections listed next to each file are semantic hints. Use these hints to identify which ontology files align with the topics or functionalities mentioned in the agent's prompt (e.g. if the prompt mentions 'loyalty points' or 'discounts', select 'commerce.md').
-
-    Available ontology files:
-    ${filesWithSections.join("\n")}
-
-    Rules:
-    - "main_agent.md" is ALWAYS loaded by default (do not select it).
-    - If the agent performs commercial, corporate, customer service, sales, or business operations, include "general_business.md" in your relevantFiles.
-    - Select any other domain-specific files that apply (e.g., "hiring.md" for recruitment/admissions, "medical.md" for clinical/health support, "law_enforcement.md" for investigations, etc.) based on the matching topics/sections.
-
-    Return ONLY a raw JSON object with key "relevantFiles" (array of filenames from the list above). Do not include markdown wraps or preambles.`;
+    const template = getPromptFile(PromptFileType.ClassifyDomain);
+    const systemMessage = replacePlaceholders(template, {
+      FILES_WITH_SECTIONS: filesWithSections.join("\n"),
+    });
 
     const userMessage = `<system_prompt>\n${systemPrompt}\n</system_prompt>\n\n<tools>\n${toolsJson}\n</tools>`;
 
@@ -196,6 +188,87 @@ export async function extractCoreSystemPrompt(
 
   let text = (response.content || "").trim();
   return parseReasoningAndOutput(text);
+}
+
+/**
+ * Classify each restriction's behaviorType using an LLM call.
+ * Returns the restrictions with behaviorType populated.
+ */
+export async function classifyRestrictions(
+  extractorModel: string,
+  restrictions: RestrictionThing[],
+  coreSystemPrompt: string,
+  tracker?: UsageTracker,
+): Promise<RestrictionThing[]> {
+  if (!restrictions || restrictions.length === 0) return restrictions;
+
+  const template = getPromptFile(PromptFileType.ClassifyRestrictions);
+
+  const restrictionsJson = JSON.stringify(
+    restrictions.map((r) => ({
+      forbiddenTask: r.forbiddenTask,
+      thingName: r.thingName,
+      thingDescription: r.thingDescription,
+    })),
+    null,
+    2,
+  );
+
+  const systemMessage = replacePlaceholders(template, {
+    RESTRICTIONS_JSON: restrictionsJson,
+  });
+
+  const userMessage = `<core_system_prompt>\n${coreSystemPrompt}\n</core_system_prompt>
+
+Classify each restriction in the JSON array above. Return ONLY the JSON array with behaviorType added to each object.`;
+
+  try {
+    const response = await callOpenRouter(
+      extractorModel,
+      [
+        { role: "system", content: systemMessage },
+        { role: "user", content: userMessage },
+      ],
+      undefined,
+      tracker,
+    );
+
+    const text = (response.content || "").trim();
+    const cleaned = text
+      .replace(/```json/gi, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const parsed = JSON.parse(cleaned);
+    const classified: Array<{
+      forbiddenTask: string;
+      thingName: string;
+      behaviorType: string;
+    }> = Array.isArray(parsed) ? parsed : [];
+
+    // Map classification results back to the original restrictions
+    const result = restrictions.map((r) => {
+      const cls = classified.find(
+        (c) =>
+          c.forbiddenTask === r.forbiddenTask && c.thingName === r.thingName,
+      );
+      if (cls && isValidBehaviorType(cls.behaviorType)) {
+        return { ...r, behaviorType: cls.behaviorType as RestrictionBehavior };
+      }
+      return r;
+    });
+
+    return result;
+  } catch (error) {
+    console.error("Error classifying restrictions:", error);
+    return restrictions;
+  }
+}
+
+function isValidBehaviorType(value: string): boolean {
+  return Object.values(RestrictionBehavior).includes(
+    value as RestrictionBehavior,
+  );
 }
 
 function cleanMockJson(mockJsonStr: string): string {
@@ -386,8 +459,16 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
       tracker,
     );
 
+    // Classify each restriction's behaviorType for downstream hardening
+    const classifiedThings = await classifyRestrictions(
+      extractorModel,
+      thingsWithScenarios,
+      promptForExtraction,
+      tracker,
+    );
+
     return {
-      things: thingsWithScenarios,
+      things: classifiedThings,
       personaDescription:
         parsed.personaDescription || defaultSeed.personaDescription,
       businessFeatures: parsed.businessFeatures || defaultSeed.businessFeatures,

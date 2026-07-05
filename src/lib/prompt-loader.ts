@@ -15,6 +15,8 @@ export enum PromptFileType {
   SearchQueryGenerator = "inspiration_prompts/search_query_generator.md",
   ScoringEvaluator = "inspiration_prompts/scoring_evaluator.md",
   GenerateConcreteScenarios = "generate_concrete_scenarios.md",
+  ClassifyRestrictions = "classify_restriction.md",
+  ClassifyDomain = "classify_domain.md",
 }
 
 const promptCache: Record<PromptFileType, string | null> = {
@@ -31,6 +33,8 @@ const promptCache: Record<PromptFileType, string | null> = {
   [PromptFileType.SearchQueryGenerator]: null,
   [PromptFileType.ScoringEvaluator]: null,
   [PromptFileType.GenerateConcreteScenarios]: null,
+  [PromptFileType.ClassifyRestrictions]: null,
+  [PromptFileType.ClassifyDomain]: null,
 };
 
 export function getPromptFile(type: PromptFileType): string {

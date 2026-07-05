@@ -143,8 +143,12 @@ export function formatModelName(modelId: string): string {
   const formattedProvider = provider
     .split("-")
     .map((word) => {
-      if (word.toLowerCase() === "openai") return "OpenAI";
-      if (word.toLowerCase() === "gpt") return "GPT";
+      const lowerWord = word.toLowerCase();
+      if (lowerWord === "openai") return "OpenAI";
+      if (lowerWord === "gpt") return "GPT";
+      if (lowerWord === "ai") return "AI";
+      // Fixes "mistralai" -> "Mistral AI"
+      if (lowerWord === "mistralai") return "Mistral AI";
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(" ");
@@ -152,8 +156,17 @@ export function formatModelName(modelId: string): string {
   const formattedModel = modelName
     .split("-")
     .map((word) => {
-      if (word.toLowerCase() === "gpt") return "GPT";
-      if (word.toLowerCase() === "llm") return "LLM";
+      const lowerWord = word.toLowerCase();
+      if (lowerWord === "gpt") return "GPT";
+      if (lowerWord === "llm") return "LLM";
+      if (lowerWord === "ai") return "AI";
+
+      // Dynamic fix: If a word ends with "ai" but isn't JUST "ai" (e.g., "mistralai")
+      if (lowerWord.endsWith("ai") && lowerWord.length > 2) {
+        const base = lowerWord.slice(0, -2);
+        return base.charAt(0).toUpperCase() + base.slice(1) + " AI";
+      }
+
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(" ");
@@ -170,4 +183,23 @@ export enum CredentialMode {
   FICTIONAL = "fictional",
   EXACT = "exact",
   NULL = "null",
+}
+
+/**
+ * Restriction behavior classification — determines how a restriction is enforced.
+ *
+ *   HARD_REFUSAL       — Direct conversational shut-down (no tool needed)
+ *   HARD_REDIRECT      — Out-routing to URLs, emails, or static destinations
+ *   TOOL_HANDOFF       — Halting generation and passing context to an external backend tool
+ *   COMPLEX_PIPELINE    — Multi-step validation, sequence checking, or context parsing
+ *   DISCLAIMER_APPEND  — Appending/prepending a static legal, clinical, or corporate disclaimer
+ *   ALLOWED_BOUNDARIES — Nuanced rule defining explicit trigger vs. exclusion conditions
+ */
+export enum RestrictionBehavior {
+  HARD_REFUSAL = "hard_refusal",
+  HARD_REDIRECT = "hard_redirect",
+  TOOL_HANDOFF = "tool_handoff",
+  COMPLEX_PIPELINE = "complex_pipeline",
+  DISCLAIMER_APPEND = "disclaimer_append",
+  ALLOWED_BOUNDARIES = "allowed_boundaries",
 }

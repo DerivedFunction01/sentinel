@@ -10,7 +10,7 @@ import {
   ScanMetadata,
   RestrictionThing,
 } from "./types";
-import { Granularity } from "./enums";
+import { Granularity, RestrictionBehavior } from "./enums";
 
 import {
   retrieveInspirationExamples,
@@ -164,7 +164,12 @@ export function parseFrontmatter(content: string): {
 } {
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/m);
   if (!match)
-    return { title: "", description: "", businessCategory: "", body: content.trim() };
+    return {
+      title: "",
+      description: "",
+      businessCategory: "",
+      body: content.trim(),
+    };
 
   const meta = match[1];
   const body = match[2].trim();
@@ -224,8 +229,6 @@ export function loadPatternPages(): {
 
   return { pages, byTitle, bySlug };
 }
-
-
 
 /**
  * Derive tool requirements from seed extraction things.
@@ -326,7 +329,12 @@ export async function selectMockResponseByPolicy(
   businessFeatures?: string[],
   tracker?: any,
 ): Promise<{ mockResponse: Record<string, any>; rationale: string }> {
-  const prompt = buildMockResponsePrompt(thingName, thingDescription, forbiddenTask, businessFeatures);
+  const prompt = buildMockResponsePrompt(
+    thingName,
+    thingDescription,
+    forbiddenTask,
+    businessFeatures,
+  );
 
   try {
     const response = await callOpenRouter(
@@ -342,7 +350,9 @@ export async function selectMockResponseByPolicy(
       .trim();
 
     const parsed = JSON.parse(cleaned);
-    const rationale: string = parsed.rationale || `Mock response adapted for restriction: ${forbiddenTask}`;
+    const rationale: string =
+      parsed.rationale ||
+      `Mock response adapted for restriction: ${forbiddenTask}`;
     const mockResponse: Record<string, any> = parsed.mockResponse || {};
 
     // Validate the mock response has at minimum a status field
@@ -808,22 +818,28 @@ export async function generateToolRecommendation(
 }> {
   try {
     // Derive tool requirements from seed extraction (zero LLM cost)
-    const { toolRequirements, mockPolicy } = deriveToolRequirements(metadata, forbiddenTask);
+    const { toolRequirements, mockPolicy } = deriveToolRequirements(
+      metadata,
+      forbiddenTask,
+    );
 
-     // Step 1: Retrieve inspiration examples from DB with full business context
-     const targetThing = metadata.seedExtraction?.things?.find(
-       (t: any) => t.forbiddenTask === forbiddenTask
-     ) || ({
-       forbiddenTask,
-       thingName: "",
-       thingDescription: "",
-       thingNameVariants: [],
-       thingDescriptionVariants: [],
-       credentials: [],
-       businessScenarios: [],
-       ontologySection: undefined,
-       isPresent: true
-     } as RestrictionThing);
+    // Step 1: Retrieve inspiration examples from DB with full business context
+    const targetThing =
+      metadata.seedExtraction?.things?.find(
+        (t: any) => t.forbiddenTask === forbiddenTask,
+      ) ||
+      ({
+        forbiddenTask,
+        thingName: "",
+        thingDescription: "",
+        thingNameVariants: [],
+        thingDescriptionVariants: [],
+        credentials: [],
+        businessScenarios: [],
+        ontologySection: undefined,
+        isPresent: true,
+        behaviorType: RestrictionBehavior.TOOL_HANDOFF,
+      } as RestrictionThing);
 
     const examples =
       inspirationExamples ??
@@ -867,7 +883,9 @@ export async function generateToolRecommendation(
 
         // Check if this tool already exists (old/edited classification)
         const existingTool = existingTools?.find(
-          (t) => t.function.name === match.name || t.function.name === match.overlap?.replaceExisting,
+          (t) =>
+            t.function.name === match.name ||
+            t.function.name === match.overlap?.replaceExisting,
         );
         if (existingTool) {
           // Compare schemas — identical tool, no changes needed → skip
@@ -895,14 +913,15 @@ export async function generateToolRecommendation(
         }
 
         // NEW tool: adapt mock response based on policy restriction
-        const { mockResponse: adaptedMock, rationale: mockRationale } = await selectMockResponseByPolicy(
-          match.name,
-          match.description || match.rationale || "",
-          forbiddenTask,
-          extractorModel,
-          businessFeatures,
-          tracker,
-        );
+        const { mockResponse: adaptedMock, rationale: mockRationale } =
+          await selectMockResponseByPolicy(
+            match.name,
+            match.description || match.rationale || "",
+            forbiddenTask,
+            extractorModel,
+            businessFeatures,
+            tracker,
+          );
         mockResponse = adaptedMock;
 
         const score = Math.round(
@@ -1154,6 +1173,10 @@ export async function generateToolRecommendation(
       "Error during generateToolRecommendation pipeline execution:",
       err,
     );
-    return { toolRecommendation: null, compatibilityScore: null, slowPathHit: false };
+    return {
+      toolRecommendation: null,
+      compatibilityScore: null,
+      slowPathHit: false,
+    };
   }
 }
