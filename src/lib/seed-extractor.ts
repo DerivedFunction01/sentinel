@@ -388,6 +388,7 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
     const thingsWithScenarios = await augmentThingsWithConcreteScenarios(
       things,
       extractorModel,
+      coreSystemPrompt,
       tracker,
     );
 
@@ -423,6 +424,7 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
 async function augmentThingsWithConcreteScenarios(
   things: RestrictionThing[],
   extractorModel: string,
+  coreSystemPrompt: string,
   tracker?: UsageTracker,
 ): Promise<RestrictionThing[]> {
   if (!things || things.length === 0) return things;
@@ -440,10 +442,15 @@ async function augmentThingsWithConcreteScenarios(
   const template = getPromptFile(PromptFileType.GenerateConcreteScenarios);
   const targetsJson = JSON.stringify(targets, null, 2);
 
+  const promptContent = replacePlaceholders(template, {
+    CORE_SYSTEM_PROMPT: coreSystemPrompt,
+    TARGETS_JSON: targetsJson,
+  });
+
   const messages = [
     {
       role: "user",
-      content: template.replace("{{TARGETS_JSON}}", targetsJson),
+      content: promptContent,
     },
   ];
 
