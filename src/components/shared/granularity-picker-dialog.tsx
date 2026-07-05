@@ -19,6 +19,7 @@ import {
   getMostUsedModelForRole,
   ModelSelectorRole,
 } from "@/lib/model-utils";
+import { useModelsCache } from "@/hooks/use-models-cache";
 
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,6 +47,7 @@ export function GranularityPickerDialog({
   defaultGranularity = Granularity.Compact,
   defaultExtractorModel,
 }: GranularityPickerDialogProps) {
+  const { models: allModels, loading: modelsLoading } = useModelsCache();
   const [serverDefaultModel, setServerDefaultModel] = useState<string | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -59,12 +61,22 @@ export function GranularityPickerDialog({
       .catch(() => {});
   }, []);
 
-  const resolvedHardener = hasMounted
-    ? defaultHardenerModel || getMostUsedModelForRole(ModelSelectorRole.Hardener, serverDefaultModel || FALLBACK_DEFAULT_MODEL)
+  const modelsReady = hasMounted && !modelsLoading && allModels.length > 0;
+
+  const resolvedHardener = modelsReady
+    ? (() => {
+        const candidate = defaultHardenerModel ||
+          getMostUsedModelForRole(ModelSelectorRole.Hardener, serverDefaultModel || FALLBACK_DEFAULT_MODEL);
+        return allModels.some((m) => m.id === candidate) ? candidate : FALLBACK_DEFAULT_MODEL;
+      })()
     : FALLBACK_DEFAULT_MODEL;
 
-  const resolvedExtractor = hasMounted
-    ? defaultExtractorModel || getMostUsedModelForRole(ModelSelectorRole.ToolExtractor, serverDefaultModel || FALLBACK_DEFAULT_MODEL)
+  const resolvedExtractor = modelsReady
+    ? (() => {
+        const candidate = defaultExtractorModel ||
+          getMostUsedModelForRole(ModelSelectorRole.ToolExtractor, serverDefaultModel || FALLBACK_DEFAULT_MODEL);
+        return allModels.some((m) => m.id === candidate) ? candidate : FALLBACK_DEFAULT_MODEL;
+      })()
     : FALLBACK_DEFAULT_MODEL;
 
   const [hardenerModel, setHardenerModel] = useState<string>(resolvedHardener);
