@@ -517,7 +517,7 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
                 const checked = selectedExportPrompts.includes(hp.modelId);
                 return (
                   <label
-                    key={hp.modelId}
+                    key={hp.id}
                     className="flex items-center gap-3 p-3 rounded-lg border border-slate-800 bg-slate-950/40 hover:bg-slate-950/60 cursor-pointer transition-colors"
                   >
                     <input
