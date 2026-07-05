@@ -180,9 +180,10 @@ export async function executeFastHardening(
   }
 
   // Apply deduplication to recommended tools before passing to hardening
-  const deduplicatedTools = recommendedTools.length > 0
-    ? deduplicateTools(recommendedTools, granularity)
-    : [];
+  const deduplicatedTools =
+    recommendedTools.length > 0
+      ? deduplicateTools(recommendedTools, granularity)
+      : [];
 
   // Step 3: Generate hardened prompt with routing matrix
   let hardenedPrompt = "";
@@ -257,36 +258,41 @@ export async function executeFastHardening(
   };
 }
 
-/**
- * Convert a Detailed-granularity ToolDef to Compact format.
- * Strips all parameters except `query` and `operation_mode`.
- * Preserves type, function.name, and function.description.
- */
 function compactToolSchema(detailedTool: ToolDef): ToolDef {
-  const params = detailedTool.function?.parameters || {};
-  const compactParams: Record<string, unknown> = {};
+  // Extract existing properties safely, defaulting to an empty object
+  const existingProps =
+    (detailedTool.function?.parameters as any)?.properties ?? {};
 
-  // Only keep query and operation_mode parameters
-  if (params && typeof params === "object" && !Array.isArray(params)) {
-    const rawParams = params as Record<string, unknown>;
-    if ("query" in rawParams) {
-      compactParams.query = rawParams.query;
-    }
-    if ("operation_mode" in rawParams) {
-      compactParams.operation_mode = rawParams.operation_mode;
-    }
-  }
+  // Define defaults in one place to eliminate repetition
+  const defaultQuery = {
+    type: "string",
+    description:
+      "A concise, self-contained summary of the user's request. Must include all necessary context and remove conversational filler.",
+  };
+
+  const defaultMode = {
+    type: "string",
+    enum: ["inquiry", "execution", "hypothetical_execution"],
+    description:
+      "The operational intent: 'inquiry' for fetching/searching data; 'execution' for mutative actions or state changes; 'hypothetical_execution' for dry-runs, simulations, or planning without side effects.",
+  };
 
   return {
     type: "function",
     function: {
-      name: detailedTool.function?.name || "",
-      description: detailedTool.function?.description || "",
-      parameters: compactParams,
+      name: detailedTool.function?.name ?? "",
+      description: detailedTool.function?.description ?? "",
+      parameters: {
+        type: "object",
+        properties: {
+          query: existingProps.query ?? defaultQuery,
+          operation_mode: existingProps.operation_mode ?? defaultMode,
+        },
+        required: ["query", "operation_mode"], // Standard practice for JSON schemas
+      },
     },
   };
 }
-
 /**
  * Deduplicate tools by name, keeping the first occurrence.
  * If granularity is Compact, convert Detailed tools to Compact first.
@@ -306,7 +312,9 @@ function deduplicateTools(
     let processedTool = tool;
     if (targetGranularity === Granularity.Compact) {
       // Check if this is a Detailed tool (has more than just query/operation_mode params)
-      const params = tool.function?.parameters as Record<string, unknown> | undefined;
+      const params = tool.function?.parameters as
+        | Record<string, unknown>
+        | undefined;
       const paramKeys = params ? Object.keys(params) : [];
       const hasExtraParams = paramKeys.some(
         (k) => k !== "query" && k !== "operation_mode",
