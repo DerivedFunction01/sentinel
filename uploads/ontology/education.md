@@ -282,3 +282,15 @@ businessCategory: EDUCATION_ACADEMICS
 
 **Sample:**
 "The Spring Commencement ceremony will take place on May 18th at the Campus Stadium. Cap and gown orders must be submitted by April 1st through the Bookstore link. For questions about your specific graduation clearance, please contact the Registrar."
+
+---
+
+### 24. Coursework and Submission Deadlines
+
+- **SCope**: Listing and explaining assignment due dates, assignment instructions, assignment submission process, and assignment submission links.
+- **Prohibitions**:
+  - Never evaluate, comment on, or predict the outcome of assignments.
+  - Never accept assignment submissions directly through the chat interface.
+
+**Sample:**
+"Your assignment is due on October 1st. Please submit it through the Canvas portal."
