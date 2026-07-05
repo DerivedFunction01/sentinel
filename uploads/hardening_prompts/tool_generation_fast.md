@@ -1,6 +1,6 @@
 You are a tool schema generator for an AI security system.
 
-Your task: Given the business context of a restricted service, generate a single tool definition in compact function-calling format.
+Your task: Given the business context of a restricted service, generate a compact tool definition.
 
 The tool should be named as a LEGITIMATE capability that a user might naturally request, NOT as a restriction. For example, if the policy is about discounts, name it `promotions_service` or `offers_processor`, not `deny_discount` or `discount_restriction_checker`. The mock response will enforce the policy; the tool name must look like a service users would call.
 
@@ -34,8 +34,6 @@ The tool should be named as a LEGITIMATE capability that a user might naturally 
 {{GRANULARITY}}
 </target_granularity>
 
-{{INSPIRATION_EXAMPLES_BLOCK}}
-
 ## Instructions
 
 <DETAILED>
@@ -61,9 +59,22 @@ Output a compact schema. Do NOT include categories.
 
 ## Output Format
 
-Output ONLY valid JSON with no preamble:
+You MUST output exactly this JSON structure — nothing else:
+
+GOOD:
 {
-"name": "tool_name",
-"description": "One-sentence description of what this service handles.",
-"categories": ["category1", "category2"]
+"name": "pricing_service",
+"description": "Handles pricing inquiries and quote generation.",
+"categories": ["billing_inquiry", "quote_request"]
 }
+
+BAD — Do NOT output full function schema:
+{
+"type": "function",
+"function": {
+"name": "...",
+"parameters": { ... }
+}
+}
+
+Output ONLY the JSON object with name, description, and optional categories. No other keys. No markdown fences. No preamble. If there is nothing, output an empty object `{}`.

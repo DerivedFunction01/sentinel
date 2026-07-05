@@ -24,7 +24,11 @@ import {
   type InspirationExample,
 } from "@/lib/inspiration-retriever";
 import { deriveToolRequirements } from "@/lib/tool-extractor";
-import { loadPromptFile, replacePlaceholders, processTemplateConditions } from "@/lib/prompt-loader";
+import {
+  loadPromptFile,
+  replacePlaceholders,
+  processTemplateConditions,
+} from "@/lib/prompt-loader";
 
 // ── Output types ─────────────────────────────────────────────────────────────────
 
@@ -144,7 +148,6 @@ async function generateToolFromInspiration(
   thing: RestrictionThing,
   granularity: Granularity,
   extractorModel: string,
-  inspirationExamplesBlock: string,
   tracker?: UsageTracker,
 ): Promise<{
   toolJson: ToolDef;
@@ -167,9 +170,6 @@ async function generateToolFromInspiration(
     BUSINESS_SCENARIOS: (thing.businessScenarios || []).join("\n") || "(none)",
     CONCRETE_SCENARIOS: (thing.concreteScenarios || []).join("\n") || "(none)",
     GRANULARITY: granularity,
-    INSPIRATION_EXAMPLES_BLOCK: inspirationExamplesBlock
-      ? `## Reference Inspiration Examples\n\nUse these as style guidance for the tool schema format:\n\n${inspirationExamplesBlock}`
-      : "",
   });
 
   try {
@@ -305,7 +305,6 @@ export async function generateToolRecommendationFast(
       targetThing,
       granularity,
       extractorModel,
-      inspirationExamplesBlock,
       tracker,
     );
 
