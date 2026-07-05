@@ -289,6 +289,7 @@ export async function generateAttackSet(
 
       const thingSeedInfo: any = {
         ...seedInfo,
+        things: [thing],
         thingName: thing.thingName,
         thingDescription: thing.thingDescription,
         thingNameVariants: thing.thingNameVariants,
