@@ -2,16 +2,15 @@ import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth-utils";
 import { db } from "@/lib/db";
 import { RiskLevel, ScanStatus } from "@/lib/enums";
-import { findDefaultModel, UsageTracker } from "@/lib/model-utils";
+import { findDefaultModel } from "@/lib/model-utils";
 import { getCachedDbModels } from "@/lib/models-cache";
 import { type ToolDef, type SeedInfo } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
 import {
-  generateAttackSet,
   generateReportId,
   generateBatchId,
-  runSingleScanPipeline,
-  RunSingleScanPipelineConfig,
+  RunScanWithGenerationConfig,
+  launchScanWorker,
 } from "@/lib/scan-pipeline";
 import fs from "fs";
 import path from "path";
@@ -136,8 +135,8 @@ export async function POST(req: Request) {
     try {
       const content = fs.readFileSync(path.join(ONTOLOGY_DIR, file), "utf-8");
       const match = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/m);
-      const body = match ? match[1].trim() : content.trim();
-      ontologySizes[file] = estimateTokens(body);
+      const fileBody = match ? match[1].trim() : content.trim();
+      ontologySizes[file] = estimateTokens(fileBody);
     } catch {
       ontologySizes[file] = 0;
     }
@@ -187,94 +186,21 @@ export async function POST(req: Request) {
     data: { scanTokens: { decrement: upfrontHold } },
   });
 
-  // Initialize a shared tracker for cost aggregation (rough estimate)
-  const tracker: UsageTracker = {
-    totalCost: 0,
-    dbModels,
-  };
-
   // Generate a single batch ID for all scans in this launch
   const batchId = generateBatchId();
 
-  // Phase 1: Pre-generate attack sets for each unique prompt
-  // Attack generation uses the same attacker model + seedExtractor for all
-  // If seed extraction fails (returns zero things after retry), we refund
-  // the hold for that prompt and skip it.
-  const attackSets: Record<
-    number,
-    Awaited<ReturnType<typeof generateAttackSet>>
-  > = {};
-  const failedPromptIndices: number[] = [];
-  const attackSetPromises = parsedPrompts.map(async (prompt, idx) => {
-    try {
-      const attackSet = await generateAttackSet(
-        {
-          systemPrompt: prompt.systemPrompt,
-          forbiddenTask: prompt.forbiddenTask,
-          judgeInstructions: prompt.judgeInstructions,
-          tools: prompt.tools,
-          mockToolResponses: prompt.mockToolResponses,
-          attackerModel: attackGeneratorModel,
-          seedExtractorModel,
-          extractorModel,
-          cachedSeedInfo: prompt.cachedSeedInfo,
-        },
-        tracker,
-      );
-      attackSets[idx] = attackSet;
-    } catch (err: any) {
-      if (
-        err.message?.startsWith("SeedExtractionFailed") ||
-        err.message?.includes("failed")
-      ) {
-        console.warn(
-          `[launch] Seed extraction failed for prompt ${idx} — refunding upfront hold and skipping.`,
-        );
-        failedPromptIndices.push(idx);
-
-        // Refund the specific hold calculated for this prompt across all target models
-        const promptHold = calculateUpfrontScanHold(
-          [prompt],
-          targetModels,
-          seedExtractorModel,
-          attackGeneratorModel,
-          judgeModel,
-          dbModels,
-          enableHardening,
-          hardenerModel,
-          extractorModel,
-          templateTokens,
-        );
-
-        await db.user.update({
-          where: { id: user.id },
-          data: { scanTokens: { increment: promptHold } },
-        });
-      } else {
-        throw err; // rethrow unexpected errors
-      }
-    }
-  });
-  await Promise.all(attackSetPromises);
-
-  // Phase 2: Create scan records and launch background pipelines
-  // Skip prompts whose seed extraction failed
+  // Create all scan records FIRST, then fire background workers.
+  // This allows the frontend to immediately switch to the progress UI after
+  // receiving the batchId, while seed extraction + attack generation happen
+  // in the background with live progressMeta updates.
   const scanInfos: Array<{
     reportId: string;
     targetModel: string;
     promptIndex: number;
   }> = [];
 
-  // Track total hold refunded or consumed
-  let totalNetHoldDeduction = 0;
-
   for (const targetModel of targetModels) {
     for (let promptIdx = 0; promptIdx < parsedPrompts.length; promptIdx++) {
-      // Skip prompts that failed seed extraction
-      if (failedPromptIndices.includes(promptIdx)) {
-        continue;
-      }
-
       const prompt = parsedPrompts[promptIdx];
       const reportId = generateReportId();
       scanInfos.push({ reportId, targetModel, promptIndex: promptIdx });
@@ -292,12 +218,11 @@ export async function POST(req: Request) {
         templateTokens,
       );
 
-      totalNetHoldDeduction += promptTargetHold;
-
       const toolsJson = JSON.stringify(prompt.tools);
       const mockJson = JSON.stringify(prompt.mockToolResponses);
 
-      // Create Scan record with RUNNING status
+      // Create Scan record immediately with Running status and no steps yet.
+      // totalSteps = 0 signals to the UI that we are still in the generation phase.
       await db.scan.create({
         data: {
           reportId,
@@ -329,10 +254,9 @@ export async function POST(req: Request) {
         },
       });
 
-      // Start pipeline asynchronously with shared attack set
-      const pipelineConfig: RunSingleScanPipelineConfig & {
-        upfrontHold?: number;
-      } = {
+      // Build pipeline config and fire the background worker (no await).
+      // The worker handles seed extraction, attack generation, target + judge phases.
+      const pipelineConfig: RunScanWithGenerationConfig = {
         systemPrompt: prompt.systemPrompt,
         forbiddenTask: prompt.forbiddenTask,
         judgeInstructions: prompt.judgeInstructions,
@@ -350,16 +274,10 @@ export async function POST(req: Request) {
         enableHardening: body.enableHardening !== false,
         allowNoToolsFallback: prompt.allowNoToolsFallback,
         upfrontHold: promptTargetHold,
+        cachedSeedInfo: prompt.cachedSeedInfo,
       };
 
-      runSingleScanPipeline(
-        pipelineConfig,
-        reportId,
-        attackSets[promptIdx],
-        dbModels,
-      ).catch((err) =>
-        console.error(`Background pipeline failed for ${reportId}:`, err),
-      );
+      launchScanWorker(pipelineConfig, reportId, dbModels);
     }
   }
 
@@ -369,24 +287,10 @@ export async function POST(req: Request) {
     select: { scanTokens: true },
   });
 
-  if (scanInfos.length === 0) {
-    return NextResponse.json(
-      {
-        error:
-          "All prompts failed seed extraction. Your tokens have been fully refunded.",
-        failedPrompts: failedPromptIndices,
-        tokensRemaining: finalUser?.scanTokens ?? user.scanTokens,
-      },
-      { status: 400 },
-    );
-  }
-
   return NextResponse.json({
     batchId,
     scans: scanInfos,
     tokensRemaining: finalUser?.scanTokens ?? user.scanTokens,
     totalScans: targetModels.length * parsedPrompts.length,
-    failedPrompts:
-      failedPromptIndices.length > 0 ? failedPromptIndices : undefined,
   });
 }

@@ -32,25 +32,29 @@ export interface InspirationExample {
   overlap?: OverlapInfo; // overlap assessment with existing tools
 }
 
-export async function generateInspirationSearchQuery(
+/**
+ * Retrieve inspiration examples WITHOUT LLM scoring.
+ * Returns up to N candidates from direct ontology lookup + simple keyword search.
+ * Does NOT call rankCandidates / ScoringEvaluator.
+ */
+export async function retrieveInspirationExamplesFast(
   targetThing: RestrictionThing,
-  extractorModel: string,
   granularity: Granularity,
   metadata: ScanMetadata,
-  tracker?: any,
+  existingTools?: ToolDef[],
   toolRequirements?: string,
-): Promise<{ query: string; tags: string[] }> {
-  try {
-    const forbiddenTask = targetThing.forbiddenTask;
-    const businessScenarios = targetThing.businessScenarios || [];
-    const targetOntologySection = targetThing.ontologySection;
+  maxResults: number = 4,
+): Promise<InspirationExample[]> {
+  const targetOntologySection = targetThing.ontologySection;
+  const candidates: InspirationExample[] = [];
 
-    // Check database first if we have matching ontology section templates
+  try {
+    // 1) Try direct ontology match first
     if (targetOntologySection) {
       const category = targetOntologySection.split("/")[0];
       const wildcardSection = category ? `${category}/ALL` : undefined;
 
-      const matchingCount = await db.toolSchemaExample.count({
+      const matchingExamples = await db.toolSchemaExample.findMany({
         where: {
           OR: [
             { ontologySections: { contains: targetOntologySection } },
@@ -60,91 +64,185 @@ export async function generateInspirationSearchQuery(
           ],
         },
       });
-      if (matchingCount > 0) {
-        return {
-          query: targetOntologySection.toLowerCase(),
-          tags: [],
-        };
+
+      for (const ex of matchingExamples.slice(0, maxResults)) {
+        try {
+          candidates.push({
+            name: ex.name,
+            description: ex.description,
+            tags: JSON.parse(ex.tags),
+            granularity: ex.granularity,
+            toolJson: JSON.parse(ex.toolJson),
+            mockResponse: JSON.parse(ex.mockResponse),
+            businessCategories: JSON.parse(ex.businessCategories || "[]"),
+            ontologySections: JSON.parse(ex.ontologySections || "[]"),
+          });
+        } catch {}
       }
     }
 
-    const personaDescription = metadata.seedExtraction?.personaDescription;
-    const businessFeatures = metadata.seedExtraction?.businessFeatures;
-    const businessCategories =
-      metadata.seedExtraction?.businessCategories || [];
+    // 2) If still empty, fall back to simple keyword search using thing name + description
+    if (candidates.length === 0) {
+      const searchWords = [
+        ...targetThing.thingName.split(/[\s_\/\-]+/).filter(Boolean),
+        ...targetThing.thingDescription.split(/[\s_\/\-]+/).filter(Boolean),
+      ].map((w) => w.toLowerCase());
 
-    const personaContext = personaDescription
-      ? `\nAssistant Persona: ${personaDescription}\nTailor search toward examples relevant to this role.`
-      : "";
-
-    const featuresContext =
-      businessFeatures && businessFeatures.length > 0
-        ? `\nBusiness Features: ${businessFeatures.slice(0, 3).join(", ")}\nConsider these capabilities when searching.`
-        : "";
-
-    const scenariosContext =
-      businessScenarios && businessScenarios.length > 0
-        ? `\nBusiness Scenarios: ${businessScenarios.slice(0, 2).join(", ")}\nPrioritize examples that handle similar real-world use cases.`
-        : "";
-
-    // Get all available tags from the database, then filter to relevant ones
-    const allAvailableTags = await getAvailableExampleTags(businessCategories);
-
-    const tagsContext =
-      allAvailableTags.length > 0
-        ? `\nAvailable tags in the database (choose from these): ${allAvailableTags.join(", ")}`
-        : "";
-
-    const toolRequirementsContext = toolRequirements
-      ? `\nTool Requirements (user-facing capabilities the assistant needs to handle): ${toolRequirements}\nUse these to guide tag selection.`
-      : "";
-
-    const template = getPromptFile(PromptFileType.SearchQueryGenerator);
-
-    const prompt = replacePlaceholders(template, {
-      FORBIDDEN_TASK: forbiddenTask,
-      GRANULARITY: granularity,
-      PERSONA_CONTEXT: personaContext,
-      FEATURES_CONTEXT: featuresContext,
-      SCENARIOS_CONTEXT: scenariosContext,
-      TOOL_REQUIREMENTS_CONTEXT: toolRequirementsContext,
-      TAGS_CONTEXT: tagsContext,
-    });
-
-    const response = await callOpenRouter(
-      extractorModel,
-      [{ role: "user", content: prompt }],
-      undefined,
-      tracker,
-    );
-
-    let query = "";
-    let tags: string[] = [];
-    try {
-      const cleaned = (response.content || "")
-        .replace(/^```[a-zA-Z]*\n/g, "")
-        .replace(/\n```$/g, "")
-        .trim();
-      const parsed = JSON.parse(cleaned);
-      query = parsed.query ? parsed.query.toLowerCase() : "";
-      tags = Array.isArray(parsed.tags)
-        ? parsed.tags.map((t: string) => t.toLowerCase())
-        : [];
-    } catch (e) {
-      // Fallback search using split words from the forbidden task
-      query = forbiddenTask.split(/\s+/)[0]?.toLowerCase() || "";
+      if (searchWords.length > 0) {
+        const allExamples = await db.toolSchemaExample.findMany();
+        const scored = allExamples.map((ex) => {
+          let score = 0;
+          const text =
+            `${ex.name} ${ex.description} ${ex.toolJson} ${ex.tags}`.toLowerCase();
+          for (const w of searchWords) {
+            if (text.includes(w)) score++;
+          }
+          return { ex, score };
+        });
+        scored.sort((a, b) => b.score - a.score);
+        for (const { ex } of scored
+          .filter((s) => s.score > 0)
+          .slice(0, maxResults)) {
+          try {
+            candidates.push({
+              name: ex.name,
+              description: ex.description,
+              tags: JSON.parse(ex.tags),
+              granularity: ex.granularity,
+              toolJson: JSON.parse(ex.toolJson),
+              mockResponse: JSON.parse(ex.mockResponse),
+              businessCategories: JSON.parse(ex.businessCategories || "[]"),
+              ontologySections: JSON.parse(ex.ontologySections || "[]"),
+            });
+          } catch {}
+        }
+      }
     }
 
-    return { query, tags };
+    // 3) Mark first candidate as bestMatchingCandidate if any found
+    if (candidates.length > 0) {
+      candidates[0].bestMatchingCandidate = true;
+      candidates[0].directMatch = true;
+      candidates[0].requirementScore = 90;
+      candidates[0].granularityScore = 90;
+    }
+
+    return candidates;
   } catch (err) {
-    console.error("Error generating inspiration search query:", err);
-    return {
-      query: targetThing.forbiddenTask.split(/\s+/)[0]?.toLowerCase() || "",
-      tags: [],
-    };
+    console.error("Error in retrieveInspirationExamplesFast:", err);
+    return [];
   }
 }
 
+/**
+ * Retrieve inspiration examples with LLM-based ranking.
+ * LEGACY: kept for backward compatibility but not used by new fast path.
+ * Use retrieveInspirationExamplesFast() instead.
+ */
+export async function retrieveInspirationExamples(
+  targetThing: RestrictionThing,
+  extractorModel: string,
+  granularity: Granularity,
+  metadata: ScanMetadata,
+  tracker?: any,
+  trace?: HardeningTrace,
+  existingTools?: ToolDef[],
+  toolRequirements?: string,
+): Promise<InspirationExample[]> {
+  // LEGACY CODE PATH - requires LLM scoring via rankCandidates()
+  const targetOntologySection = targetThing.ontologySection;
+
+  if (targetOntologySection) {
+    const category = targetOntologySection.split("/")[0];
+    const wildcardSection = category ? `${category}/ALL` : undefined;
+
+    try {
+      const matchingExamples = await db.toolSchemaExample.findMany({
+        where: {
+          OR: [
+            { ontologySections: { contains: targetOntologySection } },
+            ...(wildcardSection
+              ? [{ ontologySections: { contains: wildcardSection } }]
+              : []),
+          ],
+        },
+      });
+
+      if (matchingExamples.length > 0) {
+        const candidates: InspirationExample[] = [];
+        for (const ex of matchingExamples) {
+          try {
+            candidates.push({
+              name: ex.name,
+              description: ex.description,
+              tags: JSON.parse(ex.tags),
+              granularity: ex.granularity,
+              toolJson: JSON.parse(ex.toolJson),
+              mockResponse: JSON.parse(ex.mockResponse),
+              businessCategories: JSON.parse(ex.businessCategories || "[]"),
+              ontologySections: JSON.parse(ex.ontologySections || "[]"),
+            });
+          } catch {}
+        }
+
+        const best = await rankCandidates(
+          candidates,
+          targetThing,
+          extractorModel,
+          granularity,
+          metadata,
+          tracker,
+          existingTools,
+          toolRequirements,
+        );
+
+        const finalCandidates = best ? [best] : [];
+
+        if (trace) {
+          trace.step0 = {
+            query: `direct-ontology:${targetOntologySection}`,
+            tags: [],
+            retrievedExamples: finalCandidates,
+            usedBusinessCategories: metadata.seedExtraction?.businessCategories,
+          };
+        }
+        return finalCandidates;
+      }
+    } catch (dbErr) {
+      console.error(
+        "[Inspiration] Direct ontology match retrieval error:",
+        dbErr,
+      );
+    }
+  }
+
+  const { query, tags } = await generateInspirationSearchQuery(
+    targetThing,
+    extractorModel,
+    granularity,
+    metadata,
+    tracker,
+    toolRequirements,
+  );
+  return searchInspirationCandidates(
+    query,
+    tags,
+    targetThing,
+    extractorModel,
+    granularity,
+    metadata,
+    tracker,
+    trace,
+    existingTools,
+    toolRequirements,
+  );
+}
+
+/**
+ * Score and rank inspiration examples against the target restriction.
+ * LEGACY: requires LLM call to ScoringEvaluator prompt.
+ * Use retrieveInspirationExamplesFast() to avoid this cost.
+ */
 export async function rankCandidates(
   candidates: InspirationExample[],
   targetThing: RestrictionThing,
@@ -289,6 +387,11 @@ Tool JSON: ${JSON.stringify(c.toolJson)}`,
   return candidates[0];
 }
 
+/**
+ * Search for inspiration examples in the database based on query + tags.
+ * LEGACY: kept for backward compatibility but not used by new fast path.
+ * Use retrieveInspirationExamplesFast() instead.
+ */
 export async function searchInspirationCandidates(
   query: string,
   tags: string[],
@@ -472,24 +575,25 @@ export async function searchInspirationCandidates(
   }
 }
 
-export async function retrieveInspirationExamples(
+export async function generateInspirationSearchQuery(
   targetThing: RestrictionThing,
   extractorModel: string,
   granularity: Granularity,
   metadata: ScanMetadata,
   tracker?: any,
-  trace?: HardeningTrace,
-  existingTools?: ToolDef[],
   toolRequirements?: string,
-): Promise<InspirationExample[]> {
-  const targetOntologySection = targetThing.ontologySection;
+): Promise<{ query: string; tags: string[] }> {
+  try {
+    const forbiddenTask = targetThing.forbiddenTask;
+    const businessScenarios = targetThing.businessScenarios || [];
+    const targetOntologySection = targetThing.ontologySection;
 
-  if (targetOntologySection) {
-    const category = targetOntologySection.split("/")[0];
-    const wildcardSection = category ? `${category}/ALL` : undefined;
+    // Check database first if we have matching ontology section templates
+    if (targetOntologySection) {
+      const category = targetOntologySection.split("/")[0];
+      const wildcardSection = category ? `${category}/ALL` : undefined;
 
-    try {
-      const matchingExamples = await db.toolSchemaExample.findMany({
+      const matchingCount = await db.toolSchemaExample.count({
         where: {
           OR: [
             { ontologySections: { contains: targetOntologySection } },
@@ -499,75 +603,89 @@ export async function retrieveInspirationExamples(
           ],
         },
       });
-
-      if (matchingExamples.length > 0) {
-        const candidates: InspirationExample[] = [];
-        for (const ex of matchingExamples) {
-          try {
-            candidates.push({
-              name: ex.name,
-              description: ex.description,
-              tags: JSON.parse(ex.tags),
-              granularity: ex.granularity,
-              toolJson: JSON.parse(ex.toolJson),
-              mockResponse: JSON.parse(ex.mockResponse),
-              businessCategories: JSON.parse(ex.businessCategories || "[]"),
-              ontologySections: JSON.parse(ex.ontologySections || "[]"),
-            });
-          } catch {}
-        }
-
-        const best = await rankCandidates(
-          candidates,
-          targetThing,
-          extractorModel,
-          granularity,
-          metadata,
-          tracker,
-          existingTools,
-          toolRequirements,
-        );
-
-        const finalCandidates = best ? [best] : [];
-
-        if (trace) {
-          trace.step0 = {
-            query: `direct-ontology:${targetOntologySection}`,
-            tags: [],
-            retrievedExamples: finalCandidates,
-            usedBusinessCategories: metadata.seedExtraction?.businessCategories,
-          };
-        }
-        return finalCandidates;
+      if (matchingCount > 0) {
+        return {
+          query: targetOntologySection.toLowerCase(),
+          tags: [],
+        };
       }
-    } catch (dbErr) {
-      console.error(
-        "[Inspiration] Direct ontology match retrieval error:",
-        dbErr,
-      );
     }
-  }
 
-  const { query, tags } = await generateInspirationSearchQuery(
-    targetThing,
-    extractorModel,
-    granularity,
-    metadata,
-    tracker,
-    toolRequirements,
-  );
-  return searchInspirationCandidates(
-    query,
-    tags,
-    targetThing,
-    extractorModel,
-    granularity,
-    metadata,
-    tracker,
-    trace,
-    existingTools,
-    toolRequirements,
-  );
+    const personaDescription = metadata.seedExtraction?.personaDescription;
+    const businessFeatures = metadata.seedExtraction?.businessFeatures;
+    const businessCategories =
+      metadata.seedExtraction?.businessCategories || [];
+
+    const personaContext = personaDescription
+      ? `\nAssistant Persona: ${personaDescription}\nTailor search toward examples relevant to this role.`
+      : "";
+
+    const featuresContext =
+      businessFeatures && businessFeatures.length > 0
+        ? `\nBusiness Features: ${businessFeatures.slice(0, 3).join(", ")}\nConsider these capabilities when searching.`
+        : "";
+
+    const scenariosContext =
+      businessScenarios && businessScenarios.length > 0
+        ? `\nBusiness Scenarios: ${businessScenarios.slice(0, 2).join(", ")}\nPrioritize examples that handle similar real-world use cases.`
+        : "";
+
+    // Get all available tags from the database, then filter to relevant ones
+    const allAvailableTags = await getAvailableExampleTags(businessCategories);
+
+    const tagsContext =
+      allAvailableTags.length > 0
+        ? `\nAvailable tags in the database (choose from these): ${allAvailableTags.join(", ")}`
+        : "";
+
+    const toolRequirementsContext = toolRequirements
+      ? `\nTool Requirements (user-facing capabilities the assistant needs to handle): ${toolRequirements}\nUse these to guide tag selection.`
+      : "";
+
+    const template = getPromptFile(PromptFileType.SearchQueryGenerator);
+
+    const prompt = replacePlaceholders(template, {
+      FORBIDDEN_TASK: forbiddenTask,
+      GRANULARITY: granularity,
+      PERSONA_CONTEXT: personaContext,
+      FEATURES_CONTEXT: featuresContext,
+      SCENARIOS_CONTEXT: scenariosContext,
+      TOOL_REQUIREMENTS_CONTEXT: toolRequirementsContext,
+      TAGS_CONTEXT: tagsContext,
+    });
+
+    const response = await callOpenRouter(
+      extractorModel,
+      [{ role: "user", content: prompt }],
+      undefined,
+      tracker,
+    );
+
+    let query = "";
+    let tags: string[] = [];
+    try {
+      const cleaned = (response.content || "")
+        .replace(/^```[a-zA-Z]*\n/g, "")
+        .replace(/\n```$/g, "")
+        .trim();
+      const parsed = JSON.parse(cleaned);
+      query = parsed.query ? parsed.query.toLowerCase() : "";
+      tags = Array.isArray(parsed.tags)
+        ? parsed.tags.map((t: string) => t.toLowerCase())
+        : [];
+    } catch (e) {
+      // Fallback search using split words from the forbidden task
+      query = forbiddenTask.split(/\s+/)[0]?.toLowerCase() || "";
+    }
+
+    return { query, tags };
+  } catch (err) {
+    console.error("Error generating inspiration search query:", err);
+    return {
+      query: targetThing.forbiddenTask.split(/\s+/)[0]?.toLowerCase() || "",
+      tags: [],
+    };
+  }
 }
 
 /**

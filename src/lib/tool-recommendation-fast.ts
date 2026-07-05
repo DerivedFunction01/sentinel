@@ -19,8 +19,7 @@ import {
   RestrictionThing,
 } from "./types";
 import {
-  retrieveInspirationExamples,
-  formatInspirationExamplesBlock,
+  retrieveInspirationExamplesFast,
   type InspirationExample,
 } from "@/lib/inspiration-retriever";
 import { deriveToolRequirements } from "@/lib/tool-extractor";
@@ -291,16 +290,13 @@ export async function generateToolRecommendationFast(
       };
     }
 
-    // ── Step 1: Get inspiration examples ─────────────────────────────────
+    // ── Step 1: Get inspiration examples (fast path - no LLM scoring) ──
     const examples =
       inspirationExamples ??
-      (await retrieveInspirationExamples(
+      (await retrieveInspirationExamplesFast(
         targetThing,
-        extractorModel,
         granularity,
         metadata,
-        tracker,
-        trace,
         existingTools,
         toolRequirements,
       ));

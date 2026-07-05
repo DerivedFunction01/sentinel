@@ -1321,58 +1321,72 @@ export async function runSingleScanPipeline(
   reportId: string,
   attackSet: Awaited<ReturnType<typeof generateAttackSet>>,
   dbModels: any[],
+  /**
+   * When called from runSingleScanPipelineWithGeneration, pass in the
+   * already-built meta so we skip the seed/attack marking phases and do
+   * not reset coarse progress.
+   */
+  prebuiltMeta?: ProgressMeta,
+  /**
+   * Number of currentStep units already counted for the attack-generation
+   * phase (equal to attackSet.attacks.length when prebuiltMeta is supplied).
+   */
+  attacksCompletedOffset: number = 0,
 ): Promise<void> {
   const tracker: UsageTracker = { totalCost: 0, dbModels };
   const modelShort =
     options.targetModel.split("/").pop() || options.targetModel;
 
-  // Initialize progress meta if not already present
-  const existing = await readProgressMeta(reportId);
-  const meta = existing || createInitialProgressMeta(attackSet.attacks.length);
-  if (!existing) {
-    await writeProgressMeta(reportId, meta);
-  }
+  let meta: ProgressMeta;
+  let totalSteps: number;
 
-  // Update coarse progress
-  const totalSteps = attackSet.attacks.length * 2;
-  await db.scan.update({
-    where: { reportId },
-    data: { currentStep: 0, totalSteps },
-  });
+  if (prebuiltMeta) {
+    // Called from runSingleScanPipelineWithGeneration — generation already done.
+    // totalSteps was already set to attackCount * 3 (gen + target + judge).
+    meta = prebuiltMeta;
+    totalSteps = attackSet.attacks.length * 3;
+    // currentStep is already at attacksCompletedOffset in the DB; leave it.
+  } else {
+    // Standalone call (original behaviour): attacks are pre-generated externally.
+    const existing = await readProgressMeta(reportId);
+    meta = existing || createInitialProgressMeta(attackSet.attacks.length);
+    if (!existing) {
+      await writeProgressMeta(reportId, meta);
+    }
 
-  // Phase 1: Seed extraction (already done in attackSet, just mark it)
-  // The seed info is embedded in attackSet.seedInfo from generateAttackSet
-  await withRetry(
-    "seed",
-    reportId,
-    meta,
-    (m) => m.seed,
-    (m, s) => {
-      m.seed = s;
-    },
-    async () => attackSet.seedInfo,
-    () => {},
-  );
-  await writeProgressMeta(reportId, meta);
+    totalSteps = attackSet.attacks.length * 2;
+    await db.scan.update({
+      where: { reportId },
+      data: { currentStep: 0, totalSteps },
+    });
 
-  // Phase 2: Generate attacks (already done in attackSet, mark each)
-  for (let i = 0; i < attackSet.attacks.length; i++) {
-    const idx = i;
+    // Mark seed step
     await withRetry(
-      `attack-${i}`,
+      "seed",
       reportId,
       meta,
-      (m) => m.attacks[idx],
-      (m, s) => {
-        m.attacks[idx] = { ...s, text: attackSet.attacks[idx].attackText };
-      },
-      async () => attackSet.attacks[idx].attackText,
-      (m, text) => {
-        m.attacks[idx].text = text;
-      },
+      (m) => m.seed,
+      (m, s) => { m.seed = s; },
+      async () => attackSet.seedInfo,
+      () => {},
     );
+    await writeProgressMeta(reportId, meta);
+
+    // Mark each attack step
+    for (let i = 0; i < attackSet.attacks.length; i++) {
+      const idx = i;
+      await withRetry(
+        `attack-${i}`,
+        reportId,
+        meta,
+        (m) => m.attacks[idx],
+        (m, s) => { m.attacks[idx] = { ...s, text: attackSet.attacks[idx].attackText }; },
+        async () => attackSet.attacks[idx].attackText,
+        (m, text) => { m.attacks[idx].text = text; },
+      );
+    }
+    await writeProgressMeta(reportId, meta);
   }
-  await writeProgressMeta(reportId, meta);
 
   // Phase 3: Target + Judge per trial — ALL TARGETS IN PARALLEL, then ALL JUDGES IN PARALLEL
   // Each attack is independent (different prompt to the same target model),
@@ -1445,10 +1459,10 @@ export async function runSingleScanPipeline(
   // Write once after target phase completes
   await writeProgressMeta(reportId, meta);
 
-  // Set coarse progress to exactly attackCount to align
+  // Set coarse progress to exactly attackCount + offset to align
   await db.scan.update({
     where: { reportId },
-    data: { currentStep: attackCount },
+    data: { currentStep: attackCount + attacksCompletedOffset },
   });
 
   // Step B: Launch all judge evaluations in parallel
@@ -1538,7 +1552,7 @@ export async function runSingleScanPipeline(
   // Set coarse progress to exactly total steps to align
   await db.scan.update({
     where: { reportId },
-    data: { currentStep: attackCount * 2 },
+    data: { currentStep: attackCount * 2 + attacksCompletedOffset },
   });
 
   // Step C: Build trial results from IN-MEMORY data (not re-reading from DB)
@@ -1692,4 +1706,268 @@ export async function runSingleScanPipeline(
       `[pipeline] Scan ${reportId} finished. Upfront hold: ${options.upfrontHold}, actual USD cost: $${tracker.totalCost.toFixed(6)} (${finalTokenCost} tokens). Refunded ${refund} tokens.`
     );
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Background pipeline with integrated attack generation
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extended config for pipelines that perform their own seed/attack generation
+ * instead of receiving a pre-generated attackSet.
+ */
+export interface RunScanWithGenerationConfig extends RunSingleScanPipelineConfig {
+  cachedSeedInfo?: SeedInfo;
+}
+
+/**
+ * Full pipeline that generates the attack set inside the background worker.
+ *
+ * Key differences from runSingleScanPipeline:
+ * 1. Calls seed extraction and attack generation internally.
+ * 2. Writes progressMeta to the DB after each attack is generated, so the
+ *    frontend can show granular progress during the generation phase.
+ * 3. On seed-extraction failure, marks the scan as Failed and refunds the hold.
+ */
+export async function runSingleScanPipelineWithGeneration(
+  options: RunScanWithGenerationConfig,
+  reportId: string,
+  dbModels: any[],
+): Promise<void> {
+  const tracker: UsageTracker = { totalCost: 0, dbModels };
+
+  // ── Phase 0: Seed extraction ──────────────────────────────────────────────
+  const earlyMeta: ProgressMeta = {
+    seed: { status: ProgressStepStatus.Running, retries: 0 },
+    attacks: [],
+    trials: [],
+    hardening: { status: ProgressStepStatus.Pending, retries: 0 },
+  };
+  await writeProgressMeta(reportId, earlyMeta);
+
+  let seedInfo: SeedInfo;
+  try {
+    const { systemPrompt, forbiddenTask, tools, mockToolResponses } = options;
+    const toolsJson = JSON.stringify(tools);
+    const mockJson = JSON.stringify(mockToolResponses);
+
+    let coreSystemPrompt = systemPrompt;
+    try {
+      coreSystemPrompt = await extractCoreSystemPrompt(
+        options.seedExtractorModel,
+        systemPrompt,
+        tracker,
+      );
+    } catch {
+      // Non-fatal — fall back to original
+    }
+
+    if (options.cachedSeedInfo) {
+      seedInfo = options.cachedSeedInfo;
+    } else {
+      const MAX_SEED_RETRIES = 2;
+      let extracted: SeedInfo | null = null;
+      let lastErr: string | undefined;
+
+      for (let attempt = 1; attempt <= MAX_SEED_RETRIES; attempt++) {
+        try {
+          extracted = await extractSeedInfo(
+            options.seedExtractorModel,
+            systemPrompt,
+            toolsJson,
+            mockJson,
+            forbiddenTask,
+            tracker,
+            coreSystemPrompt,
+          );
+        } catch (err) {
+          lastErr = (err as Error).message;
+          continue;
+        }
+        if (extracted && extracted.things && extracted.things.length > 0) break;
+        if (forbiddenTask?.trim()) break;
+      }
+
+      if (!extracted || (!extracted.things?.length && !forbiddenTask?.trim())) {
+        const detail = lastErr ? `last error: ${lastErr}` : "returned zero restriction things";
+        throw new Error(`SeedExtractionFailed: ${detail}`);
+      }
+      seedInfo = extracted!;
+    }
+
+    earlyMeta.seed = { status: ProgressStepStatus.Completed, retries: 0 };
+    await writeProgressMeta(reportId, earlyMeta);
+  } catch (err: any) {
+    earlyMeta.seed = { status: ProgressStepStatus.Failed, retries: 0, error: err.message };
+    await writeProgressMeta(reportId, earlyMeta);
+    await db.scan.update({
+      where: { reportId },
+      data: { status: ScanStatus.Failed, summaryDetail: err.message },
+    });
+    if (options.upfrontHold != null) {
+      await db.user.update({
+        where: { id: options.userId },
+        data: { scanTokens: { increment: options.upfrontHold } },
+      });
+    }
+    return;
+  }
+
+  // ── Phase 1: Build attack layout list ─────────────────────────────────────
+  const thingsToUse = [...(seedInfo.things || [])];
+  if (thingsToUse.length === 0) {
+    await db.scan.update({
+      where: { reportId },
+      data: { status: ScanStatus.Failed, summaryDetail: "Seed extraction returned no restriction things." },
+    });
+    return;
+  }
+
+  const totalTargetCount = patterns.length * 3;
+  const countPerThing = Math.max(
+    patterns.length,
+    Math.ceil(totalTargetCount / thingsToUse.length),
+  );
+
+  interface PendingLayout {
+    layout: any;
+    thing: (typeof thingsToUse)[0];
+    credCtx: { credential: string; instruction: CredentialMode } | undefined;
+    thingSeedInfo: any;
+    concreteScenario: string | undefined;
+  }
+
+  const pendingLayouts: PendingLayout[] = [];
+  for (const thing of thingsToUse) {
+    const attackLayouts = generateAttacks(
+      thing.thingName,
+      thing.thingDescription,
+      countPerThing,
+      thing.thingNameVariants,
+      thing.thingDescriptionVariants,
+    );
+
+    const concreteScenarioIndices = new Set<number>();
+    const numConcrete = Math.ceil(attackLayouts.length / 2);
+    while (concreteScenarioIndices.size < numConcrete) {
+      concreteScenarioIndices.add(Math.floor(Math.random() * attackLayouts.length));
+    }
+
+    for (let idx = 0; idx < attackLayouts.length; idx++) {
+      const layout = attackLayouts[idx];
+      const hasCredentials = thing.credentials.length > 0;
+      let credCtx: { credential: string; instruction: CredentialMode } | undefined;
+      if (hasCredentials) {
+        const isVerificationCheck = layout.strategy === FramingStrategy.InsiderVerification;
+        if (isVerificationCheck || Math.random() < 0.5) {
+          const instruction = isVerificationCheck
+            ? CredentialMode.EXACT
+            : Math.random() < 0.5 ? CredentialMode.EXACT : CredentialMode.FICTIONAL;
+          const credential = thing.credentials[Math.floor(Math.random() * thing.credentials.length)];
+          credCtx = { credential, instruction };
+        }
+      }
+
+      const thingSeedInfo: any = {
+        ...seedInfo,
+        things: [thing],
+        thingName: thing.thingName,
+        thingDescription: thing.thingDescription,
+        thingNameVariants: thing.thingNameVariants,
+        thingDescriptionVariants: thing.thingDescriptionVariants,
+        credentials: thing.credentials,
+        businessScenarios: thing.businessScenarios,
+      };
+
+      const scenarioPool = thing.concreteScenarios?.length
+        ? thing.concreteScenarios
+        : thing.businessScenarios;
+      const concreteScenario = concreteScenarioIndices.has(idx)
+        ? (scenarioPool?.length
+            ? scenarioPool[Math.floor(Math.random() * scenarioPool.length)]
+            : undefined)
+        : undefined;
+
+      pendingLayouts.push({ layout, thing, credCtx, thingSeedInfo, concreteScenario });
+    }
+  }
+
+  const attackCount = pendingLayouts.length;
+
+  // Initialise full progressMeta now that we know the attack count
+  const meta: ProgressMeta = {
+    seed: { status: ProgressStepStatus.Completed, retries: 0 },
+    attacks: Array.from({ length: attackCount }, () => ({
+      status: ProgressStepStatus.Pending,
+      retries: 0,
+    })),
+    trials: Array.from({ length: attackCount }, () => ({
+      target: { status: ProgressStepStatus.Pending, retries: 0 },
+      judge: { status: ProgressStepStatus.Pending, retries: 0 },
+    })),
+    hardening: { status: ProgressStepStatus.Pending, retries: 0 },
+  };
+
+  // totalSteps = attack generation + target + judge
+  const totalSteps = attackCount * 3;
+  await db.scan.update({ where: { reportId }, data: { totalSteps, currentStep: 0 } });
+  await writeProgressMeta(reportId, meta);
+
+  // ── Phase 2: Generate attacks sequentially with live progress flushes ─────
+  const attacks: AttackEntry[] = [];
+  for (let i = 0; i < pendingLayouts.length; i++) {
+    const { layout, thing, credCtx, thingSeedInfo, concreteScenario } = pendingLayouts[i];
+    const pattern = patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
+
+    meta.attacks[i].status = ProgressStepStatus.Running;
+
+    let attackText: string;
+    try {
+      attackText = await generateCohesiveAttack(
+        options.attackerModel,
+        pattern,
+        thingSeedInfo,
+        credCtx?.instruction,
+        tracker,
+        concreteScenario,
+      );
+      meta.attacks[i] = { status: ProgressStepStatus.Completed, retries: 0, text: attackText };
+    } catch (err: any) {
+      const draftParts = renderAttack(pattern, thing.thingName, thing.thingDescription);
+      attackText = Array.isArray(draftParts) ? draftParts.join(" ") : draftParts;
+      meta.attacks[i] = { status: ProgressStepStatus.Failed, retries: 1, error: err.message, text: attackText };
+    }
+
+    attacks.push({
+      patternId: layout.patternId,
+      attackDescription: layout.attackDescription,
+      entropyLabel: layout.entropyLabel,
+      framingLabel: layout.framingLabel,
+      attackText,
+      targetForbiddenTask: thing.forbiddenTask,
+      credentialContext: credCtx,
+    });
+
+    // Flush after every attack so the UI sees live progress
+    await db.scan.update({ where: { reportId }, data: { currentStep: i + 1 } });
+    await writeProgressMeta(reportId, meta);
+  }
+
+  // ── Phase 3+: Hand off to target/judge pipeline ───────────────────────────
+  const attackSet: AttackSet = { seedInfo, attacks };
+  await runSingleScanPipeline(options, reportId, attackSet, dbModels, meta, attackCount);
+}
+
+/**
+ * Fire-and-forget helper used by the launch route.
+ * Creates no DB records; those are already created before this is called.
+ */
+export function launchScanWorker(
+  options: RunScanWithGenerationConfig,
+  reportId: string,
+  dbModels: any[],
+): void {
+  runSingleScanPipelineWithGeneration(options, reportId, dbModels).catch((err) =>
+    console.error(`[launchScanWorker] Background pipeline failed for ${reportId}:`, err),
+  );
 }
