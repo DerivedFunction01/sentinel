@@ -187,16 +187,16 @@ export async function generateAttackSet(
     seedInfo = options.cachedSeedInfo!;
   } else {
     for (let attempt = 1; attempt <= MAX_SEED_RETRIES; attempt++) {
-       try {
-         seedInfo = await extractSeedInfo(
-           options.seedExtractorModel,
-           systemPrompt,
-           toolsJson,
-           mockJson,
-           options.forbiddenTask,
-           tracker,
-           coreSystemPrompt,
-         );
+      try {
+        seedInfo = await extractSeedInfo(
+          options.seedExtractorModel,
+          systemPrompt,
+          toolsJson,
+          mockJson,
+          options.forbiddenTask,
+          tracker,
+          coreSystemPrompt,
+        );
       } catch (err) {
         lastSeedError = (err as Error).message;
         console.warn(
@@ -318,9 +318,9 @@ export async function generateAttackSet(
         : thing.businessScenarios;
 
       const concreteScenario = concreteScenarioIndices.has(idx)
-        ? (scenarioPool?.length
-            ? scenarioPool[Math.floor(Math.random() * scenarioPool.length)]
-            : undefined)
+        ? scenarioPool?.length
+          ? scenarioPool[Math.floor(Math.random() * scenarioPool.length)]
+          : undefined
         : undefined;
 
       const promise = generateCohesiveAttack(
@@ -1366,7 +1366,9 @@ export async function runSingleScanPipeline(
       reportId,
       meta,
       (m) => m.seed,
-      (m, s) => { m.seed = s; },
+      (m, s) => {
+        m.seed = s;
+      },
       async () => attackSet.seedInfo,
       () => {},
     );
@@ -1380,9 +1382,13 @@ export async function runSingleScanPipeline(
         reportId,
         meta,
         (m) => m.attacks[idx],
-        (m, s) => { m.attacks[idx] = { ...s, text: attackSet.attacks[idx].attackText }; },
+        (m, s) => {
+          m.attacks[idx] = { ...s, text: attackSet.attacks[idx].attackText };
+        },
         async () => attackSet.attacks[idx].attackText,
-        (m, text) => { m.attacks[idx].text = text; },
+        (m, text) => {
+          m.attacks[idx].text = text;
+        },
       );
     }
     await writeProgressMeta(reportId, meta);
@@ -1703,7 +1709,7 @@ export async function runSingleScanPipeline(
       data: { scanTokens: { increment: refund } },
     });
     console.log(
-      `[pipeline] Scan ${reportId} finished. Upfront hold: ${options.upfrontHold}, actual USD cost: $${tracker.totalCost.toFixed(6)} (${finalTokenCost} tokens). Refunded ${refund} tokens.`
+      `[pipeline] Scan ${reportId} finished. Upfront hold: ${options.upfrontHold}, actual USD cost: $${tracker.totalCost.toFixed(6)} (${finalTokenCost} tokens). Refunded ${refund} tokens.`,
     );
   }
 }
@@ -1789,7 +1795,9 @@ export async function runSingleScanPipelineWithGeneration(
       }
 
       if (!extracted || (!extracted.things?.length && !forbiddenTask?.trim())) {
-        const detail = lastErr ? `last error: ${lastErr}` : "returned zero restriction things";
+        const detail = lastErr
+          ? `last error: ${lastErr}`
+          : "returned zero restriction things";
         throw new Error(`SeedExtractionFailed: ${detail}`);
       }
       seedInfo = extracted!;
@@ -1798,7 +1806,11 @@ export async function runSingleScanPipelineWithGeneration(
     earlyMeta.seed = { status: ProgressStepStatus.Completed, retries: 0 };
     await writeProgressMeta(reportId, earlyMeta);
   } catch (err: any) {
-    earlyMeta.seed = { status: ProgressStepStatus.Failed, retries: 0, error: err.message };
+    earlyMeta.seed = {
+      status: ProgressStepStatus.Failed,
+      retries: 0,
+      error: err.message,
+    };
     await writeProgressMeta(reportId, earlyMeta);
     await db.scan.update({
       where: { reportId },
@@ -1818,7 +1830,10 @@ export async function runSingleScanPipelineWithGeneration(
   if (thingsToUse.length === 0) {
     await db.scan.update({
       where: { reportId },
-      data: { status: ScanStatus.Failed, summaryDetail: "Seed extraction returned no restriction things." },
+      data: {
+        status: ScanStatus.Failed,
+        summaryDetail: "Seed extraction returned no restriction things.",
+      },
     });
     return;
   }
@@ -1850,20 +1865,30 @@ export async function runSingleScanPipelineWithGeneration(
     const concreteScenarioIndices = new Set<number>();
     const numConcrete = Math.ceil(attackLayouts.length / 2);
     while (concreteScenarioIndices.size < numConcrete) {
-      concreteScenarioIndices.add(Math.floor(Math.random() * attackLayouts.length));
+      concreteScenarioIndices.add(
+        Math.floor(Math.random() * attackLayouts.length),
+      );
     }
 
     for (let idx = 0; idx < attackLayouts.length; idx++) {
       const layout = attackLayouts[idx];
       const hasCredentials = thing.credentials.length > 0;
-      let credCtx: { credential: string; instruction: CredentialMode } | undefined;
+      let credCtx:
+        | { credential: string; instruction: CredentialMode }
+        | undefined;
       if (hasCredentials) {
-        const isVerificationCheck = layout.strategy === FramingStrategy.InsiderVerification;
+        const isVerificationCheck =
+          layout.strategy === FramingStrategy.InsiderVerification;
         if (isVerificationCheck || Math.random() < 0.5) {
           const instruction = isVerificationCheck
             ? CredentialMode.EXACT
-            : Math.random() < 0.5 ? CredentialMode.EXACT : CredentialMode.FICTIONAL;
-          const credential = thing.credentials[Math.floor(Math.random() * thing.credentials.length)];
+            : Math.random() < 0.5
+              ? CredentialMode.EXACT
+              : CredentialMode.FICTIONAL;
+          const credential =
+            thing.credentials[
+              Math.floor(Math.random() * thing.credentials.length)
+            ];
           credCtx = { credential, instruction };
         }
       }
@@ -1883,12 +1908,18 @@ export async function runSingleScanPipelineWithGeneration(
         ? thing.concreteScenarios
         : thing.businessScenarios;
       const concreteScenario = concreteScenarioIndices.has(idx)
-        ? (scenarioPool?.length
-            ? scenarioPool[Math.floor(Math.random() * scenarioPool.length)]
-            : undefined)
+        ? scenarioPool?.length
+          ? scenarioPool[Math.floor(Math.random() * scenarioPool.length)]
+          : undefined
         : undefined;
 
-      pendingLayouts.push({ layout, thing, credCtx, thingSeedInfo, concreteScenario });
+      pendingLayouts.push({
+        layout,
+        thing,
+        credCtx,
+        thingSeedInfo,
+        concreteScenario,
+      });
     }
   }
 
@@ -1910,34 +1941,56 @@ export async function runSingleScanPipelineWithGeneration(
 
   // totalSteps = attack generation + target + judge
   const totalSteps = attackCount * 3;
-  await db.scan.update({ where: { reportId }, data: { totalSteps, currentStep: 0 } });
+  await db.scan.update({
+    where: { reportId },
+    data: { totalSteps, currentStep: 0 },
+  });
   await writeProgressMeta(reportId, meta);
 
-  // ── Phase 2: Generate attacks sequentially with live progress flushes ─────
+  // ── Phase 2: Generate attacks in PARALLEL, then flush progressMeta ─────────────
   const attacks: AttackEntry[] = [];
-  for (let i = 0; i < pendingLayouts.length; i++) {
-    const { layout, thing, credCtx, thingSeedInfo, concreteScenario } = pendingLayouts[i];
-    const pattern = patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
+  const attackPromises = pendingLayouts.map(
+    async ({ layout, thing, credCtx, thingSeedInfo, concreteScenario }, i) => {
+      const pattern =
+        patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
+      let attackText: string;
+      try {
+        attackText = await generateCohesiveAttack(
+          options.attackerModel,
+          pattern,
+          thingSeedInfo,
+          credCtx?.instruction,
+          tracker,
+          concreteScenario,
+        );
+      } catch (err: any) {
+        const draftParts = renderAttack(
+          pattern,
+          thing.thingName,
+          thing.thingDescription,
+        );
+        attackText = Array.isArray(draftParts)
+          ? draftParts.join(" ")
+          : draftParts;
+      }
+      return { pattern, layout, attackText, thing, credCtx, idx: i };
+    },
+  );
 
-    meta.attacks[i].status = ProgressStepStatus.Running;
-
-    let attackText: string;
-    try {
-      attackText = await generateCohesiveAttack(
-        options.attackerModel,
-        pattern,
-        thingSeedInfo,
-        credCtx?.instruction,
-        tracker,
-        concreteScenario,
-      );
-      meta.attacks[i] = { status: ProgressStepStatus.Completed, retries: 0, text: attackText };
-    } catch (err: any) {
-      const draftParts = renderAttack(pattern, thing.thingName, thing.thingDescription);
-      attackText = Array.isArray(draftParts) ? draftParts.join(" ") : draftParts;
-      meta.attacks[i] = { status: ProgressStepStatus.Failed, retries: 1, error: err.message, text: attackText };
-    }
-
+  const attackResults = await Promise.all(attackPromises);
+  for (const {
+    pattern,
+    layout,
+    attackText,
+    thing,
+    credCtx,
+    idx,
+  } of attackResults) {
+    meta.attacks[idx] = {
+      status: ProgressStepStatus.Completed,
+      retries: 0,
+      text: attackText,
+    };
     attacks.push({
       patternId: layout.patternId,
       attackDescription: layout.attackDescription,
@@ -1947,15 +2000,25 @@ export async function runSingleScanPipelineWithGeneration(
       targetForbiddenTask: thing.forbiddenTask,
       credentialContext: credCtx,
     });
-
-    // Flush after every attack so the UI sees live progress
-    await db.scan.update({ where: { reportId }, data: { currentStep: i + 1 } });
-    await writeProgressMeta(reportId, meta);
   }
+  await writeProgressMeta(reportId, meta);
+
+  // Update coarse progress to reflect attack generation complete
+  await db.scan.update({
+    where: { reportId },
+    data: { currentStep: attackCount },
+  });
 
   // ── Phase 3+: Hand off to target/judge pipeline ───────────────────────────
   const attackSet: AttackSet = { seedInfo, attacks };
-  await runSingleScanPipeline(options, reportId, attackSet, dbModels, meta, attackCount);
+  await runSingleScanPipeline(
+    options,
+    reportId,
+    attackSet,
+    dbModels,
+    meta,
+    attackCount,
+  );
 }
 
 /**
@@ -1967,7 +2030,11 @@ export function launchScanWorker(
   reportId: string,
   dbModels: any[],
 ): void {
-  runSingleScanPipelineWithGeneration(options, reportId, dbModels).catch((err) =>
-    console.error(`[launchScanWorker] Background pipeline failed for ${reportId}:`, err),
+  runSingleScanPipelineWithGeneration(options, reportId, dbModels).catch(
+    (err) =>
+      console.error(
+        `[launchScanWorker] Background pipeline failed for ${reportId}:`,
+        err,
+      ),
   );
 }

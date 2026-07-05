@@ -9,8 +9,8 @@ import { Granularity } from "@/lib/enums";
 import {
   generateReportId,
   generateBatchId,
-  RunScanWithGenerationConfig,
   launchScanWorker,
+  RunScanWithGenerationConfig,
 } from "@/lib/scan-pipeline";
 import fs from "fs";
 import path from "path";
@@ -135,8 +135,8 @@ export async function POST(req: Request) {
     try {
       const content = fs.readFileSync(path.join(ONTOLOGY_DIR, file), "utf-8");
       const match = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/m);
-      const fileBody = match ? match[1].trim() : content.trim();
-      ontologySizes[file] = estimateTokens(fileBody);
+      const body = match ? match[1].trim() : content.trim();
+      ontologySizes[file] = estimateTokens(body);
     } catch {
       ontologySizes[file] = 0;
     }
@@ -189,10 +189,8 @@ export async function POST(req: Request) {
   // Generate a single batch ID for all scans in this launch
   const batchId = generateBatchId();
 
-  // Create all scan records FIRST, then fire background workers.
-  // This allows the frontend to immediately switch to the progress UI after
-  // receiving the batchId, while seed extraction + attack generation happen
-  // in the background with live progressMeta updates.
+  // Phase 1: Create scan records IMMEDIATELY so the frontend can show
+  // the progress UI without waiting for seed extraction / attack generation.
   const scanInfos: Array<{
     reportId: string;
     targetModel: string;
@@ -205,24 +203,9 @@ export async function POST(req: Request) {
       const reportId = generateReportId();
       scanInfos.push({ reportId, targetModel, promptIndex: promptIdx });
 
-      const promptTargetHold = calculateUpfrontScanHold(
-        [prompt],
-        [targetModel],
-        seedExtractorModel,
-        attackGeneratorModel,
-        judgeModel,
-        dbModels,
-        enableHardening,
-        hardenerModel,
-        extractorModel,
-        templateTokens,
-      );
-
       const toolsJson = JSON.stringify(prompt.tools);
       const mockJson = JSON.stringify(prompt.mockToolResponses);
 
-      // Create Scan record immediately with Running status and no steps yet.
-      // totalSteps = 0 signals to the UI that we are still in the generation phase.
       await db.scan.create({
         data: {
           reportId,
@@ -254,8 +237,19 @@ export async function POST(req: Request) {
         },
       });
 
-      // Build pipeline config and fire the background worker (no await).
-      // The worker handles seed extraction, attack generation, target + judge phases.
+      const promptTargetHold = calculateUpfrontScanHold(
+        [prompt],
+        [targetModel],
+        seedExtractorModel,
+        attackGeneratorModel,
+        judgeModel,
+        dbModels,
+        enableHardening,
+        hardenerModel,
+        extractorModel,
+        templateTokens,
+      );
+
       const pipelineConfig: RunScanWithGenerationConfig = {
         systemPrompt: prompt.systemPrompt,
         forbiddenTask: prompt.forbiddenTask,
