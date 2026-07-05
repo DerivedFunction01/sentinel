@@ -314,7 +314,7 @@ export async function extractSeedInfo(
   // 1. Run Domain Classification
   const { categories, relevantFiles } = await classifyDomain(
     extractorModel,
-    systemPrompt,
+    coreSystemPrompt ?? systemPrompt,
     toolsJson,
     tracker,
   );
