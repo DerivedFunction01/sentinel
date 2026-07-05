@@ -153,6 +153,9 @@ async function generateToolFromInspiration(
   toolJson: ToolDef;
   mockResponse: Record<string, unknown>;
 } | null> {
+  if (!thing) {
+    return null;
+  }
   const template = loadPromptFile("tool_generation_fast.md");
 
   // Process conditional blocks: show DETAILED section or COMPACT section based on granularity
@@ -279,8 +282,6 @@ export async function generateToolRecommendationFast(
         existingTools,
         toolRequirements,
       ));
-
-    const inspirationExamplesBlock = formatInspirationExamplesBlock(examples);
 
     // ── Step 2: Check for direct-match fast path ──────────────────────────
     const directMatches = examples.filter(
