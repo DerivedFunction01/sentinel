@@ -4,6 +4,29 @@ import { getPromptFile, PromptFileType } from "./prompt-loader";
 
 const enc = getEncoding("cl100k_base");
 
+// Token estimate constants
+const TOKEN_CONSTANTS = {
+  MESSAGE_ROLE_OVERHEAD: 4,
+  MESSAGE_STRUCTURAL_OVERHEAD: 3,
+  ONTOLOGY_DEFAULT_MAIN_AGENT_TOKENS: 500,
+  ONTOLOGY_DEFAULT_GENERAL_BUSINESS_TOKENS: 2000,
+  ONTOLOGY_DEFAULT_AVG_DOMAIN_TOKENS: 1000,
+  DEFAULT_NUM_THINGS: 4,
+  SEED_EXTRACTION_COMPLETION_BUFFER: 1500,
+  ATTACK_GEN_COMPLETION_BUFFER: 7200,
+  TARGET_SIM_PROMPT_BUFFER: 1000,
+  TARGET_SIM_COMPLETION_BUFFER: 200,
+  JUDGE_EVAL_COMPLETION_BUFFER: 100,
+  RE_EVAL_TRIALS_BUDGET: 5,
+  RE_EVAL_COMPLETION_BUFFER: 200,
+  HARDENING_COMPLETION_BUFFER: 1500,
+  TOOL_EXTRACTOR_COMPLETION_BUFFER: 1500,
+  REEVAL_SYSTEM_PROMPT_OVERHEAD: 1500,
+  REEVAL_COMPLETION_BUFFER: 1000,
+  TOKEN_HOLD_SCALE_MULTIPLIER: 1000000,
+  SAFETY_BUFFER_MULTIPLIER: 1.15,
+} as const;
+
 /**
  * Estimates the token count of a given string using the cl100k_base encoding (GPT-4 standard).
  */
@@ -27,9 +50,9 @@ export function estimateMessagesTokens(
   for (const msg of messages) {
     count += estimateTokens(msg.role);
     count += estimateTokens(msg.content || "");
-    count += 4; // structural message overhead
+    count += TOKEN_CONSTANTS.MESSAGE_ROLE_OVERHEAD; // structural message overhead
   }
-  count += 3; // response prefix overhead
+  count += TOKEN_CONSTANTS.MESSAGE_STRUCTURAL_OVERHEAD; // response prefix overhead
   return count;
 }
 
@@ -51,9 +74,10 @@ function getOntologySizes(dbModels: any[]): {
 } {
   // Default values if not available
   return {
-    mainAgentTokens: 100,
-    generalBusinessTokens: 2000,
-    avgDomainTokens: 1000,
+    mainAgentTokens: TOKEN_CONSTANTS.ONTOLOGY_DEFAULT_MAIN_AGENT_TOKENS,
+    generalBusinessTokens:
+      TOKEN_CONSTANTS.ONTOLOGY_DEFAULT_GENERAL_BUSINESS_TOKENS,
+    avgDomainTokens: TOKEN_CONSTANTS.ONTOLOGY_DEFAULT_AVG_DOMAIN_TOKENS,
   };
 }
 
@@ -117,9 +141,15 @@ export function calculateUpfrontScanHold(
   // Use provided template tokens or defaults (with proper fallbacks for undefined values)
   const ontologyTokens = templateTokens
     ? {
-        mainAgentTokens: templateTokens.mainAgentTokens ?? 100,
-        generalBusinessTokens: templateTokens.generalBusinessTokens ?? 2000,
-        avgDomainTokens: templateTokens.avgDomainTokens ?? 1000,
+        mainAgentTokens:
+          templateTokens.mainAgentTokens ??
+          TOKEN_CONSTANTS.ONTOLOGY_DEFAULT_MAIN_AGENT_TOKENS,
+        generalBusinessTokens:
+          templateTokens.generalBusinessTokens ??
+          TOKEN_CONSTANTS.ONTOLOGY_DEFAULT_GENERAL_BUSINESS_TOKENS,
+        avgDomainTokens:
+          templateTokens.avgDomainTokens ??
+          TOKEN_CONSTANTS.ONTOLOGY_DEFAULT_AVG_DOMAIN_TOKENS,
       }
     : getOntologySizes(dbModels);
 
@@ -134,7 +164,7 @@ export function calculateUpfrontScanHold(
     const patternsCount = patterns.length;
     const totalTargetCount = patternsCount * 3;
     // Default to 4 when forbiddenTask is empty (matches the 4-item cap in suggestForbiddenTasks.md)
-    let numThings = 4;
+    let numThings = TOKEN_CONSTANTS.DEFAULT_NUM_THINGS;
     if (prompt.forbiddenTask?.trim()) {
       numThings =
         prompt.forbiddenTask
@@ -163,15 +193,17 @@ export function calculateUpfrontScanHold(
       classifyDomainTokens +
       classifyRestrictionsTokens;
     const seedHold =
-      (basePromptTokens + seedExtractorTemplateTokens + ontologyContentTokens) * seedPrice.prompt +
-      1500 * seedPrice.completion;
+      (basePromptTokens + seedExtractorTemplateTokens + ontologyContentTokens) *
+        seedPrice.prompt +
+      TOKEN_CONSTANTS.SEED_EXTRACTION_COMPLETION_BUFFER * seedPrice.completion;
 
     // 2. Attack Gen: uses AttackGenerator template instructions
     const attackHold =
       (basePromptTokens + attackGeneratorTokens) * attackPrice.prompt +
-      7200 * attackPrice.completion;
+      TOKEN_CONSTANTS.ATTACK_GEN_COMPLETION_BUFFER * attackPrice.completion;
 
-    totalHold += (seedHold + attackHold) * 1000000;
+    totalHold +=
+      (seedHold + attackHold) * TOKEN_CONSTANTS.TOKEN_HOLD_SCALE_MULTIPLIER;
 
     // 3. Target models
     for (const targetId of targetModels) {
@@ -180,38 +212,45 @@ export function calculateUpfrontScanHold(
       // Target Sim: system prompt + typical conversation history/tool schemas buffer
       const targetSimHold =
         estimatedTrials *
-        ((basePromptTokens + 1000) * targetPrice.prompt +
-          200 * targetPrice.completion);
+        ((basePromptTokens + TOKEN_CONSTANTS.TARGET_SIM_PROMPT_BUFFER) *
+          targetPrice.prompt +
+          TOKEN_CONSTANTS.TARGET_SIM_COMPLETION_BUFFER *
+            targetPrice.completion);
 
       // Judge: base prompt + Judge instructions + JudgeEvaluationSuffix + reasoning outputs
       const judgeEvalHold =
         estimatedTrials *
         ((basePromptTokens + judgeTokens) * judgePrice.prompt +
-          100 * judgePrice.completion);
+          TOKEN_CONSTANTS.JUDGE_EVAL_COMPLETION_BUFFER * judgePrice.completion);
 
       // Re-evaluation borderline trials (budget up to 5) using JudgeReEvaluation template (roughly equal to judgeTokens)
       const reEvalHold =
-        5 *
+        TOKEN_CONSTANTS.RE_EVAL_TRIALS_BUDGET *
         ((basePromptTokens + judgeTokens) * judgePrice.prompt +
-          200 * judgePrice.completion);
+          TOKEN_CONSTANTS.RE_EVAL_COMPLETION_BUFFER * judgePrice.completion);
 
-      totalHold += (targetSimHold + judgeEvalHold + reEvalHold) * 1000000;
+      totalHold +=
+        (targetSimHold + judgeEvalHold + reEvalHold) *
+        TOKEN_CONSTANTS.TOKEN_HOLD_SCALE_MULTIPLIER;
     }
 
     // 4. Hardening
     if (enableHardening) {
       const hardenHold =
         (basePromptTokens + optimizationPromptTokens) * hardenerPrice.prompt +
-        1500 * hardenerPrice.completion;
+        TOKEN_CONSTANTS.HARDENING_COMPLETION_BUFFER * hardenerPrice.completion;
       const toolExtractorHold =
         (basePromptTokens + extractSeedInfoTokens) * extractorPrice.prompt +
-        1500 * extractorPrice.completion;
-      totalHold += (hardenHold + toolExtractorHold) * 1000000;
+        TOKEN_CONSTANTS.TOOL_EXTRACTOR_COMPLETION_BUFFER *
+          extractorPrice.completion;
+      totalHold +=
+        (hardenHold + toolExtractorHold) *
+        TOKEN_CONSTANTS.TOKEN_HOLD_SCALE_MULTIPLIER;
     }
   }
 
   // 15% safety buffer
-  return Math.ceil(totalHold * 1.15);
+  return Math.ceil(totalHold * TOKEN_CONSTANTS.SAFETY_BUFFER_MULTIPLIER);
 }
 
 /**
@@ -219,7 +258,11 @@ export function calculateUpfrontScanHold(
  */
 export function calculateSingleReevalHold(
   trial: any,
-  referenceExamples: Array<{ attack: string; response: string; reasoning: string }>,
+  referenceExamples: Array<{
+    attack: string;
+    response: string;
+    reasoning: string;
+  }>,
   forbiddenTask: string,
   judgeModel: string,
   dbModels: any[],
@@ -230,18 +273,24 @@ export function calculateSingleReevalHold(
     completion: parseFloat(judge?.completionPrice || "0.0000004"),
   };
 
-  const refText = referenceExamples.map(r => `${r.attack}\n${r.response}\n${r.reasoning}`).join("\n");
-  
+  const refText = referenceExamples
+    .map((r) => `${r.attack}\n${r.response}\n${r.reasoning}`)
+    .join("\n");
+
   const forbiddenTaskTokens = estimateTokens(forbiddenTask || "");
   const attackTokens = estimateTokens(trial.attack || "");
   const responseTokens = estimateTokens(trial.response || "");
   const transcriptTokens = estimateTokens(
-    typeof trial.transcript === "string" ? trial.transcript : JSON.stringify(trial.transcript || ""),
+    typeof trial.transcript === "string"
+      ? trial.transcript
+      : JSON.stringify(trial.transcript || ""),
   );
   const toolCallsTokens = estimateTokens(
-    typeof trial.toolCalls === "string" ? trial.toolCalls : JSON.stringify(trial.toolCalls || ""),
+    typeof trial.toolCalls === "string"
+      ? trial.toolCalls
+      : JSON.stringify(trial.toolCalls || ""),
   );
-  
+
   const inputTokens =
     forbiddenTaskTokens +
     attackTokens +
@@ -249,10 +298,13 @@ export function calculateSingleReevalHold(
     transcriptTokens +
     toolCallsTokens +
     estimateTokens(refText) +
-    1500; // system prompt overhead buffer
+    TOKEN_CONSTANTS.REEVAL_SYSTEM_PROMPT_OVERHEAD; // system prompt overhead buffer
 
   const upfrontHold = Math.ceil(
-    (inputTokens * judgePrice.prompt + 1000 * judgePrice.completion) * 1000000 * 1.15,
+    (inputTokens * judgePrice.prompt +
+      TOKEN_CONSTANTS.REEVAL_COMPLETION_BUFFER * judgePrice.completion) *
+      TOKEN_CONSTANTS.TOKEN_HOLD_SCALE_MULTIPLIER *
+      TOKEN_CONSTANTS.SAFETY_BUFFER_MULTIPLIER,
   );
 
   return upfrontHold;
