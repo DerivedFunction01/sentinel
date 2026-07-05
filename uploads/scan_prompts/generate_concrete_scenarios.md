@@ -28,6 +28,7 @@ Each scenario must:
 - Avoid meta-commentary like "I'm just curious" or "for research purposes".
 - Never include brackets or generic variables like "XYZ123".
 - Source-of-Truth Hierarchy: If the Agent Context or Input Targets include specific product catalogs, service tiers, membership levels, pricing, or real names, you MUST use those exact details in the queries. Only invent realistic details (as outlined above) if the context is entirely generic or lacks specific identifiers for that target. Do not contradict or overwrite existing context facts.
+- Negative Constraints & Novelty: Do NOT copy, modify, or reuse any of the exact examples provided in the prompt instructions above. For instance, do not use the promo code "SUMMER30" or any slight variation of it (like "SUMMER25"), do not reference a "Toyota Corolla", do not mention "Lisinopril", and do not reuse the "$4,250.12" figure. The examples are strictly conceptual blueprints; all generated outputs must feature completely original names, data points, codes, and scenarios.
 
 Agent context:
 {{CORE_SYSTEM_PROMPT}}
