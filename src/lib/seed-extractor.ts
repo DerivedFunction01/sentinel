@@ -12,6 +12,7 @@ import {
   getPromptFile,
   replacePlaceholders,
 } from "@/lib/prompt-loader";
+import { extractTaggedContent } from "@/lib/model-utils";
 
 const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
 
@@ -383,8 +384,15 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
       console.error("Failed to extract core system prompt:", err);
     }
 
-    return {
+    // Augment scenarios with concrete, generated user queries
+    const thingsWithScenarios = await augmentThingsWithConcreteScenarios(
       things,
+      extractorModel,
+      tracker,
+    );
+
+    return {
+      things: thingsWithScenarios,
       personaDescription:
         parsed.personaDescription || defaultSeed.personaDescription,
       businessFeatures: parsed.businessFeatures || defaultSeed.businessFeatures,
@@ -405,5 +413,80 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
       relevantFiles,
       coreSystemPrompt: systemPrompt,
     };
+  }
+}
+
+/**
+ * Generates 5-7 concrete, realistic user scenarios for each thing via LLM.
+ * These scenarios are appended to the thing's businessScenarios array.
+ */
+async function augmentThingsWithConcreteScenarios(
+  things: RestrictionThing[],
+  extractorModel: string,
+  tracker?: UsageTracker,
+): Promise<RestrictionThing[]> {
+  if (!things || things.length === 0) return things;
+
+  const targets = things
+    .filter((t) => t.isPresent !== false)
+    .map((t) => ({
+      forbiddenTask: t.forbiddenTask,
+      thingName: t.thingName,
+      thingDescription: t.thingDescription,
+    }));
+
+  if (targets.length === 0) return things;
+
+  const template = getPromptFile(PromptFileType.GenerateConcreteScenarios);
+  const targetsJson = JSON.stringify(targets, null, 2);
+
+  const messages = [
+    {
+      role: "user",
+      content: template.replace("{{TARGETS_JSON}}", targetsJson),
+    },
+  ];
+
+  try {
+    const response = await callOpenRouter(
+      extractorModel,
+      messages,
+      undefined,
+      tracker,
+    );
+
+    const text = response.content || "";
+    const scenariosJson =
+      extractTaggedContent(text, "<JSON>", "</JSON>") || text;
+    const cleaned = scenariosJson
+      .replace(/```json/gi, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const parsed = JSON.parse(cleaned);
+    const scenarioMap = new Map<string, string[]>();
+    if (Array.isArray(parsed.scenarios)) {
+      scenarioMap.set("__all__", parsed.scenarios);
+    }
+
+    const scenarioArrays = Array.from(scenarioMap.values());
+    const allScenarios = scenarioArrays.flat();
+
+    if (allScenarios.length === 0) return things;
+
+    const result = things.map((thing) => {
+      const isPresentFalse = !thing.isPresent;
+      if (isPresentFalse) return thing;
+      const existing = thing.businessScenarios || [];
+      return {
+        ...thing,
+        businessScenarios: [...existing, ...allScenarios],
+      };
+    });
+
+    return result;
+  } catch (error) {
+    console.error("Error generating concrete scenarios:", error);
+    return things;
   }
 }

@@ -68,6 +68,7 @@ export async function generateCohesiveAttack(
   seedInfo: any,
   credentialMode?: CredentialMode,
   tracker?: UsageTracker,
+  concreteScenario?: string,
 ): Promise<string> {
   const firstThing = seedInfo.things?.[0] || {};
   const { thingName = "", thingDescription = "" } = firstThing;
@@ -85,6 +86,7 @@ export async function generateCohesiveAttack(
         seedInfo,
         pattern,
         credentialMode,
+        concreteScenario,
       ),
     },
   ];
@@ -248,7 +250,17 @@ export async function generateAttackSet(
       thing.thingDescriptionVariants,
     );
 
-    for (const layout of attackLayouts) {
+    // Determine which indices will receive concrete scenarios (50%)
+    const concreteScenarioIndices = new Set<number>();
+    const numConcrete = Math.ceil(attackLayouts.length / 2);
+    while (concreteScenarioIndices.size < numConcrete) {
+      concreteScenarioIndices.add(
+        Math.floor(Math.random() * attackLayouts.length),
+      );
+    }
+
+    for (let idx = 0; idx < attackLayouts.length; idx++) {
+      const layout = attackLayouts[idx];
       const pattern =
         patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
 
@@ -285,12 +297,22 @@ export async function generateAttackSet(
         businessScenarios: thing.businessScenarios,
       };
 
+      // Select concrete scenario if this index is marked for it
+      const concreteScenario = concreteScenarioIndices.has(idx)
+        ? (thing.businessScenarios?.length
+            ? thing.businessScenarios[
+                Math.floor(Math.random() * thing.businessScenarios.length)
+              ]
+            : undefined)
+        : undefined;
+
       const promise = generateCohesiveAttack(
         options.attackerModel,
         pattern,
         thingSeedInfo,
         credCtx?.instruction,
         tracker,
+        concreteScenario,
       );
 
       pendingAttacks.push({

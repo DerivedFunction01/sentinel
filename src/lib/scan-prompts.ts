@@ -225,6 +225,7 @@ export function buildAttackGeneratorUserContent(
     patternId: string;
   },
   credentialMode?: CredentialMode,
+  concreteScenario?: string,
 ): string {
   const firstThing = seedInfo.things?.[0] || {};
   const {
@@ -290,6 +291,7 @@ export function buildAttackGeneratorUserContent(
     hasJustification: !!justification,
     hasCloser: !!closer,
     isVerbose: isVerbose,
+    actualScenario: !!concreteScenario,
   };
 
   // Process the conditional blocks
@@ -308,6 +310,7 @@ export function buildAttackGeneratorUserContent(
     CORE_CLAIM: coreClaim || "",
     JUSTIFICATION: justification || "",
     CLOSER: closer || "",
+    CONCRETE_SCENARIO: concreteScenario || "",
   });
 
   // Clean up any extra empty lines left by stripped tags

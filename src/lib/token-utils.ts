@@ -74,6 +74,9 @@ export function calculateUpfrontScanHold(
   const extractSeedInfoTokens = estimateTokens(
     getPromptFile(PromptFileType.ExtractSeedInfo),
   );
+  const generateConcreteScenariosTokens = estimateTokens(
+    getPromptFile(PromptFileType.GenerateConcreteScenarios),
+  );
   const attackGeneratorTokens = estimateTokens(
     getPromptFile(PromptFileType.AttackGenerator),
   );
@@ -108,14 +111,15 @@ export function calculateUpfrontScanHold(
     );
     const estimatedTrials = numThings * countPerThing;
 
-    // 1. Seed Extraction: includes domain classification + suggested tasks + seed extraction
+    // 1. Seed Extraction: includes domain classification + suggested tasks + seed extraction + concrete scenario generation
     const seedExtractorTemplateTokens =
       systemPromptExtractorTokens +
       suggestForbiddenTokens +
-      extractSeedInfoTokens;
+      extractSeedInfoTokens +
+      generateConcreteScenariosTokens;
     const seedHold =
       (basePromptTokens + seedExtractorTemplateTokens) * seedPrice.prompt +
-      1000 * seedPrice.completion;
+      1500 * seedPrice.completion;
 
     // 2. Attack Gen: uses AttackGenerator template instructions
     const attackHold =
