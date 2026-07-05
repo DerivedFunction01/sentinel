@@ -236,154 +236,161 @@ export default function PenTestScanPage() {
     }
   }, []);
 
-  /**
-   * Build the cost estimation items array for the CostPreviewWidget.
-   * Mirrors the logic in calculateUpfrontScanHold but encodes it as
-   * generic items so the server does only rate-lookup and multiplication.
-   */
-  const costItems = useMemo<CostEstimationItem[]>(() => {
-    if (!templateTokens || targetModels.length === 0) return [];
-    const t = templateTokens;
-    const items: CostEstimationItem[] = [];
+/**
+    * Build the cost estimation items array for the CostPreviewWidget.
+    * Mirrors the logic in calculateUpfrontScanHold but encodes it as
+    * generic items so the server does only rate-lookup and multiplication.
+    */
+   const costItems = useMemo<CostEstimationItem[]>(() => {
+     if (!templateTokens || targetModels.length === 0) return [];
+     const t = templateTokens;
+     const items: CostEstimationItem[] = [];
 
-    for (const prompt of prompts) {
-      const userContent =
-        (prompt.systemPrompt || "") +
-        "\n" +
-        (prompt.forbiddenTask || "") +
-        "\n" +
-        (prompt.judgeInstructions || "");
+     // Ontology content is always included: main_agent + general_business + avg domain files
+     const ontologyContentTokens =
+       (t.mainAgentTokens || 100) +
+       (t.generalBusinessTokens || 2000) +
+       (t.avgDomainTokens || 1000);
 
-      // Estimate trial count from forbidden task paragraphs
-      let numThings = 3;
-      if (prompt.forbiddenTask?.trim()) {
-        numThings =
-          prompt.forbiddenTask
-            .split(/\n\s*\n/)
-            .map((s: string) => s.trim())
-            .filter(Boolean).length || 1;
-      }
-      const patternsCount: number = t.patternsCount ?? 20;
-      const totalTargetCount = patternsCount * 3;
-      const countPerThing = Math.max(
-        patternsCount,
-        Math.ceil(totalTargetCount / numThings),
-      );
-      const estimatedTrials = numThings * countPerThing;
+     for (const prompt of prompts) {
+       const userContent =
+         (prompt.systemPrompt || "") +
+         "\n" +
+         (prompt.forbiddenTask || "") +
+         "\n" +
+         (prompt.judgeInstructions || "");
 
-      // 1. Seed extraction (prompt input + template overhead)
-      items.push({
-        modelId: seedExtractorModel,
-        type: "prompt",
-        text: userContent,
-        additionalTokens: t.seedTemplate,
-      });
-      items.push({
-        modelId: seedExtractorModel,
-        type: "completion",
-        tokensCount: t.seedCompletionBuffer,
-      });
+       // Estimate trial count from forbidden task paragraphs
+       // Default to 4 when forbiddenTask is empty (matches the 4-item cap in suggestForbiddenTasks.md)
+       let numThings = 4;
+       if (prompt.forbiddenTask?.trim()) {
+         numThings =
+           prompt.forbiddenTask
+             .split(/\n\s*\n/)
+             .map((s: string) => s.trim())
+             .filter(Boolean).length || 1;
+       }
+       const patternsCount: number = t.patternsCount ?? 20;
+       const totalTargetCount = patternsCount * 3;
+       const countPerThing = Math.max(
+         patternsCount,
+         Math.ceil(totalTargetCount / numThings),
+       );
+       const estimatedTrials = numThings * countPerThing;
 
-      // 2. Attack generation (prompt input + template overhead)
-      items.push({
-        modelId: attackerModel,
-        type: "prompt",
-        text: userContent,
-        additionalTokens: t.attackGenerator,
-      });
-      items.push({
-        modelId: attackerModel,
-        type: "completion",
-        tokensCount: t.attackCompletionBuffer,
-      });
+       // 1. Seed extraction (prompt input + template overhead + ontology content)
+       items.push({
+         modelId: seedExtractorModel,
+         type: "prompt",
+         text: userContent,
+         additionalTokens: t.seedTemplate + ontologyContentTokens,
+       });
+       items.push({
+         modelId: seedExtractorModel,
+         type: "completion",
+         tokensCount: t.seedCompletionBuffer,
+       });
 
-      // 3. Per target model: target sim + judge eval + re-eval budget
-      for (const targetId of targetModels) {
-        // Target simulation (estimatedTrials runs)
-        items.push({
-          modelId: targetId,
-          type: "prompt",
-          text: userContent,
-          additionalTokens: t.targetSimBuffer,
-          multiplier: estimatedTrials,
-        });
-        items.push({
-          modelId: targetId,
-          type: "completion",
-          tokensCount: t.targetCompletionBuffer,
-          multiplier: estimatedTrials,
-        });
+       // 2. Attack generation (prompt input + template overhead)
+       items.push({
+         modelId: attackerModel,
+         type: "prompt",
+         text: userContent,
+         additionalTokens: t.attackGenerator,
+       });
+       items.push({
+         modelId: attackerModel,
+         type: "completion",
+         tokensCount: t.attackCompletionBuffer,
+       });
 
-        // Judge evaluation
-        items.push({
-          modelId: judgeModel,
-          type: "prompt",
-          text: userContent,
-          additionalTokens: t.judge,
-          multiplier: estimatedTrials,
-        });
-        items.push({
-          modelId: judgeModel,
-          type: "completion",
-          tokensCount: t.judgeCompletionBuffer,
-          multiplier: estimatedTrials,
-        });
+       // 3. Per target model: target sim + judge eval + re-eval budget
+       for (const targetId of targetModels) {
+         // Target simulation (estimatedTrials runs)
+         items.push({
+           modelId: targetId,
+           type: "prompt",
+           text: userContent,
+           additionalTokens: t.targetSimBuffer,
+           multiplier: estimatedTrials,
+         });
+         items.push({
+           modelId: targetId,
+           type: "completion",
+           tokensCount: t.targetCompletionBuffer,
+           multiplier: estimatedTrials,
+         });
 
-        // Re-evaluation budget (5 borderline trials)
-        items.push({
-          modelId: judgeModel,
-          type: "prompt",
-          text: userContent,
-          additionalTokens: t.judge,
-          multiplier: t.reEvalCount ?? 5,
-        });
-        items.push({
-          modelId: judgeModel,
-          type: "completion",
-          tokensCount: t.reEvalCompletionBuffer,
-          multiplier: t.reEvalCount ?? 5,
-        });
-      }
+         // Judge evaluation
+         items.push({
+           modelId: judgeModel,
+           type: "prompt",
+           text: userContent,
+           additionalTokens: t.judge,
+           multiplier: estimatedTrials,
+         });
+         items.push({
+           modelId: judgeModel,
+           type: "completion",
+           tokensCount: t.judgeCompletionBuffer,
+           multiplier: estimatedTrials,
+         });
 
-      // 4. Hardening (if enabled)
-      if (enableHardening) {
-        items.push({
-          modelId: hardenerModel,
-          type: "prompt",
-          text: userContent,
-          additionalTokens: t.optimizationPrompt,
-        });
-        items.push({
-          modelId: hardenerModel,
-          type: "completion",
-          tokensCount: t.hardenCompletionBuffer,
-        });
-        items.push({
-          modelId: extractorModel,
-          type: "prompt",
-          text: userContent,
-          additionalTokens: t.extractSeedInfo,
-        });
-        items.push({
-          modelId: extractorModel,
-          type: "completion",
-          tokensCount: t.extractorCompletionBuffer,
-        });
-      }
-    }
+         // Re-evaluation budget (5 borderline trials)
+         items.push({
+           modelId: judgeModel,
+           type: "prompt",
+           text: userContent,
+           additionalTokens: t.judge,
+           multiplier: t.reEvalCount ?? 5,
+         });
+         items.push({
+           modelId: judgeModel,
+           type: "completion",
+           tokensCount: t.reEvalCompletionBuffer,
+           multiplier: t.reEvalCount ?? 5,
+         });
+       }
 
-    return items;
-  }, [
-    templateTokens,
-    targetModels,
-    prompts,
-    seedExtractorModel,
-    attackerModel,
-    judgeModel,
-    hardenerModel,
-    extractorModel,
-    enableHardening,
-  ]);
+       // 4. Hardening (if enabled)
+       if (enableHardening) {
+         items.push({
+           modelId: hardenerModel,
+           type: "prompt",
+           text: userContent,
+           additionalTokens: t.optimizationPrompt,
+         });
+         items.push({
+           modelId: hardenerModel,
+           type: "completion",
+           tokensCount: t.hardenCompletionBuffer,
+         });
+         items.push({
+           modelId: extractorModel,
+           type: "prompt",
+           text: userContent,
+           additionalTokens: t.extractSeedInfo,
+         });
+         items.push({
+           modelId: extractorModel,
+           type: "completion",
+           tokensCount: t.extractorCompletionBuffer,
+         });
+       }
+     }
+
+     return items;
+   }, [
+     templateTokens,
+     targetModels,
+     prompts,
+     seedExtractorModel,
+     attackerModel,
+     judgeModel,
+     hardenerModel,
+     extractorModel,
+     enableHardening,
+   ]);
 
   const handleLaunch = async () => {
     if (targetModels.length === 0) {

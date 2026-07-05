@@ -42,6 +42,22 @@ function getModelPricing(modelId: string, dbModels: any[]) {
 }
 
 /**
+ * Returns pre-computed ontology token sizes from the cached template tokens.
+ */
+function getOntologySizes(dbModels: any[]): {
+  mainAgentTokens: number;
+  generalBusinessTokens: number;
+  avgDomainTokens: number;
+} {
+  // Default values if not available
+  return {
+    mainAgentTokens: 100,
+    generalBusinessTokens: 2000,
+    avgDomainTokens: 1000,
+  };
+}
+
+/**
  * Estimates the maximum upfront token hold required for a scan launch.
  * Uses a 1,000,000x multiplier scale and dynamic template lengths.
  */
@@ -55,6 +71,11 @@ export function calculateUpfrontScanHold(
   enableHardening: boolean,
   hardenerModel: string,
   extractorModel: string,
+  templateTokens?: {
+    mainAgentTokens?: number;
+    generalBusinessTokens?: number;
+    avgDomainTokens?: number;
+  },
 ): number {
   let totalHold = 0;
 
@@ -87,6 +108,15 @@ export function calculateUpfrontScanHold(
     getPromptFile(PromptFileType.OptimizationPrompt),
   );
 
+  // Use provided template tokens or defaults (with proper fallbacks for undefined values)
+  const ontologyTokens = templateTokens
+    ? {
+        mainAgentTokens: templateTokens.mainAgentTokens ?? 100,
+        generalBusinessTokens: templateTokens.generalBusinessTokens ?? 2000,
+        avgDomainTokens: templateTokens.avgDomainTokens ?? 1000,
+      }
+    : getOntologySizes(dbModels);
+
   for (const prompt of prompts) {
     const sysPromptTokens = estimateTokens(prompt.systemPrompt || "");
     const forbiddenTokens = estimateTokens(prompt.forbiddenTask || "");
@@ -97,7 +127,8 @@ export function calculateUpfrontScanHold(
     // Estimate trials dynamically instead of hardcoded 48
     const patternsCount = patterns.length;
     const totalTargetCount = patternsCount * 3;
-    let numThings = 3;
+    // Default to 4 when forbiddenTask is empty (matches the 4-item cap in suggestForbiddenTasks.md)
+    let numThings = 4;
     if (prompt.forbiddenTask?.trim()) {
       numThings =
         prompt.forbiddenTask
@@ -112,13 +143,19 @@ export function calculateUpfrontScanHold(
     const estimatedTrials = numThings * countPerThing;
 
     // 1. Seed Extraction: includes domain classification + suggested tasks + seed extraction + concrete scenario generation
+    // Ontology content is always included: main_agent (~100) + general_business (~2000) + avg domain files (~1000 for 1-2 typical domains)
+    const ontologyContentTokens =
+      ontologyTokens.mainAgentTokens +
+      ontologyTokens.generalBusinessTokens +
+      ontologyTokens.avgDomainTokens; // Average 1-2 domain files
+
     const seedExtractorTemplateTokens =
       systemPromptExtractorTokens +
       suggestForbiddenTokens +
       extractSeedInfoTokens +
       generateConcreteScenariosTokens;
     const seedHold =
-      (basePromptTokens + seedExtractorTemplateTokens) * seedPrice.prompt +
+      (basePromptTokens + seedExtractorTemplateTokens + ontologyContentTokens) * seedPrice.prompt +
       1500 * seedPrice.completion;
 
     // 2. Attack Gen: uses AttackGenerator template instructions

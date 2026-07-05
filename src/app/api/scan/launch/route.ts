@@ -13,6 +13,8 @@ import {
   runSingleScanPipeline,
   RunSingleScanPipelineConfig,
 } from "@/lib/scan-pipeline";
+import fs from "fs";
+import path from "path";
 
 /** Shape of a prompt config received from the frontend. */
 interface PromptPayload {
@@ -123,8 +125,37 @@ export async function POST(req: Request) {
     };
   });
 
-  // Import hold calculation utility
-  const { calculateUpfrontScanHold } = await import("@/lib/token-utils");
+  // Import hold calculation utility and estimateTokens
+  const { calculateUpfrontScanHold, estimateTokens } = await import("@/lib/token-utils");
+
+  // Compute ontology token sizes directly (same as template-tokens endpoint)
+  const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
+  const ontologyFiles = fs.readdirSync(ONTOLOGY_DIR).filter((f) => f.endsWith(".md"));
+  const ontologySizes: Record<string, number> = {};
+  for (const file of ontologyFiles) {
+    try {
+      const content = fs.readFileSync(path.join(ONTOLOGY_DIR, file), "utf-8");
+      const match = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/m);
+      const body = match ? match[1].trim() : content.trim();
+      ontologySizes[file] = estimateTokens(body);
+    } catch {
+      ontologySizes[file] = 0;
+    }
+  }
+  const domainFiles = Object.keys(ontologySizes).filter(
+    (f) => f !== "main_agent.md" && f !== "general_business.md" && ontologySizes[f] > 0,
+  );
+  const avgDomainTokens =
+    domainFiles.length > 0
+      ? Math.round(
+          domainFiles.reduce((sum, f) => sum + ontologySizes[f], 0) / domainFiles.length,
+        )
+      : 1000;
+  const templateTokens = {
+    mainAgentTokens: ontologySizes["main_agent.md"] || 100,
+    generalBusinessTokens: ontologySizes["general_business.md"] || 2000,
+    avgDomainTokens,
+  };
 
   // Calculate upfront hold tokens
   const upfrontHold = calculateUpfrontScanHold(
@@ -137,6 +168,7 @@ export async function POST(req: Request) {
     enableHardening,
     hardenerModel,
     extractorModel,
+    templateTokens,
   );
 
   // Check token balance
@@ -211,6 +243,7 @@ export async function POST(req: Request) {
           enableHardening,
           hardenerModel,
           extractorModel,
+          templateTokens,
         );
 
         await db.user.update({
@@ -256,6 +289,7 @@ export async function POST(req: Request) {
         enableHardening,
         hardenerModel,
         extractorModel,
+        templateTokens,
       );
 
       totalNetHoldDeduction += promptTargetHold;
