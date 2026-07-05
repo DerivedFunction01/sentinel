@@ -26,12 +26,8 @@ import {
   executeMultiStepHardeningFull,
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
-import {
-  deriveToolRequirements,
-} from "@/lib/tool-extractor";
-import {
-  generateToolRecommendationFast,
-} from "@/lib/tool-recommendation-fast";
+import { deriveToolRequirements } from "@/lib/tool-extractor";
+import { generateToolRecommendationFast } from "@/lib/tool-recommendation-fast";
 
 export interface FastHardeningParams {
   systemPrompt: string;
@@ -46,6 +42,7 @@ export interface FastHardeningParams {
   trials: Trial[];
   tracker?: UsageTracker;
   trace?: HardeningTrace;
+  includeToolRecommendation?: boolean;
 }
 
 export interface FastHardeningResult {
@@ -85,6 +82,7 @@ export async function executeFastHardening(
     trials,
     tracker,
     trace,
+    includeToolRecommendation = true,
   } = params;
 
   // Step 1: Identify protected restrictions from seed extraction
@@ -101,10 +99,17 @@ export async function executeFastHardening(
   let recommendedTools: ToolDef[] = [];
   let slowPathHit = false;
   let inspirationExamplesBlock = "";
-  let fastResult: Awaited<ReturnType<typeof generateToolRecommendationFast>> | undefined;
+  let fastResult:
+    | Awaited<ReturnType<typeof generateToolRecommendationFast>>
+    | undefined;
 
-  // Step 2: Tool handling (skip if protected)
-  if (isProtected) {
+  // Step 2: Tool handling (skip if protected or tool recommendation is disabled)
+  if (!includeToolRecommendation) {
+    // Tool recommendation disabled — skip entirely
+    protectedTools = [];
+    recommendedTools = [];
+    fastResult = undefined;
+  } else if (isProtected) {
     // Protected: no tool extraction needed
     protectedTools = targetThing.protectedByTools!;
 
@@ -133,9 +138,9 @@ export async function executeFastHardening(
       // Parse the JSON to extract recommendedTools for deduplication
       try {
         const parsed = JSON.parse(fastResult.toolRecommendation);
-        recommendedTools = (parsed.tools || []).map(
-          (t: any) => t.toolJson as ToolDef,
-        ).filter(Boolean);
+        recommendedTools = (parsed.tools || [])
+          .map((t: any) => t.toolJson as ToolDef)
+          .filter(Boolean);
       } catch {
         recommendedTools = [];
       }
@@ -198,7 +203,8 @@ export async function executeFastHardening(
             name: fn?.name || "unknown",
             granularity,
             compatibilityScore: (t as any).compatibilityScore || 85,
-            rationale: (t as any).rationale || "Recommended tool for restriction",
+            rationale:
+              (t as any).rationale || "Recommended tool for restriction",
             toolJson: t,
           };
         }),

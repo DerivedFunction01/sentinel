@@ -92,15 +92,17 @@ export async function generateHardenedPrompt(
     trials,
     tracker,
     trace,
+    includeToolRecommendation,
   };
 
   const result: FastHardeningResult = await executeFastHardening(fastParams, callModel);
 
   // Handle the case where includeToolRecommendation is false
+  // Protected tools should still be included, but new recommendations should be stripped
   let toolRecommendation = result.toolRecommendation;
   let compatibilityScore = result.compatibilityScore;
 
-  if (!includeToolRecommendation) {
+  if (!includeToolRecommendation && !result.protectedTools.length) {
     toolRecommendation = "";
     compatibilityScore = 0;
   }
