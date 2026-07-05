@@ -4,6 +4,25 @@ Here is the current system prompt:
 <system_prompt>
 {{SYSTEM_PROMPT}}
 </system_prompt>
+
+<hasProtectedRestrictions>
+The following restrictions or policies are already protected by existing tools. For each, analyze whether an existing tool covers the them and route accordingly:
+<protected_tools_block>
+{{PROTECTED_TOOLS_BLOCK}}
+</protected_tools_block>
+
+For those with existing tool coverage:
+
+- Do NOT add guardrails, refusals, or policy language
+- Instead, add them to the Intent Routing Matrix with "Tool Handoff Protocol"
+- In the Protocol Execution Matrix, specify that the LLM should call the referenced tool
+- The tool will enforce the policy dynamically; your job is only to route to the tool
+  </hasProtectedRestrictions>
+
+<noProtectedRestrictions>
+No restrictions or policies are currently protected by tools. All restrictions in the forbidden task must be handled through either tool handoff (if tools are available from inspiration) or hardened refusal patterns.
+</noProtectedRestrictions>
+
 <hasTools>
 We have configured/generated the following tool definitions to handle the forbidden task constraints dynamically:
 <available_tools>

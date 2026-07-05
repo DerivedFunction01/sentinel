@@ -63,12 +63,13 @@ export interface GenerateHardenedPromptResult {
  * on-demand /api/scan/[id]/harden POST handler.
  *
  * Steps:
- *   1. Rephrase restrictions into tool requirements (for inspiration search)
- *   2. Get inspiration examples from the database (shared between tool extractor and hardening)
- *   3. Tool recommendation (if includeToolRecommendation is true)
- *   4. Parse recommended tools
- *   5. Multi-step prompt hardening via executeMultiStepHardening
- *   6. Fallback to deterministic hardening on error
+ *   1. Check if restriction is already protected by existing tools
+ *   2. Rephrase restrictions into tool requirements (for inspiration search)
+ *   3. Get inspiration examples from the database (shared between tool extractor and hardening)
+ *   4. Tool recommendation (if includeToolRecommendation is true and not protected)
+ *   5. Parse recommended tools
+ *   6. Multi-step prompt hardening via executeMultiStepHardening
+ *   7. Fallback to deterministic hardening on error
  *
  * @param params  All inputs required for hardening
  * @param callModel  A function that sends a prompt to an LLM and returns its text
@@ -95,7 +96,7 @@ export async function generateHardenedPrompt(
     useFullPromptStep1 = true,
   } = params;
 
-  // Steps 1–3 are only needed when tool extraction is requested.
+  // Steps 1–4 are only needed when tool extraction is requested.
   // When hardening-only (fast path), skip the inspiration retrieval and
   // tool extraction pipeline entirely — they make unnecessary LLM/DB calls.
   let inspirationExamples: InspirationExample[] = [];
@@ -104,7 +105,17 @@ export async function generateHardenedPrompt(
   let compatibilityScore = 0;
   let slowPathHit = false;
 
-  if (includeToolRecommendation) {
+  // Check if this specific restriction is already covered by existing tools
+  const targetThing =
+    metadata.seedExtraction?.things?.find(
+      (t: any) => t.forbiddenTask === forbiddenTask,
+    );
+  const isRestrictionProtected = targetThing?.coversRestriction === true &&
+    targetThing?.protectedByTools &&
+    targetThing.protectedByTools.length > 0;
+
+  // Only run tool extraction if the restriction is NOT already protected by tools
+  if (includeToolRecommendation && !isRestrictionProtected) {
     // Step 1: Derive tool requirements from seed extraction (zero LLM cost)
     const { toolRequirements } = deriveToolRequirements(
       metadata,
@@ -112,23 +123,20 @@ export async function generateHardenedPrompt(
     );
 
     // Step 2: Get inspiration examples from the database
-     const targetThing =
-       metadata.seedExtraction?.things?.find(
-         (t: any) => t.forbiddenTask === forbiddenTask,
-       ) ||
-       ({
-         forbiddenTask,
-         thingName: "",
-         thingDescription: "",
-         thingNameVariants: [],
-         thingDescriptionVariants: [],
-         credentials: [],
-         businessScenarios: [],
-         ontologySection: undefined,
-         isPresent: true,
-       } as RestrictionThing);
+    const thingForInspiration = targetThing ||
+      ({
+        forbiddenTask,
+        thingName: "",
+        thingDescription: "",
+        thingNameVariants: [],
+        thingDescriptionVariants: [],
+        credentials: [],
+        businessScenarios: [],
+        ontologySection: undefined,
+        isPresent: true,
+      } as RestrictionThing);
     inspirationExamples = await retrieveInspirationExamples(
-      targetThing,
+      thingForInspiration,
       extractorModel,
       granularity,
       metadata,
@@ -158,6 +166,19 @@ export async function generateHardenedPrompt(
     toolRecommendation = result.toolRecommendation || "";
     compatibilityScore = result.compatibilityScore || 0;
     slowPathHit = result.slowPathHit;
+  } else if (isRestrictionProtected) {
+    // Protected: use existing tools, no need for tool extraction
+    // Build tool recommendation from protected tools
+    toolRecommendation = JSON.stringify({
+      tools: targetThing.protectedByTools?.map((t) => ({
+        name: t,
+        granularity,
+        compatibilityScore: 100, // Existing tools are perfect match
+        rationale: `Already configured tool covering: ${forbiddenTask}`,
+      })) || [],
+      compatibilityScore: 100,
+      extractorModel,
+    });
   }
 
   // Step 4: Parse recommended tools
@@ -199,7 +220,7 @@ export async function generateHardenedPrompt(
     hardenedPrompt = getDeterministicHardenedPrompt(systemPrompt);
   }
 
-  // Step 6: Resolve model ID/name
+  // Step 5: Resolve model ID/name
   const hardeningModelId = hardenerModel;
   const hardeningModelName = hardenerModel.split("/").pop() || hardenerModel;
 

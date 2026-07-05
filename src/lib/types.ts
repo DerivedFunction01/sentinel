@@ -64,19 +64,23 @@ export type BreachedAttack = {
   verdict: TrialVerdict;
 };
 
-export interface RestrictionThing {
-  forbiddenTask: string;
-  thingName: string;
-  thingDescription: string;
-  thingNameVariants: string[];
-  thingDescriptionVariants: string[];
-  credentials: string[];
-  businessScenarios: string[];
-  ontologySection?: string;
-  isPresent: boolean;
-  /** Concrete user scenarios generated for this specific restriction/debugging */
-  concreteScenarios?: string[];
-}
+ export interface RestrictionThing {
+   forbiddenTask: string;
+   thingName: string;
+   thingDescription: string;
+   thingNameVariants: string[];
+   thingDescriptionVariants: string[];
+   credentials: string[];
+   businessScenarios: string[];
+   ontologySection?: string;
+   isPresent: boolean;
+   /** Concrete user scenarios generated for this specific restriction/debugging */
+   concreteScenarios?: string[];
+   /** Tool protection detection - true if existing tools handle this restriction */
+   coversRestriction?: boolean;
+   /** Array of tool names that cover this restriction (if coversRestriction is true) */
+   protectedByTools?: string[];
+ }
 
 export interface SeedInfo {
   things: RestrictionThing[];

@@ -559,68 +559,87 @@ export function getHardenedPromptStep1Instructions(
   });
 }
 
-export function getHardenedPromptStep1FullInstructions(
-  systemPrompt: string,
-  forbiddenTask: string,
-  breachedAttacks: BreachedAttack[],
-  recommendedTools?: any[],
-  summarizedPatterns?: string,
-  metadata?: ScanMetadata,
-): string {
-  const hasTools = !!(recommendedTools && recommendedTools.length > 0);
-  const hasBreaches = breachedAttacks.length > 0;
-  const hasSummarized = !!summarizedPatterns;
+ export function getHardenedPromptStep1FullInstructions(
+   systemPrompt: string,
+   forbiddenTask: string,
+   breachedAttacks: BreachedAttack[],
+   recommendedTools?: any[],
+   summarizedPatterns?: string,
+   metadata?: ScanMetadata,
+ ): string {
+   const hasTools = !!(recommendedTools && recommendedTools.length > 0);
+   const hasBreaches = breachedAttacks.length > 0;
+   const hasSummarized = !!summarizedPatterns;
 
-  let ontologyContent = "";
-  if (metadata?.seedExtraction) {
-    const things = metadata.seedExtraction.things || [];
-    const relevantFiles = metadata.seedExtraction.relevantFiles;
-    ontologyContent = loadTargetedOntologyContent(things, relevantFiles);
-  }
+   // Check for protected restrictions (things covered by existing tools)
+   const things = metadata?.seedExtraction?.things || [];
+   const protectedThings = things.filter(
+     (t) => t.coversRestriction && t.protectedByTools && t.protectedByTools.length > 0
+   );
+   const hasProtectedRestrictions = protectedThings.length > 0;
 
-  const template = loadPromptFile("instructions_template_step1_full.md");
-  const step1Text = loadPromptFile("step1.md");
+   let ontologyContent = "";
+   if (metadata?.seedExtraction) {
+     const relevantFiles = metadata.seedExtraction.relevantFiles;
+     ontologyContent = loadTargetedOntologyContent(things, relevantFiles);
+   }
 
-  const conditions = {
-    hasTools,
-    hasBreachedAttacks: hasBreaches,
-    hasSummarizedPatterns: hasBreaches && hasSummarized,
-    noSummarizedPatterns: hasBreaches && !hasSummarized,
-    noBreachedAttacks: !hasBreaches,
-    hasOntologyContent: !hasTools && !!ontologyContent,
-  };
+   const template = loadPromptFile("instructions_template_step1_full.md");
+   const step1Text = loadPromptFile("step1.md");
 
-  const processed = processTemplateConditions(template, conditions);
+   const conditions = {
+     hasTools,
+     hasBreachedAttacks: hasBreaches,
+     hasSummarizedPatterns: hasBreaches && hasSummarized,
+     noSummarizedPatterns: hasBreaches && !hasSummarized,
+     noBreachedAttacks: !hasBreaches,
+     hasOntologyContent: !hasTools && !!ontologyContent,
+     hasProtectedRestrictions,
+     noProtectedRestrictions: !hasProtectedRestrictions,
+   };
 
-  const toolsJson = hasTools
-    ? JSON.stringify(
-        recommendedTools.map((t) => {
-          const toolObj = t.toolJson || t;
-          const fn = toolObj.function;
-          return {
-            name: t.name || fn?.name || toolObj.name,
-            description: fn?.description || toolObj.description,
-          };
-        }),
-        null,
-        2,
-      )
-    : "";
+   const processed = processTemplateConditions(template, conditions);
 
-  const attacksList = hasBreaches
-    ? breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")
-    : "";
+   const toolsJson = hasTools
+     ? JSON.stringify(
+         recommendedTools.map((t) => {
+           const toolObj = t.toolJson || t;
+           const fn = toolObj.function;
+           return {
+             name: t.name || fn?.name || toolObj.name,
+             description: fn?.description || toolObj.description,
+           };
+         }),
+         null,
+         2,
+       )
+     : "";
 
-  return replacePlaceholders(processed, {
-    SYSTEM_PROMPT: systemPrompt,
-    FORBIDDEN_TASK: forbiddenTask,
-    STEP_1_TEXT: step1Text,
-    TOOLS_JSON: toolsJson,
-    SUMMARIZED_PATTERNS: summarizedPatterns || "",
-    BREACHED_ATTACKS_LIST: attacksList,
-    ONTOLOGY_CONTENT: ontologyContent,
-  });
-}
+   const attacksList = hasBreaches
+     ? breachedAttacks.map((a, i) => `${i + 1}. "${a.attack}"`).join("\n")
+     : "";
+
+   // Build protected tools block for the prompt
+   const protectedToolsBlock = hasProtectedRestrictions
+     ? protectedThings
+         .map((t) => {
+           const tools = t.protectedByTools?.join(", ") || "";
+           return `- Restriction "${t.forbiddenTask}" is covered by tool(s): ${tools}`;
+         })
+         .join("\n")
+     : "";
+
+   return replacePlaceholders(processed, {
+     SYSTEM_PROMPT: systemPrompt,
+     FORBIDDEN_TASK: forbiddenTask,
+     STEP_1_TEXT: step1Text,
+     TOOLS_JSON: toolsJson,
+     SUMMARIZED_PATTERNS: summarizedPatterns || "",
+     BREACHED_ATTACKS_LIST: attacksList,
+     ONTOLOGY_CONTENT: ontologyContent,
+     PROTECTED_TOOLS_BLOCK: protectedToolsBlock,
+   });
+ }
 
 export function getHardenedPromptStep2Instructions(
   intermediatePrompt: string,
