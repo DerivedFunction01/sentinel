@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,11 @@ import { ModelSelector } from "@/components/shared/model-selector";
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { Sparkles, Check } from "lucide-react";
 import { Granularity } from "@/lib/enums";
-import { FALLBACK_DEFAULT_MODEL, ModelSelectorRole } from "@/lib/model-utils";
+import {
+  FALLBACK_DEFAULT_MODEL,
+  getMostUsedModelForRole,
+  ModelSelectorRole,
+} from "@/lib/model-utils";
 
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -38,17 +42,43 @@ export function GranularityPickerDialog({
   open,
   onOpenChange,
   onConfirm,
-  defaultHardenerModel = FALLBACK_DEFAULT_MODEL,
+  defaultHardenerModel,
   defaultGranularity = Granularity.Compact,
-  defaultExtractorModel = FALLBACK_DEFAULT_MODEL,
+  defaultExtractorModel,
 }: GranularityPickerDialogProps) {
-  const [hardenerModel, setHardenerModel] =
-    useState<string>(defaultHardenerModel);
+  const [serverDefaultModel, setServerDefaultModel] = useState<string | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+    fetch("/api/models/default")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.modelId) setServerDefaultModel(data.modelId);
+      })
+      .catch(() => {});
+  }, []);
+
+  const resolvedHardener = hasMounted
+    ? defaultHardenerModel || getMostUsedModelForRole(ModelSelectorRole.Hardener, serverDefaultModel || FALLBACK_DEFAULT_MODEL)
+    : FALLBACK_DEFAULT_MODEL;
+
+  const resolvedExtractor = hasMounted
+    ? defaultExtractorModel || getMostUsedModelForRole(ModelSelectorRole.ToolExtractor, serverDefaultModel || FALLBACK_DEFAULT_MODEL)
+    : FALLBACK_DEFAULT_MODEL;
+
+  const [hardenerModel, setHardenerModel] = useState<string>(resolvedHardener);
   const [granularity, setGranularity] =
     useState<Granularity>(defaultGranularity);
-  const [extractorModel, setExtractorModel] = useState<string>(
-    defaultExtractorModel,
-  );
+  const [extractorModel, setExtractorModel] = useState<string>(resolvedExtractor);
+
+  useEffect(() => {
+    setHardenerModel(resolvedHardener);
+  }, [resolvedHardener]);
+
+  useEffect(() => {
+    setExtractorModel(resolvedExtractor);
+  }, [resolvedExtractor]);
   const [includeToolRecommendation, setIncludeToolRecommendation] =
     useState<boolean>(true);
 

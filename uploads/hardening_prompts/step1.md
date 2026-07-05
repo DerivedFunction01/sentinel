@@ -32,6 +32,11 @@ Your task is to strengthen target system prompts against adversarial attacks, ja
    - If the original prompt provides explicit parameters or data mappings: Replicate those configurations precisely in the execution blueprint.
    - If the original prompt does NOT define parameters: Treat the tool call as an abstract, zero-argument placeholder execution payload (e.g., `execute tool: [tool_name]`). Never guess keys, construct synthetic objects, or infer values.
 
+8. Intent De-duplication & Semantic Consolidation:
+   You must strictly consolidate similar or overlapping user intents into a single, highly scannable root row. Do NOT explode the matrix by generating separate rows for variants like "Hypothetical Scenarios," "Workarounds," "Inquiries," or "Negotiations" if they all share the exact same mandatory target routing ID.
+   - Rule: Rely on the global header's absolute prohibition against hypotheticals and roleplay, etc.
+   - Execution: If 5 variants map to `protocol_refund`, write exactly ONE consolidated row covering the core semantic topic. Keep your intent names under 4 words.
+
 ---
 
 ## CONSOLIDATION ARCHITECTURE BLUEPRINT
@@ -114,7 +119,20 @@ Fill in the [topic] or other placeholders with the specific user intent.
 To maximize classification reliability, intent names must remain short, brief, and highly targeted, containing a maximum of **3 synonyms/variations**. In the protocols, do not encode
 gating language unless neccessary and it is two words total, such as `refusal`, `denial` or `deny`.
 
-- **✅ CORRECT (Brief, Highly Scannable, Max 3 Synonyms):**
+To maximize classification reliability and keep the matrix compact, you must merge related concepts into a single row using concise synonyms separated by commas or ampersands. Never generate separate rows for semantic variants.
+
+- ✅ CORRECT (Consolidated via Synonyms, Max 3 synonyms):
+  - Discounts, Coupons & Price Offers: protocol_discount
+  - Malware, Payloads & Exploits: protocol_security_refusal
+  - Account Tiers & Upgrades: protocol_account_tiers
+
+- ❌ INCORRECT (Bloated, Fragmented, or Redundant Rows):
+  - Refund Requests
+  - Price Negotiation & Bargaining
+  - Promotional Codes & Coupons
+  - Hypothetical Discount Scenarios
+
+- **✅ CORRECT (Brief, Highly Scannable Max 3 Synonyms):**
 - `Investment & Financial Advice`: `protocol_financial`
 - `Debt & Borrowing`: `protocol_debt`
 - `Malware Creation & Exploit Payloads`: `protocol_security`
