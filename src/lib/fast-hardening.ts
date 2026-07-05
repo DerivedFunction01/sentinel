@@ -27,10 +27,11 @@ import {
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
 import {
-  generateToolRecommendation,
-  parseSectionedRecommendation,
   deriveToolRequirements,
 } from "@/lib/tool-extractor";
+import {
+  generateToolRecommendationFast,
+} from "@/lib/tool-recommendation-fast";
 
 export interface FastHardeningParams {
   systemPrompt: string;
@@ -100,6 +101,7 @@ export async function executeFastHardening(
   let recommendedTools: ToolDef[] = [];
   let slowPathHit = false;
   let inspirationExamplesBlock = "";
+  let fastResult: Awaited<ReturnType<typeof generateToolRecommendationFast>> | undefined;
 
   // Step 2: Tool handling (skip if protected)
   if (isProtected) {
@@ -111,71 +113,32 @@ export async function executeFastHardening(
       protectedTools.includes(t.function?.name || ""),
     );
   } else {
-    // Not protected: run full tool extraction
-    // Derive tool requirements from seed extraction (zero LLM cost)
-    const { toolRequirements } = deriveToolRequirements(
-      metadata,
+    // Not protected: run fast tool recommendation
+    // generateToolRecommendationFast handles both direct-match and single-call generation
+    fastResult = await generateToolRecommendationFast(
       forbiddenTask,
-    );
-
-    const inspirationExamples = await retrieveInspirationExamples(
-      targetThing || createDefaultThing(forbiddenTask),
-      extractorModel,
       granularity,
+      extractorModel,
       metadata,
       tracker,
       trace,
       tools,
-      toolRequirements,
+      undefined, // inspirationExamples — let the function fetch them internally
+      mockToolResponses,
     );
 
-    inspirationExamplesBlock =
-      formatInspirationExamplesBlock(inspirationExamples);
+    slowPathHit = !fastResult.fastPathHit;
 
-    // Check if inspiration examples provide direct matches
-    const directMatches = inspirationExamples.filter(
-      (ex) => ex.directMatch && ex.bestMatchingCandidate,
-    );
-
-    if (directMatches.length > 0) {
-      // Fast path: use direct match examples
-      slowPathHit = false;
-      // Convert ToolRecommendationItem to ToolDef format
-      recommendedTools = directMatches.map((ex) => {
-        const toolRec: ToolRecommendationItem = {
-          name: ex.name,
-          granularity: granularity,
-          compatibilityScore: ex.requirementScore || 80,
-          rationale: ex.rationale || ex.description,
-          toolJson: ex.toolJson,
-          mockResponse: ex.mockResponse,
-          businessCategories: ex.businessCategories,
-        };
-        return toolRec.toolJson as ToolDef;
-      });
-    } else {
-      // Slow path: need LLM extraction
-      slowPathHit = true;
-      const result = await generateToolRecommendation(
-        systemPrompt,
-        forbiddenTask,
-        granularity,
-        extractorModel,
-        metadata,
-        tracker,
-        undefined,
-        tools,
-        trace,
-        trials,
-        mockToolResponses,
-        inspirationExamples,
-      );
-      // Use the correct parser that returns ToolRecommendationItem[]
-      const parsed = parseSectionedRecommendation(
-        result.toolRecommendation || "",
-      );
-      // Extract toolJson from each recommendation
-      recommendedTools = parsed.map((item) => item.toolJson as ToolDef);
+    if (fastResult.toolRecommendation) {
+      // Parse the JSON to extract recommendedTools for deduplication
+      try {
+        const parsed = JSON.parse(fastResult.toolRecommendation);
+        recommendedTools = (parsed.tools || []).map(
+          (t: any) => t.toolJson as ToolDef,
+        ).filter(Boolean);
+      } catch {
+        recommendedTools = [];
+      }
     }
   }
 
@@ -222,24 +185,27 @@ export async function executeFastHardening(
       extractorModel,
     });
   } else if (deduplicatedTools.length > 0) {
-    // Calculate average compatibility score
-    // For now, use a default since direct matches already have scores embedded
-    compatibilityScore = 85; // Default score for recommended tools
-    toolRecommendation = JSON.stringify({
-      tools: deduplicatedTools.map((t) => {
-        // ToolDef format: t.function.name is the canonical name
-        const fn = t.function;
-        return {
-          name: fn?.name || "unknown",
-          granularity,
-          compatibilityScore: (t as any).compatibilityScore || 85,
-          rationale: (t as any).rationale || "Recommended tool for restriction",
-          toolJson: t,
-        };
-      }),
-      compatibilityScore,
-      extractorModel,
-    });
+    // Use the fast result's recommendation string if available, otherwise build from deduplicated
+    if (fastResult?.toolRecommendation) {
+      toolRecommendation = fastResult.toolRecommendation;
+      compatibilityScore = fastResult.compatibilityScore ?? 85;
+    } else {
+      compatibilityScore = 85;
+      toolRecommendation = JSON.stringify({
+        tools: deduplicatedTools.map((t) => {
+          const fn = t.function;
+          return {
+            name: fn?.name || "unknown",
+            granularity,
+            compatibilityScore: (t as any).compatibilityScore || 85,
+            rationale: (t as any).rationale || "Recommended tool for restriction",
+            toolJson: t,
+          };
+        }),
+        compatibilityScore,
+        extractorModel,
+      });
+    }
   }
 
   // Resolve model ID/name
