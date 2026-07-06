@@ -20,7 +20,10 @@ import {
   CostPreviewWidget,
   type CostEstimationItem,
 } from "@/components/shared/cost-preview-widget";
-import { ChooseModels } from "@/components/shared/choose-models";
+import {
+  ModelSelector,
+} from "@/components/shared/model-selector";
+import { ModelSelectorRole } from "@/lib/model-utils";
 import { TOKEN_CONSTANTS } from "@/lib/token-constants";
 
 interface CloneScanDialogProps {
@@ -54,8 +57,6 @@ export function CloneScanDialog({
   const [attackerModel, setAttackerModel] = useState(scan.attackerModel);
   const [hardenerModel, setHardenerModel] = useState(scan.hardenerModel);
   const [confirming, setConfirming] = useState(false);
-  const [showAdvancedModels, setShowAdvancedModels] = useState(false);
-  const [extractorModel, setExtractorModel] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -151,7 +152,7 @@ export function CloneScanDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="dark border-amber-500/20 bg-background text-foreground lg:min-w-4xl max-h-[90vh] flex flex-col [--background:oklch(0.16_0.018_264)] [--foreground:oklch(0.93_0.008_264)] [--card:oklch(0.21_0.02_264)] [--card-foreground:oklch(0.93_0.008_264)] [--popover:oklch(0.21_0.02_264)] [--popover-foreground:oklch(0.93_0.008_264)] [--primary:oklch(0.623_0.214_259.815)] [--primary-foreground:oklch(0.985_0_0)] [--secondary:oklch(0.28_0.02_264)] [--secondary-foreground:oklch(0.93_0.008_264)] [--muted:oklch(0.28_0.02_264)] [--muted-foreground:oklch(0.68_0.015_264)] [--accent:oklch(0.28_0.02_264)] [--accent-foreground:oklch(0.93_0.008_264)] [--border:oklch(0.3_0.015_264)] [--input:oklch(0.25_0.018_264)] [--ring:oklch(0.623_0.214_259.815)] [--destructive:oklch(0.704_0.191_22.216)]">
+      <DialogContent className="border-amber-500/20 bg-slate-900 text-slate-100 lg:min-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-amber-400">
             <Copy className="h-5 w-5 text-amber-400" />
@@ -212,24 +213,63 @@ export function CloneScanDialog({
             </RadioGroup>
           </div>
 
-          <ChooseModels
-            multiple={false}
-            targetModel={targetModel}
-            setTargetModel={mode === "reset-model" ? setTargetModel : undefined}
-            attackerModel={attackerModel}
-            setAttackerModel={setAttackerModel}
-            judgeModel={judgeModel}
-            setJudgeModel={setJudgeModel}
-            hardenerModel={hardenerModel}
-            setHardenerModel={setHardenerModel}
-            seedExtractorModel={seedExtractorModel}
-            setSeedExtractorModel={setSeedExtractorModel}
-            extractorModel={extractorModel}
-            setExtractorModel={setExtractorModel}
-            showAdvancedModels={showAdvancedModels}
-            setShowAdvancedModels={setShowAdvancedModels}
-            hideAttacker={true}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {mode === "reset-model" && (
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-slate-300">
+                  New Target Model
+                </Label>
+                <ModelSelector
+                  value={targetModel}
+                  onChange={setTargetModel}
+                  role={ModelSelectorRole.Target}
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-slate-300">
+                Judge Model
+              </Label>
+              <ModelSelector
+                value={judgeModel}
+                onChange={setJudgeModel}
+                role={ModelSelectorRole.Judge}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-slate-300">
+                Seed Extractor (optional)
+              </Label>
+              <ModelSelector
+                value={seedExtractorModel}
+                onChange={setSeedExtractorModel}
+                role={ModelSelectorRole.SeedExtractor}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-slate-300">
+                Attacker (optional)
+              </Label>
+              <ModelSelector
+                value={attackerModel}
+                onChange={setAttackerModel}
+                role={ModelSelectorRole.Attack}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-slate-300">
+                Hardener (optional)
+              </Label>
+              <ModelSelector
+                value={hardenerModel}
+                onChange={setHardenerModel}
+                role={ModelSelectorRole.Hardener}
+              />
+            </div>
+          </div>
 
           {trialCount > 0 && (
             <CostPreviewWidget

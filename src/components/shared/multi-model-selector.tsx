@@ -96,7 +96,7 @@ export function MultiModelSelector({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-[var(--radix-popover-trigger-width)] min-w-[300px] bg-popover p-0 text-popover-foreground [--popover:oklch(0.21_0.02_264)] [--popover-foreground:oklch(0.93_0.008_264)] [--card:oklch(0.21_0.02_264)] [--card-foreground:oklch(0.93_0.008_264)] [--background:oklch(0.16_0.018_264)] [--foreground:oklch(0.93_0.008_264)] [--muted:oklch(0.28_0.02_264)] [--muted-foreground:oklch(0.68_0.015_264)] [--accent:oklch(0.28_0.02_264)] [--accent-foreground:oklch(0.93_0.008_264)] [--secondary:oklch(0.28_0.02_264)] [--secondary-foreground:oklch(0.93_0.008_264)] [--border:oklch(0.3_0.015_264)] [--input:oklch(0.25_0.018_264)] [--ring:oklch(0.623_0.214_259.815)] [--destructive:oklch(0.704_0.191_22.216)]"
+          className="dark w-[var(--radix-popover-trigger-width)] min-w-[300px] border-border bg-popover p-0 text-popover-foreground"
           align="start"
         >
           <ModelSelectorList
