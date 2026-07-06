@@ -231,6 +231,8 @@ export interface Scan {
   trials: Trial[];
   metadata?: ScanMetadata;
   tags?: string[];
+  progressMeta?: string | null;
+  partialTrials?: string | null;
 }
 
 /** Lightweight scan reference for list/activity views. */

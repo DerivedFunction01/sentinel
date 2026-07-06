@@ -46,6 +46,8 @@ export function deserializeScan(row: {
   summary: string;
   summaryDetail: string;
   metadata?: string | null;
+  progressMeta?: string | null;
+  partialTrials?: string | null;
   hardenedPrompts?: Array<{
     id: string;
     scanId: string;
@@ -181,6 +183,8 @@ export function deserializeScan(row: {
     summaryDetail: row.summaryDetail,
     metadata,
     tags,
+    progressMeta: row.progressMeta ?? null,
+    partialTrials: row.partialTrials ?? null,
     hardenedPrompts: (row.hardenedPrompts || []).map((hp) => {
       let recObj: any = null;
       if (hp.toolRecommendation) {

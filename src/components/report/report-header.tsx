@@ -9,6 +9,7 @@ import {
   Trash2,
   Tags,
   Copy,
+  Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,9 @@ interface ReportHeaderProps {
   onRetryFailed?: () => void;
   onOpenRetryFailed?: () => void;
   onCloneScan?: () => void;
+  onResume?: () => Promise<void>;
+  canResume?: boolean;
+  resuming?: boolean;
 }
 
 export function ReportHeader({
@@ -44,6 +48,9 @@ export function ReportHeader({
   onOpenRetryFailed,
   unknownCount,
   onCloneScan,
+  onResume,
+  canResume,
+  resuming,
 }: ReportHeaderProps) {
   return (
     <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md">
@@ -84,6 +91,22 @@ export function ReportHeader({
                 className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
               />
               Refresh
+            </Button>
+          )}
+          {onResume && canResume && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onResume}
+              disabled={resuming || refreshing}
+              className="border-emerald-500/30 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/20"
+            >
+              {resuming ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Play className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Resume
             </Button>
           )}
           {(onAutoReevaluate || onOpenAutoReeval) && scan.breaches > 0 && (

@@ -49,6 +49,7 @@ import { Granularity } from "./enums";
 import {
   setScanProgress,
   invalidateScanProgress,
+  getScanProgress,
 } from "@/lib/scan-progress-cache";
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1969,6 +1970,111 @@ export interface RunScanWithGenerationConfig extends RunSingleScanPipelineConfig
  *    frontend can show granular progress during the generation phase.
  * 3. On seed-extraction failure, marks the scan as Failed and refunds the hold.
  */
+export async function resumeFromCheckpoint(
+  reportId: string,
+  dbModels: any[],
+): Promise<void> {
+  const scan = await db.scan.findUnique({
+    where: { reportId },
+    select: {
+      id: true,
+      reportId: true,
+      status: true,
+      targetModel: true,
+      attackerModel: true,
+      judgeModel: true,
+      hardenerModel: true,
+      seedExtractorModel: true,
+      systemPrompt: true,
+      forbiddenTask: true,
+      judgeInstructions: true,
+      tools: true,
+      mockToolResponses: true,
+      allowNoToolsFallback: true,
+      progressMeta: true,
+      metadata: true,
+      userId: true,
+    },
+  });
+
+  if (!scan || scan.status !== ScanStatus.Running) return;
+
+  const cached = getScanProgress(reportId);
+  if (cached && Date.now() - cached.updatedAt < 10 * 60 * 1000) {
+    return;
+  }
+
+  let meta: ProgressMeta | null = null;
+  if (scan.progressMeta) {
+    try {
+      meta = JSON.parse(scan.progressMeta) as ProgressMeta;
+    } catch {
+      meta = null;
+    }
+  }
+
+  if (!meta) return;
+
+  const hasIncompletePhases =
+    meta.attacks.some((a) => a.status !== ProgressStepStatus.Completed) ||
+    meta.trials.some(
+      (trial) =>
+        trial.target?.status !== ProgressStepStatus.Completed ||
+        trial.judge?.status !== ProgressStepStatus.Completed,
+    );
+
+  if (!hasIncompletePhases) return;
+
+  const tools = JSON.parse(scan.tools || "[]") as ToolDef[];
+  const mockToolResponses = JSON.parse(scan.mockToolResponses || "{}") as Record<
+    string,
+    unknown
+  >;
+
+  const attackSet = await getOrGenerateAttackSet(
+    {
+      systemPrompt: scan.systemPrompt,
+      forbiddenTask: scan.forbiddenTask,
+      judgeInstructions: scan.judgeInstructions,
+      tools,
+      mockToolResponses,
+      attackerModel: scan.attackerModel,
+      seedExtractorModel: scan.seedExtractorModel || scan.attackerModel,
+      extractorModel: scan.seedExtractorModel || scan.attackerModel,
+      cachedSeedInfo: scan.metadata
+        ? (JSON.parse(scan.metadata).seedExtraction as SeedInfo | undefined)
+        : undefined,
+    },
+    { totalCost: 0, dbModels },
+  );
+
+  await runSingleScanPipeline(
+    {
+      systemPrompt: scan.systemPrompt,
+      forbiddenTask: scan.forbiddenTask,
+      judgeInstructions: scan.judgeInstructions,
+      targetModel: scan.targetModel,
+      attackerModel: scan.attackerModel,
+      judgeModel: scan.judgeModel,
+      hardenerModel: scan.hardenerModel,
+      seedExtractorModel: scan.seedExtractorModel || scan.attackerModel,
+      extractorModel: scan.seedExtractorModel || scan.attackerModel,
+      tools,
+      mockToolResponses,
+      userId: scan.userId,
+      granularity: Granularity.Compact,
+      includeToolRecommendation: true,
+      enableHardening: true,
+      allowNoToolsFallback: scan.allowNoToolsFallback,
+    },
+    reportId,
+    attackSet,
+    dbModels,
+    meta,
+    attackSet.attacks.length,
+  );
+}
+
 export async function runSingleScanPipelineWithGeneration(
   options: RunScanWithGenerationConfig,
   reportId: string,

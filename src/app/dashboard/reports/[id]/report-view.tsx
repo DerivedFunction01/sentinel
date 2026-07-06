@@ -55,6 +55,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [retryFailedDialogOpen, setRetryFailedDialogOpen] = useState(false);
   const [isRetryingFailed, setIsRetryingFailed] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [isResuming, setIsResuming] = useState(false);
 
   const handleAutoReevaluate = async (
     trialNumbers?: number[],
@@ -484,6 +485,44 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     }
   };
 
+  const canResume =
+    scan.status === "running" &&
+    Boolean(scan.progressMeta) &&
+    ((scan.progressMeta || "").includes('"status":"pending"') ||
+      (scan.progressMeta || "").includes('"status":"running"') ||
+      (scan.progressMeta || "").includes('"status":"failed"'));
+
+  const handleResume = async () => {
+    setIsResuming(true);
+    const toastId = toast.loading("Resuming scan from checkpoint...");
+    try {
+      const res = await fetch(`/api/scan/${scan.id}/resume`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to resume scan");
+      }
+      if (data.resumed) {
+        toast.success(
+          "Resume requested. The scan will continue from the last checkpoint.",
+          { id: toastId },
+        );
+      } else {
+        toast.info(
+          data.reason === "still_running"
+            ? "The scan is still active, so no restart was needed."
+            : "No incomplete work was found to resume.",
+          { id: toastId },
+        );
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to resume scan", { id: toastId });
+    } finally {
+      setIsResuming(false);
+    }
+  };
+
   const filteredTrials = scan.trials.filter((t) => {
     if (filter === TrialFilter.All) return true;
     if (filter === TrialFilter.Breached)
@@ -592,6 +631,9 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         unknownCount={unknownCount}
         onTag={() => setTagDialogOpen(true)}
         onCloneScan={() => setCloneDialogOpen(true)}
+        onResume={handleResume}
+        canResume={canResume}
+        resuming={isResuming}
       />
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
