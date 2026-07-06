@@ -25,6 +25,9 @@ export async function POST(
       reportId: true,
       status: true,
       progressMeta: true,
+      partialTrials: true,
+      currentStep: true,
+      totalSteps: true,
     },
   });
 
@@ -62,7 +65,14 @@ export async function POST(
         trial.judge?.status !== ProgressStepStatus.Completed,
     );
 
-  if (!hasIncompletePhases) {
+  const hasCheckpointedWork =
+    Boolean(scan.partialTrials) ||
+    (typeof scan.currentStep === "number" &&
+      typeof scan.totalSteps === "number" &&
+      scan.totalSteps > 0 &&
+      scan.currentStep < scan.totalSteps);
+
+  if (!hasIncompletePhases && !hasCheckpointedWork) {
     return NextResponse.json({ resumed: false, reason: "already_completed" });
   }
 

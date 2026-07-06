@@ -21,7 +21,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { TrialFilter, TrialVerdict } from "@/lib/enums";
+import { ProgressStepStatus, ScanStatus, TrialFilter, TrialVerdict } from "@/lib/enums";
 import { Scan, HardeningTrace } from "@/lib/types";
 import { Granularity } from "@/lib/enums";
 import { ScanSummary } from "@/components/shared/scan-summary";
@@ -485,12 +485,31 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     }
   };
 
+  const progressMeta = (() => {
+    if (!scan.progressMeta) return null;
+    try {
+      return JSON.parse(scan.progressMeta);
+    } catch {
+      return null;
+    }
+  })();
+
   const canResume =
-    scan.status === "running" &&
-    Boolean(scan.progressMeta) &&
-    ((scan.progressMeta || "").includes('"status":"pending"') ||
-      (scan.progressMeta || "").includes('"status":"running"') ||
-      (scan.progressMeta || "").includes('"status":"failed"'));
+    scan.status === ScanStatus.Running &&
+    Boolean(progressMeta) &&
+    ((progressMeta?.seed?.status === ProgressStepStatus.Pending ||
+      progressMeta?.seed?.status === ProgressStepStatus.Running ||
+      progressMeta?.seed?.status === ProgressStepStatus.Failed ||
+      progressMeta?.attacks?.some(
+        (attack: any) => attack.status !== ProgressStepStatus.Completed,
+      ) ||
+      progressMeta?.trials?.some(
+        (trial: any) =>
+          trial.target?.status !== ProgressStepStatus.Completed ||
+          trial.judge?.status !== ProgressStepStatus.Completed,
+      ) ||
+      Boolean(scan.partialTrials) ||
+      (typeof scan.progressMeta === "string" && scan.progressMeta.length > 0)));
 
   const handleResume = async () => {
     setIsResuming(true);
