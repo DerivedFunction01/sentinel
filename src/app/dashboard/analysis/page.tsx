@@ -16,8 +16,8 @@ import {
   Save,
   FolderHeart,
   Upload,
-  Copy,
-  ChevronRight
+  ChevronRight,
+  GitBranch
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { 
   executeQuery, 
+  executePivot,
   QueryDefinition, 
+  PivotDefinition,
   FilterCondition, 
   Aggregation, 
   SortInstruction 
@@ -48,7 +50,10 @@ import {
   LineChart, 
   Line, 
   CartesianGrid, 
-  Legend 
+  Legend,
+  PieChart,
+  Pie,
+  Cell
 } from "recharts";
 
 const SCAN_FIELDS = [
@@ -67,6 +72,9 @@ const SCAN_FIELDS = [
   { name: "status", type: "string", desc: "COMPLETED, FAILED, RUNNING" },
   { name: "apiCost", type: "number", desc: "API cost in USD" },
   { name: "createdAt", type: "date", desc: "Timestamp of creation" },
+  { name: "createdAt_year", type: "number", desc: "Year of creation (e.g., 2026)" },
+  { name: "createdAt_month", type: "number", desc: "Month of creation (1-12)" },
+  { name: "createdAt_day", type: "number", desc: "Day of creation (1-31)" },
   { name: "tags", type: "string[]", desc: "List of applied tags" },
 ];
 
@@ -83,6 +91,9 @@ const TRIAL_FIELDS = [
   { name: "targetThing", type: "string", desc: "Variant subject name" },
   { name: "targetModel", type: "string", desc: "Tested model (Joined)" },
   { name: "createdAt", type: "date", desc: "Scan date (Joined)" },
+  { name: "createdAt_year", type: "number", desc: "Year of creation (e.g., 2026)" },
+  { name: "createdAt_month", type: "number", desc: "Month of creation (1-12)" },
+  { name: "createdAt_day", type: "number", desc: "Day of creation (1-31)" },
 ];
 
 const OPERATORS_BY_TYPE: Record<string, { value: string; label: string }[]> = {
@@ -122,7 +133,7 @@ const OPERATORS_BY_TYPE: Record<string, { value: string; label: string }[]> = {
 const PRESETS = [
   {
     name: "Model Performance Summary",
-    desc: "Calculate average breach rate, cost, and totals grouped by model.",
+    desc: "Calculate average breach rate, cost, and totals grouped by tested model.",
     query: {
       table: "scans",
       group_by: ["targetModel"],
@@ -138,7 +149,7 @@ const PRESETS = [
   },
   {
     name: "Vulnerable Attack Patterns",
-    desc: "Examine success rate of attack patterns across all trials.",
+    desc: "Examine execution runs grouped by attack pattern.",
     query: {
       table: "trials",
       filters: [],
@@ -150,18 +161,244 @@ const PRESETS = [
     } as QueryDefinition,
   },
   {
-    name: "Daily Spend Trends",
-    desc: "Total spend aggregated daily.",
+    name: "Weak Points (High Risk Task Tags)",
+    desc: "Analyze breach count distributions across different task categories.",
+    query: {
+      table: "trials",
+      filters: [{ property: "verdict", operator: "eq", value: "BREACHED" }],
+      group_by: ["taskTag"],
+      aggregations: [
+        { function: "count", property: "number", alias: "breach_count" }
+      ],
+      sort: [{ property: "breach_count", direction: "desc" }]
+    } as QueryDefinition,
+  },
+  {
+    name: "Daily Spend & Safety Trends",
+    desc: "Daily rolling average safety score and API costs.",
     query: {
       table: "scans",
       group_by: ["createdAt"],
       aggregations: [
+        { function: "avg", property: "score", alias: "avg_safety_score" },
         { function: "sum", property: "apiCost", alias: "total_spend" }
       ],
       sort: [{ property: "createdAt", direction: "asc" }]
     } as QueryDefinition,
+  },
+  {
+    name: "High Cost Scans (> $5.00)",
+    desc: "Locate scans consuming significant API credits.",
+    query: {
+      table: "scans",
+      filters: [{ property: "apiCost", operator: "gt", value: "5.0" }],
+      sort: [{ property: "apiCost", direction: "desc" }]
+    } as QueryDefinition,
+  },
+  {
+    name: "Attacker Model Breakdown",
+    desc: "Determine which attacker models achieve the highest breach rate.",
+    query: {
+      table: "scans",
+      group_by: ["attackerModel"],
+      aggregations: [
+        { function: "avg", property: "breachRate", alias: "avg_breach_rate" },
+        { function: "sum", property: "breaches", alias: "total_breaches" }
+      ],
+      sort: [{ property: "avg_breach_rate", direction: "desc" }]
+    } as QueryDefinition,
+  },
+  {
+    name: "Critical Risk Scans",
+    desc: "Retrieve scans classified as CRITICAL safety risk.",
+    query: {
+      table: "scans",
+      filters: [{ property: "riskLevel", operator: "eq", value: "CRITICAL" }],
+      sort: [{ property: "score", direction: "asc" }]
+    } as QueryDefinition,
   }
 ];
+
+interface FilterRowProps {
+  f: FilterCondition;
+  idx: number;
+  currentFilters: FilterCondition[];
+  setCurrentFilters: (filters: FilterCondition[]) => void;
+  currentFields: any[];
+  getUniqueFieldValues: (property: string) => string[];
+}
+
+function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, getUniqueFieldValues }: FilterRowProps) {
+  const field = currentFields.find(cf => cf.name === f.property);
+  const type = field ? field.type : "string";
+  const isBetween = f.operator === "between" || f.operator === "not_between";
+  const isSet = f.operator === "in_set" || f.operator === "not_in_set";
+
+  const [tempInput, setTempInput] = useState("");
+
+  const parts = String(f.value || "").split(",");
+  const val1 = parts[0] || "";
+  const val2 = parts[1] || "";
+
+  const suggestions = useMemo(() => {
+    return getUniqueFieldValues(f.property);
+  }, [f.property, getUniqueFieldValues]);
+
+  const handlePartChange = (partIdx: number, val: string) => {
+    const newParts = [...parts];
+    newParts[partIdx] = val;
+    const newFilters = [...currentFilters];
+    newFilters[idx].value = newParts.join(",");
+    setCurrentFilters(newFilters);
+  };
+
+  const handleAddItem = () => {
+    if (!tempInput.trim()) return;
+    const items = String(f.value || "").split(",").filter(s => s.trim());
+    const newItems = [...items, tempInput.trim()];
+    const newFilters = [...currentFilters];
+    newFilters[idx].value = newItems.join(",");
+    setCurrentFilters(newFilters);
+    setTempInput("");
+  };
+
+  const handleRemoveItem = (itemIdx: number) => {
+    const items = String(f.value || "").split(",").filter(s => s.trim());
+    const newItems = items.filter((_, i) => i !== itemIdx);
+    const newFilters = [...currentFilters];
+    newFilters[idx].value = newItems.join(",");
+    setCurrentFilters(newFilters);
+  };
+
+  const inputType = type === "date" ? "date" : type === "number" ? "number" : "text";
+
+  return (
+    <div className="flex gap-2 items-start md:items-center flex-wrap md:flex-nowrap bg-white/[0.01] border border-white/5 p-2 rounded-lg">
+      <select
+        value={f.property}
+        onChange={(e) => {
+          const newFilters = [...currentFilters];
+          newFilters[idx].property = e.target.value;
+          const targetField = currentFields.find(cf => cf.name === e.target.value);
+          if (targetField) {
+            const validOps = OPERATORS_BY_TYPE[targetField.type] || OPERATORS_BY_TYPE.string;
+            newFilters[idx].operator = validOps[0].value as any;
+            newFilters[idx].value = "";
+          }
+          setCurrentFilters(newFilters);
+        }}
+        className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white shrink-0"
+      >
+        <option value="">-- select property --</option>
+        {currentFields.map(field => (
+          <option key={field.name} value={field.name}>{field.name}</option>
+        ))}
+      </select>
+
+      <select
+        value={f.operator}
+        onChange={(e: any) => {
+          const newFilters = [...currentFilters];
+          newFilters[idx].operator = e.target.value;
+          newFilters[idx].value = "";
+          setCurrentFilters(newFilters);
+        }}
+        className="bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-xs text-white shrink-0"
+      >
+        {(() => {
+          const targetField = currentFields.find(cf => cf.name === f.property);
+          const ops = targetField ? (OPERATORS_BY_TYPE[targetField.type] || OPERATORS_BY_TYPE.string) : OPERATORS_BY_TYPE.string;
+          return ops.map(op => (
+            <option key={op.value} value={op.value}>{op.label}</option>
+          ));
+        })()}
+      </select>
+
+      {/* Render Value Inputs */}
+      {isBetween ? (
+        <div className="flex gap-2 items-center flex-1">
+          <input
+            type={inputType}
+            value={val1}
+            placeholder="Min..."
+            onChange={(e) => handlePartChange(0, e.target.value)}
+            className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-28"
+          />
+          <span className="text-xs text-muted-foreground">and</span>
+          <input
+            type={inputType}
+            value={val2}
+            placeholder="Max..."
+            onChange={(e) => handlePartChange(1, e.target.value)}
+            className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-28"
+          />
+        </div>
+      ) : isSet ? (
+        <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+          <div className="flex flex-wrap gap-1">
+            {String(f.value || "").split(",").filter(s => s.trim()).map((item, itemIdx) => (
+              <Badge key={itemIdx} variant="secondary" className="text-[10px] bg-white/10 text-white gap-1 py-0.5">
+                {item}
+                <button type="button" onClick={() => handleRemoveItem(itemIdx)} className="text-red-400 hover:text-red-300 font-bold">×</button>
+              </Badge>
+            ))}
+          </div>
+          <div className="flex gap-1 items-center">
+            <input
+              type={inputType}
+              value={tempInput}
+              list={`set-suggestions-${idx}-${f.property}`}
+              placeholder="Add element..."
+              onChange={(e) => setTempInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddItem(); } }}
+              className="bg-zinc-900 border border-white/10 rounded px-2 py-1 text-xs text-white flex-1"
+            />
+            {suggestions.length > 0 && (
+              <datalist id={`set-suggestions-${idx}-${f.property}`}>
+                {suggestions.map(val => (
+                  <option key={val} value={val} />
+                ))}
+              </datalist>
+            )}
+            <Button size="icon" variant="outline" type="button" onClick={handleAddItem} className="h-7 w-7 border-white/10">+</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex gap-2">
+          <input
+            type={inputType}
+            value={f.value || ""}
+            list={`suggestions-${idx}-${f.property}`}
+            placeholder={type === "date" ? "Select date..." : "Value..."}
+            onChange={(e) => {
+              const newFilters = [...currentFilters];
+              newFilters[idx].value = e.target.value;
+              setCurrentFilters(newFilters);
+            }}
+            className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white flex-1"
+          />
+          {suggestions.length > 0 && (
+            <datalist id={`suggestions-${idx}-${f.property}`}>
+              {suggestions.map(val => (
+                <option key={val} value={val} />
+              ))}
+            </datalist>
+          )}
+        </div>
+      )}
+
+      <Button
+        size="icon"
+        variant="ghost"
+        type="button"
+        onClick={() => setCurrentFilters(currentFilters.filter((_, i) => i !== idx))}
+        className="text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
 
 export default function AnalysisConsolePage() {
   const [scans, setScans] = useState<any[]>([]);
@@ -170,6 +407,13 @@ export default function AnalysisConsolePage() {
   const [syncing, setSyncing] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   
+  // Results view toggler
+  const [resultsTab, setResultsTab] = useState<"flat" | "pivot">("flat");
+
+  // Chart selectors
+  const [chartTypeSelection, setChartTypeSelection] = useState<"auto" | "bar" | "line" | "pie">("auto");
+  const [enablePivotHeatmap, setEnablePivotHeatmap] = useState(false);
+
   // Query state
   const [sourceType, setSourceType] = useState<"scans" | "trials" | "view">("scans");
   const [selectedViewId, setSelectedViewId] = useState<string>("");
@@ -186,6 +430,12 @@ export default function AnalysisConsolePage() {
   const [subQueryViewId, setSubQueryViewId] = useState<string>("");
   const [subQueryFilters, setSubQueryFilters] = useState<FilterCondition[]>([]);
 
+  // Pivot table states
+  const [pivotRowKey, setPivotRowKey] = useState<string>("targetModel");
+  const [pivotColKey, setPivotColKey] = useState<string>("riskLevel");
+  const [pivotValueKey, setPivotValueKey] = useState<string>("*");
+  const [pivotAggType, setPivotAggType] = useState<"count" | "sum" | "avg">("count");
+
   // Save query state
   const [newQueryName, setNewQueryName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -194,6 +444,48 @@ export default function AnalysisConsolePage() {
     loadCachedScans();
     loadSavedQueries();
   }, []);
+
+  const getUniqueFieldValues = (property: string) => {
+    if (!property || scans.length === 0) return [];
+    const values = new Set<string>();
+
+    const targetTable = sourceType === "view"
+      ? (savedQueries.find(q => q.id === selectedViewId)?.query?.table || "scans")
+      : sourceType;
+
+    if (targetTable === "scans") {
+      for (const scan of scans) {
+        let val = scan[property];
+        if (val !== undefined && val !== null && val !== "") {
+          if (Array.isArray(val)) {
+            val.forEach(v => values.add(String(v)));
+          } else {
+            values.add(String(val));
+          }
+        }
+      }
+    } else {
+      // trials
+      for (const scan of scans) {
+        const scanTrials = Array.isArray(scan.trials)
+          ? scan.trials
+          : typeof scan.trials === "string"
+          ? JSON.parse(scan.trials)
+          : [];
+        for (const t of scanTrials) {
+          let val = t[property];
+          if (val === undefined) {
+            if (property === "targetModel") val = scan.targetModel;
+            if (property === "createdAt") val = scan.createdAt;
+          }
+          if (val !== undefined && val !== null && val !== "") {
+            values.add(String(val));
+          }
+        }
+      }
+    }
+    return Array.from(values).sort();
+  };
 
   const loadCachedScans = async () => {
     setLoading(true);
@@ -241,14 +533,13 @@ export default function AnalysisConsolePage() {
     }
   };
 
-  // Field suggestions based on current table
   const currentFields = useMemo(() => {
     if (sourceType === "view") {
       const parent = savedQueries.find(q => q.id === selectedViewId);
       if (parent && parent.query.table) {
         return parent.query.table === "scans" ? SCAN_FIELDS : TRIAL_FIELDS;
       }
-      return SCAN_FIELDS; // fallback
+      return SCAN_FIELDS;
     }
     return sourceType === "scans" ? SCAN_FIELDS : TRIAL_FIELDS;
   }, [sourceType, selectedViewId, savedQueries]);
@@ -292,6 +583,22 @@ export default function AnalysisConsolePage() {
       toast.error(`Query Execution Error: ${e.message}`);
     }
   };
+
+  // Compute Pivot results
+  const pivotResults = useMemo(() => {
+    if (results.length === 0 || !pivotRowKey || !pivotColKey) return null;
+    try {
+      return executePivot(results, {
+        rowKey: pivotRowKey,
+        colKey: pivotColKey,
+        valueKey: pivotValueKey,
+        aggType: pivotAggType
+      });
+    } catch (e: any) {
+      console.error("Pivot execution failed:", e);
+      return null;
+    }
+  }, [results, pivotRowKey, pivotColKey, pivotValueKey, pivotAggType]);
 
   const handleSaveQuery = async () => {
     if (!newQueryName.trim()) {
@@ -345,7 +652,7 @@ export default function AnalysisConsolePage() {
       toast.success("Query view deleted.");
       loadSavedQueries();
       if (selectedViewId === id) setSelectedViewId("");
-      if (subQueryViewId === id) subQueryViewId === "";
+      if (subQueryViewId === id) setSelectedViewId("");
     } catch (e) {
       console.error(e);
     }
@@ -450,23 +757,81 @@ export default function AnalysisConsolePage() {
       key => typeof firstRow[key] === "number" && key !== "id" && key !== "number"
     );
     const xAxisKey = Object.keys(firstRow).find(
-      key => typeof firstRow[key] === "string" || key === "createdAt"
+      key => typeof firstRow[key] === "string" || key === "createdAt" || key.startsWith("createdAt_")
     ) || "targetModel";
 
     if (numericKeys.length === 0) return null;
 
-    return {
-      data: results.map(row => {
-        const item = { ...row };
-        if (item.createdAt && typeof item.createdAt === "string") {
-          item.createdAt = item.createdAt.split("T")[0];
+    // Detect if temporal (LineChart suited)
+    const isTemporal = xAxisKey === "createdAt" || xAxisKey.startsWith("createdAt_");
+
+    // Standard mapped data
+    const formattedData = results.map(row => {
+      const item = { ...row };
+      if (item.createdAt && typeof item.createdAt === "string") {
+        item.createdAt = item.createdAt.split("T")[0];
+      }
+      return item;
+    });
+
+    // Smart Pie Chart Aggregations
+    let isPieRecommended = false;
+    let pieData = formattedData;
+
+    if (numericKeys.length === 1) {
+      const metricKey = numericKeys[0];
+      const sorted = [...formattedData].sort((a, b) => (Number(b[metricKey]) || 0) - (Number(a[metricKey]) || 0));
+      const totalSum = sorted.reduce((sum, row) => sum + (Number(row[metricKey]) || 0), 0);
+
+      if (sorted.length <= 5) {
+        isPieRecommended = true;
+        pieData = sorted;
+      } else if (totalSum > 0) {
+        // Find minor slices contributing < 5% of total sum
+        const minorThreshold = totalSum * 0.05;
+        const minorStartIndex = sorted.findIndex(row => (Number(row[metricKey]) || 0) < minorThreshold);
+
+        // Group only if outliers exist and we keep at least the top 3 items intact
+        if (minorStartIndex !== -1 && minorStartIndex >= 3) {
+          const majorItems = sorted.slice(0, minorStartIndex);
+          const minorItems = sorted.slice(minorStartIndex);
+          const minorSum = minorItems.reduce((sum, row) => sum + (Number(row[metricKey]) || 0), 0);
+
+          if (minorSum > 0) {
+            pieData = [
+              ...majorItems,
+              {
+                [xAxisKey]: "Other",
+                [metricKey]: Number(minorSum.toFixed(2))
+              }
+            ];
+          } else {
+            pieData = majorItems;
+          }
+        } else {
+          // Keep all (evenly split / low variance)
+          pieData = sorted;
         }
-        return item;
-      }),
+        isPieRecommended = true;
+      }
+    }
+
+    return {
+      data: formattedData,
+      pieData,
       xAxisKey,
-      keys: numericKeys
+      keys: numericKeys,
+      isTemporal,
+      isPieRecommended
     };
   }, [results]);
+
+  const resolvedChartType = useMemo(() => {
+    if (chartTypeSelection !== "auto") return chartTypeSelection;
+    if (chartData?.isTemporal) return "line";
+    if (chartData?.isPieRecommended) return "pie";
+    return "bar";
+  }, [chartTypeSelection, chartData]);
 
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto">
@@ -649,6 +1014,34 @@ export default function AnalysisConsolePage() {
                 )}
               </div>
 
+              {/* Columns selection (SELECT) */}
+              <div className="space-y-2 border-t border-white/5 pt-4">
+                <span className="text-xs font-medium text-slate-300 uppercase tracking-wider block">Columns (SELECT)</span>
+                <p className="text-[10px] text-muted-foreground italic">Leave all unchecked to SELECT * (all fields).</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                  {currentFields.map((f) => {
+                    const isChecked = projections.includes(f.name);
+                    return (
+                      <label key={f.name} className="flex items-center gap-1.5 p-1.5 rounded border border-white/5 hover:bg-white/5 cursor-pointer transition-colors text-xs text-slate-300 select-none">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setProjections(projections.filter((p) => p !== f.name));
+                            } else {
+                              setProjections([...projections, f.name]);
+                            }
+                          }}
+                          className="rounded border-white/10 bg-zinc-950 text-blue-500 focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5"
+                        />
+                        <span className="truncate">{f.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Filters */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -667,66 +1060,15 @@ export default function AnalysisConsolePage() {
                     <p className="text-xs text-muted-foreground italic">No filters active. Selecting all records.</p>
                   )}
                   {filters.map((f, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <select
-                        value={f.property}
-                        onChange={(e) => {
-                          const newFilters = [...filters];
-                          newFilters[idx].property = e.target.value;
-                          const field = currentFields.find(cf => cf.name === e.target.value);
-                          if (field) {
-                            const validOps = OPERATORS_BY_TYPE[field.type] || OPERATORS_BY_TYPE.string;
-                            newFilters[idx].operator = validOps[0].value as any;
-                          }
-                          setFilters(newFilters);
-                        }}
-                        className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
-                      >
-                        <option value="">-- select property --</option>
-                        {currentFields.map(field => (
-                          <option key={field.name} value={field.name}>{field.name}</option>
-                        ))}
-                      </select>
-
-                      <select
-                        value={f.operator}
-                        onChange={(e: any) => {
-                          const newFilters = [...filters];
-                          newFilters[idx].operator = e.target.value;
-                          setFilters(newFilters);
-                        }}
-                        className="bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-xs text-white"
-                      >
-                        {(() => {
-                          const field = currentFields.find(cf => cf.name === f.property);
-                          const ops = field ? (OPERATORS_BY_TYPE[field.type] || OPERATORS_BY_TYPE.string) : OPERATORS_BY_TYPE.string;
-                          return ops.map(op => (
-                            <option key={op.value} value={op.value}>{op.label}</option>
-                          ));
-                        })()}
-                      </select>
-
-                      <input
-                        type="text"
-                        value={f.value}
-                        placeholder="Value..."
-                        onChange={(e) => {
-                          const newFilters = [...filters];
-                          newFilters[idx].value = e.target.value;
-                          setFilters(newFilters);
-                        }}
-                        className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white flex-1"
-                      />
-
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setFilters(filters.filter((_, i) => i !== idx))}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <FilterRow
+                      key={idx}
+                      f={f}
+                      idx={idx}
+                      currentFilters={filters}
+                      setCurrentFilters={setFilters}
+                      currentFields={currentFields}
+                      getUniqueFieldValues={getUniqueFieldValues}
+                    />
                   ))}
                 </div>
               </div>
@@ -914,67 +1256,16 @@ export default function AnalysisConsolePage() {
                       {subQueryFilters.length === 0 && (
                         <p className="text-xs text-muted-foreground italic">No subquery filters added yet.</p>
                       )}
-                       {subQueryFilters.map((f, idx) => (
-                        <div key={idx} className="flex gap-2 items-center">
-                          <select
-                            value={f.property}
-                            onChange={(e) => {
-                              const newFilters = [...subQueryFilters];
-                              newFilters[idx].property = e.target.value;
-                              const field = currentFields.find(cf => cf.name === e.target.value);
-                              if (field) {
-                                const validOps = OPERATORS_BY_TYPE[field.type] || OPERATORS_BY_TYPE.string;
-                                newFilters[idx].operator = validOps[0].value as any;
-                              }
-                              setSubQueryFilters(newFilters);
-                            }}
-                            className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
-                          >
-                            <option value="">-- select property --</option>
-                            {currentFields.map(field => (
-                              <option key={field.name} value={field.name}>{field.name}</option>
-                            ))}
-                          </select>
-
-                          <select
-                            value={f.operator}
-                            onChange={(e: any) => {
-                              const newFilters = [...subQueryFilters];
-                              newFilters[idx].operator = e.target.value;
-                              setSubQueryFilters(newFilters);
-                            }}
-                            className="bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-xs text-white"
-                          >
-                            {(() => {
-                              const field = currentFields.find(cf => cf.name === f.property);
-                              const ops = field ? (OPERATORS_BY_TYPE[field.type] || OPERATORS_BY_TYPE.string) : OPERATORS_BY_TYPE.string;
-                              return ops.map(op => (
-                                <option key={op.value} value={op.value}>{op.label}</option>
-                              ));
-                            })()}
-                          </select>
-
-                          <input
-                            type="text"
-                            value={f.value}
-                            placeholder="Value..."
-                            onChange={(e) => {
-                              const newFilters = [...subQueryFilters];
-                              newFilters[idx].value = e.target.value;
-                              setSubQueryFilters(newFilters);
-                            }}
-                            className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white flex-1"
-                          />
-
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => setSubQueryFilters(subQueryFilters.filter((_, i) => i !== idx))}
-                            className="text-red-400 hover:text-red-300"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      {subQueryFilters.map((f, idx) => (
+                        <FilterRow
+                          key={idx}
+                          f={f}
+                          idx={idx}
+                          currentFilters={subQueryFilters}
+                          setCurrentFilters={setSubQueryFilters}
+                          currentFields={currentFields}
+                          getUniqueFieldValues={getUniqueFieldValues}
+                        />
                       ))}
                     </div>
 
@@ -1076,100 +1367,372 @@ export default function AnalysisConsolePage() {
           {/* Results Output */}
           {results.length > 0 && (
             <div className="space-y-6">
-              {/* Dynamic Chart */}
-              {chartData && (
-                <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Query Aggregations Chart Plot
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[250px] w-full mt-4">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData.data}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                          <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={10} tickLine={false} />
-                          <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
-                          <Tooltip 
-                            contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }} 
-                            labelClassName="text-slate-400 font-bold text-xs"
-                          />
-                          <Legend wrapperStyle={{ fontSize: 10 }} />
-                          {chartData.keys.map((key, i) => (
-                            <Bar 
-                              key={key} 
-                              dataKey={key} 
-                              fill={i % 2 === 0 ? "#3b82f6" : "#e11d48"} 
-                              radius={[4, 4, 0, 0]} 
-                            />
-                          ))}
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Tab selector for results */}
+              <div className="flex border-b border-white/10">
+                <button
+                  onClick={() => setResultsTab("flat")}
+                  className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${
+                    resultsTab === "flat"
+                      ? "border-blue-500 text-white"
+                      : "border-transparent text-muted-foreground hover:text-white"
+                  }`}
+                >
+                  Flat Grid Results
+                </button>
+                <button
+                  onClick={() => setResultsTab("pivot")}
+                  className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
+                    resultsTab === "pivot"
+                      ? "border-pink-500 text-white"
+                      : "border-transparent text-muted-foreground hover:text-white"
+                  }`}
+                >
+                  <GitBranch className="h-3.5 w-3.5" />
+                  Pivot Matrix Console
+                </button>
+              </div>
 
-              {/* Data Table */}
-              <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
-                <CardHeader className="flex flex-row items-center justify-between pb-3">
-                  <div>
-                    <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Result Row Console ({results.length} Records)
-                    </CardTitle>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      const csvRows: string[] = [];
-                      const headers = Object.keys(results[0]);
-                      csvRows.push(headers.join(","));
-                      for (const row of results) {
-                        csvRows.push(headers.map(h => `"${String(row[h] ?? "").replace(/"/g, '""')}"`).join(","));
-                      }
-                      const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
-                      const url = window.URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.setAttribute("href", url);
-                      a.setAttribute("download", `query_export_${Date.now()}.csv`);
-                      a.click();
-                    }}
-                    className="border-white/10 text-xs gap-1.5"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    CSV Export
-                  </Button>
-                </CardHeader>
-                <CardContent className="p-0 overflow-x-auto">
-                  <table className="min-w-full divide-y divide-white/5 text-xs text-left">
-                    <thead className="bg-white/[0.02] text-muted-foreground font-semibold">
-                      <tr>
-                        {Object.keys(results[0]).map((key) => (
-                          <th key={key} className="px-4 py-2.5">{key}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5 font-mono text-slate-300">
-                      {results.slice(0, 100).map((row, rIdx) => (
-                        <tr key={rIdx} className="hover:bg-white/[0.02]">
-                          {Object.keys(row).map((key, cIdx) => (
-                            <td key={cIdx} className="px-4 py-2 max-w-[250px] truncate">
-                              {typeof row[key] === "object" ? JSON.stringify(row[key]) : String(row[key])}
-                            </td>
+              {resultsTab === "flat" ? (
+                <div className="space-y-6">
+                  {/* Flat Charts */}
+                  {chartData && (
+                    <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
+                      <CardHeader className="pb-2 flex flex-row items-center justify-between gap-4">
+                        <div>
+                          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                            Query Visualizations Plot
+                          </CardTitle>
+                        </div>
+                        <div className="flex bg-muted p-0.5 rounded text-[10px]">
+                          {["auto", "bar", "line", "pie"].map((type) => (
+                            <button
+                              key={type}
+                              onClick={() => setChartTypeSelection(type as any)}
+                              className={`px-2 py-0.5 rounded font-medium uppercase transition-colors ${
+                                chartTypeSelection === type ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                              }`}
+                            >
+                              {type}
+                            </button>
                           ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {results.length > 100 && (
-                    <div className="p-3 text-center text-xs text-muted-foreground border-t border-white/5">
-                      Showing first 100 records only. Export to CSV to view full dataset.
-                    </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-[250px] w-full mt-4">
+                          <ResponsiveContainer width="100%" height="100%">
+                            {resolvedChartType === "line" ? (
+                              <LineChart data={chartData.data}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={10} tickLine={false} />
+                                <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
+                                <Tooltip 
+                                  contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }} 
+                                  labelClassName="text-slate-400 font-bold text-xs"
+                                />
+                                <Legend wrapperStyle={{ fontSize: 10 }} />
+                                {chartData.keys.map((key, i) => (
+                                  <Line 
+                                    key={key} 
+                                    type="monotone"
+                                    dataKey={key} 
+                                    stroke={i % 2 === 0 ? "#3b82f6" : "#e11d48"} 
+                                    strokeWidth={2}
+                                    dot={{ r: 3 }}
+                                  />
+                                ))}
+                              </LineChart>
+                            ) : resolvedChartType === "pie" ? (
+                              <PieChart>
+                                <Tooltip 
+                                  contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }} 
+                                  labelClassName="text-slate-400 font-bold text-xs"
+                                />
+                                <Legend wrapperStyle={{ fontSize: 10 }} />
+                                <Pie
+                                  data={chartData.pieData}
+                                  dataKey={chartData.keys[0]}
+                                  nameKey={chartData.xAxisKey}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={50}
+                                  outerRadius={75}
+                                  fill="#3b82f6"
+                                  label={{ fontSize: 10, fill: "#94a3b8" }}
+                                >
+                                  {chartData.pieData.map((entry, idx) => {
+                                    const colors = ["#3b82f6", "#e11d48", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"];
+                                    return <Cell key={`cell-${idx}`} fill={colors[idx % colors.length]} />;
+                                  })}
+                                </Pie>
+                              </PieChart>
+                            ) : (
+                              <BarChart data={chartData.data}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={10} tickLine={false} />
+                                <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
+                                <Tooltip 
+                                  contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }} 
+                                  labelClassName="text-slate-400 font-bold text-xs"
+                                />
+                                <Legend wrapperStyle={{ fontSize: 10 }} />
+                                {chartData.keys.map((key, i) => (
+                                  <Bar 
+                                    key={key} 
+                                    dataKey={key} 
+                                    fill={i % 2 === 0 ? "#3b82f6" : "#e11d48"} 
+                                    radius={[4, 4, 0, 0]} 
+                                  />
+                                ))}
+                              </BarChart>
+                            )}
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
-                </CardContent>
-              </Card>
+
+                  {/* Flat Data Table */}
+                  <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between pb-3">
+                      <div>
+                        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                          Result Row Console ({results.length} Records)
+                        </CardTitle>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const csvRows: string[] = [];
+                          const headers = Object.keys(results[0]);
+                          csvRows.push(headers.join(","));
+                          for (const row of results) {
+                            csvRows.push(headers.map(h => `"${String(row[h] ?? "").replace(/"/g, '""')}"`).join(","));
+                          }
+                          const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.setAttribute("href", url);
+                          a.setAttribute("download", `query_export_${Date.now()}.csv`);
+                          a.click();
+                        }}
+                        className="border-white/10 text-xs gap-1.5"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        CSV Export
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="p-0 overflow-x-auto">
+                      <table className="min-w-full divide-y divide-white/5 text-xs text-left">
+                        <thead className="bg-white/[0.02] text-muted-foreground font-semibold">
+                          <tr>
+                            {Object.keys(results[0]).map((key) => (
+                              <th key={key} className="px-4 py-2.5">{key}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 font-mono text-slate-300">
+                          {results.slice(0, 100).map((row, rIdx) => (
+                            <tr key={rIdx} className="hover:bg-white/[0.02]">
+                              {Object.keys(row).map((key, cIdx) => (
+                                <td key={cIdx} className="px-4 py-2 max-w-[250px] truncate">
+                                  {typeof row[key] === "object" ? JSON.stringify(row[key]) : String(row[key])}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {results.length > 100 && (
+                        <div className="p-3 text-center text-xs text-muted-foreground border-t border-white/5">
+                          Showing first 100 records only. Export to CSV to view full dataset.
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Pivot Config Bar */}
+                  <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
+                    <CardContent className="p-4 grid grid-cols-1 md:grid-cols-5 gap-4">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Rows Dimension</label>
+                        <select
+                          value={pivotRowKey}
+                          onChange={(e) => setPivotRowKey(e.target.value)}
+                          className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
+                        >
+                          {currentFields.map(f => (
+                            <option key={f.name} value={f.name}>{f.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Columns Dimension</label>
+                        <select
+                          value={pivotColKey}
+                          onChange={(e) => setPivotColKey(e.target.value)}
+                          className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
+                        >
+                          {currentFields.map(f => (
+                            <option key={f.name} value={f.name}>{f.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Aggregated Value</label>
+                        <select
+                          value={pivotValueKey}
+                          onChange={(e) => setPivotValueKey(e.target.value)}
+                          className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
+                        >
+                          <option value="*">Row Count (*)</option>
+                          {currentFields.map(f => (
+                            <option key={f.name} value={f.name}>{f.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Aggregation Function</label>
+                        <select
+                          value={pivotAggType}
+                          onChange={(e: any) => setPivotAggType(e.target.value)}
+                          className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
+                        >
+                          <option value="count">COUNT</option>
+                          <option value="sum">SUM</option>
+                          <option value="avg">AVERAGE</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center pt-5">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300 select-none">
+                          <input
+                            type="checkbox"
+                            checked={enablePivotHeatmap}
+                            onChange={(e) => setEnablePivotHeatmap(e.target.checked)}
+                            className="rounded border-white/10 bg-zinc-950 text-pink-500 focus:ring-0 h-4 w-4"
+                          />
+                          <span>Heatmap Grid Overlay</span>
+                        </label>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Pivot Recharts Stacked Chart */}
+                  {pivotResults && pivotResults.pivotedData.length > 0 && (
+                    <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                          Pivoted Stacked Chart (Row: {pivotRowKey} × Col: {pivotColKey})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-[300px] w-full mt-4">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={pivotResults.pivotedData}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                              <XAxis dataKey={pivotRowKey} stroke="#94a3b8" fontSize={10} tickLine={false} />
+                              <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
+                              <Tooltip 
+                                contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }}
+                                labelClassName="text-slate-400 font-bold text-xs"
+                              />
+                              <Legend wrapperStyle={{ fontSize: 10 }} />
+                              {pivotResults.columns.map((col, idx) => {
+                                const colors = ["#3b82f6", "#e11d48", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"];
+                                return (
+                                  <Bar
+                                    key={col}
+                                    dataKey={col}
+                                    stackId="a"
+                                    fill={colors[idx % colors.length]}
+                                    radius={[2, 2, 0, 0]}
+                                  />
+                                );
+                              })}
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Pivot Grid Table */}
+                  {pivotResults && (() => {
+                    // Extract min/max values for heatmap overlay
+                    let minVal = Infinity;
+                    let maxVal = -Infinity;
+                    for (const row of pivotResults.pivotedData) {
+                      for (const col of pivotResults.columns) {
+                        const val = Number(row[col]);
+                        if (!isNaN(val)) {
+                          if (val < minVal) minVal = val;
+                          if (val > maxVal) maxVal = val;
+                        }
+                      }
+                    }
+                    if (minVal === Infinity) minVal = 0;
+                    if (maxVal === -Infinity) maxVal = 0;
+
+                    const getHeatmapBg = (cellVal: any) => {
+                      if (!enablePivotHeatmap) return undefined;
+                      const val = Number(cellVal);
+                      if (isNaN(val) || maxVal === minVal) return undefined;
+                      const intensity = (val - minVal) / (maxVal - minVal || 1);
+                      const isBreach = pivotValueKey.toLowerCase().includes("breach");
+                      const rgb = isBreach ? `225, 29, 72` : `59, 130, 246`;
+                      return `rgba(${rgb}, ${intensity * 0.4})`;
+                    };
+
+                    return (
+                      <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
+                        <CardHeader>
+                          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                            Pivot Matrix Data Grid
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0 overflow-x-auto">
+                          <table className="min-w-full divide-y divide-white/5 text-xs text-left">
+                            <thead className="bg-white/[0.02] text-muted-foreground font-semibold">
+                              <tr>
+                                <th className="px-4 py-2.5 uppercase tracking-wider text-blue-400">{pivotRowKey}</th>
+                                {pivotResults.columns.map(col => (
+                                  <th key={col} className="px-4 py-2.5">{col}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 font-mono text-slate-300">
+                              {pivotResults.pivotedData.map((row, idx) => (
+                                <tr key={idx} className="hover:bg-white/[0.02]">
+                                  <td className="px-4 py-2 font-semibold text-white">{row[pivotRowKey]}</td>
+                                  {pivotResults.columns.map(col => {
+                                    const cellVal = row[col];
+                                    const bgStyle = getHeatmapBg(cellVal);
+                                    return (
+                                      <td 
+                                        key={col} 
+                                        className="px-4 py-2 transition-colors duration-200" 
+                                        style={{ backgroundColor: bgStyle }}
+                                      >
+                                        {cellVal !== undefined ? cellVal : "-"}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -192,6 +192,22 @@ export function executeQuery(
     });
   }
 
+  // Populate virtual date fields for any dataset that has a createdAt column
+  dataset = dataset.map((row) => {
+    if (row.createdAt && row.createdAt_year === undefined) {
+      const dateObj = new Date(row.createdAt);
+      if (!isNaN(dateObj.getTime())) {
+        return {
+          ...row,
+          createdAt_year: dateObj.getFullYear(),
+          createdAt_month: dateObj.getMonth() + 1,
+          createdAt_day: dateObj.getDate(),
+        };
+      }
+    }
+    return row;
+  });
+
   // 2. Apply Filters
   let filtered = dataset;
   if (query.filters && query.filters.length > 0) {
@@ -332,4 +348,64 @@ export function executeQuery(
   }
 
   return processed;
+}
+
+export interface PivotDefinition {
+  rowKey: string;
+  colKey: string;
+  valueKey: string;
+  aggType: "count" | "sum" | "avg";
+}
+
+export function executePivot(data: any[], pivot: PivotDefinition): { pivotedData: any[], columns: string[] } {
+  const rowMap = new Map<string, { [key: string]: any, _values: { [key: string]: number[] } }>();
+  const allColValues = new Set<string>();
+
+  for (const row of data) {
+    const rVal = String(row[pivot.rowKey] ?? "unknown");
+    const cVal = String(row[pivot.colKey] ?? "unknown");
+    let vVal = 0;
+    if (pivot.valueKey === "*") {
+      vVal = 1;
+    } else {
+      vVal = Number(row[pivot.valueKey] ?? 0);
+    }
+
+    allColValues.add(cVal);
+
+    if (!rowMap.has(rVal)) {
+      rowMap.set(rVal, {
+        [pivot.rowKey]: rVal,
+        _values: {}
+      });
+    }
+
+    const rowGroup = rowMap.get(rVal)!;
+    if (!rowGroup._values[cVal]) {
+      rowGroup._values[cVal] = [];
+    }
+    rowGroup._values[cVal].push(vVal);
+  }
+
+  const columns = Array.from(allColValues).sort();
+  const pivotedData: any[] = [];
+
+  for (const [rVal, rowGroup] of rowMap.entries()) {
+    const pivotedRow: any = { [pivot.rowKey]: rVal };
+    for (const col of columns) {
+      const list = rowGroup._values[col] || [];
+      if (pivot.aggType === "count") {
+        pivotedRow[col] = list.length;
+      } else if (pivot.aggType === "sum") {
+        pivotedRow[col] = list.reduce((a, b) => a + b, 0);
+      } else if (pivot.aggType === "avg") {
+        pivotedRow[col] = list.length
+          ? Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2))
+          : 0;
+      }
+    }
+    pivotedData.push(pivotedRow);
+  }
+
+  return { pivotedData, columns };
 }
