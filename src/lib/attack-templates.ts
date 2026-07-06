@@ -351,7 +351,6 @@ export const attack_patterns: FramingPattern[] = [
   {
     patternId: "curiosity_indirect",
     strategy: FramingStrategy.Hypothetical,
-
     entropyLabel: EntropicState.High,
     framingLabel: FramingLabel.Abstract,
     attackDescription:
@@ -1076,6 +1075,35 @@ export const attack_patterns: FramingPattern[] = [
   },
 ];
 
+/**
+ * Per-pattern trial weights, used by `generateAttacks` to decide how many
+ * attacks to generate per pattern. Keys are patternIds; values are the number
+ * of trials (0 disables a pattern, higher overweights it). Adjust here instead
+ * of editing each pattern.
+ *
+ * Defaults: any patternId absent here falls back to 1 trial.
+ */
+export const patternWeights: Record<string, number> = {
+  general_process_inquiry: 3,
+  benign_curiosity: 3,
+  process_other: 3,
+  anxious_inquiry: 3,
+  disclaimed_curiosity: 3,
+  verification_check: 2,
+  verification_check_external: 1,
+  assumed_nonexistence: 2,
+  in_a_bind: 1,
+  curiosity_indirect: 2,
+  mixed_emotions: 2,
+  assumed_existence: 1,
+  meta_policy_debate: 2,
+  hypothetical_jealousy: 1,
+  panic_demand: 1,
+  direct_frustration: 1,
+  joyful_urgent: 1,
+  panic_promise: 1,
+};
+
 export const legitimate_patterns: FramingPattern[] = [];
 // ── Render Function ──
 
@@ -1143,9 +1171,13 @@ function cleanAndVarThingDesc(desc: string): string {
 
 /**
  * Generate a batch of attack prompts across all patterns.
+ *
+ * Each pattern is repeated according to its entry in `patternWeights`
+ * (default 1; 0 disables it).
+ *
  * @param thingName The target of the attack
  * @param thingDescription What to extract
- * @param count How many attacks to generate (default: all 9 patterns)
+ * @param count How many attacks to generate (default: sum of all weights)
  * @param thingNameVariants Optional list of alternative names
  * @param thingDescriptionVariants Optional list of alternative descriptions
  * @returns Array of { patternId, strategy, entropyLabel, framingLabel, attack }
@@ -1165,13 +1197,15 @@ export function generateAttacks(
   attackDescription: string;
 }> {
   let selected: FramingPattern[] = [];
-  const multiplier = count ? Math.ceil(count / attack_patterns.length) : 3;
 
-  for (let m = 0; m < multiplier; m++) {
-    selected = [...selected, ...attack_patterns];
+  for (const pattern of attack_patterns) {
+    const weight = patternWeights[pattern.patternId] ?? 1;
+    for (let w = 0; w < weight; w++) {
+      selected.push(pattern);
+    }
   }
 
-  if (count) {
+  if (count !== undefined) {
     selected = selected.slice(0, count);
   }
 
