@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { estimateTokens } from "@/lib/token-utils";
 import { getPromptFile, PromptFileType } from "@/lib/prompt-loader";
 import { getJudgeEvaluationFixedPrefix } from "@/lib/scan-prompts";
-import { patterns } from "@/lib/attack-templates";
+import { attack_patterns } from "@/lib/attack-templates";
 import fs from "fs";
 import path from "path";
 
@@ -109,7 +109,7 @@ export async function GET() {
   );
   const judgeFixedPrefix = estimateTokens(getJudgeEvaluationFixedPrefix());
 
-  const patternsCount = patterns.length;
+  const patternsCount = attack_patterns.length;
 
   // Get ontology token sizes
   const ontologySizes = getOntologyTokenSizes();

@@ -10,7 +10,11 @@ import {
 import { CredentialMode } from "./enums";
 import { ONTOLOGY_CATEGORY_VALUES } from "./ontology-categories";
 import { TrialVerdict } from "@/lib/enums";
-import { patterns, renderAttack, renderAttackV2 } from "@/lib/attack-templates";
+import {
+  attack_patterns,
+  renderAttack,
+  renderAttackV2,
+} from "@/lib/attack-templates";
 import { parseFrontmatter } from "@/lib/frontmatter-utils";
 
 import {
@@ -238,7 +242,8 @@ export function buildAttackGeneratorUserContent(
   const { attackDescription } = layout;
 
   const draftParts = renderAttackV2(
-    patterns.find((p) => p.patternId === layout.patternId) || patterns[0],
+    attack_patterns.find((p) => p.patternId === layout.patternId) ||
+      attack_patterns[0],
     thingName,
     thingDescription,
   );

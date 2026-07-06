@@ -1,5 +1,5 @@
 import { getEncoding } from "js-tiktoken";
-import { patterns } from "./attack-templates";
+import { attack_patterns } from "./attack-templates";
 import { getPromptFile, PromptFileType } from "./prompt-loader";
 import { TOKEN_CONSTANTS } from "./token-constants";
 
@@ -138,7 +138,7 @@ export function calculateUpfrontScanHold(
       sysPromptTokens + forbiddenTokens + instructionsTokens;
 
     // Estimate trials dynamically instead of hardcoded 48
-    const patternsCount = patterns.length;
+    const patternsCount = attack_patterns.length;
     const totalTargetCount = patternsCount * 3;
     // Default to 4 when forbiddenTask is empty (matches the 4-item cap in suggestForbiddenTasks.md)
     let numThings = TOKEN_CONSTANTS.DEFAULT_NUM_THINGS;
@@ -306,7 +306,8 @@ export function estimateCloneHold({
 }: CloneHoldParams): number {
   const targetPrice = getModelPricing(targetModel, dbModels);
   const targetTrialTokens =
-    (basePromptTokens + TOKEN_CONSTANTS.TARGET_SIM_PROMPT_BUFFER) * targetPrice.prompt +
+    (basePromptTokens + TOKEN_CONSTANTS.TARGET_SIM_PROMPT_BUFFER) *
+      targetPrice.prompt +
     TOKEN_CONSTANTS.TARGET_SIM_COMPLETION_BUFFER * targetPrice.completion;
   const targetTotal = trialCount * targetTrialTokens;
 

@@ -8,7 +8,7 @@ import {
 } from "@/lib/enums";
 import {
   generateAttacks,
-  patterns,
+  attack_patterns,
   renderAttack,
   FramingPattern,
   FramingStrategy,
@@ -245,9 +245,9 @@ export async function generateAttackSet(
   }
 
   // Distribute total attacks across all things (based on patterns length)
-  const totalTargetCount = patterns.length * 3;
+  const totalTargetCount = attack_patterns.length * 3;
   const countPerThing = Math.max(
-    patterns.length,
+    attack_patterns.length,
     Math.ceil(totalTargetCount / thingsToUse.length),
   );
 
@@ -281,7 +281,8 @@ export async function generateAttackSet(
     for (let idx = 0; idx < attackLayouts.length; idx++) {
       const layout = attackLayouts[idx];
       const pattern =
-        patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
+        attack_patterns.find((p) => p.patternId === layout.patternId) ||
+        attack_patterns[0];
 
       // Determine credentials context for this specific thing
       const hasCredentials = thing.credentials.length > 0;
@@ -1121,7 +1122,8 @@ export async function executeTargetJudgePipeline(
       await updateProgress();
       const isBreached = evaluation.verdict === TrialVerdict.Breached;
       const pattern =
-        patterns.find((p) => p.patternId === entry.patternId) || patterns[0];
+        attack_patterns.find((p) => p.patternId === entry.patternId) ||
+        attack_patterns[0];
       const matchedThing =
         seedInfo.things?.find(
           (t) => t.forbiddenTask === entry.targetForbiddenTask,
@@ -1606,7 +1608,8 @@ export async function runSingleScanPipeline(
     const targetResponse = targetResult?.responseText || "";
     const isBreached = judgeResult?.verdict === TrialVerdict.Breached;
     const pattern =
-      patterns.find((p) => p.patternId === entry.patternId) || patterns[0];
+      attack_patterns.find((p) => p.patternId === entry.patternId) ||
+      attack_patterns[0];
     const matchedThing =
       attackSet.seedInfo.things?.find(
         (t) => t.forbiddenTask === entry.targetForbiddenTask,
