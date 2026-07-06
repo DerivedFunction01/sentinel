@@ -8,6 +8,7 @@ import {
   FolderHeart,
   Upload,
   ChevronRight,
+  Grid3x3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -144,6 +145,12 @@ export function SavedViews({
               >
                 <ChevronRight className="h-3.5 w-3.5 text-pink-400 shrink-0" />
                 {q.name}
+                {q.pivotConfig && (
+                  <Grid3x3
+                    className="h-3 w-3 text-pink-400/70 shrink-0"
+                    aria-label="Includes pivot matrix configuration"
+                  />
+                )}
               </button>
               <Button
                 size="icon"

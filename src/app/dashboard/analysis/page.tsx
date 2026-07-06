@@ -43,21 +43,46 @@ function AnalysisConsoleInner({
   results: any[];
   setResults: (r: any[]) => void;
 }) {
-  const { currentFields, setSourceType, setSelectedViewId, setFilters, setGroupBy, setAggregations, setSortInstructions, setLimit, setProjections, setSetOp, setSubQueryFilters } =
-    useQueryContext();
+  const {
+    currentFields,
+    setSourceType,
+    setSelectedViewId,
+    setFilters,
+    setGroupBy,
+    setAggregations,
+    setSortInstructions,
+    setLimit,
+    setProjections,
+    setSetOp,
+    setSubQueryFilters,
+    pivotConfig,
+    setPivotConfig,
+  } = useQueryContext();
+
+  const {
+    rowKey: pivotRowKey,
+    colKey: pivotColKey,
+    valueKey: pivotValueKey,
+    aggType: pivotAggType,
+    enableHeatmap: enablePivotHeatmap,
+  } = pivotConfig;
+
+  const setPivotRowKey = (v: string) =>
+    setPivotConfig({ ...pivotConfig, rowKey: v });
+  const setPivotColKey = (v: string) =>
+    setPivotConfig({ ...pivotConfig, colKey: v });
+  const setPivotValueKey = (v: string) =>
+    setPivotConfig({ ...pivotConfig, valueKey: v });
+  const setPivotAggType = (v: "count" | "sum" | "avg") =>
+    setPivotConfig({ ...pivotConfig, aggType: v });
+  const setEnablePivotHeatmap = (v: boolean) =>
+    setPivotConfig({ ...pivotConfig, enableHeatmap: v });
 
   // ── Results view ────────────────────────────────────────────────────────
   const [resultsTab, setResultsTab] = useState<"flat" | "pivot">("flat");
 
   // ── Chart selectors ─────────────────────────────────────────────────────
   const [chartTypeSelection, setChartTypeSelection] = useState<"auto" | "bar" | "line" | "pie">("auto");
-  const [enablePivotHeatmap, setEnablePivotHeatmap] = useState(false);
-
-  // ── Pivot config ────────────────────────────────────────────────────────
-  const [pivotRowKey, setPivotRowKey] = useState("targetModel");
-  const [pivotColKey, setPivotColKey] = useState("riskLevel");
-  const [pivotValueKey, setPivotValueKey] = useState("*");
-  const [pivotAggType, setPivotAggType] = useState<"count" | "sum" | "avg">("count");
 
   // ── Available pivot fields (only columns present in the current results) ──
   const availablePivotFields = useMemo(() => {
@@ -120,6 +145,15 @@ function AnalysisConsoleInner({
       setSetOp("none");
       setSubQueryFilters([]);
     }
+    if (saved.pivotConfig) {
+      setPivotConfig({
+        rowKey: saved.pivotConfig.rowKey,
+        colKey: saved.pivotConfig.colKey,
+        valueKey: saved.pivotConfig.valueKey,
+        aggType: saved.pivotConfig.aggType,
+        enableHeatmap: saved.pivotConfig.enableHeatmap,
+      });
+    }
     toast.info(`Loaded view: ${saved.name}`);
   };
 
@@ -151,7 +185,12 @@ function AnalysisConsoleInner({
         for (const line of lines) {
           const parsed = JSON.parse(line);
           if (parsed.id && parsed.name && parsed.query) {
-            await saveQuery(parsed.id, parsed.name, parsed.query);
+            await saveQuery(
+              parsed.id,
+              parsed.name,
+              parsed.query,
+              parsed.pivotConfig || null,
+            );
             count++;
           }
         }

@@ -64,6 +64,10 @@ export interface QueryContextValue {
   newQueryName: string;
   setNewQueryName: (v: string) => void;
 
+  // Pivot config
+  pivotConfig: PivotConfig;
+  setPivotConfig: (v: PivotConfig) => void;
+
   // Derived
   currentFields: FieldDef[];
   getUniqueFieldValues: (property: string) => string[];
@@ -141,6 +145,15 @@ export function QueryProvider({
 
   // ── Save-view name ────────────────────────────────────────────────────────
   const [newQueryName, setNewQueryName] = useState("");
+
+  // ── Pivot config ──────────────────────────────────────────────────────────
+  const [pivotConfig, setPivotConfig] = useState<PivotConfig>({
+    rowKey: "targetModel",
+    colKey: "riskLevel",
+    valueKey: "*",
+    aggType: "count",
+    enableHeatmap: false,
+  });
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const currentFields = useMemo<FieldDef[]>(() => {
@@ -246,7 +259,7 @@ export function QueryProvider({
     }
     try {
       const id = "view_" + Math.random().toString(36).substr(2, 9);
-      await saveQuery(id, newQueryName, buildQuery());
+      await saveQuery(id, newQueryName, buildQuery(), pivotConfig);
       setNewQueryName("");
       toast.success("Query saved to local views store!");
       await refreshSavedQueries();
@@ -304,6 +317,7 @@ export function QueryProvider({
     subQueryViewId, setSubQueryViewId,
     subQueryFilters, setSubQueryFilters,
     newQueryName, setNewQueryName,
+    pivotConfig, setPivotConfig,
     currentFields,
     getUniqueFieldValues,
     handleRunQuery,
