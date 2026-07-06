@@ -255,12 +255,21 @@ export function QueryComposer({ useFriendlyNames }: QueryComposerProps) {
                     }}
                     className="bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-xs text-white"
                   >
-                    <option value="count">COUNT</option>
-                    <option value="count_distinct">COUNT DISTINCT</option>
-                    <option value="sum">SUM</option>
-                    <option value="avg">AVG</option>
-                    <option value="min">MIN</option>
-                    <option value="max">MAX</option>
+                    <optgroup label="Basic">
+                      <option value="count">COUNT</option>
+                      <option value="count_distinct">COUNT DISTINCT</option>
+                      <option value="sum">SUM</option>
+                      <option value="avg">AVG</option>
+                      <option value="min">MIN</option>
+                      <option value="max">MAX</option>
+                    </optgroup>
+                    <optgroup label="Statistical">
+                      <option value="std_dev">STD DEV</option>
+                      <option value="median">MEDIAN</option>
+                      <option value="q1">Q1 (25th %ile)</option>
+                      <option value="q3">Q3 (75th %ile)</option>
+                      <option value="range">RANGE (max−min)</option>
+                    </optgroup>
                   </select>
                   <select
                     value={agg.property}

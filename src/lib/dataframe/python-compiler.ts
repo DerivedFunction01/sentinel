@@ -175,11 +175,25 @@ function compileQueryBody(
     const aggDict: string[] = [];
     if (query.aggregations && query.aggregations.length > 0) {
       for (const agg of query.aggregations) {
-        const func = agg.function;
-        const pyFunc = func === "count_distinct" ? "nunique" : func;
         const prop = agg.property === "*" ? "id" : agg.property;
+        // Map engine function names to pandas aggfunc strings or lambdas
+        let pyFunc: string;
+        switch (agg.function) {
+          case "count":        pyFunc = '"count"'; break;
+          case "count_distinct": pyFunc = '"nunique"'; break;
+          case "sum":          pyFunc = '"sum"'; break;
+          case "avg":          pyFunc = '"mean"'; break;
+          case "min":          pyFunc = '"min"'; break;
+          case "max":          pyFunc = '"max"'; break;
+          case "std_dev":      pyFunc = '"std"'; break;
+          case "median":       pyFunc = '"median"'; break;
+          case "q1":           pyFunc = "lambda x: x.quantile(0.25)"; break;
+          case "q3":           pyFunc = "lambda x: x.quantile(0.75)"; break;
+          case "range":        pyFunc = "lambda x: x.max() - x.min()"; break;
+          default:             pyFunc = `"${agg.function}"`;
+        }
         aggDict.push(
-          `${indent}    ${agg.alias || agg.property}=pd.NamedAgg(column="${prop}", aggfunc="${pyFunc}")`,
+          `${indent}    ${agg.alias || agg.property}=pd.NamedAgg(column="${prop}", aggfunc=${pyFunc})`,
         );
       }
     } else {

@@ -19,7 +19,18 @@ export interface FilterCondition {
 }
 
 export interface Aggregation {
-  function: "count" | "sum" | "avg" | "min" | "max" | "count_distinct";
+  function:
+    | "count"
+    | "count_distinct"
+    | "sum"
+    | "avg"
+    | "min"
+    | "max"
+    | "std_dev"
+    | "median"
+    | "q1"
+    | "q3"
+    | "range";
   property: string; // use '*' or any field for count
   alias: string;
 }
@@ -152,6 +163,27 @@ function deduplicate(rows: any[]): any[] {
     seen.add(key);
     return true;
   });
+}
+
+// ─── Statistical helpers ────────────────────────────────────────────────────
+
+/** Sample standard deviation (ddof=1, matches pandas default). */
+function stdDev(nums: number[]): number {
+  if (nums.length < 2) return 0;
+  const mean = nums.reduce((a, b) => a + b, 0) / nums.length;
+  const variance =
+    nums.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / (nums.length - 1);
+  return Math.sqrt(variance);
+}
+
+/** Linear-interpolated percentile (matches numpy/pandas default). */
+function percentile(nums: number[], p: number): number {
+  if (nums.length === 0) return 0;
+  const sorted = [...nums].sort((a, b) => a - b);
+  const idx = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  return lo === hi ? sorted[lo] : sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
 }
 
 // Main execution function
@@ -293,6 +325,34 @@ export function executeQuery(
               resultRow[agg.alias] =
                 values.length > 0 ? Math.max(...values.map(Number)) : null;
               break;
+            case "std_dev": {
+              const nums = values.map(Number);
+              resultRow[agg.alias] = nums.length >= 2 ? Number(stdDev(nums).toFixed(4)) : 0;
+              break;
+            }
+            case "median": {
+              const nums = values.map(Number);
+              resultRow[agg.alias] = nums.length > 0 ? Number(percentile(nums, 50).toFixed(4)) : 0;
+              break;
+            }
+            case "q1": {
+              const nums = values.map(Number);
+              resultRow[agg.alias] = nums.length > 0 ? Number(percentile(nums, 25).toFixed(4)) : 0;
+              break;
+            }
+            case "q3": {
+              const nums = values.map(Number);
+              resultRow[agg.alias] = nums.length > 0 ? Number(percentile(nums, 75).toFixed(4)) : 0;
+              break;
+            }
+            case "range": {
+              const nums = values.map(Number);
+              resultRow[agg.alias] =
+                nums.length > 0
+                  ? Number((Math.max(...nums) - Math.min(...nums)).toFixed(4))
+                  : 0;
+              break;
+            }
           }
         });
       }
