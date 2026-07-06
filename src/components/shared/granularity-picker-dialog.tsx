@@ -49,7 +49,7 @@ export function GranularityPickerDialog({
   scan,
 }: GranularityPickerDialogProps) {
   const resolvedHardener = defaultHardenerModel || scan?.hardenerModel || FALLBACK_DEFAULT_MODEL;
-  const resolvedExtractor = defaultExtractorModel || scan?.metadata?.seedExtraction?.extractorModel || FALLBACK_DEFAULT_MODEL;
+  const resolvedExtractor = scan?.metadata?.seedExtraction?.extractorModel || defaultExtractorModel || FALLBACK_DEFAULT_MODEL;
 
   const [hardenerModel, setHardenerModel] = useState<string>(resolvedHardener);
   const [granularity, setGranularity] =
