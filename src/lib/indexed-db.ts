@@ -1,11 +1,12 @@
 const DB_NAME = "sentinel-reports-cache";
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const STORE_SCANS_LIST = "scans-list";
 const STORE_SCAN_DETAILS = "scan-details";
 const STORE_TOOL_EXAMPLES = "tool-examples";
 const STORE_USER_TAGS = "user-tags";
 const STORE_MODELS = "models";
 const STORE_SCAN_COST_ESTIMATES = "scan-cost-estimates";
+const STORE_SAVED_QUERIES = "saved-queries";
 
 function getDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -37,6 +38,9 @@ function getDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_SCAN_COST_ESTIMATES)) {
         db.createObjectStore(STORE_SCAN_COST_ESTIMATES);
+      }
+      if (!db.objectStoreNames.contains(STORE_SAVED_QUERIES)) {
+        db.createObjectStore(STORE_SAVED_QUERIES);
       }
     };
   });
@@ -326,5 +330,67 @@ export async function setCachedCostEstimate(
     });
   } catch (error) {
     console.error("IndexedDB setCachedCostEstimate error:", error);
+  }
+}
+
+export async function getAllCachedScanDetails(): Promise<any[]> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_SCAN_DETAILS, "readonly");
+      const store = transaction.objectStore(STORE_SCAN_DETAILS);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB getAllCachedScanDetails error:", error);
+    return [];
+  }
+}
+
+export async function getSavedQueries(): Promise<any[]> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_SAVED_QUERIES, "readonly");
+      const store = transaction.objectStore(STORE_SAVED_QUERIES);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB getSavedQueries error:", error);
+    return [];
+  }
+}
+
+export async function saveQuery(id: string, name: string, queryDef: any): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_SAVED_QUERIES, "readwrite");
+      const store = transaction.objectStore(STORE_SAVED_QUERIES);
+      const request = store.put({ id, name, query: queryDef, createdAt: new Date().toISOString() }, id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB saveQuery error:", error);
+  }
+}
+
+export async function deleteSavedQuery(id: string): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_SAVED_QUERIES, "readwrite");
+      const store = transaction.objectStore(STORE_SAVED_QUERIES);
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB deleteSavedQuery error:", error);
   }
 }

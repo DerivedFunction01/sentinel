@@ -14,6 +14,7 @@ import {
   KeyRound,
   Rocket,
   BookOpen,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -43,6 +44,7 @@ const NAV_ENTRIES: NavEntry[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/scan", label: "PenTest Scan", icon: Crosshair },
   { href: "/dashboard/reports", label: "Reports", icon: FileText },
+  { href: "/dashboard/analysis", label: "Analysis Console", icon: BarChart3 },
   {
     href: "/dashboard/api-integration",
     label: "API Integration",
