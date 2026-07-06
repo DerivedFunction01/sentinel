@@ -778,14 +778,40 @@ if matrix is not None:
   {
     id: "filter-scans",
     label: "Filter Scans",
-    description: "Filter scans by tag patterns, tag counts, and more.",
-    code: `def filter_scans(scans, include_tags=None, exclude_tags=None, min_tags=None, max_tags=None, exact_num_tags=None):
+    description: "Filter scans by dates, tag patterns, tag counts, and more.",
+    code: `from datetime import datetime
+
+def filter_scans(scans, include_tags=None, exclude_tags=None, min_tags=None, max_tags=None, exact_num_tags=None, start_date=None, end_date=None):
     """
-    Filters a list of scan objects based on various tag criteria.
-    Tag matching is case-insensitive and uses substring search.
+    Filters a list of scan objects based on various tag and date criteria.
+    start_date/end_date should be 'YYYY-MM-DD' strings or datetime objects.
     """
     filtered = []
+    
+    # Parse boundaries if strings
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d") if isinstance(start_date, str) else start_date
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d") if isinstance(end_date, str) else end_date
+
     for scan in scans:
+        # Date filtering
+        if start_dt or end_dt:
+            created_str = scan.get("createdAt", "").replace("Z", "+00:00")
+            try:
+                # Remove timezone if boundary has no timezone for safe comparison
+                created_dt = datetime.fromisoformat(created_str)
+                if start_dt and start_dt.tzinfo is None:
+                    created_dt = created_dt.replace(tzinfo=None)
+                if end_dt and end_dt.tzinfo is None:
+                    created_dt = created_dt.replace(tzinfo=None)
+                
+                if start_dt and created_dt < start_dt:
+                    continue
+                if end_dt and created_dt > end_dt:
+                    continue
+            except Exception as e:
+                print(f"Skipping date validation for scan {scan.get('id')}: {e}")
+                continue
+
         scan_tags = [tag.lower() for tag in scan.get("tags", [])]
         num_current_tags = len(scan_tags)
 
@@ -818,6 +844,10 @@ if matrix is not None:
 
         filtered.append(scan)
     return filtered
+
+# Filter scans by date range
+recent_scans = filter_scans(scans, start_date="2026-06-01", end_date="2026-07-31")
+print(f"Scans between June 1 and July 31, 2026: {len(recent_scans)}")
 
 single_tag_scans = filter_scans(scans, exact_num_tags=1)
 print(f"Scans with exactly 1 tag: {len(single_tag_scans)}")
