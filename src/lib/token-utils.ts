@@ -13,7 +13,6 @@ export function estimateTokens(text: string): number {
   try {
     return enc.encode(text).length;
   } catch (error) {
-    // Fallback: standard 1.3x word-to-token heuristic
     return Math.ceil(text.split(/\s+/).filter(Boolean).length * 1.3);
   }
 }
@@ -28,13 +27,13 @@ export function estimateMessagesTokens(
   for (const msg of messages) {
     count += estimateTokens(msg.role);
     count += estimateTokens(msg.content || "");
-    count += TOKEN_CONSTANTS.MESSAGE_ROLE_OVERHEAD; // structural message overhead
+    count += TOKEN_CONSTANTS.MESSAGE_ROLE_OVERHEAD;
   }
-  count += TOKEN_CONSTANTS.MESSAGE_STRUCTURAL_OVERHEAD; // response prefix overhead
+  count += TOKEN_CONSTANTS.MESSAGE_STRUCTURAL_OVERHEAD;
   return count;
 }
 
-function getModelPricing(modelId: string, dbModels: any[]) {
+export function getModelPricing(modelId: string, dbModels: any[]) {
   const model = dbModels.find((m) => m.id === modelId);
   return {
     prompt: parseFloat(model?.promptPrice || "0.0000001"),
@@ -286,6 +285,47 @@ export function calculateSingleReevalHold(
   );
 
   return upfrontHold;
+}
+
+export interface CloneHoldParams {
+  trialCount: number;
+  basePromptTokens: number;
+  targetModel: string;
+  judgeModel: string;
+  mode: "reset-model" | "reset-judge";
+  dbModels: any[];
+}
+
+export function estimateCloneHold({
+  trialCount,
+  basePromptTokens,
+  targetModel,
+  judgeModel,
+  mode,
+  dbModels,
+}: CloneHoldParams): number {
+  const targetPrice = getModelPricing(targetModel, dbModels);
+  const targetTrialTokens =
+    (basePromptTokens + TOKEN_CONSTANTS.TARGET_SIM_PROMPT_BUFFER) * targetPrice.prompt +
+    TOKEN_CONSTANTS.TARGET_SIM_COMPLETION_BUFFER * targetPrice.completion;
+  const targetTotal = trialCount * targetTrialTokens;
+
+  const judgePrice = getModelPricing(judgeModel, dbModels);
+  const judgeTemplateTokens =
+    estimateTokens(getPromptFile(PromptFileType.Judge)) +
+    estimateTokens(getPromptFile(PromptFileType.JudgeEvaluationSuffix));
+  const judgeTrialTokens =
+    (basePromptTokens + judgeTemplateTokens) * judgePrice.prompt +
+    TOKEN_CONSTANTS.JUDGE_EVAL_COMPLETION_BUFFER * judgePrice.completion;
+  const judgeTotal = trialCount * judgeTrialTokens;
+
+  const total = mode === "reset-model" ? targetTotal + judgeTotal : judgeTotal;
+
+  return Math.ceil(
+    total *
+      TOKEN_CONSTANTS.TOKEN_HOLD_SCALE_MULTIPLIER *
+      TOKEN_CONSTANTS.SAFETY_BUFFER_MULTIPLIER,
+  );
 }
 
 export async function processRefund(

@@ -33,6 +33,7 @@ import { TagSelectedDialog } from "@/components/shared/tag-selected-dialog";
 import { getCachedUserTags } from "@/lib/indexed-db";
 import { AutoReevalDialog } from "@/components/report/auto-reeval-dialog";
 import { RetryFailedDialog } from "@/components/report/retry-failed-dialog";
+import { CloneScanDialog } from "@/components/report/clone-scan-dialog";
 
 interface ReportViewProps {
   scan: Scan;
@@ -53,6 +54,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [autoReevalDialogOpen, setAutoReevalDialogOpen] = useState(false);
   const [retryFailedDialogOpen, setRetryFailedDialogOpen] = useState(false);
   const [isRetryingFailed, setIsRetryingFailed] = useState(false);
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
 
   const handleAutoReevaluate = async (
     trialNumbers?: number[],
@@ -224,6 +226,47 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     } finally {
       setDeleting(false);
       setDeleteDialogOpen(false);
+    }
+  };
+
+  const handleCloneScan = async (params: {
+    mode: "reset-model" | "reset-judge";
+    targetModel: string;
+    judgeModel: string;
+    seedExtractorModel: string;
+    attackerModel: string;
+    hardenerModel: string;
+  }) => {
+    const toastId = toast.loading(
+      params.mode === "reset-model"
+        ? "Cloning scan with new target model..."
+        : "Cloning scan with new judge model...",
+    );
+    try {
+      const res = await fetch(`/api/scan/${scan.id}/clone`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        if (res.status === 402) {
+          toast.error(err.message || "Insufficient scan tokens.", {
+            id: toastId,
+            duration: 6000,
+          });
+          return;
+        }
+        throw new Error(err.error || "Failed to clone scan");
+      }
+      const data = await res.json();
+      toast.success(
+        `Scan cloned successfully. Redirecting to ${data.reportId}...`,
+        { id: toastId },
+      );
+      router.push(`/dashboard/reports/${data.reportId}`);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to clone scan", { id: toastId });
     }
   };
 
@@ -548,6 +591,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         onOpenRetryFailed={() => setRetryFailedDialogOpen(true)}
         unknownCount={unknownCount}
         onTag={() => setTagDialogOpen(true)}
+        onCloneScan={() => setCloneDialogOpen(true)}
       />
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
@@ -841,6 +885,13 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         scan={scan}
         scanTokens={scanTokens ?? 0}
         onConfirm={handleRetryFailed}
+      />
+      <CloneScanDialog
+        open={cloneDialogOpen}
+        onOpenChange={setCloneDialogOpen}
+        scan={scan}
+        scanTokens={scanTokens ?? 0}
+        onConfirm={handleCloneScan}
       />
     </div>
   );

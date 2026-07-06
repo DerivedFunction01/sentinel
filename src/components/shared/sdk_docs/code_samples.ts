@@ -16,7 +16,8 @@ type Op =
   | "tool-extraction"
   | "progress"
   | "scans"
-  | "scan";
+  | "scan"
+  | "retry-failed";
 
 interface CodeSampleParams {
   token: string;
@@ -163,6 +164,14 @@ export const CODE_SAMPLES: Record<
     scan: ({ token, origin }) =>
       `curl -X GET "${origin}/api/scans/SCAN_ID_OR_REPORT_ID" \\
   -H "Authorization: Bearer ${token}"`,
+
+    "retry-failed": ({ token, origin }) =>
+      `curl -X POST "${origin}/api/scan/SCAN_ID_OR_REPORT_ID/retry-failed" \\
+  -H "Authorization: Bearer ${token}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "trialNumbers": [1, 3, 5]
+  }'`,
   },
 
   python: {
@@ -368,6 +377,21 @@ headers = {
 }
 
 response = requests.get(url, headers=headers)
+print(response.json())`,
+
+    "retry-failed": ({ token, origin }) =>
+      `import requests
+
+url = "${origin}/api/scan/SCAN_ID_OR_REPORT_ID/retry-failed"
+headers = {
+    "Authorization": "Bearer ${token}",
+    "Content-Type": "application/json"
+}
+data = {
+    "trialNumbers": [1, 3, 5]
+}
+
+response = requests.post(url, headers=headers, json=data)
 print(response.json())`,
   },
 
@@ -641,6 +665,28 @@ const options = {
   headers: {
     'Authorization': 'Bearer ${token}'
   }
+};
+
+fetch(url, options)
+  .then(res => res.json())
+  .then(data => console.log(data))
+  .catch(err => console.error(err));`,
+
+    "retry-failed": ({ token, origin }) =>
+      `const fetch = require('node-fetch');
+
+const url = '${origin}/api/scan/SCAN_ID_OR_REPORT_ID/retry-failed';
+const data = {
+    trialNumbers: [1, 3, 5]
+};
+
+const options = {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer ${token}',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify(data)
 };
 
 fetch(url, options)

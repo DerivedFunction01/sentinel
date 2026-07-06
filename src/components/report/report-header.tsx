@@ -8,6 +8,7 @@ import {
   Sparkles,
   Trash2,
   Tags,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ interface ReportHeaderProps {
   unknownCount?: number;
   onRetryFailed?: () => void;
   onOpenRetryFailed?: () => void;
+  onCloneScan?: () => void;
 }
 
 export function ReportHeader({
@@ -41,6 +43,7 @@ export function ReportHeader({
   onRetryFailed,
   onOpenRetryFailed,
   unknownCount,
+  onCloneScan,
 }: ReportHeaderProps) {
   return (
     <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md">
@@ -120,6 +123,18 @@ export function ReportHeader({
                 Retry Unknown ({unknownCount})
               </Button>
             )}
+          {onCloneScan && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCloneScan}
+              disabled={refreshing}
+              className="border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+            >
+              <Copy className="mr-1.5 h-3.5 w-3.5" />
+              Clone
+            </Button>
+          )}
           {onDelete && (
             <Button
               variant="outline"

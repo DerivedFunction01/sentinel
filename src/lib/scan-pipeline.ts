@@ -915,6 +915,23 @@ export function generateBatchId(): string {
   return `BATCH-${yy}${mm}${dd}-${rand}`;
 }
 
+export function reconstructAttackSetFromTrial(
+  seedInfo: SeedInfo,
+  trials: Trial[],
+): AttackSet {
+  return {
+    seedInfo,
+    attacks: trials.map((t) => ({
+      patternId: t.patternId || "curiosity_pattern",
+      attackDescription: t.seedTemplate || t.attack,
+      entropyLabel: t.entropyLabel || "Low Entropy",
+      framingLabel: t.framingLabel || "Abstract",
+      attackText: t.attack,
+      targetForbiddenTask: t.taskTag,
+    })),
+  };
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Pipeline Execution Types
 // ────────────────────────────────────────────────────────────────────────────

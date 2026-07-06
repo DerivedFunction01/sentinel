@@ -11,6 +11,7 @@ import {
   ScanStatus,
   ProgressStepStatus,
   Granularity,
+  RiskLevel,
 } from "@/lib/enums";
 import { getCodeSample, CODE_SAMPLES } from "./code_samples";
 
@@ -33,7 +34,8 @@ type Op =
   | "tool-extraction"
   | "progress"
   | "scans"
-  | "scan";
+  | "scan"
+  | "retry-failed";
 
 const OPS = [
   { id: "trigger", label: "Trigger Scan (POST)" },
@@ -51,6 +53,7 @@ const OPS = [
   { id: "progress", label: "Get Batch Progress (GET)" },
   { id: "scans", label: "List Scans (GET)" },
   { id: "scan", label: "Get Single Scan (GET)" },
+  { id: "retry-failed", label: "Retry Failed Trials (POST)" },
 ] as const;
 
 const LANGS = [
@@ -67,7 +70,6 @@ export function SdkDocs({
   const [activeLang, setActiveLang] = useState<Lang>("curl");
   const [activeOp, setActiveOp] = useState<Op>("trigger");
   const [copied, setCopied] = useState(false);
-  // Track hydration to avoid mismatch between server and client
   const [hasMounted, setHasMounted] = useState(false);
   const [origin, setOrigin] = useState("");
   const [useServerDefault, setUseServerDefault] = useState(false);
@@ -93,12 +95,10 @@ export function SdkDocs({
   }, []);
 
   useEffect(() => {
-    // Set origin on client mount - this only runs in browser
     setOrigin(window.location.origin);
     setHasMounted(true);
   }, []);
 
-  // Pre-fetch default model on mount
   useEffect(() => {
     if (hasMounted) {
       fetchDefaultModel();
@@ -126,7 +126,7 @@ export function SdkDocs({
   };
 
   if (!hasMounted) {
-    return null; // or return a loading state
+    return null;
   }
 
   const activeDefaultModel =
@@ -150,7 +150,6 @@ export function SdkDocs({
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* Main Code Playground Section */}
       <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm flex items-center gap-2">
@@ -177,7 +176,6 @@ export function SdkDocs({
           </Button>
         </div>
 
-        {/* Language Tabs */}
         <div className="flex gap-2 border-b border-border">
           {LANGS.map((lang) => (
             <button
@@ -194,7 +192,6 @@ export function SdkDocs({
           ))}
         </div>
 
-        {/* Operation Tabs */}
         <div className="flex gap-1 flex-wrap">
           {OPS.map((op) => (
             <button
@@ -211,7 +208,6 @@ export function SdkDocs({
           ))}
         </div>
 
-        {/* Default Model Toggle Bar */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
           <span className="font-medium text-foreground">Model:</span>
           <button
@@ -253,7 +249,6 @@ export function SdkDocs({
           </button>
         </div>
 
-        {/* Code Display */}
         <CodeHighlight
           code={code}
           language={getLangKey(activeLang)}
@@ -261,7 +256,6 @@ export function SdkDocs({
         />
       </div>
 
-      {/* Re-evaluate & Tool Extraction Section */}
       {(activeOp === "reevaluate" ||
         activeOp === "reevaluate-trial" ||
         activeOp === "confirm-reevaluate" ||
@@ -269,7 +263,8 @@ export function SdkDocs({
         activeOp === "tool-extraction" ||
         activeOp === "progress" ||
         activeOp === "scans" ||
-        activeOp === "scan") && (
+        activeOp === "scan" ||
+        activeOp === "retry-failed") && (
         <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6 space-y-4">
           <h3 className="font-semibold text-sm">Extra Details</h3>
 
@@ -396,6 +391,40 @@ export function SdkDocs({
             </div>
           )}
 
+          {activeOp === "retry-failed" && (
+            <div className="space-y-3 text-xs">
+              <p className="text-muted-foreground">
+                Response includes the updated scan results with retried trials:
+              </p>
+              <CodeHighlight
+                code={`{
+  "success": true,
+  "trials": [
+    {
+      "number": 1,
+      "verdict": "${TrialVerdict.Defended}",
+      "judgeVerdict": "The model successfully refused...",
+      "response": "I cannot help with that request...",
+      "toolCalls": []
+    }
+  ],
+  "score": 85,
+  "riskLevel": "${RiskLevel.Low}",
+  "totalTrials": 10,
+  "breaches": 2,
+  "breachRate": 20,
+  "status": "${ScanStatus.Completed}",
+  "remainingFailures": 0,
+  "tokenCost": 1.5,
+  "tokensRefunded": 0.5,
+  "scanTokensRemaining": 2998.5
+}`}
+                language="json"
+                className="bg-zinc-950/60 p-3"
+              />
+            </div>
+          )}
+
           {activeOp === "tool-extraction" && (
             <div className="space-y-3 text-xs">
               <p className="text-muted-foreground">
@@ -437,7 +466,7 @@ export function SdkDocs({
     ]
   },
   "compatibilityScore": 0.85,
-  "granularity": "detailed",
+  "granularity": "${Granularity.Detailed}",
   "extractorModel": "anthropic/claude-3-5-sonnet",
   "tokenCost": 2,
   "tokensRefunded": 0,
@@ -474,25 +503,13 @@ export function SdkDocs({
             })}
           </div>
 
-          {/* Workflow Explanation */}
-          {(activeOp === "reevaluate" ||
-            activeOp === "reevaluate-trial" ||
-            activeOp === "confirm-reevaluate" ||
-            activeOp === "confirm-batch-reevaluate" ||
-            activeOp === "tool-extraction" ||
-            activeOp === "progress") && (
-            <WorkflowExplanation activeOp={activeOp} token={token} />
-          )}
+          <WorkflowExplanation activeOp={activeOp} token={token} />
         </div>
       )}
     </div>
   );
 }
 
-/**
- * Separate component for workflow explanation
- * This keeps the main component cleaner and reusable
- */
 function WorkflowExplanation({
   activeOp,
   token,
@@ -510,8 +527,7 @@ function WorkflowExplanation({
           <ul className="list-disc pl-5 text-muted-foreground space-y-1">
             <li>
               <strong className="text-foreground">Step 1:</strong> Auto
-              re-evaluate all breached trials (costs N tokens, where N = number
-              of breached trials)
+              re-evaluate all breached trials
             </li>
             <li>
               <strong className="text-foreground">Step 2:</strong> API returns
@@ -531,10 +547,6 @@ function WorkflowExplanation({
             Single Trial Re-evaluation
           </h5>
           <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-            <li>
-              <strong className="text-foreground">Cost:</strong> 1 token per
-              trial
-            </li>
             <li>
               <strong className="text-foreground">Response:</strong> Contains
               proposed verdict and reasoning if overturned
@@ -577,11 +589,11 @@ function WorkflowExplanation({
             <li>
               Only trials that were overturned from{" "}
               <code className="text-blue-400 bg-muted px-1 py-0.5 rounded">
-                BREACHED
+                {TrialVerdict.Breached}
               </code>{" "}
               to{" "}
               <code className="text-blue-400 bg-muted px-1 py-0.5 rounded">
-                DEFENDED
+                {TrialVerdict.Defended}
               </code>{" "}
               are included in proposals
             </li>
@@ -642,6 +654,38 @@ function WorkflowExplanation({
         </div>
       )}
 
+      {activeOp === "retry-failed" && (
+        <div className="space-y-2">
+          <h5 className="font-semibold text-foreground">Retry Failed Trials</h5>
+          <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+            <li>
+              <strong className="text-foreground">Scope:</strong> Only retries
+              trials with{" "}
+              <code className="text-blue-400 bg-muted px-1 py-0.5 rounded">
+                {TrialVerdict.Unknown}
+              </code>{" "}
+              verdict
+            </li>
+            <li>
+              <strong className="text-foreground">
+                trialNumbers (optional):
+              </strong>{" "}
+              Specify which trials to retry. If omitted, all{" "}
+              {TrialVerdict.Unknown} trials are retried.
+            </li>
+            <li>
+              <strong className="text-foreground">Scan Status:</strong> Scan
+              must not be currently running. Returns 409 if status is RUNNING.
+            </li>
+            <li>
+              <strong className="text-foreground">Authentication:</strong>{" "}
+              Requires Bearer token authentication (same as all other SDK
+              operations)
+            </li>
+          </ul>
+        </div>
+      )}
+
       {activeOp === "scans" && (
         <div className="space-y-2">
           <h5 className="font-semibold text-foreground">List All Scans</h5>
@@ -683,26 +727,22 @@ function WorkflowExplanation({
               <ul className="list-disc pl-5 space-y-1">
                 <li>
                   <strong className="text-foreground">modelId</strong>{" "}
-                  (optional): The model to use for hardening. Defaults to scan's
-                  judgeModel, attackerModel, or the system default
+                  (optional): The model to use for hardening
                 </li>
                 <li>
                   <strong className="text-foreground">extractorModel</strong>{" "}
-                  (optional): Model for tool extraction. Use larger models
-                  (Claude, GPT-4o) for complex prompts
+                  (optional): Model for tool extraction
                 </li>
                 <li>
                   <strong className="text-foreground">granularity</strong>{" "}
-                  (optional): {Granularity.Compact} (1-3 tools) or{" "}
-                  {Granularity.Detailed} (domain-specific tools)
+                  (optional): {Granularity.Compact} or {Granularity.Detailed}
                 </li>
                 <li>
                   <strong className="text-foreground">
                     includeToolRecommendation
                   </strong>{" "}
                   (optional): Set to true to extract tools and get
-                  recommendations. Costs 3 tokens (refunds 1 if extraction not
-                  needed). Set to false for hardening only (costs 1 token)
+                  recommendations
                 </li>
               </ul>
             </div>
