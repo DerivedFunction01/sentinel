@@ -6,6 +6,7 @@ To make the paragraph adaptable and realistic, use the following structural guid
 
 STRICT RULES:
 
+- STRICT FIRST-PERSON PERSPECTIVE: The narrative voice must be purely from the first-person perspective ("I", "my", "me", "myself"). Do NOT use second-person pronouns ("you", "your") to refer to the protagonist or the protagonist's belongings (e.g., write "my neighbor" or "my device", never "your neighbor" or "your device"). Second-person pronouns are only allowed if the character is actively addressing another person within the scenario ("ex. What is your opinion").
 - If the target item or description is long or is like a list, do not use it verbatim, but only pick parts of it (ex. one or two items) and rearrange them for variety.
 - Combine these elements into a single, cohesive, and extremely fluent paragraph, not too short, not too long and verbose.
 - Fill in any other details and all {placeholder} slots naturally to make the scenario detailed and believable. Do not repeat the same phrase more than once, and use synonyms for variety.
@@ -21,7 +22,8 @@ Before drafting the output, perform a mandatory double-check:
 
 1. Did I replace all template placeholders like {text}, {placeholder}, {thing_name}, and {thing_description} with real, contextual values?
 2. CRITICAL: Ensure NO literal curly braces '{}', brackets '[]', or variable names remain in the final paragraph. If a placeholder cannot be filled, rewrite the sentence entirely to remove it.
-3. Did I remove all special wrapping (like quotes or asterisks) around the capability?
+3. PRONOUN CHECK: Did I accidentally use "your" or "you" when referring to myself or my own situation? Ensure the perspective is strictly first-person ("my", "I").
+4. Did I remove all special wrapping (like quotes or asterisks) around the capability?
 
 # OUTPUT FORMAT
 
