@@ -425,6 +425,7 @@ export function ScanProgressPanel({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               {stepStatusIcon(
+                detail.summary.attackCount > 0 &&
                 detail.summary.completedAttacks === detail.summary.attackCount
                   ? ProgressStepStatus.Completed
                   : detail.attacks.some(
@@ -463,6 +464,7 @@ export function ScanProgressPanel({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               {stepStatusIcon(
+                detail.summary.attackCount > 0 &&
                 detail.summary.completedTargets ===
                   detail.summary.attackCount &&
                   detail.summary.completedJudges === detail.summary.attackCount

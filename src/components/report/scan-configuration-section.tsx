@@ -307,36 +307,6 @@ export function ScanConfigurationSection({
                                   </span>
                                 </>
                               )}
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 text-xs">
-                              <span className="text-muted-foreground">
-                                Description
-                              </span>
-                              <span className="text-foreground col-span-2">
-                                {t.thingDescription}
-                              </span>
-
-                              {t.thingNameVariants &&
-                                t.thingNameVariants.length > 0 && (
-                                  <>
-                                    <span className="text-muted-foreground">
-                                      Name Variants
-                                    </span>
-                                    <div className="flex flex-wrap gap-1 col-span-2">
-                                      {t.thingNameVariants.map(
-                                        (v: string, i: number) => (
-                                          <Badge
-                                            key={i}
-                                            variant="secondary"
-                                            className="text-[10px] bg-slate-900 border-slate-800 text-slate-300 font-normal px-2 py-0"
-                                          >
-                                            {v}
-                                          </Badge>
-                                        ),
-                                      )}
-                                    </div>
-                                  </>
-                                )}
 
                               {t.thingDescriptionVariants &&
                                 t.thingDescriptionVariants.length > 0 && (
