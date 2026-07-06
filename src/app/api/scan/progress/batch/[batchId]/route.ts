@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth-utils";
 import { db } from "@/lib/db";
 import { ProgressStepStatus, ScanStatus } from "@/lib/enums";
+import { getScanProgress } from "@/lib/scan-progress-cache";
 
 interface AttackSummary {
   attackCount: number;
@@ -178,7 +179,10 @@ export async function GET(
     let totalCurrent = 0;
     let totalTotal = 0;
     for (const s of scans) {
-      const detail = parseDetail(s.progressMeta);
+      // Override DB values with in-memory cache (live progress during active scans)
+      const cached = getScanProgress(s.reportId);
+      const effectiveProgressMeta = cached?.progressMeta ?? s.progressMeta;
+      const detail = parseDetail(effectiveProgressMeta);
       totalCurrent += estimateCurrentStep(detail, s.totalSteps || 0);
       totalTotal += estimateTotalSteps(detail, s.totalSteps || 0);
     }
@@ -220,7 +224,11 @@ export async function GET(
       detail: ProgressDetail | null;
     }> = [];
     for (const s of scans) {
-      const detail = parseDetail(s.progressMeta);
+      // Override DB values with in-memory cache (live progress during active scans)
+      const cached = getScanProgress(s.reportId);
+      const effectiveProgressMeta = cached?.progressMeta ?? s.progressMeta;
+      const effectiveCurrentStep = cached?.currentStep ?? s.currentStep;
+      const detail = parseDetail(effectiveProgressMeta);
       const estimates: ScanProgressEstimates = {
         estimatedCurrentStep: estimateCurrentStep(detail, s.totalSteps || 0),
         estimatedTotalSteps: estimateTotalSteps(detail, s.totalSteps || 0),
@@ -230,7 +238,7 @@ export async function GET(
         targetModel: s.targetModel,
         promptIndex: s.promptIndex,
         status: s.status as ScanStatus,
-        currentStep: s.currentStep,
+        currentStep: effectiveCurrentStep,
         estimatedCurrentStep: estimates.estimatedCurrentStep,
         totalSteps: s.totalSteps,
         estimatedTotalSteps: estimates.estimatedTotalSteps,

@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth-utils";
 import { db } from "@/lib/db";
 import { ProgressStepStatus } from "@/lib/enums";
+import { getScanProgress } from "@/lib/scan-progress-cache";
 
 /**
  * GET /api/scan/progress/[reportId]
  * Returns the current progress of a scan identified by reportId.
+ * Reads from in-memory cache first (for live progress during active scans),
+ * falls back to DB values on cache miss.
  */
 export async function GET(
   req: Request,
@@ -46,17 +49,22 @@ export async function GET(
       return NextResponse.json({ error: "Scan not found" }, { status: 404 });
     }
 
+    // Check in-memory cache for live progress (overrides DB values during active scans)
+    const cached = getScanProgress(reportId);
+    const effectiveCurrentStep = cached?.currentStep ?? scan.currentStep;
+    const effectiveProgressMeta = cached?.progressMeta ?? scan.progressMeta;
+
     // Calculate progress percentage
     const progress =
       scan.totalSteps > 0
-        ? Math.round((scan.currentStep / scan.totalSteps) * 100)
+        ? Math.round((effectiveCurrentStep / scan.totalSteps) * 100)
         : 0;
 
     // Parse granular progress meta
     let detail = {};
-    if (scan.progressMeta) {
+    if (effectiveProgressMeta) {
       try {
-        const meta = JSON.parse(scan.progressMeta);
+        const meta = JSON.parse(effectiveProgressMeta);
         const attackCount = meta.attacks?.length || 0;
         const completedAttacks =
           meta.attacks?.filter(
@@ -106,7 +114,7 @@ export async function GET(
     return NextResponse.json({
       reportId: scan.reportId,
       status: scan.status,
-      currentStep: scan.currentStep,
+      currentStep: effectiveCurrentStep,
       totalSteps: scan.totalSteps,
       progress,
       totalTrials: scan.totalTrials,

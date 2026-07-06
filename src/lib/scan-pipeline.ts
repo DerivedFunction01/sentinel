@@ -45,6 +45,7 @@ import {
   AttackSet,
 } from "@/lib/types";
 import { Granularity } from "./enums";
+import { setScanProgress, invalidateScanProgress } from "@/lib/scan-progress-cache";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Step 1: Seed Generation (Extraction) - Imported from @/lib/seed-extractor
@@ -1380,8 +1381,6 @@ export async function runSingleScanPipeline(
       async () => attackSet.seedInfo,
       () => {},
     );
-    await writeProgressMeta(reportId, meta);
-
     // Mark each attack step
     for (let i = 0; i < attackSet.attacks.length; i++) {
       const idx = i;
@@ -1399,7 +1398,11 @@ export async function runSingleScanPipeline(
         },
       );
     }
-    await writeProgressMeta(reportId, meta);
+    // Write progress to cache (avoids DB write during active scan)
+    setScanProgress(reportId, {
+      currentStep: 0,
+      progressMeta: JSON.stringify(meta),
+    });
   }
 
   // Phase 3: Target + Judge per trial — ALL TARGETS IN PARALLEL, then ALL JUDGES IN PARALLEL
@@ -1470,13 +1473,10 @@ export async function runSingleScanPipeline(
     ),
   );
 
-  // Write once after target phase completes
-  await writeProgressMeta(reportId, meta);
-
-  // Set coarse progress to exactly attackCount + offset to align
-  await db.scan.update({
-    where: { reportId },
-    data: { currentStep: attackCount + attacksCompletedOffset },
+  // Write to cache after target phase completes (avoids DB write during active scan)
+  setScanProgress(reportId, {
+    currentStep: attackCount + attacksCompletedOffset,
+    progressMeta: JSON.stringify(meta),
   });
 
   // Step B: Launch all judge evaluations in parallel
@@ -1560,13 +1560,10 @@ export async function runSingleScanPipeline(
     }),
   );
 
-  // Write once after judge phase completes
-  await writeProgressMeta(reportId, meta);
-
-  // Set coarse progress to exactly total steps to align
-  await db.scan.update({
-    where: { reportId },
-    data: { currentStep: attackCount * 2 + attacksCompletedOffset },
+  // Write to cache after judge phase completes (avoids DB write during active scan)
+  setScanProgress(reportId, {
+    currentStep: attackCount * 2 + attacksCompletedOffset,
+    progressMeta: JSON.stringify(meta),
   });
 
   // Step C: Build trial results from IN-MEMORY data (not re-reading from DB)
