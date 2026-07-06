@@ -90,9 +90,15 @@ export function RetryFailedDialog({
 
   const judgeModelId = scan.judgeModel;
   const targetModelId = scan.targetModel;
-  const overhead = templateTokens?.judgeReEvalOverhead ?? TOKEN_CONSTANTS.REEVAL_SYSTEM_PROMPT_OVERHEAD;
-  const judgeCompletionBuffer = templateTokens?.reEvalCompletionBuffer ?? TOKEN_CONSTANTS.REEVAL_COMPLETION_BUFFER;
-  const targetCompletionBuffer = templateTokens?.targetCompletionBuffer ?? TOKEN_CONSTANTS.TARGET_SIM_COMPLETION_BUFFER;
+  const overhead =
+    templateTokens?.judgeReEvalOverhead ??
+    TOKEN_CONSTANTS.REEVAL_SYSTEM_PROMPT_OVERHEAD;
+  const judgeCompletionBuffer =
+    templateTokens?.reEvalCompletionBuffer ??
+    TOKEN_CONSTANTS.REEVAL_COMPLETION_BUFFER;
+  const targetCompletionBuffer =
+    templateTokens?.targetCompletionBuffer ??
+    TOKEN_CONSTANTS.TARGET_SIM_COMPLETION_BUFFER;
 
   const selectedUnknownTrials = useMemo(
     () =>
@@ -178,7 +184,7 @@ export function RetryFailedDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-amber-500/20 bg-slate-900 text-slate-100 max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="border-amber-500/20 bg-slate-900 text-slate-100 lg:min-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-amber-400">
             <RefreshCw className="h-5 w-5 text-amber-400" />
