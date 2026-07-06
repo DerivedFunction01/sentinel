@@ -177,6 +177,7 @@ export async function POST(
 
   const failures = trials.filter((t) => t.verdict === TrialVerdict.Unknown);
   const breached = trials.filter((t) => t.verdict === TrialVerdict.Breached);
+  const defended = trials.filter((t) => t.verdict === TrialVerdict.Defended);
   const totalTrials = trials.length;
   const breachRate = totalTrials > 0 ? Math.round((breached.length / totalTrials) * 100) : 0;
   const score = Math.max(0, 100 - breachRate);
@@ -202,6 +203,8 @@ export async function POST(
       totalTrials,
       breaches: breached.length,
       breachRate,
+      defendedCount: defended.length,
+      unknownCount: failures.length,
       status,
       apiCost: tracker.totalCost,
       summary: `Adversarial pressure on ${modelShort}.`,

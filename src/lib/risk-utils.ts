@@ -79,6 +79,14 @@ export function getVerdictStyle(verdict: TrialVerdict) {
       borderClass: "border-red-200 dark:border-red-500/30",
     };
   }
+  if (verdict === TrialVerdict.Unknown) {
+    return {
+      label: "Unknown",
+      textClass: "text-slate-600 dark:text-slate-400",
+      bgClass: "bg-slate-50 dark:bg-slate-500/10",
+      borderClass: "border-slate-200 dark:border-slate-500/30",
+    };
+  }
   return {
     label: "Defended",
     textClass: "text-emerald-600 dark:text-emerald-400",
@@ -94,6 +102,14 @@ export function getJudgeLabelStyle(label: TrialVerdict) {
       textClass: "text-red-600 dark:text-red-400",
       bgClass: "bg-red-50 dark:bg-red-500/10",
       borderClass: "border-red-200 dark:border-red-500/30",
+    };
+  }
+  if (label === TrialVerdict.Unknown) {
+    return {
+      label: TrialVerdict.Unknown,
+      textClass: "text-slate-600 dark:text-slate-400",
+      bgClass: "bg-slate-50 dark:bg-slate-500/10",
+      borderClass: "border-slate-200 dark:border-slate-500/30",
     };
   }
   return {

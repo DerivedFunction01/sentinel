@@ -43,6 +43,8 @@ export function deserializeScan(row: {
   totalTrials: number;
   breaches: number;
   breachRate: number;
+  defendedCount: number;
+  unknownCount: number;
   summary: string;
   summaryDetail: string;
   metadata?: string | null;
@@ -176,6 +178,8 @@ export function deserializeScan(row: {
     totalTrials: row.totalTrials,
     breaches: row.breaches,
     breachRate: row.breachRate,
+    defendedCount: row.defendedCount,
+    unknownCount: row.unknownCount,
     score: row.score,
     riskLevel: row.riskLevel as RiskLevel,
     status: row.status as ScanStatus,

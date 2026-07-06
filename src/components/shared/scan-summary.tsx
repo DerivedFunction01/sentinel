@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { Scan } from "@/lib/types";
 import { getRiskStyle } from "@/lib/risk-utils";
+import { TrialVerdict } from "@/lib/enums";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +39,8 @@ interface ScanSummaryProps {
 }
 
 export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
-  const defended = scan.totalTrials - scan.breaches;
+  const defended = scan.defendedCount ?? scan.trials.filter((t: any) => t.verdict === TrialVerdict.Defended).length;
+  const unknown = scan.unknownCount ?? scan.trials.filter((t: any) => t.verdict === TrialVerdict.Unknown).length;
   const defenseRate =
     scan.totalTrials > 0 ? Math.round((defended / scan.totalTrials) * 100) : 0;
   const metadata = useMemo(() => {
@@ -74,11 +76,15 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
       );
       const toolRate =
         trials.length > 0 ? (totalToolCalls / trials.length).toFixed(1) : "0.0";
+      const fallbackDefended = trials.filter((t: any) => t.verdict === TrialVerdict.Defended).length;
+      const fallbackUnknown = trials.filter((t: any) => t.verdict === TrialVerdict.Unknown).length;
       return [
         {
           name: "Confidential Info",
           description: scan.forbiddenTask,
           breaches: scan.breaches,
+          defended: fallbackDefended,
+          unknown: fallbackUnknown,
           totalTrials: scan.totalTrials,
           breachRate: scan.breachRate,
           toolCallRate: `${toolRate}/trial`,
@@ -96,7 +102,13 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
         (t: any) => t.taskTag === slug || t.targetThing === thing.thingName,
       );
       const thingBreaches = thingTrials.filter(
-        (t: any) => t.verdict === "BREACHED" || t.verdict === "Breached",
+        (t: any) => t.verdict === TrialVerdict.Breached,
+      ).length;
+      const thingDefended = thingTrials.filter(
+        (t: any) => t.verdict === TrialVerdict.Defended,
+      ).length;
+      const thingUnknown = thingTrials.filter(
+        (t: any) => t.verdict === TrialVerdict.Unknown,
       ).length;
       const thingTotal = thingTrials.length || 1;
       const rate = Math.round((thingBreaches / thingTotal) * 100);
@@ -110,6 +122,8 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
         name: thing.thingName,
         description: thing.forbiddenTask || thing.thingDescription,
         breaches: thingBreaches,
+        defended: thingDefended,
+        unknown: thingUnknown,
         totalTrials: thingTotal,
         breachRate: rate,
         toolCallRate: `${toolRate}/trial`,
@@ -299,18 +313,20 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
                 <DefenseRateDonut
                   defended={
                     selectedTask
-                      ? selectedTask.totalTrials - selectedTask.breaches
+                      ? selectedTask.defended
                       : defended
                   }
                   breached={
                     selectedTask ? selectedTask.breaches : scan.breaches
                   }
+                  unknown={
+                    selectedTask ? selectedTask.unknown : unknown
+                  }
                   defenseRate={
                     selectedTask
                       ? selectedTask.totalTrials > 0
                         ? Math.round(
-                            ((selectedTask.totalTrials - selectedTask.breaches) /
-                              selectedTask.totalTrials) *
+                            (selectedTask.defended / selectedTask.totalTrials) *
                               100,
                           )
                         : 0
@@ -330,7 +346,7 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
                     </span>
                     <span className="font-mono font-medium text-emerald-400">
                       {selectedTask
-                        ? selectedTask.totalTrials - selectedTask.breaches
+                        ? selectedTask.defended
                         : defended}
                     </span>
                   </div>
@@ -343,6 +359,17 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
                       {selectedTask ? selectedTask.breaches : scan.breaches}
                     </span>
                   </div>
+                  {((selectedTask ? selectedTask.unknown : unknown) || 0) > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <span className="h-2 w-2 rounded-full bg-slate-500" />
+                        Unknown
+                      </span>
+                      <span className="font-mono font-medium text-slate-400">
+                        {selectedTask ? selectedTask.unknown : unknown}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex-1">

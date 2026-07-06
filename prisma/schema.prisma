@@ -65,6 +65,8 @@ model Scan {
   totalTrials          Int      @default(0)
   breaches             Int      @default(0)
   breachRate           Int      @default(0)
+  defendedCount        Int      @default(0)
+  unknownCount         Int      @default(0)
   summary              String   @default("")
   summaryDetail        String   @default("")
   apiCost              Float    @default(0.0)

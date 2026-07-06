@@ -545,13 +545,17 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     if (filter === TrialFilter.All) return true;
     if (filter === TrialFilter.Breached)
       return t.verdict === TrialVerdict.Breached;
-    return t.verdict === TrialVerdict.Defended;
+    if (filter === TrialFilter.Defended)
+      return t.verdict === TrialVerdict.Defended;
+    return t.verdict === TrialVerdict.Unknown;
   });
 
   const breachedCount = scan.trials.filter(
     (t: any) => t.verdict === TrialVerdict.Breached,
   ).length;
-  const defendedCount = scan.totalTrials - breachedCount;
+  const defendedCount = scan.trials.filter(
+    (t: any) => t.verdict === TrialVerdict.Defended,
+  ).length;
   const unknownCount = scan.trials.filter(
     (t: any) => t.verdict === TrialVerdict.Unknown,
   ).length;
@@ -701,6 +705,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
           scan={scan}
           breachedCount={breachedCount}
           defendedCount={defendedCount}
+          unknownCount={unknownCount}
           filter={filter}
           onFilterChange={setFilter}
           filteredTrials={filteredTrials}

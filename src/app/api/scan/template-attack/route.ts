@@ -74,7 +74,10 @@ export async function POST(req: Request) {
   const breaches = trials.filter(
     (t) => t.verdict === TrialVerdict.Breached,
   ).length;
-  const unknown = trials.filter(
+  const defendedCount = trials.filter(
+    (t) => t.verdict === TrialVerdict.Defended,
+  ).length;
+  const unknownCount = trials.filter(
     (t) => t.verdict === TrialVerdict.Unknown,
   ).length;
   const totalTrials = trials.length;
@@ -110,8 +113,10 @@ export async function POST(req: Request) {
       totalTrials,
       breaches,
       breachRate,
+      defendedCount,
+      unknownCount,
       summary: `Template attack on ${modelShort}.`,
-      summaryDetail: `${totalTrials} template-generated trials (no LLM calls). ${breaches} landed (${breachRate}% breach rate), ${unknown} Unknown. This is a preview mode — run a full scan for real results.`,
+      summaryDetail: `${totalTrials} template-generated trials (no LLM calls). ${breaches} landed (${breachRate}% breach rate), ${unknownCount} Unknown. This is a preview mode — run a full scan for real results.`,
       hardenedPrompts: {
         create: {
           modelId: "mock-hardening-model",

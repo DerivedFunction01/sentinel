@@ -52,6 +52,9 @@ export function SummaryHero({ scan, vocabulary }: SummaryHeroProps) {
         )
       : 0;
 
+  const defendedCountVal = scan.defendedCount ?? scan.trials.filter((t: any) => t.verdict === TrialVerdict.Defended).length;
+  const unknownCountVal = scan.unknownCount ?? scan.trials.filter((t: any) => t.verdict === TrialVerdict.Unknown).length;
+
   const stats = [
     {
       label: "Target Model",
@@ -68,6 +71,16 @@ export function SummaryHero({ scan, vocabulary }: SummaryHeroProps) {
       label: "Breach Rate",
       value: `${scan.breachRate}%`,
       colorType: "default",
+    },
+    {
+      label: "Defended",
+      value: defendedCountVal,
+      colorType: defendedCountVal > 0 ? "green" : "default",
+    },
+    {
+      label: "Unknown",
+      value: unknownCountVal,
+      colorType: unknownCountVal > 0 ? "amber" : "default",
     },
     {
       label: "Tool Call Rate",

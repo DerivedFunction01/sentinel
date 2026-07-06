@@ -415,6 +415,12 @@ export async function POST(
   const breached = settledTrials.filter(
     (t) => t.verdict === TrialVerdict.Breached,
   ).length;
+  const defendedCount = settledTrials.filter(
+    (t) => t.verdict === TrialVerdict.Defended,
+  ).length;
+  const unknownCount = settledTrials.filter(
+    (t) => t.verdict === TrialVerdict.Unknown,
+  ).length;
   const totalTrials = settledTrials.length;
   const breachRate =
     totalTrials > 0 ? Math.round((breached / totalTrials) * 100) : 0;
@@ -438,6 +444,8 @@ export async function POST(
       trials: JSON.stringify(settledTrials),
       breaches: breached,
       breachRate,
+      defendedCount,
+      unknownCount,
       score,
       riskLevel,
       totalTrials,

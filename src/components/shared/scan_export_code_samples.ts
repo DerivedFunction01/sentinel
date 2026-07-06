@@ -81,6 +81,8 @@ def scans_to_summary_df(scans):
             "totalTrials": scan["totalTrials"],
             "breaches": scan["breaches"],
             "breachRate": scan["breachRate"],
+            "defendedCount": scan.get("defendedCount", 0),
+            "unknownCount": scan.get("unknownCount", 0),
             "score": scan["score"],
             "riskLevel": scan["riskLevel"],
             "status": scan["status"],
@@ -399,6 +401,8 @@ def per_model_comprehensive_df(scans):
         "scans": [],
         "total_trials": 0,
         "total_breaches": 0,
+        "total_defended": 0,
+        "total_unknown": 0,
         "all_verdicts": [],
         "all_breach_rates": [],
         "risk_levels": defaultdict(int),
@@ -416,6 +420,8 @@ def per_model_comprehensive_df(scans):
         models_data[model]["scans"].append(scan["reportId"])
         models_data[model]["total_trials"] += scan["totalTrials"]
         models_data[model]["total_breaches"] += scan["breaches"]
+        models_data[model]["total_defended"] += scan.get("defendedCount", 0)
+        models_data[model]["total_unknown"] += scan.get("unknownCount", 0)
         models_data[model]["all_breach_rates"].append(scan["breachRate"])
         models_data[model]["risk_levels"][scan["riskLevel"]] += 1
         models_data[model]["api_costs"].append(scan["apiCost"])
@@ -458,6 +464,8 @@ def per_model_comprehensive_df(scans):
             "num_scans": len(data["scans"]),
             "total_trials": data["total_trials"],
             "total_breaches": data["total_breaches"],
+            "total_defended": data["total_defended"],
+            "total_unknown": data["total_unknown"],
             "breach_rate": round(breach_rate, 1),
             "breach_rate_min": min(data["all_breach_rates"]) if data["all_breach_rates"] else 0,
             "breach_rate_max": max(data["all_breach_rates"]) if data["all_breach_rates"] else 0,
@@ -639,6 +647,8 @@ print(comp.to_string())`,
         "scans": [],
         "total_trials": 0,
         "total_breaches": 0,
+        "total_defended": 0,
+        "total_unknown": 0,
         "breach_rates": [],
         "risk_levels": defaultdict(int),
         "models_used": set(),
@@ -650,6 +660,8 @@ print(comp.to_string())`,
             tags_data[tag]["scans"].append(scan["reportId"])
             tags_data[tag]["total_trials"] += scan["totalTrials"]
             tags_data[tag]["total_breaches"] += scan["breaches"]
+            tags_data[tag]["total_defended"] += scan.get("defendedCount", 0)
+            tags_data[tag]["total_unknown"] += scan.get("unknownCount", 0)
             tags_data[tag]["breach_rates"].append(scan["breachRate"])
             tags_data[tag]["risk_levels"][scan["riskLevel"].upper()] += 1
             tags_data[tag]["models_used"].add(scan["targetModel"])
@@ -664,6 +676,8 @@ print(comp.to_string())`,
             "num_scans": len(data["scans"]),
             "total_trials": data["total_trials"],
             "total_breaches": data["total_breaches"],
+            "total_defended": data["total_defended"],
+            "total_unknown": data["total_unknown"],
             "breach_rate": round(breach_rate, 1),
             "min_breach_rate": min(data["breach_rates"]) if data["breach_rates"] else 0,
             "max_breach_rate": max(data["breach_rates"]) if data["breach_rates"] else 0,

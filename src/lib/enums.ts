@@ -52,6 +52,7 @@ export enum TrialFilter {
   All = "all",
   Breached = "breached",
   Defended = "defended",
+  Unknown = "unknown",
 }
 
 /** Report section identifiers — used by the floating mini-TOC. */

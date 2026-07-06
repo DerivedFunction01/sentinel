@@ -3,13 +3,14 @@ import { Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrialCard } from "@/components/shared/trial-card";
-import { TrialFilter } from "@/lib/enums";
+import { TrialFilter, TrialVerdict } from "@/lib/enums";
 import { Scan, Trial } from "@/lib/types";
 
 interface TrialBreakdownSectionProps {
   scan: Scan;
   breachedCount: number;
   defendedCount: number;
+  unknownCount: number;
   filter: TrialFilter;
   onFilterChange: (filter: TrialFilter) => void;
   filteredTrials: Trial[];
@@ -31,6 +32,7 @@ export function TrialBreakdownSection({
   scan,
   breachedCount,
   defendedCount,
+  unknownCount,
   filter,
   onFilterChange,
   filteredTrials,
@@ -59,10 +61,24 @@ export function TrialBreakdownSection({
       .trim();
     return scan.trials.filter(
       (t) =>
-        t.verdict === "BREACHED" &&
+        t.verdict === TrialVerdict.Breached &&
         (t.taskTag === slug || t.targetThing === activeTaskTag),
     ).length;
   }, [scan.trials, activeTaskTag, breachedCount]);
+
+  const taskFilteredUnknown = useMemo(() => {
+    if (!activeTaskTag) return unknownCount;
+    const slug = activeTaskTag
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/[\s_-]+/g, "_")
+      .trim();
+    return scan.trials.filter(
+      (t) =>
+        t.verdict === TrialVerdict.Unknown &&
+        (t.taskTag === slug || t.targetThing === activeTaskTag),
+    ).length;
+  }, [scan.trials, activeTaskTag, unknownCount]);
 
   const taskFilteredDefended = useMemo(() => {
     if (!activeTaskTag) return defendedCount;
@@ -74,8 +90,9 @@ export function TrialBreakdownSection({
         .trim();
       return t.taskTag === slug || t.targetThing === activeTaskTag;
     }).length;
-    return totalMatching - taskFilteredBreached;
-  }, [scan.trials, activeTaskTag, defendedCount, taskFilteredBreached]);
+    return totalMatching - taskFilteredBreached - taskFilteredUnknown;
+  }, [scan.trials, activeTaskTag, defendedCount, taskFilteredBreached, taskFilteredUnknown]);
+
   return (
     <section id="trial-breakdown" className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -110,6 +127,10 @@ export function TrialBreakdownSection({
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               {taskFilteredDefended} Defended
             </span>
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <span className="h-2 w-2 rounded-full bg-slate-500" />
+              {taskFilteredUnknown} Unknown
+            </span>
           </div>
         </div>
       </div>
@@ -132,7 +153,9 @@ export function TrialBreakdownSection({
               ? `All (${scan.totalTrials})`
               : f === TrialFilter.Breached
                 ? `Breached (${breachedCount})`
-                : `Defended (${defendedCount})`}
+                : f === TrialFilter.Defended
+                  ? `Defended (${defendedCount})`
+                  : `Unknown (${unknownCount})`}
           </Button>
         ))}
       </div>

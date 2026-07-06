@@ -48,12 +48,17 @@ export function TrialCard({ trial, scan, onRefresh }: TrialCardProps) {
   const verdictStyle = getVerdictStyle(trial.verdict);
   const judgeStyle = getJudgeLabelStyle(trial.judgeLabel);
   const isBreached = trial.verdict === TrialVerdict.Breached;
+  const isUnknown = trial.verdict === TrialVerdict.Unknown;
 
   return (
     <div
       className={cn(
         "overflow-hidden rounded-lg border bg-background/30",
-        isBreached ? "border-red-500/20" : "border-white/5",
+        isBreached
+          ? "border-red-500/20"
+          : isUnknown
+            ? "border-slate-500/20"
+            : "border-white/5",
       )}
     >
       {/* Collapsible header */}
@@ -64,6 +69,8 @@ export function TrialCard({ trial, scan, onRefresh }: TrialCardProps) {
         <div className="flex min-w-0 items-center gap-3">
           {isBreached ? (
             <CircleX className="h-4 w-4 shrink-0 text-red-400" />
+          ) : isUnknown ? (
+            <AlertTriangle className="h-4 w-4 shrink-0 text-slate-400" />
           ) : (
             <CircleCheck className="h-4 w-4 shrink-0 text-emerald-400" />
           )}
@@ -102,10 +109,14 @@ export function TrialCard({ trial, scan, onRefresh }: TrialCardProps) {
           <span
             className={cn(
               "text-xs font-medium",
-              isBreached ? "text-red-400" : "text-emerald-400",
+              isBreached
+                ? "text-red-400"
+                : isUnknown
+                  ? "text-slate-400"
+                  : "text-emerald-400",
             )}
           >
-            {isBreached ? TrialVerdict.Breached : TrialVerdict.Defended}
+            {trial.verdict}
           </span>
           {expanded ? (
             <ChevronDown className="h-4 w-4 text-muted-foreground" />

@@ -61,6 +61,8 @@ export async function POST(
   if (updatedCount > 0) {
     // Recalculate scan metrics
     const breaches = trials.filter((t) => t.verdict === TrialVerdict.Breached).length;
+    const defendedCount = trials.filter((t) => t.verdict === TrialVerdict.Defended).length;
+    const unknownCount = trials.filter((t) => t.verdict === TrialVerdict.Unknown).length;
     const totalTrials = trials.length;
     const breachRate = totalTrials > 0 ? Math.round((breaches / totalTrials) * 100) : 0;
     const score = Math.max(0, 100 - breachRate);
@@ -82,6 +84,8 @@ export async function POST(
         riskLevel,
         breaches,
         breachRate,
+        defendedCount,
+        unknownCount,
       },
     });
 

@@ -221,6 +221,8 @@ export interface Scan {
   totalTrials: number;
   breaches: number;
   breachRate: number;
+  defendedCount?: number;
+  unknownCount?: number;
   score: number;
   riskLevel: RiskLevel;
   status: ScanStatus;
