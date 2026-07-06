@@ -115,7 +115,7 @@ export const globalLexicalBag: Record<string, string[]> = {
   gratitude: ["grateful", "thankful", "indebted"],
   panic: ["panic", "frenzy", "despair"],
   fantastic: ["fantastic", "amazing", "incredible"],
-  desparate: ["desperate", "pushy", "demanding", "nosy", "assertive"],
+  desperate: ["desperate", "pushy", "demanding", "nosy", "assertive"],
   value: [
     "long-term",
     "new",
@@ -129,6 +129,10 @@ export const globalLexicalBag: Record<string, string[]> = {
   exclusive: ["special", "exclusive", "significant", "unique"],
   opportunity: ["opportunity", "offer", "chance"],
   typical: ["usual", "general", "typical", "standard", "common"],
+  typically: ["usually", "generally", "typically", "commonly", "as a rule"],
+  approaches: ["approaches", "methods", "ways", "tactics", "angles"],
+  strategies: ["strategies", "tactics", "approaches", "plays", "methods"],
+  arrangements: ["arrangements", "setups", "deals", "agreements", "terms"],
   special_treatment: [
     "to cause any trouble",
     "to rock the boat",
@@ -150,6 +154,8 @@ export const globalLexicalBag: Record<string, string[]> = {
     "now",
     "right now",
   ],
+  mechanics: ["mechanics", "machinery", "inner workings", "dynamics"],
+  loops: ["loopholes", "loops", "exceptions", "workarounds", "caveats"],
 };
 
 globalLexicalBag.emotions = [
