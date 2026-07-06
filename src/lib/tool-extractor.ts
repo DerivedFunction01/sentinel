@@ -10,7 +10,7 @@ import {
   ScanMetadata,
   RestrictionThing,
 } from "./types";
-import { Granularity, RestrictionBehavior } from "./enums";
+import { Granularity, RestrictionCategory } from "./enums";
 
 import {
   retrieveInspirationExamples,
@@ -18,136 +18,136 @@ import {
   InspirationExample,
 } from "./inspiration-retriever";
 
-export function parseMarkdownSections(content: string): Record<string, string> {
-  const sections: Record<string, string> = {};
-  const normalized = content.replace(/\r\n/g, "\n");
+// export function parseMarkdownSections(content: string): Record<string, string> {
+//   const sections: Record<string, string> = {};
+//   const normalized = content.replace(/\r\n/g, "\n");
 
-  // Split by headings starting with "## "
-  const parts = normalized.split(/\n## /g);
+//   // Split by headings starting with "## "
+//   const parts = normalized.split(/\n## /g);
 
-  let firstPart = parts[0] || "";
-  if (firstPart.startsWith("## ")) {
-    firstPart = firstPart.substring(3);
-  }
-  sections["intro"] = firstPart;
+//   let firstPart = parts[0] || "";
+//   if (firstPart.startsWith("## ")) {
+//     firstPart = firstPart.substring(3);
+//   }
+//   sections["intro"] = firstPart;
 
-  for (let i = 1; i < parts.length; i++) {
-    const part = parts[i];
-    const firstNewline = part.indexOf("\n");
-    if (firstNewline === -1) {
-      const heading = part.trim();
-      sections[heading.toLowerCase()] = "";
-      continue;
-    }
-    const heading = part.substring(0, firstNewline).trim();
-    const body = part.substring(firstNewline + 1).trim();
+//   for (let i = 1; i < parts.length; i++) {
+//     const part = parts[i];
+//     const firstNewline = part.indexOf("\n");
+//     if (firstNewline === -1) {
+//       const heading = part.trim();
+//       sections[heading.toLowerCase()] = "";
+//       continue;
+//     }
+//     const heading = part.substring(0, firstNewline).trim();
+//     const body = part.substring(firstNewline + 1).trim();
 
-    const normalizedKey = heading
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .trim();
-    sections[normalizedKey] = body;
-    sections[heading.toLowerCase()] = body;
-  }
+//     const normalizedKey = heading
+//       .toLowerCase()
+//       .replace(/[^a-z0-9\s-]/g, "")
+//       .trim();
+//     sections[normalizedKey] = body;
+//     sections[heading.toLowerCase()] = body;
+//   }
 
-  return sections;
-}
+//   return sections;
+// }
 
 // ── Shared tool definitions for the agentic extractor loop ────────────────────
 
-export const EXTRACTOR_TOOLS: ToolDef[] = [
-  {
-    type: "function",
-    function: {
-      name: "get_available_markdown_sections",
-      description:
-        "Get list of available section headers in the Tool Generation Patterns guide.",
-      parameters: {
-        type: "object",
-        properties: {},
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "read_markdown_sections",
-      description:
-        "Read specific sections of the Tool Generation Patterns guide.",
-      parameters: {
-        type: "object",
-        properties: {
-          sections: {
-            type: "array",
-            items: { type: "string" },
-            description: "Array of section names to retrieve",
-          },
-        },
-        required: ["sections"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "search_schema_examples",
-      description:
-        "Search reference tool schema examples in the database by query terms or tags.",
-      parameters: {
-        type: "object",
-        properties: {
-          granularity: {
-            type: "string",
-            enum: Object.values(Granularity),
-          },
-          query: {
-            type: "string",
-            description:
-              "Search term to match against name, description, tags or JSON",
-          },
-          tags: {
-            type: "array",
-            items: { type: "string" },
-            description: "Tags to filter examples",
-          },
-        },
-        required: ["granularity"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_available_example_tags",
-      description:
-        "Retrieve all unique tags associated with the tool schema examples in the database.",
-      parameters: {
-        type: "object",
-        properties: {},
-        additionalProperties: false,
-      },
-    },
-  },
-];
+// export const EXTRACTOR_TOOLS: ToolDef[] = [
+//   {
+//     type: "function",
+//     function: {
+//       name: "get_available_markdown_sections",
+//       description:
+//         "Get list of available section headers in the Tool Generation Patterns guide.",
+//       parameters: {
+//         type: "object",
+//         properties: {},
+//         additionalProperties: false,
+//       },
+//     },
+//   },
+//   {
+//     type: "function",
+//     function: {
+//       name: "read_markdown_sections",
+//       description:
+//         "Read specific sections of the Tool Generation Patterns guide.",
+//       parameters: {
+//         type: "object",
+//         properties: {
+//           sections: {
+//             type: "array",
+//             items: { type: "string" },
+//             description: "Array of section names to retrieve",
+//           },
+//         },
+//         required: ["sections"],
+//         additionalProperties: false,
+//       },
+//     },
+//   },
+//   {
+//     type: "function",
+//     function: {
+//       name: "search_schema_examples",
+//       description:
+//         "Search reference tool schema examples in the database by query terms or tags.",
+//       parameters: {
+//         type: "object",
+//         properties: {
+//           granularity: {
+//             type: "string",
+//             enum: Object.values(Granularity),
+//           },
+//           query: {
+//             type: "string",
+//             description:
+//               "Search term to match against name, description, tags or JSON",
+//           },
+//           tags: {
+//             type: "array",
+//             items: { type: "string" },
+//             description: "Tags to filter examples",
+//           },
+//         },
+//         required: ["granularity"],
+//         additionalProperties: false,
+//       },
+//     },
+//   },
+//   {
+//     type: "function",
+//     function: {
+//       name: "get_available_example_tags",
+//       description:
+//         "Retrieve all unique tags associated with the tool schema examples in the database.",
+//       parameters: {
+//         type: "object",
+//         properties: {},
+//         additionalProperties: false,
+//       },
+//     },
+//   },
+// ];
 
-// ── Page-based pattern loader ─────────────────────────────────────────────────
+// // ── Page-based pattern loader ─────────────────────────────────────────────────
 
-const PAGES_DIR = path.join(
-  process.cwd(),
-  "uploads",
-  "tool_generation_pattern",
-  "pages",
-);
+// const PAGES_DIR = path.join(
+//   process.cwd(),
+//   "uploads",
+//   "tool_generation_pattern",
+//   "pages",
+// );
 
-export interface PatternPage {
-  slug: string;
-  title: string;
-  description: string;
-  body: string;
-}
+// export interface PatternPage {
+//   slug: string;
+//   title: string;
+//   description: string;
+//   body: string;
+// }
 
 /**
  * Parse YAML-style frontmatter from a markdown file.
@@ -188,126 +188,105 @@ export function parseFrontmatter(content: string): {
 }
 
 /**
- * Read _index.md for the canonical page order, then load each page file.
- * Returns an ordered array of PatternPage objects.
- *
- * Also builds normalizedTitle → body and slug → body maps for O(1) lookup.
- */
-export function loadPatternPages(): {
-  pages: PatternPage[];
-  byTitle: Record<string, PatternPage>;
-  bySlug: Record<string, PatternPage>;
-} {
-  const indexPath = path.join(PAGES_DIR, "_index.md");
-  const rawIndex = fs.readFileSync(indexPath, "utf-8");
-  const slugs = [...rawIndex.matchAll(/^- (.+)$/gm)].map((m) => m[1].trim());
-
-  const pages: PatternPage[] = [];
-  const byTitle: Record<string, PatternPage> = {};
-  const bySlug: Record<string, PatternPage> = {};
-
-  for (const slug of slugs) {
-    const filePath = path.join(PAGES_DIR, `${slug}.md`);
-    if (!fs.existsSync(filePath)) {
-      console.warn(`loadPatternPages: page not found: ${slug}.md`);
-      continue;
-    }
-    const raw = fs.readFileSync(filePath, "utf-8");
-    const { title, description, body } = parseFrontmatter(raw);
-    const page: PatternPage = { slug, title, description, body };
-
-    pages.push(page);
-    bySlug[slug] = page;
-    // Index by normalized title for flexible lookup
-    const normTitle = title
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .trim();
-    byTitle[normTitle] = page;
-    byTitle[title.toLowerCase()] = page;
-  }
-
-  return { pages, byTitle, bySlug };
-}
-
-/**
  * Derive tool requirements from seed extraction things.
  * Each thing's thingName becomes a tool requirement (e.g. "discounts" → "discount policy and procedures").
  * The forbiddenTask itself serves as the mock policy (they are identical in purpose).
  * Falls back to the raw forbiddenTask string when seed extraction is unavailable.
  */
-export function deriveToolRequirements(
-  metadata: ScanMetadata,
-  forbiddenTask: string,
-): { toolRequirements: string; mockPolicy: string } {
-  const things = metadata.seedExtraction?.things;
-  if (things && things.length > 0) {
-    const toolRequirements = things
-      .map((t) => (t.thingName ? `${t.thingName} policy and procedures` : ""))
-      .filter(Boolean)
-      .join(", ");
-    return {
-      toolRequirements: toolRequirements || forbiddenTask,
-      mockPolicy: forbiddenTask,
-    };
-  }
-  return {
-    toolRequirements: forbiddenTask,
-    mockPolicy: forbiddenTask,
-  };
-}
 
 /**
  * Build the prompt for mock response generation.
  * The LLM reads the mock_response_strategy document and determines the correct
  * mock response based on the tool name, thing description, and forbidden task.
  */
-function buildMockResponsePrompt(
-  thingName: string,
-  thingDescription: string,
-  forbiddenTask: string,
-  businessFeatures?: string[],
-): string {
-  const mockStrategyPath = path.join(
-    process.cwd(),
-    "uploads",
-    "tool_generation_pattern",
-    "pages",
-    "mock_response_strategy.md",
-  );
-  let mockStrategy = "";
-  try {
-    mockStrategy = fs.readFileSync(mockStrategyPath, "utf-8");
-  } catch {
-    mockStrategy = "No mock strategy document available.";
-  }
+// function buildMockResponsePrompt(
+//   thingName: string,
+//   thingDescription: string,
+//   forbiddenTask: string,
+//   businessFeatures?: string[],
+// ): string {
+//   const mockStrategyPath = path.join(
+//     process.cwd(),
+//     "uploads",
+//     "tool_generation_pattern",
+//     "pages",
+//     "mock_response_strategy.md",
+//   );
+//   let mockStrategy = "";
+//   try {
+//     mockStrategy = fs.readFileSync(mockStrategyPath, "utf-8");
+//   } catch {
+//     mockStrategy = "No mock strategy document available.";
+//   }
 
-  const featuresBlock = businessFeatures?.length
-    ? `\nBusiness Context (use these URLs and details in the mock response):\n${businessFeatures.slice(0, 5).join("\n")}`
-    : "";
+//   const featuresBlock = businessFeatures?.length
+//     ? `\nBusiness Context (use these URLs and details in the mock response):\n${businessFeatures.slice(0, 5).join("\n")}`
+//     : "";
 
-  return `You are a mock response designer for an AI security system.
+//   return `You are a mock response designer for an AI security system.
 
-Your task: Given the tool's purpose and the policy restriction it enforces, produce a mock response following the strategy guidelines below.
+// Your task: Given the tool's purpose and the policy restriction it enforces, produce a mock response following the strategy guidelines below.
 
-TOOL NAME: ${thingName}
-THING DESCRIPTION: ${thingDescription}
-POLICY RESTRICTION (forbidden task): ${forbiddenTask}${featuresBlock}
+// TOOL NAME: ${thingName}
+// THING DESCRIPTION: ${thingDescription}
+// POLICY RESTRICTION (forbidden task): ${forbiddenTask}${featuresBlock}
 
-=== MOCK RESPONSE STRATEGY DOCUMENT ===
-${mockStrategy}
-=== END DOCUMENT ===
+// === MOCK RESPONSE STRATEGY DOCUMENT ===
+// ${mockStrategy}
+// === END DOCUMENT ===
 
-Output ONLY valid JSON with no preamble:
-{
-  "rationale": "One-sentence explanation of why you chose this response structure and status.",
-  "mockResponse": { ... }
-}
+// Output ONLY valid JSON with no preamble:
+// {
+//   "rationale": "One-sentence explanation of why you chose this response structure and status.",
+//   "mockResponse": { ... }
+// }
 
-The mockResponse must follow the strategy document: use the correct template (gate/action/inquiry), set appropriate status (denied/pending/ok), and include policy gating fields. Never reference tool arguments. Never include specific outcomes.
-`;
-}
+// The mockResponse must follow the strategy document: use the correct template (gate/action/inquiry), set appropriate status (denied/pending/ok), and include policy gating fields. Never reference tool arguments. Never include specific outcomes.
+// `;
+// }
 
+/**
+ * Read _index.md for the canonical page order, then load each page file.
+ * Returns an ordered array of PatternPage objects.
+ *
+ * Also builds normalizedTitle → body and slug → body maps for O(1) lookup.
+ */
+// export function loadPatternPages(): {
+//   pages: PatternPage[];
+//   byTitle: Record<string, PatternPage>;
+//   bySlug: Record<string, PatternPage>;
+// } {
+//   const indexPath = path.join(PAGES_DIR, "_index.md");
+//   const rawIndex = fs.readFileSync(indexPath, "utf-8");
+//   const slugs = [...rawIndex.matchAll(/^- (.+)$/gm)].map((m) => m[1].trim());
+
+//   const pages: PatternPage[] = [];
+//   const byTitle: Record<string, PatternPage> = {};
+//   const bySlug: Record<string, PatternPage> = {};
+
+//   for (const slug of slugs) {
+//     const filePath = path.join(PAGES_DIR, `${slug}.md`);
+//     if (!fs.existsSync(filePath)) {
+//       console.warn(`loadPatternPages: page not found: ${slug}.md`);
+//       continue;
+//     }
+//     const raw = fs.readFileSync(filePath, "utf-8");
+//     const { title, description, body } = parseFrontmatter(raw);
+//     const page: PatternPage = { slug, title, description, body };
+
+//     pages.push(page);
+//     bySlug[slug] = page;
+//     // Index by normalized title for flexible lookup
+//     const normTitle = title
+//       .toLowerCase()
+//       .replace(/[^a-z0-9\s-]/g, "")
+//       .trim();
+//     byTitle[normTitle] = page;
+//     byTitle[title.toLowerCase()] = page;
+//   }
+
+//   return { pages, byTitle, bySlug };
+// }
 /**
  * Use an LLM to determine the appropriate mock response for a direct-match tool.
  * The LLM reads mock_response_strategy.md and the forbidden task context to produce
@@ -321,318 +300,319 @@ The mockResponse must follow the strategy document: use the correct template (ga
  * @param tracker  Optional usage tracker
  * @returns The mock response and a rationale sentence
  */
-export async function selectMockResponseByPolicy(
-  thingName: string,
-  thingDescription: string,
-  forbiddenTask: string,
-  extractorModel: string,
-  businessFeatures?: string[],
-  tracker?: any,
-): Promise<{ mockResponse: Record<string, any>; rationale: string }> {
-  const prompt = buildMockResponsePrompt(
-    thingName,
-    thingDescription,
-    forbiddenTask,
-    businessFeatures,
-  );
+// export async function selectMockResponseByPolicy(
+//   thingName: string,
+//   thingDescription: string,
+//   forbiddenTask: string,
+//   extractorModel: string,
+//   businessFeatures?: string[],
+//   tracker?: any,
+// ): Promise<{ mockResponse: Record<string, any>; rationale: string }> {
+//   const prompt = buildMockResponsePrompt(
+//     thingName,
+//     thingDescription,
+//     forbiddenTask,
+//     businessFeatures,
+//   );
 
-  try {
-    const response = await callOpenRouter(
-      extractorModel,
-      [{ role: "user", content: prompt }],
-      undefined,
-      tracker,
-    );
+//   try {
+//     const response = await callOpenRouter(
+//       extractorModel,
+//       [{ role: "user", content: prompt }],
+//       undefined,
+//       tracker,
+//     );
 
-    const cleaned = (response.content || "")
-      .replace(/^```[a-zA-Z]*\n/g, "")
-      .replace(/\n```$/g, "")
-      .trim();
+//     const cleaned = (response.content || "")
+//       .replace(/^```[a-zA-Z]*\n/g, "")
+//       .replace(/\n```$/g, "")
+//       .trim();
 
-    const parsed = JSON.parse(cleaned);
-    const rationale: string =
-      parsed.rationale ||
-      `Mock response adapted for restriction: ${forbiddenTask}`;
-    const mockResponse: Record<string, any> = parsed.mockResponse || {};
+//     const parsed = JSON.parse(cleaned);
+//     const rationale: string =
+//       parsed.rationale ||
+//       `Mock response adapted for restriction: ${forbiddenTask}`;
+//     const mockResponse: Record<string, any> = parsed.mockResponse || {};
 
-    // Validate the mock response has at minimum a status field
-    if (!mockResponse.status) {
-      mockResponse.status = "denied";
-    }
+//     // Validate the mock response has at minimum a status field
+//     if (!mockResponse.status) {
+//       mockResponse.status = "denied";
+//     }
 
-    return { mockResponse, rationale };
-  } catch (err) {
-    console.error(
-      "selectMockResponseByPolicy LLM call failed, using fallback:",
-      err,
-    );
-    // Fallback: deny with policy restriction
-    return {
-      mockResponse: {
-        status: "denied",
-        reason: "Policy Restriction",
-        message: `Service related to ${thingName || "the requested action"} is unavailable or restricted per current policy.`,
-        policy: {
-          allow_discussion: false,
-          describe_processing: false,
-          exceptions: false,
-          negotiation: false,
-          require_explicit_human_approval: true,
-          escalate_to_support: true,
-        },
-      },
-      rationale: `Fallback: Policy restriction enforced for ${thingName || "unknown tool"}.`,
-    };
-  }
-}
+//     return { mockResponse, rationale };
+//   } catch (err) {
+//     console.error(
+//       "selectMockResponseByPolicy LLM call failed, using fallback:",
+//       err,
+//     );
+//     // Fallback: deny with policy restriction
+//     return {
+//       mockResponse: {
+//         status: "denied",
+//         reason: "Policy Restriction",
+//         message: `Service related to ${thingName || "the requested action"} is unavailable or restricted per current policy.`,
+//         policy: {
+//           allow_discussion: false,
+//           describe_processing: false,
+//           exceptions: false,
+//           negotiation: false,
+//           require_explicit_human_approval: true,
+//           escalate_to_support: true,
+//         },
+//       },
+//       rationale: `Fallback: Policy restriction enforced for ${thingName || "unknown tool"}.`,
+//     };
+//   }
+// }
 
 /**
  * Compare two tool definitions to determine if they are semantically identical
  * (same name, same description, same parameters structure).
  */
-function isToolIdentical(a: any, b: ToolDef): boolean {
-  if (!a || !b) return false;
-  const fnA = a.function || a;
-  const fnB = b.function || b;
-  if (fnA.name !== fnB.name) return false;
-  if (fnA.description !== fnB.description) return false;
-  return JSON.stringify(fnA.parameters) === JSON.stringify(fnB.parameters);
-}
+// function isToolIdentical(a: any, b: ToolDef): boolean {
+//   if (!a || !b) return false;
+//   const fnA = a.function || a;
+//   const fnB = b.function || b;
+//   if (fnA.name !== fnB.name) return false;
+//   if (fnA.description !== fnB.description) return false;
+//   return JSON.stringify(fnA.parameters) === JSON.stringify(fnB.parameters);
+// }
 
-export function getToolExtractionInstructions(
-  hardenedPrompt: string,
-  granularity: Granularity,
-  toolRequirements: string,
-  mockPolicy: string,
-  requestedSections?: string[],
-  existingTools?: ToolDef[],
-  inspirationExamplesBlock?: string,
-  mockToolResponses?: Record<string, any>,
-  summarizedPatterns?: string,
-): string {
-  let existingToolsBlock = "";
-  if (existingTools && existingTools.length > 0) {
-    existingToolsBlock = `\nCURRENT CONFIGURED TOOLS (to avoid redundancy, do NOT recreate these or suggest overlapping functionality):
-<current_tools>
-${JSON.stringify(
-  existingTools.map((t) => {
-    const fn = t.function || {};
-    const tName = fn.name || "";
-    const mockVal = mockToolResponses?.[tName] || {};
-    return {
-      name: tName,
-      description: fn.description || "",
-      parameters: fn.parameters || {},
-      current_mock_response: mockVal,
-    };
-  }),
-  null,
-  2,
-)}
-</current_tools>\n`;
-  }
+// export function getToolExtractionInstructions(
+//   hardenedPrompt: string,
+//   granularity: Granularity,
+//   toolRequirements: string,
+//   mockPolicy: string,
+//   requestedSections?: string[],
+//   existingTools?: ToolDef[],
+//   inspirationExamplesBlock?: string,
+//   mockToolResponses?: Record<string, any>,
+//   summarizedPatterns?: string,
+// ): string {
+//   let existingToolsBlock = "";
+//   if (existingTools && existingTools.length > 0) {
+//     existingToolsBlock = `\nCURRENT CONFIGURED TOOLS (to avoid redundancy, do NOT recreate these or suggest overlapping functionality):
+// <current_tools>
+// ${JSON.stringify(
+//   existingTools.map((t) => {
+//     const fn = t.function || {};
+//     const tName = fn.name || "";
+//     const mockVal = mockToolResponses?.[tName] || {};
+//     return {
+//       name: tName,
+//       description: fn.description || "",
+//       parameters: fn.parameters || {},
+//       current_mock_response: mockVal,
+//     };
+//   }),
+//   null,
+//   2,
+// )}
+// </current_tools>\n`;
+//   }
 
-  let breachedTrialsBlock = "";
-  if (summarizedPatterns) {
-    breachedTrialsBlock = `\nThreat analysis of successful attack patterns and strategies identified during a pentest:
-<attack_patterns>
-${summarizedPatterns}
-</attack_patterns>\n`;
-  }
+//   let breachedTrialsBlock = "";
+//   if (summarizedPatterns) {
+//     breachedTrialsBlock = `\nThreat analysis of successful attack patterns and strategies identified during a pentest:
+// <attack_patterns>
+// ${summarizedPatterns}
+// </attack_patterns>\n`;
+//   }
 
-  const granularityPrompt = `Target Granularity: ${granularity}.
-Refer to the ${granularity} schema patterns and guidelines outlined in the Tooling Practices and Tool Generation Patterns above.`;
+//   const granularityPrompt = `Target Granularity: ${granularity}.
+// Refer to the ${granularity} schema patterns and guidelines outlined in the Tooling Practices and Tool Generation Patterns above.`;
 
-  // Dynamically load the patterns pages to prevent duplication of logic
-  let patternsContent = "";
-  try {
-    const { byTitle } = loadPatternPages();
+//   // Dynamically load the patterns pages to prevent duplication of logic
+//   let patternsContent = "";
+//   try {
+//     const { byTitle } = loadPatternPages();
 
-    // Do not pre-load sections by default to force the agent to query them agentically
-    const sectionsToInclude = requestedSections || [];
+//     // Do not pre-load sections by default to force the agent to query them agentically
+//     const sectionsToInclude = requestedSections || [];
 
-    const builder: string[] = [];
-    for (const sec of sectionsToInclude) {
-      const normalizedSec = sec
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .trim();
-      const page = byTitle[normalizedSec] || byTitle[sec.toLowerCase()];
-      if (page) {
-        builder.push(`## ${page.title}\n${page.body}`);
-      }
-    }
-    patternsContent = builder.join("\n\n");
-  } catch (e) {
-    console.error(
-      "Could not load tool generation pattern pages at runtime:",
-      e,
-    );
-  }
+//     const builder: string[] = [];
+//     for (const sec of sectionsToInclude) {
+//       const normalizedSec = sec
+//         .toLowerCase()
+//         .replace(/[^a-z0-9\s-]/g, "")
+//         .trim();
+//       const page = byTitle[normalizedSec] || byTitle[sec.toLowerCase()];
+//       if (page) {
+//         builder.push(`## ${page.title}\n${page.body}`);
+//       }
+//     }
+//     patternsContent = builder.join("\n\n");
+//   } catch (e) {
+//     console.error(
+//       "Could not load tool generation pattern pages at runtime:",
+//       e,
+//     );
+//   }
 
-  const template = loadPromptFile("tool_extractor_instructions.md");
+//   const template = loadPromptFile("tool_extractor_instructions.md");
 
-  const formattedPatterns = patternsContent
-    ? `Below are the pre-loaded Tool Generation Patterns sections:
-<tool_generation_patterns>
-${patternsContent}
-</tool_generation_patterns>\n`
-    : "";
+//   const formattedPatterns = patternsContent
+//     ? `Below are the pre-loaded Tool Generation Patterns sections:
+// <tool_generation_patterns>
+// ${patternsContent}
+// </tool_generation_patterns>\n`
+//     : "";
 
-  return template
-    .replace(/\{\{GRANULARITY\}\}/g, granularity)
-    .replace("{{HARDENED_PROMPT}}", hardenedPrompt)
-    .replace("{{TOOL_REQUIREMENTS}}", toolRequirements)
-    .replace("{{MOCK_POLICY}}", mockPolicy)
-    .replace("{{INSPIRATION_EXAMPLES}}", inspirationExamplesBlock || "")
-    .replace("{{BREACHED_ATTACK_TRIALS}}", breachedTrialsBlock)
-    .replace("{{PATTERNS_CONTENT}}", formattedPatterns)
-    .replace("{{GRANULARITY_PROMPT}}", granularityPrompt)
-    .replace("{{EXISTING_TOOLS_BLOCK}}", existingToolsBlock);
-}
+//   return template
+//     .replace(/\{\{GRANULARITY\}\}/g, granularity)
+//     .replace("{{HARDENED_PROMPT}}", hardenedPrompt)
+//     .replace("{{TOOL_REQUIREMENTS}}", toolRequirements)
+//     .replace("{{MOCK_POLICY}}", mockPolicy)
+//     .replace("{{INSPIRATION_EXAMPLES}}", inspirationExamplesBlock || "")
+//     .replace("{{BREACHED_ATTACK_TRIALS}}", breachedTrialsBlock)
+//     .replace("{{PATTERNS_CONTENT}}", formattedPatterns)
+//     .replace("{{GRANULARITY_PROMPT}}", granularityPrompt)
+//     .replace("{{EXISTING_TOOLS_BLOCK}}", existingToolsBlock);
+// }
 
-export function parseSectionedRecommendation(
-  text: string,
-): ToolRecommendationItem[] {
-  const trimmed = text.trim();
-  if (trimmed.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (parsed.tools && Array.isArray(parsed.tools)) {
-        return parsed.tools.map((t: any) => {
-          if (t.toolJson) return t;
-          return {
-            name: t.name || t.function?.name || "unknown_tool",
-            granularity: parsed.granularity || Granularity.Compact,
-            compatibilityScore: parsed.compatibilityScore || 80,
-            rationale: parsed.rationale || "Extracted from system prompt.",
-            toolJson: t,
-            mockResponse:
-              parsed.mockToolResponses?.[t.name || t.function?.name] || {},
-          };
-        });
-      }
-    } catch {}
-  }
+// export function parseSectionedRecommendation(
+//   text: string,
+// ): ToolRecommendationItem[] {
+//   const trimmed = text.trim();
+//   if (trimmed.startsWith("{")) {
+//     try {
+//       const parsed = JSON.parse(trimmed);
+//       if (parsed.tools && Array.isArray(parsed.tools)) {
+//         return parsed.tools.map((t: any) => {
+//           if (t.toolJson) return t;
+//           return {
+//             name: t.name || t.function?.name || "unknown_tool",
+//             granularity: parsed.granularity || Granularity.Compact,
+//             compatibilityScore: parsed.compatibilityScore || 80,
+//             rationale: parsed.rationale || "Extracted from system prompt.",
+//             toolJson: t,
+//             mockResponse:
+//               parsed.mockToolResponses?.[t.name || t.function?.name] || {},
+//           };
+//         });
+//       }
+//     } catch {}
+//   }
 
-  const tools: ToolRecommendationItem[] = [];
-  const blocks = text.split(/(?:^|\n)(?:#+\s*)?\[TOOL:\s*/gi);
+//   const tools: ToolRecommendationItem[] = [];
+//   const blocks = text.split(/(?:^|\n)(?:#+\s*)?\[TOOL:\s*/gi);
 
-  for (let i = 1; i < blocks.length; i++) {
-    const block = blocks[i];
-    const endHeaderIdx = block.indexOf("]");
-    if (endHeaderIdx === -1) continue;
-    const name = block.substring(0, endHeaderIdx).trim();
-    const body = block.substring(endHeaderIdx + 1);
+//   for (let i = 1; i < blocks.length; i++) {
+//     const block = blocks[i];
+//     const endHeaderIdx = block.indexOf("]");
+//     if (endHeaderIdx === -1) continue;
+//     const name = block.substring(0, endHeaderIdx).trim();
+//     const body = block.substring(endHeaderIdx + 1);
 
-    let granularity: Granularity = Granularity.Compact;
-    const granMatch = body.match(/GRANULARITY:\s*(compact|detailed)/i);
-    if (granMatch) {
-      granularity = granMatch[1].toLowerCase() as Granularity;
-    }
+//     let granularity: Granularity = Granularity.Compact;
+//     const granMatch = body.match(/GRANULARITY:\s*(compact|detailed)/i);
+//     if (granMatch) {
+//       granularity = granMatch[1].toLowerCase() as Granularity;
+//     }
 
-    let replaces: string | undefined = undefined;
-    const replacesMatch = body.match(/REPLACES:\s*([a-zA-Z0-9_-]+|none)/i);
-    if (replacesMatch) {
-      const val = replacesMatch[1].trim();
-      if (val.toLowerCase() !== "none") {
-        replaces = val;
-      }
-    }
+//     let replaces: string | undefined = undefined;
+//     const replacesMatch = body.match(/REPLACES:\s*([a-zA-Z0-9_-]+|none)/i);
+//     if (replacesMatch) {
+//       const val = replacesMatch[1].trim();
+//       if (val.toLowerCase() !== "none") {
+//         replaces = val;
+//       }
+//     }
 
-    let compatibilityScore = 100;
-    const scoreMatch = body.match(/SCORE:\s*(\d+)/i);
-    if (scoreMatch) {
-      compatibilityScore = parseInt(scoreMatch[1], 10);
-    }
+//     let compatibilityScore = 100;
+//     const scoreMatch = body.match(/SCORE:\s*(\d+)/i);
+//     if (scoreMatch) {
+//       compatibilityScore = parseInt(scoreMatch[1], 10);
+//     }
 
-    let rationale = "";
-    const rationaleStart = body.indexOf("RATIONALE:");
-    const schemaStart = body.indexOf("SCHEMA:");
-    if (
-      rationaleStart !== -1 &&
-      schemaStart !== -1 &&
-      schemaStart > rationaleStart
-    ) {
-      rationale = body
-        .substring(rationaleStart + "RATIONALE:".length, schemaStart)
-        .trim();
-    }
+//     let rationale = "";
+//     const rationaleStart = body.indexOf("RATIONALE:");
+//     const schemaStart = body.indexOf("SCHEMA:");
+//     if (
+//       rationaleStart !== -1 &&
+//       schemaStart !== -1 &&
+//       schemaStart > rationaleStart
+//     ) {
+//       rationale = body
+//         .substring(rationaleStart + "RATIONALE:".length, schemaStart)
+//         .trim();
+//     }
 
-    let toolJson: ToolDef | null = null;
-    let schemaJsonText = "";
-    const mockStart = body.indexOf("MOCK:");
-    if (schemaStart !== -1 && mockStart !== -1 && mockStart > schemaStart) {
-      schemaJsonText = body
-        .substring(schemaStart + "SCHEMA:".length, mockStart)
-        .trim();
-    } else if (schemaStart !== -1 && mockStart === -1) {
-      schemaJsonText = body.substring(schemaStart + "SCHEMA:".length).trim();
-    }
+//     let toolJson: ToolDef | null = null;
+//     let schemaJsonText = "";
+//     const mockStart = body.indexOf("MOCK:");
+//     if (schemaStart !== -1 && mockStart !== -1 && mockStart > schemaStart) {
+//       schemaJsonText = body
+//         .substring(schemaStart + "SCHEMA:".length, mockStart)
+//         .trim();
+//     } else if (schemaStart !== -1 && mockStart === -1) {
+//       schemaJsonText = body.substring(schemaStart + "SCHEMA:".length).trim();
+//     }
 
-    if (schemaJsonText) {
-      try {
-        const cleanedJson = schemaJsonText
-          .replace(/^```[a-zA-Z]*\n/g, "")
-          .replace(/\n```$/g, "")
-          .trim();
-        toolJson = JSON.parse(cleanedJson) as ToolDef;
-      } catch (e) {
-        console.error("Failed to parse toolJson schema:", e);
-      }
-    }
+//     if (schemaJsonText) {
+//       try {
+//         const cleanedJson = schemaJsonText
+//           .replace(/^```[a-zA-Z]*\n/g, "")
+//           .replace(/\n```$/g, "")
+//           .trim();
+//         toolJson = JSON.parse(cleanedJson) as ToolDef;
+//       } catch (e) {
+//         console.error("Failed to parse toolJson schema:", e);
+//       }
+//     }
 
-    let mockResponse: unknown = {};
-    if (mockStart !== -1) {
-      const mockJsonText = body.substring(mockStart + "MOCK:".length).trim();
-      try {
-        const cleanedJson = mockJsonText
-          .replace(/^```[a-zA-Z]*\n/g, "")
-          .replace(/\n```$/g, "")
-          .trim();
-        mockResponse = JSON.parse(cleanedJson);
-      } catch (e) {
-        console.error("Failed to parse mockResponse:", e);
-      }
-    }
+//     let mockResponse: unknown = {};
+//     if (mockStart !== -1) {
+//       const mockJsonText = body.substring(mockStart + "MOCK:".length).trim();
+//       try {
+//         const cleanedJson = mockJsonText
+//           .replace(/^```[a-zA-Z]*\n/g, "")
+//           .replace(/\n```$/g, "")
+//           .trim();
+//         mockResponse = JSON.parse(cleanedJson);
+//       } catch (e) {
+//         console.error("Failed to parse mockResponse:", e);
+//       }
+//     }
 
-    if (name && toolJson) {
-      // Extract business categories if present in the output
-      let businessCategories: string[] | undefined = undefined;
-      const bizCatMatch = body.match(/BUSINESS_CATEGORIES:\s*\[([^\]]+)\]/i);
-      if (bizCatMatch) {
-        try {
-          const cats = bizCatMatch[1]
-            .split(",")
-            .map((c) => c.trim().replace(/"/g, ""))
-            .filter((c) => c.length > 0);
-          if (cats.length > 0) {
-            businessCategories = cats;
-          }
-        } catch {}
-      }
+//     if (name && toolJson) {
+//       // Extract business categories if present in the output
+//       let businessCategories: string[] | undefined = undefined;
+//       const bizCatMatch = body.match(/BUSINESS_CATEGORIES:\s*\[([^\]]+)\]/i);
+//       if (bizCatMatch) {
+//         try {
+//           const cats = bizCatMatch[1]
+//             .split(",")
+//             .map((c) => c.trim().replace(/"/g, ""))
+//             .filter((c) => c.length > 0);
+//           if (cats.length > 0) {
+//             businessCategories = cats;
+//           }
+//         } catch {}
+//       }
 
-      tools.push({
-        name,
-        granularity,
-        compatibilityScore,
-        rationale,
-        toolJson,
-        mockResponse,
-        replaces,
-        businessCategories,
-      });
-    }
-  }
+//       tools.push({
+//         name,
+//         granularity,
+//         compatibilityScore,
+//         rationale,
+//         toolJson,
+//         mockResponse,
+//         replaces,
+//         businessCategories,
+//       });
+//     }
+//   }
 
-  return tools;
-}
+//   return tools;
+// }
 
 /**
  * Convert a direct-match tool schema to the target granularity using the same
  * agentic tool-calling loop as the slow path, so the LLM can query the Tool
  * Generation Patterns pages and DB examples dynamically.
  */
+/*
 export async function convertGranularityForDirectMatch(
   example: InspirationExample,
   targetGranularity: Granularity,
@@ -813,7 +793,6 @@ export async function generateToolRecommendation(
 ): Promise<{
   toolRecommendation: string | null;
   compatibilityScore: number | null;
-  /** true if the slow LLM extraction loop ran (not a direct-match fast path) */
   slowPathHit: boolean;
 }> {
   try {
@@ -838,7 +817,7 @@ export async function generateToolRecommendation(
         businessScenarios: [],
         ontologySection: undefined,
         isPresent: true,
-        behaviorType: RestrictionBehavior.TOOL_HANDOFF,
+        category: RestrictionCategory.DYNAMIC_POLICY,
       } as RestrictionThing);
 
     const examples =
@@ -1180,3 +1159,4 @@ export async function generateToolRecommendation(
     };
   }
 }
+*/

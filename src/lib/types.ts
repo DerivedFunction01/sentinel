@@ -6,7 +6,7 @@ import type {
   DashboardRoute,
   Granularity,
   RiskLevel,
-  RestrictionBehavior,
+  RestrictionCategory,
   ScanStatus,
   TrialVerdict,
 } from "@/lib/enums";
@@ -76,7 +76,7 @@ export type BreachedAttack = {
    ontologySection?: string;
    isPresent: boolean;
    /** How this restriction should be enforced */
-   behaviorType: RestrictionBehavior;
+   category: RestrictionCategory;
    /** Concrete user scenarios generated for this specific restriction/debugging */
    concreteScenarios?: string[];
    /** Tool protection detection - true if existing tools handle this restriction */

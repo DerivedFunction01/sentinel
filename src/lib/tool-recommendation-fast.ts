@@ -11,7 +11,7 @@
  */
 import { db } from "@/lib/db";
 import { callOpenRouter, type UsageTracker } from "@/lib/model-utils";
-import { Granularity, RestrictionBehavior } from "./enums";
+import { Granularity, RestrictionCategory } from "./enums";
 import {
   type ToolDef,
   type HardeningTrace,
@@ -22,7 +22,6 @@ import {
   retrieveInspirationExamplesFast,
   type InspirationExample,
 } from "@/lib/inspiration-retriever";
-import { deriveToolRequirements } from "@/lib/tool-extractor";
 import {
   loadPromptFile,
   replacePlaceholders,
@@ -66,6 +65,27 @@ function generateDummyMockResponse(toolName: string): Record<string, unknown> {
       exceptions: false,
       negotiation: false,
     },
+  };
+}
+
+export function deriveToolRequirements(
+  metadata: ScanMetadata,
+  forbiddenTask: string,
+): { toolRequirements: string; mockPolicy: string } {
+  const things = metadata.seedExtraction?.things;
+  if (things && things.length > 0) {
+    const toolRequirements = things
+      .map((t) => (t.thingName ? `${t.thingName} policy and procedures` : ""))
+      .filter(Boolean)
+      .join(", ");
+    return {
+      toolRequirements: toolRequirements || forbiddenTask,
+      mockPolicy: forbiddenTask,
+    };
+  }
+  return {
+    toolRequirements: forbiddenTask,
+    mockPolicy: forbiddenTask,
   };
 }
 
@@ -275,14 +295,12 @@ export async function generateToolRecommendationFast(
         credentials: [],
         businessScenarios: [],
         isPresent: true,
-        behaviorType: RestrictionBehavior.HARD_REFUSAL,
+        category: RestrictionCategory.STRICT_REFUSAL,
       } as RestrictionThing);
 
     // Skip tool generation for non-tool-gated restrictions
-    if (
-      targetThing.behaviorType === RestrictionBehavior.HARD_REFUSAL ||
-      targetThing.behaviorType === RestrictionBehavior.DISCLAIMER_APPEND
-    ) {
+    // Only dynamic_policy restrictions need tool generation
+    if (targetThing.category !== RestrictionCategory.DYNAMIC_POLICY) {
       return {
         toolRecommendation: null,
         compatibilityScore: null,

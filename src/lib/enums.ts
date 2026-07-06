@@ -186,7 +186,28 @@ export enum CredentialMode {
 }
 
 /**
- * Restriction behavior classification — determines how a restriction is enforced.
+ * Restriction category — classifies the nature of a restriction for downstream
+ * enforcement decisions. The seed extractor outputs one of these three values
+ * directly (no separate LLM call needed).
+ *
+ *   dynamic_policy  — Business-specific rule that varies per firm (pricing,
+ *                     transactions, vertical services). → tool-gated enforcement.
+ *   out_of_scope    — The restricted asset/service doesn't belong in this
+ *                     business model (e.g., a grocery store refusing medical
+ *                     advice). → conversational hard refusal, no tools.
+ *   strict_refusal  — Absolute invariant hazards applying to ALL deployments
+ *                     across ALL domains (PII leakage, system prompt extraction).
+ *                     → conversational hard refusal, no tools.
+ */
+export enum RestrictionCategory {
+  DYNAMIC_POLICY = "dynamic_policy",
+  OUT_OF_SCOPE = "out_of_scope",
+  STRICT_REFUSAL = "strict_refusal",
+}
+
+/**
+ * @deprecated Use RestrictionCategory instead. This enum is kept temporarily
+ * for backward compatibility during migration.
  */
 export enum RestrictionBehavior {
   HARD_REFUSAL = "hard_refusal",

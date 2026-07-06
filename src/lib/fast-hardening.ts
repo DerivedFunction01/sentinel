@@ -14,19 +14,12 @@ import {
   type BreachedAttack,
   type HardeningTrace,
   RestrictionThing,
-  ToolRecommendationItem,
 } from "@/lib/types";
-import { Granularity, RestrictionBehavior } from "./enums";
-import {
-  retrieveInspirationExamples,
-  formatInspirationExamplesBlock,
-  type InspirationExample,
-} from "@/lib/inspiration-retriever";
+import { Granularity, RestrictionCategory } from "./enums";
 import {
   executeMultiStepHardeningFull,
   getDeterministicHardenedPrompt,
 } from "@/lib/scan-prompts";
-import { deriveToolRequirements } from "@/lib/tool-extractor";
 import { generateToolRecommendationFast } from "@/lib/tool-recommendation-fast";
 
 export interface FastHardeningParams {
@@ -321,6 +314,6 @@ function createDefaultThing(forbiddenTask: string): RestrictionThing {
     businessScenarios: [],
     ontologySection: undefined,
     isPresent: true,
-    behaviorType: RestrictionBehavior.TOOL_HANDOFF,
+    category: RestrictionCategory.DYNAMIC_POLICY,
   };
 }

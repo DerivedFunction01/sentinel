@@ -6,46 +6,16 @@ import {
   parseReasoningAndOutput,
 } from "@/lib/model-utils";
 import { SeedInfo, RestrictionThing } from "@/lib/types";
-import { parseFrontmatter } from "@/lib/tool-extractor";
+import { parseFrontmatter, getOntologySectionsFromContent, OntologySection } from "@/lib/frontmatter-utils";
 import {
   PromptFileType,
   getPromptFile,
   replacePlaceholders,
 } from "@/lib/prompt-loader";
 import { extractTaggedContent } from "@/lib/model-utils";
-import { RestrictionBehavior } from "./enums";
+import { RestrictionCategory } from "./enums";
 
 const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
-
-interface OntologySection {
-  id: string;
-  label: string;
-}
-
-function getOntologySections(
-  filePath: string,
-  category: string,
-): OntologySection[] {
-  try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const matches = content.match(/^###\s+(\d+)\.\s+(.+)$/gm);
-    if (!matches) return [];
-    return matches
-      .map((m) => {
-        const numMatch = m.match(/^###\s+(\d+)\.\s+(.+)$/);
-        if (!numMatch) return null;
-        const num = numMatch[1];
-        const label = numMatch[2].trim();
-        return {
-          id: `${category}/${num}`,
-          label: `${num}. ${label}`,
-        };
-      })
-      .filter((s): s is OntologySection => s !== null);
-  } catch {
-    return [];
-  }
-}
 
 function getCategoryForFile(filePath: string): string {
   try {
@@ -76,8 +46,9 @@ async function classifyDomain(
         .filter((f) => f.endsWith(".md") && f !== "main_agent.md");
       for (const file of files) {
         const filePath = path.join(ONTOLOGY_DIR, file);
+        const content = fs.readFileSync(filePath, "utf-8");
         const category = getCategoryForFile(filePath);
-        const sections = getOntologySections(filePath, category);
+        const sections = getOntologySectionsFromContent(content);
         if (sections.length > 0) {
           filesWithSections.push(
             `- ${file} (contains policy sections: ${sections.map((s) => s.label).join(", ")})`,
@@ -190,110 +161,6 @@ export async function extractCoreSystemPrompt(
   return parseReasoningAndOutput(text);
 }
 
-/**
- * Classify each restriction's behaviorType using an LLM call.
- * Returns the restrictions with behaviorType populated.
- */
-export async function classifyRestrictions(
-  extractorModel: string,
-  restrictions: RestrictionThing[],
-  coreSystemPrompt: string,
-  tracker?: UsageTracker,
-): Promise<RestrictionThing[]> {
-  if (!restrictions || restrictions.length === 0) return restrictions;
-
-  const template = getPromptFile(PromptFileType.ClassifyRestrictions);
-
-  const systemMessage = replacePlaceholders(template, {
-    RESTRICTIONS_JSON: JSON.stringify(
-      restrictions.map((r, i) => ({
-        index: i,
-        forbiddenTask: r.forbiddenTask,
-        thingName: r.thingName,
-      })),
-    ),
-  });
-
-  const userMessage = `<core_system_prompt>\n${coreSystemPrompt}\n</core_system_prompt>
-
-Classify each restriction using the format: index|category`;
-
-  let response: any;
-  try {
-    response = await callOpenRouter(
-      extractorModel,
-      [
-        { role: "system", content: systemMessage },
-        { role: "user", content: userMessage },
-      ],
-      undefined,
-      tracker,
-    );
-
-    const text = (response?.content || "").trim();
-
-    // Use existing parseReasoningAndOutput to extract the output block
-    const outputBlock = parseReasoningAndOutput(text, false);
-
-    // Parse lines as "index|behaviorType"
-    const classifications = new Map<number, string>();
-    const lines = outputBlock.split("\n");
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-
-      // Match format: "0|hard_refusal" or "1|tool_handoff"
-      const match = trimmed.match(/^(\d+)\|([a-z_]+)$/);
-      if (match) {
-        const index = parseInt(match[1], 10);
-        const behaviorType = match[2];
-        classifications.set(index, behaviorType);
-      }
-    }
-
-    console.log(
-      `[classifyRestrictions] Parsed ${classifications.size}/${restrictions.length} classifications from model output`,
-    );
-
-    // Map classifications back to restrictions by index
-    const result = restrictions.map((r, idx) => {
-      const classifiedType = classifications.get(idx);
-      if (classifiedType && isValidBehaviorType(classifiedType)) {
-        return { ...r, behaviorType: classifiedType as RestrictionBehavior };
-      }
-      // If classification failed for this restriction, log it and return original
-      console.warn(
-        `[classifyRestrictions] No valid classification for restriction ${idx}: ${r.thingName}`,
-      );
-      return r;
-    });
-
-    const validCount = result.filter((r) =>
-      isValidBehaviorType(r.behaviorType),
-    ).length;
-    console.log(
-      `[classifyRestrictions] Successfully classified ${validCount}/${restrictions.length} restrictions`,
-    );
-
-    return result;
-  } catch (error) {
-    console.error(
-      "[classifyRestrictions] Error classifying restrictions:",
-      error,
-    );
-    console.error(
-      "[classifyRestrictions] Raw model output:",
-      (response?.content || "").trim(),
-    );
-    return restrictions;
-  }
-}
-
-function isValidBehaviorType(value: string): boolean {
-  return Object.values(RestrictionBehavior).includes(
-    value as RestrictionBehavior,
-  );
-}
 
 function cleanMockJson(mockJsonStr: string): string {
   try {
@@ -353,8 +220,8 @@ export async function extractSeedInfo(
     const mainAgentPath = path.join(ONTOLOGY_DIR, "main_agent.md");
     if (fs.existsSync(mainAgentPath)) {
       ontologyContent += `\n=== ONTOLOGY: main_agent.md ===\n${fs.readFileSync(mainAgentPath, "utf-8")}\n`;
-      const mainCategory = getCategoryForFile(mainAgentPath);
-      metaSections.push(...getOntologySections(mainAgentPath, mainCategory));
+      const mainContent = fs.readFileSync(mainAgentPath, "utf-8");
+      metaSections.push(...getOntologySectionsFromContent(mainContent));
     }
 
     // Load general_business.md if matched
@@ -363,8 +230,8 @@ export async function extractSeedInfo(
       const bizPath = path.join(ONTOLOGY_DIR, "general_business.md");
       if (fs.existsSync(bizPath)) {
         ontologyContent += `\n=== ONTOLOGY: general_business.md ===\n${fs.readFileSync(bizPath, "utf-8")}\n`;
-        const bizCategory = getCategoryForFile(bizPath);
-        domainSections.push(...getOntologySections(bizPath, bizCategory));
+        const bizContent = fs.readFileSync(bizPath, "utf-8");
+        domainSections.push(...getOntologySectionsFromContent(bizContent));
       }
     }
 
@@ -374,8 +241,8 @@ export async function extractSeedInfo(
       const filePath = path.join(ONTOLOGY_DIR, file);
       if (fs.existsSync(filePath)) {
         ontologyContent += `\n=== ONTOLOGY: ${file} ===\n${fs.readFileSync(filePath, "utf-8")}\n`;
-        const category = getCategoryForFile(filePath);
-        domainSections.push(...getOntologySections(filePath, category));
+        const fileContent = fs.readFileSync(filePath, "utf-8");
+        domainSections.push(...getOntologySectionsFromContent(fileContent));
       }
     }
   } catch (error) {
@@ -483,16 +350,8 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
       tracker,
     );
 
-    // Classify each restriction's behaviorType for downstream hardening
-    const classifiedThings = await classifyRestrictions(
-      extractorModel,
-      thingsWithScenarios,
-      promptForExtraction,
-      tracker,
-    );
-
     return {
-      things: classifiedThings,
+      things: thingsWithScenarios,
       personaDescription:
         parsed.personaDescription || defaultSeed.personaDescription,
       businessFeatures: parsed.businessFeatures || defaultSeed.businessFeatures,

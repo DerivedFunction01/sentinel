@@ -9,7 +9,7 @@ import {
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
 import { Scan } from "@/lib/types";
-import { RestrictionBehavior } from "@/lib/enums";
+import { RestrictionCategory } from "@/lib/enums";
 
 interface ScanConfigurationSectionProps {
   scan: Scan;
@@ -248,7 +248,7 @@ export function ScanConfigurationSection({
                             credentials?: string[];
                             businessScenarios?: string[];
                             concreteScenarios?: string[];
-                            behaviorType?: RestrictionBehavior;
+                            category?: RestrictionCategory;
                             ontologySection?: string;
                           },
                           idx: number,
@@ -297,13 +297,13 @@ export function ScanConfigurationSection({
                                   </>
                                 )}
 
-                              {t.behaviorType && (
+                              {t.category && (
                                 <>
                                   <span className="text-muted-foreground">
                                     Behavior
                                   </span>
                                   <span className="text-foreground col-span-2 font-mono text-[11px]">
-                                    {t.behaviorType}
+                                    {t.category}
                                   </span>
                                 </>
                               )}

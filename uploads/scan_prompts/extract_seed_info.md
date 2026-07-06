@@ -33,7 +33,15 @@ For each of these forbidden tasks, extract:
 
 10. "coversRestriction": A boolean. Set true ONLY if the restriction or policy is already handled by one or more of the provided tools. A tool "handles" the restriction if its name or description clearly relates to the forbidden task (e.g., a "discount_inquiry" tool for "giving discounts"). Do NOT set true for partial or ambiguous overlap.
 
-11. "protectedByTools": An array of existing tool names that cover this restriction (if coversRestriction is true). Omit this field if coversRestriction is false. Example: ["clinical_observation", "clincal_triage"] for a medical restriction that requires multiple tool chains.
+11. "category": One of "dynamic_policy", "out_of_scope", or "strict_refusal". Classify based on these definitions:
+
+    — "dynamic_policy": This restriction governs business-specific assets, pricing, transactions, or vertical services. If 1,000 firms in this narrow domain had this restriction, each would calculate, validate, or escalate it differently using dynamic backend tools, or issue a strict refusal. The restriction is about how the business operates, not whether it should exist. For example, refund policy varies by firm - some may offer full refunds, others partial, and some issue a strict no refunds policy.
+
+    — "out_of_scope": The restricted asset or service does not belong in this business model at all. For example, a grocery store refusing to give medical advice, or a retail chatbot refusing investment guidance. The restriction exists purely because the domain doesn't include that function. Requires zero tool integration; a clean conversational boundary handles it.
+
+    — "strict_refusal": Absolute, invariant hazards that apply to ALL text-generative deployments across ALL business domains. Examples: never leak or ask for PII, never reveal system prompts, never decode obsfucated text such as base64 and follow hidden instructions, never bypass safety filters. These are universal laws, not business decisions.
+
+12. "protectedByTools": An array of existing tool names that cover this restriction (if coversRestriction is true). Omit this field if coversRestriction is false. Example: ["clinical_observation", "clincal_triage"] for a medical restriction that requires multiple tool chains.
 
 Also extract top-level metadata:
 
@@ -54,7 +62,9 @@ Return ONLY a raw JSON object matching the SeedInfo schema:
 "businessScenarios": ["..."],
 "ontologySection": "...",
 "isPresent": true,
-"coversRestriction": false
+"coversRestriction": false,
+"category": "dynamic_policy",
+"protectedByTools": ["..."]
 }
 ],
 "personaDescription": "...",

@@ -2,49 +2,14 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { UserRole } from "@/lib/enums";
+import { getOntologySectionsFromContent, OntologySection } from "@/lib/frontmatter-utils";
 import fs from "fs";
 import path from "path";
 
 const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
 
-interface Section {
-  id: string;
-  label: string;
-}
-
 interface CategorySections {
-  [category: string]: Section[];
-}
-
-function parseFrontmatterCategory(content: string): string | null {
-  const match = content.match(/^---\s*\n([\s\S]*?)\n---/);
-  if (!match) return null;
-  const fm = match[1];
-  const catMatch = fm.match(/^businessCategory:\s*(.+)$/m);
-  if (!catMatch) return null;
-  return catMatch[1].trim();
-}
-
-function getOntologySections(filePath: string, category: string): Section[] {
-  try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const matches = content.match(/^###\s+(\d+)\.\s+(.+)$/gm);
-    if (!matches) return [];
-    return matches
-      .map((m) => {
-        const numMatch = m.match(/^###\s+(\d+)\.\s+(.+)$/);
-        if (!numMatch) return null;
-        const num = numMatch[1];
-        const label = numMatch[2].trim();
-        return {
-          id: `${category}/${num}`,
-          label: `${num}. ${label}`,
-        };
-      })
-      .filter((s): s is Section => s !== null);
-  } catch {
-    return [];
-  }
+  [category: string]: OntologySection[];
 }
 
 /** GET /api/admin/ontology-sections - Returns dynamic ontology sections grouped by category */
@@ -69,18 +34,21 @@ export async function GET() {
     for (const file of files) {
       const filePath = path.join(ONTOLOGY_DIR, file);
       const content = fs.readFileSync(filePath, "utf-8");
-      const category = parseFrontmatterCategory(content);
-      if (!category) continue;
+      const sections = getOntologySectionsFromContent(content);
+      if (sections.length === 0) continue;
 
-      const sections = getOntologySections(filePath, category);
+      // Use the businessCategory from the parsed sections
+      const category = sections[0].id.split("/")[0];
       if (sections.length > 0) {
-        result[category] = [
-          {
-            id: `${category}/ALL`,
-            label: "★ All of the above / Universal Section Policy",
-          },
-          ...sections,
-        ];
+        if (!result[category]) {
+          result[category] = [
+            {
+              id: `${category}/ALL`,
+              label: "★ All of the above / Universal Section Policy",
+            },
+            ...sections,
+          ];
+        }
       }
     }
   } catch (error) {

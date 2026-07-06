@@ -1,3 +1,7 @@
+> **DEPRECATED**: This prompt is no longer called by the pipeline. Classification is now performed
+> inline by the seed extractor via the `category` field (see `extract_seed_info.md`).
+> The file is retained as documentation of the static-vs-dynamic classification principles.
+
 You are a security architect classifying how specific system constraints should be enforced in a hardened AI system prompt.
 
 ### STATIC VS. DYNAMIC CLASSIFICATION PRINCIPLE

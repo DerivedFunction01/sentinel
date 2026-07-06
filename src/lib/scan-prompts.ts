@@ -11,7 +11,7 @@ import { CredentialMode } from "./enums";
 import { ONTOLOGY_CATEGORY_VALUES } from "./ontology-categories";
 import { TrialVerdict } from "@/lib/enums";
 import { patterns, renderAttack, renderAttackV2 } from "@/lib/attack-templates";
-import { parseFrontmatter } from "@/lib/tool-extractor";
+import { parseFrontmatter } from "@/lib/frontmatter-utils";
 
 import {
   PromptFileType,
