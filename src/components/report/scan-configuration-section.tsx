@@ -9,6 +9,7 @@ import {
 import { CodeHighlight } from "@/components/shared/code-highlight";
 import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
 import { Scan } from "@/lib/types";
+import { RestrictionBehavior } from "@/lib/enums";
 
 interface ScanConfigurationSectionProps {
   scan: Scan;
@@ -237,121 +238,177 @@ export function ScanConfigurationSection({
                       )}
 
                     {seed.things &&
-                      seed.things.map((t: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="col-span-3 border-t border-white/5 pt-2 mt-2 space-y-2"
-                        >
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-semibold text-purple-400">
-                              Restriction #{idx + 1}: {t.thingName}
-                            </p>
-                            {t.ontologySection && (
-                              <span className="rounded bg-purple-500/25 border border-purple-500/35 px-1.5 py-0.5 text-[9px] font-medium text-purple-300">
-                                Section: {t.ontologySection}
+                      seed.things.map(
+                        (
+                          t: {
+                            thingName?: string;
+                            thingDescription?: string;
+                            thingNameVariants?: string[];
+                            thingDescriptionVariants?: string[];
+                            credentials?: string[];
+                            businessScenarios?: string[];
+                            concreteScenarios?: string[];
+                            behaviorType?: RestrictionBehavior;
+                            ontologySection?: string;
+                          },
+                          idx: number,
+                        ) => (
+                          <div
+                            key={idx}
+                            className="col-span-3 border-t border-white/5 pt-2 mt-2 space-y-2"
+                          >
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold text-purple-400">
+                                Restriction #{idx + 1}: {t.thingName}
+                              </p>
+                              {t.ontologySection && (
+                                <span className="rounded bg-purple-500/25 border border-purple-500/35 px-1.5 py-0.5 text-[9px] font-medium text-purple-300">
+                                  Section: {t.ontologySection}
+                                </span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <span className="text-muted-foreground">
+                                Description
                               </span>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            <span className="text-muted-foreground">
-                              Description
-                            </span>
-                            <span className="text-foreground col-span-2">
-                              {t.thingDescription}
-                            </span>
+                              <span className="text-foreground col-span-2">
+                                {t.thingDescription}
+                              </span>
 
-                            {t.thingNameVariants &&
-                              t.thingNameVariants.length > 0 && (
+                              {t.thingNameVariants &&
+                                t.thingNameVariants.length > 0 && (
+                                  <>
+                                    <span className="text-muted-foreground">
+                                      Name Variants
+                                    </span>
+                                    <div className="flex flex-wrap gap-1 col-span-2">
+                                      {t.thingNameVariants.map(
+                                        (v: string, i: number) => (
+                                          <Badge
+                                            key={i}
+                                            variant="secondary"
+                                            className="text-[10px] bg-slate-900 border border-slate-800 text-slate-300 font-normal px-2 py-0"
+                                          >
+                                            {v}
+                                          </Badge>
+                                        ),
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+
+                              {t.behaviorType && (
                                 <>
                                   <span className="text-muted-foreground">
-                                    Name Variants
+                                    Behavior
+                                  </span>
+                                  <span className="text-foreground col-span-2 font-mono text-[11px]">
+                                    {t.behaviorType}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <span className="text-muted-foreground">
+                                Description
+                              </span>
+                              <span className="text-foreground col-span-2">
+                                {t.thingDescription}
+                              </span>
+
+                              {t.thingNameVariants &&
+                                t.thingNameVariants.length > 0 && (
+                                  <>
+                                    <span className="text-muted-foreground">
+                                      Name Variants
+                                    </span>
+                                    <div className="flex flex-wrap gap-1 col-span-2">
+                                      {t.thingNameVariants.map(
+                                        (v: string, i: number) => (
+                                          <Badge
+                                            key={i}
+                                            variant="secondary"
+                                            className="text-[10px] bg-slate-900 border-slate-800 text-slate-300 font-normal px-2 py-0"
+                                          >
+                                            {v}
+                                          </Badge>
+                                        ),
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+
+                              {t.thingDescriptionVariants &&
+                                t.thingDescriptionVariants.length > 0 && (
+                                  <>
+                                    <span className="text-muted-foreground">
+                                      Description Variants
+                                    </span>
+                                    <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
+                                      {t.thingDescriptionVariants.map(
+                                        (v: string, i: number) => (
+                                          <li key={i}>{v}</li>
+                                        ),
+                                      )}
+                                    </ul>
+                                  </>
+                                )}
+
+                              {t.credentials && t.credentials.length > 0 && (
+                                <>
+                                  <span className="text-muted-foreground">
+                                    Credentials
                                   </span>
                                   <div className="flex flex-wrap gap-1 col-span-2">
-                                    {t.thingNameVariants.map(
-                                      (v: string, i: number) => (
-                                        <Badge
+                                    {t.credentials.map(
+                                      (cred: string, i: number) => (
+                                        <code
                                           key={i}
-                                          variant="secondary"
-                                          className="text-[10px] bg-slate-900 border-slate-800 text-slate-300 font-normal px-2 py-0"
+                                          className="bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-[10px] text-amber-300 font-mono"
                                         >
-                                          {v}
-                                        </Badge>
+                                          {cred}
+                                        </code>
                                       ),
                                     )}
                                   </div>
                                 </>
                               )}
 
-                            {t.thingDescriptionVariants &&
-                              t.thingDescriptionVariants.length > 0 && (
-                                <>
-                                  <span className="text-muted-foreground">
-                                    Description Variants
-                                  </span>
-                                  <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
-                                    {t.thingDescriptionVariants.map(
-                                      (v: string, i: number) => (
-                                        <li key={i}>{v}</li>
-                                      ),
-                                    )}
-                                  </ul>
-                                </>
-                              )}
+                              {t.businessScenarios &&
+                                t.businessScenarios.length > 0 && (
+                                  <>
+                                    <span className="text-muted-foreground">
+                                      Scenarios
+                                    </span>
+                                    <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
+                                      {t.businessScenarios
+                                        .slice(0, 3)
+                                        .map((v: string, i: number) => (
+                                          <li key={i}>{v}</li>
+                                        ))}
+                                    </ul>
+                                  </>
+                                )}
 
-                            {t.credentials && t.credentials.length > 0 && (
-                              <>
-                                <span className="text-muted-foreground">
-                                  Credentials
-                                </span>
-                                <div className="flex flex-wrap gap-1 col-span-2">
-                                  {t.credentials.map(
-                                    (cred: string, i: number) => (
-                                      <code
-                                        key={i}
-                                        className="bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded text-[10px] text-amber-300 font-mono"
-                                      >
-                                        {cred}
-                                      </code>
-                                    ),
-                                  )}
-                                </div>
-                              </>
-                            )}
-
-                            {t.businessScenarios &&
-                              t.businessScenarios.length > 0 && (
-                                <>
-                                  <span className="text-muted-foreground">
-                                    Scenarios
-                                  </span>
-                                  <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
-                                    {t.businessScenarios
-                                      .slice(0, 3)
-                                      .map((v: string, i: number) => (
-                                        <li key={i}>{v}</li>
-                                      ))}
-                                  </ul>
-                                </>
-                              )}
-
-                            {t.concreteScenarios &&
-                              t.concreteScenarios.length > 0 && (
-                                <>
-                                  <span className="text-muted-foreground">
-                                    Concrete Scenarios
-                                  </span>
-                                  <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
-                                    {t.concreteScenarios.map(
-                                      (v: string, i: number) => (
-                                        <li key={i}>{v}</li>
-                                      ),
-                                    )}
-                                  </ul>
-                                </>
-                              )}
+                              {t.concreteScenarios &&
+                                t.concreteScenarios.length > 0 && (
+                                  <>
+                                    <span className="text-muted-foreground">
+                                      Concrete Scenarios
+                                    </span>
+                                    <ul className="list-disc pl-4 space-y-1 col-span-2 text-foreground text-xs">
+                                      {t.concreteScenarios.map(
+                                        (v: string, i: number) => (
+                                          <li key={i}>{v}</li>
+                                        ),
+                                      )}
+                                    </ul>
+                                  </>
+                                )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ),
+                      )}
 
                     {seed.coreSystemPrompt && (
                       <div className="col-span-3 border-t border-white/5 pt-3 mt-2 space-y-1.5">
