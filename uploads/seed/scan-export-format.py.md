@@ -116,20 +116,20 @@ Ontology-aware extraction of the forbidden task.
 
 ##### `RestrictionThing` (inside `metadata.seedExtraction.things`)
 
-| Field                      | Type     | Notes                                                                                                                                  |
-| -------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `forbiddenTask`            | string   | The restricted capability                                                                                                              |
-| `thingName`                | string   | Canonical ontology term                                                                                                                |
-| `thingDescription`         | string   | Description for display                                                                                                                |
-| `thingNameVariants`        | string[] | Synonyms and alternative phrasings                                                                                                     |
-| `thingDescriptionVariants` | string[] | Variant descriptions for attacks                                                                                                       |
-| `credentials`              | string[] | Simulated credential contexts                                                                                                          |
-| `businessScenarios`        | string[] | Business narrative scenarios                                                                                                           |
-| `ontologySection`          | string   | (optional) Source ontology section reference                                                                                           |
-| `behaviorType`             | enum     | Enforcement mechanism (HARD_REFUSAL, DISCLAIMER_APPEND, POSITIVE_CONFIRMATION, CONTENT_POLICE_FILTER, CONTEXTUAL_UPDATE, TOOL_HANDOFF) |
-| `concreteScenarios`        | string[] | (optional) Concrete user scenarios for this restriction                                                                                |
-| `coversRestriction`        | boolean  | (optional) Whether existing tools handle this restriction                                                                              |
-| `protectedByTools`         | string[] | (optional) Tool names covering this restriction                                                                                        |
+| Field                      | Type     | Notes                                                                                                                      |
+| -------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `forbiddenTask`            | string   | The restricted capability                                                                                                  |
+| `thingName`                | string   | Canonical ontology term                                                                                                    |
+| `thingDescription`         | string   | Description for display                                                                                                    |
+| `thingNameVariants`        | string[] | Synonyms and alternative phrasings                                                                                         |
+| `thingDescriptionVariants` | string[] | Variant descriptions for attacks                                                                                           |
+| `credentials`              | string[] | Simulated credential contexts                                                                                              |
+| `businessScenarios`        | string[] | Business narrative scenarios                                                                                               |
+| `ontologySection`          | string   | (optional) Source ontology section reference                                                                               |
+| `category`                 | enum     | Restriction category (`DYNAMIC_POLICY` = tool-gated, `OUT_OF_SCOPE` = conversational block, `STRICT_REFUSAL` = hard block) |
+| `concreteScenarios`        | string[] | (optional) Concrete user scenarios for this restriction                                                                    |
+| `coversRestriction`        | boolean  | (optional) Whether existing tools handle this restriction                                                                  |
+| `protectedByTools`         | string[] | (optional) Tool names covering this restriction                                                                            |
 
 #### `metadata.attackSummary`
 
