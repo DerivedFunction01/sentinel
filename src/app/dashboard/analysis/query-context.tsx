@@ -254,11 +254,17 @@ export function QueryProvider({
 
   // ── Build current QueryDefinition from state ──────────────────────────────
   const buildQuery = useCallback((): QueryDefinition => {
+    const normalized = aggregations.map((a) => {
+      if (a.alias) return a;
+      const groupPrefix = groupBy.length ? groupBy.join("_") + "_" : "";
+      const prop = a.property === "*" ? "count" : a.property;
+      return { ...a, alias: `${groupPrefix}${prop}_${a.function}` };
+    });
     const query: QueryDefinition = {
       filters: filters.filter((f) => f.property),
       projections: projections.filter((p) => p),
       group_by: groupBy.filter((g) => g),
-      aggregations: aggregations.filter((a) => a.property && a.alias),
+      aggregations: normalized.filter((a) => a.property && a.alias),
       sort: sortInstructions.filter((s) => s.property),
       limit: limit ? Number(limit) : undefined,
     };
