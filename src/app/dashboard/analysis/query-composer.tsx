@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Plus, Trash2, AlertCircle, Save, Terminal } from "lucide-react";
+import { Play, Plus, Trash2, AlertCircle, Save, Terminal, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterRow } from "./filter-row";
@@ -25,6 +25,7 @@ export function QueryComposer({ useFriendlyNames }: QueryComposerProps) {
     subQueryViewId, setSubQueryViewId,
     subQueryFilters, setSubQueryFilters,
     newQueryName, setNewQueryName,
+    includePivotConfig, setIncludePivotConfig,
     currentFields,
     savedQueries,
     handleRunQuery,
@@ -56,6 +57,21 @@ export function QueryComposer({ useFriendlyNames }: QueryComposerProps) {
               <Save className="h-3.5 w-3.5" />
               Save View
             </Button>
+            <button
+              type="button"
+              onClick={() => setIncludePivotConfig(!includePivotConfig)}
+              title={includePivotConfig ? "Pivot config will be saved" : "Pivot config will NOT be saved"}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                includePivotConfig
+                  ? "bg-pink-600/20 border-pink-500/40 text-pink-300"
+                  : "border-white/10 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Check
+                className={`h-3.5 w-3.5 ${includePivotConfig ? "text-pink-300" : "text-transparent"}`}
+              />
+              Pivot
+            </button>
             <Button
               size="sm"
               variant="outline"

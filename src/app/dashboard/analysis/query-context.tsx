@@ -27,6 +27,41 @@ export type FieldDef = {
   desc: string;
 };
 
+/** Infer the selectable column names a saved view produces. */
+function computeSelectableColumns(query: QueryDefinition, savedQueries: any[]): string[] {
+  const table =
+    query.table ||
+    (query.sourceViewId
+      ? savedQueries.find((q) => q.id === query.sourceViewId)?.query?.table
+      : undefined) ||
+    "scans";
+  const schema = table === "trials" ? TRIAL_FIELDS : SCAN_FIELDS;
+
+  if (query.sourceViewId) {
+    const parent = savedQueries.find((q) => q.id === query.sourceViewId);
+    if (parent) {
+      if (parent.selectableColumns && parent.selectableColumns.length) {
+        return parent.selectableColumns;
+      }
+      return computeSelectableColumns(parent.query, savedQueries);
+    }
+  }
+
+  if (query.projections && query.projections.length > 0) {
+    return query.projections.filter((p) => p);
+  }
+  if (query.group_by && query.group_by.length > 0) {
+    const cols = [...query.group_by];
+    if (query.aggregations) {
+      query.aggregations.forEach((a) => {
+        if (a.alias) cols.push(a.alias);
+      });
+    }
+    return cols;
+  }
+  return schema.map((f) => f.name);
+}
+
 // ─── Context Shape ─────────────────────────────────────────────────────────────
 
 export interface QueryContextValue {
@@ -67,6 +102,8 @@ export interface QueryContextValue {
   // Pivot config
   pivotConfig: PivotConfig;
   setPivotConfig: (v: PivotConfig) => void;
+  includePivotConfig: boolean;
+  setIncludePivotConfig: (v: boolean) => void;
 
   // Derived
   currentFields: FieldDef[];
@@ -154,15 +191,21 @@ export function QueryProvider({
     aggType: "count",
     enableHeatmap: false,
   });
+  const [includePivotConfig, setIncludePivotConfig] = useState(true);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const currentFields = useMemo<FieldDef[]>(() => {
     if (sourceType === "view") {
       const parent = savedQueries.find((q) => q.id === selectedViewId);
-      if (parent?.query?.table) {
-        return parent.query.table === "scans" ? SCAN_FIELDS : TRIAL_FIELDS;
+      const base =
+        parent?.query?.table === "trials" ? TRIAL_FIELDS : SCAN_FIELDS;
+      if (parent?.selectableColumns?.length) {
+        return parent.selectableColumns.map((name) => {
+          const match = base.find((f) => f.name === name);
+          return match ?? { name, label: name, type: "string", desc: name };
+        });
       }
-      return SCAN_FIELDS;
+      return base;
     }
     return sourceType === "scans" ? SCAN_FIELDS : TRIAL_FIELDS;
   }, [sourceType, selectedViewId, savedQueries]);
@@ -259,7 +302,14 @@ export function QueryProvider({
     }
     try {
       const id = "view_" + Math.random().toString(36).substr(2, 9);
-      await saveQuery(id, newQueryName, buildQuery(), pivotConfig);
+      const selectableColumns = computeSelectableColumns(buildQuery(), savedQueries);
+      await saveQuery(
+        id,
+        newQueryName,
+        buildQuery(),
+        includePivotConfig ? pivotConfig : null,
+        selectableColumns,
+      );
       setNewQueryName("");
       toast.success("Query saved to local views store!");
       await refreshSavedQueries();
@@ -276,7 +326,8 @@ export function QueryProvider({
     }
     try {
       const id = "view_" + Math.random().toString(36).substr(2, 9);
-      await saveQuery(id, newQueryName, buildQuery(), pivotConfig);
+      const selectableColumns = computeSelectableColumns(buildQuery(), savedQueries);
+      await saveQuery(id, newQueryName, buildQuery(), pivotConfig, selectableColumns);
       setNewQueryName("");
       toast.success("Pivot view saved!");
       await refreshSavedQueries();
@@ -318,6 +369,7 @@ export function QueryProvider({
     subQueryFilters, setSubQueryFilters,
     newQueryName, setNewQueryName,
     pivotConfig, setPivotConfig,
+    includePivotConfig, setIncludePivotConfig,
     currentFields,
     getUniqueFieldValues,
     handleRunQuery,

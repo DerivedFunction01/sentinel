@@ -190,6 +190,7 @@ function AnalysisConsoleInner({
               parsed.name,
               parsed.query,
               parsed.pivotConfig || null,
+              parsed.selectableColumns,
             );
             count++;
           }

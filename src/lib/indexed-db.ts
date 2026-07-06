@@ -376,6 +376,7 @@ export async function saveQuery(
     aggType: "count" | "sum" | "avg";
     enableHeatmap: boolean;
   } | null,
+  selectableColumns?: string[],
 ): Promise<void> {
   try {
     const db = await getDB();
@@ -384,6 +385,7 @@ export async function saveQuery(
       const store = transaction.objectStore(STORE_SAVED_QUERIES);
       const record: any = { id, name, query: queryDef, createdAt: new Date().toISOString() };
       if (pivotConfig) record.pivotConfig = pivotConfig;
+      if (selectableColumns && selectableColumns.length) record.selectableColumns = selectableColumns;
       const request = store.put(record, id);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
