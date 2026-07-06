@@ -45,7 +45,10 @@ import {
   AttackSet,
 } from "@/lib/types";
 import { Granularity } from "./enums";
-import { setScanProgress, invalidateScanProgress } from "@/lib/scan-progress-cache";
+import {
+  setScanProgress,
+  invalidateScanProgress,
+} from "@/lib/scan-progress-cache";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Step 1: Seed Generation (Extraction) - Imported from @/lib/seed-extractor
@@ -1314,7 +1317,16 @@ async function withRetry<T>(
       return null;
     }
     // Retry once
-    return withRetry(stepName, reportId, meta, getStep, setStep, fn, onSuccess, onProgress);
+    return withRetry(
+      stepName,
+      reportId,
+      meta,
+      getStep,
+      setStep,
+      fn,
+      onSuccess,
+      onProgress,
+    );
   }
 }
 
