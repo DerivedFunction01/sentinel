@@ -1413,28 +1413,20 @@ export async function runSingleScanPipeline(
       async () => attackSet.seedInfo,
       () => {},
     );
-    // Mark each attack step
+    // Mark all attacks as completed (pre-generated) in memory only
     for (let i = 0; i < attackSet.attacks.length; i++) {
-      const idx = i;
-      await withRetry(
-        `attack-${i}`,
-        reportId,
-        meta,
-        (m) => m.attacks[idx],
-        (m, s) => {
-          m.attacks[idx] = { ...s, text: attackSet.attacks[idx].attackText };
-        },
-        async () => attackSet.attacks[idx].attackText,
-        (m, text) => {
-          m.attacks[idx].text = text;
-        },
-      );
+      meta.attacks[i] = {
+        status: ProgressStepStatus.Completed,
+        retries: 0,
+        text: attackSet.attacks[i].attackText,
+      };
     }
-    // Write progress to cache (avoids DB write during active scan)
+    // Write progress to cache only (avoids N DB writes)
     setScanProgress(reportId, {
-      currentStep: 0,
+      currentStep: attackSet.attacks.length,
       progressMeta: JSON.stringify(meta),
     });
+    await writeProgressMeta(reportId, meta, false);
   }
 
   // Phase 3: Target + Judge per trial — ALL TARGETS IN PARALLEL, then ALL JUDGES IN PARALLEL
@@ -1505,7 +1497,8 @@ export async function runSingleScanPipeline(
     ),
   );
 
-  // Write to cache after target phase completes (avoids DB write during active scan)
+  // Persist target-phase completion to DB (critical recovery checkpoint)
+  await writeProgressMeta(reportId, meta, false);
   setScanProgress(reportId, {
     currentStep: attackCount + attacksCompletedOffset,
     progressMeta: JSON.stringify(meta),
@@ -1592,7 +1585,8 @@ export async function runSingleScanPipeline(
     }),
   );
 
-  // Write to cache after judge phase completes (avoids DB write during active scan)
+  // Persist judge-phase completion to DB (critical recovery checkpoint)
+  await writeProgressMeta(reportId, meta, false);
   setScanProgress(reportId, {
     currentStep: attackCount * 2 + attacksCompletedOffset,
     progressMeta: JSON.stringify(meta),
@@ -2002,6 +1996,9 @@ export async function runSingleScanPipelineWithGeneration(
     currentStep: attackCount,
     progressMeta: JSON.stringify(meta),
   });
+
+  // Persist attack-phase completion to DB (critical recovery checkpoint)
+  await writeProgressMeta(reportId, meta);
 
   await runSingleScanPipeline(
     options,
