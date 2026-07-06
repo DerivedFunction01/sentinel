@@ -1281,12 +1281,17 @@ async function writeProgressMeta(
   reportId: string,
   meta: ProgressMeta,
   incrementStep: boolean = false,
+  currentStep?: number,
 ): Promise<void> {
   await db.scan.update({
     where: { reportId },
     data: {
       progressMeta: JSON.stringify(meta),
-      ...(incrementStep ? { currentStep: { increment: 1 } } : {}),
+      ...(incrementStep
+        ? { currentStep: { increment: 1 } }
+        : currentStep !== undefined
+          ? { currentStep }
+          : {}),
     },
   });
 }
@@ -1498,7 +1503,7 @@ export async function runSingleScanPipeline(
   );
 
   // Persist target-phase completion to DB (critical recovery checkpoint)
-  await writeProgressMeta(reportId, meta, false);
+  await writeProgressMeta(reportId, meta, false, attackCount + attacksCompletedOffset);
   setScanProgress(reportId, {
     currentStep: attackCount + attacksCompletedOffset,
     progressMeta: JSON.stringify(meta),
@@ -1586,7 +1591,7 @@ export async function runSingleScanPipeline(
   );
 
   // Persist judge-phase completion to DB (critical recovery checkpoint)
-  await writeProgressMeta(reportId, meta, false);
+  await writeProgressMeta(reportId, meta, false, attackCount * 2 + attacksCompletedOffset);
   setScanProgress(reportId, {
     currentStep: attackCount * 2 + attacksCompletedOffset,
     progressMeta: JSON.stringify(meta),
@@ -1998,7 +2003,7 @@ export async function runSingleScanPipelineWithGeneration(
   });
 
   // Persist attack-phase completion to DB (critical recovery checkpoint)
-  await writeProgressMeta(reportId, meta);
+  await writeProgressMeta(reportId, meta, false, attackCount);
 
   await runSingleScanPipeline(
     options,
