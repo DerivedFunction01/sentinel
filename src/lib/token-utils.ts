@@ -5,7 +5,6 @@ import { TOKEN_CONSTANTS } from "./token-constants";
 
 const enc = getEncoding("cl100k_base");
 
-
 /**
  * Estimates the token count of a given string using the cl100k_base encoding (GPT-4 standard).
  */
@@ -104,9 +103,9 @@ export function calculateUpfrontScanHold(
   const classifyDomainTokens = estimateTokens(
     getPromptFile(PromptFileType.ClassifyDomain),
   );
-  const classifyRestrictionsTokens = estimateTokens(
-    getPromptFile(PromptFileType.ClassifyRestrictions),
-  );
+  // const classifyRestrictionsTokens = estimateTokens(
+  //   getPromptFile(PromptFileType.ClassifyRestrictions),
+  // );
   const attackGeneratorTokens = estimateTokens(
     getPromptFile(PromptFileType.AttackGenerator),
   );
@@ -158,7 +157,7 @@ export function calculateUpfrontScanHold(
     const estimatedTrials = numThings * countPerThing;
 
     // 1. Seed Extraction: includes domain classification + suggested tasks + seed extraction + concrete scenario generation
-    // Ontology content is always included: main_agent (~100) + general_business (~2000) + avg domain files (~1000 for 1-2 typical domains)
+    // Ontology content is always included: main_agent + general_business + avg domain files
     const ontologyContentTokens =
       ontologyTokens.mainAgentTokens +
       ontologyTokens.generalBusinessTokens +
@@ -169,8 +168,8 @@ export function calculateUpfrontScanHold(
       suggestForbiddenTokens +
       extractSeedInfoTokens +
       generateConcreteScenariosTokens +
-      classifyDomainTokens +
-      classifyRestrictionsTokens;
+      classifyDomainTokens;
+    // classifyRestrictionsTokens;
     const seedHold =
       (basePromptTokens + seedExtractorTemplateTokens + ontologyContentTokens) *
         seedPrice.prompt +
