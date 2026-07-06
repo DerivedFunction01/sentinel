@@ -497,7 +497,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const canResume =
     scan.status === ScanStatus.Running &&
     Boolean(progressMeta) &&
-    ((progressMeta?.seed?.status === ProgressStepStatus.Pending ||
+    (progressMeta?.seed?.status === ProgressStepStatus.Pending ||
       progressMeta?.seed?.status === ProgressStepStatus.Running ||
       progressMeta?.seed?.status === ProgressStepStatus.Failed ||
       progressMeta?.attacks?.some(
@@ -508,8 +508,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
           trial.target?.status !== ProgressStepStatus.Completed ||
           trial.judge?.status !== ProgressStepStatus.Completed,
       ) ||
-      Boolean(scan.partialTrials) ||
-      (typeof scan.progressMeta === "string" && scan.progressMeta.length > 0)));
+      Boolean(scan.partialTrials));
 
   const handleResume = async () => {
     setIsResuming(true);

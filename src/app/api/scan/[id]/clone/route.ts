@@ -199,7 +199,7 @@ export async function POST(
         currentStep: attackCount,
         totalSteps: attackCount * 3,
         allowNoToolsFallback: scanRow.allowNoToolsFallback,
-        metadata: JSON.stringify({ ...metadata, seedExtraction: seedInfo }),
+        metadata: JSON.stringify({ ...metadata, seedExtraction: seedInfo, upfrontHold }),
       },
     });
 
@@ -334,7 +334,7 @@ export async function POST(
       currentStep: 0,
       totalSteps: newTrials.length,
       allowNoToolsFallback: scanRow.allowNoToolsFallback,
-      metadata: JSON.stringify({ ...metadata, seedExtraction: seedInfo }),
+      metadata: JSON.stringify({ ...metadata, seedExtraction: seedInfo, upfrontHold }),
     },
   });
 

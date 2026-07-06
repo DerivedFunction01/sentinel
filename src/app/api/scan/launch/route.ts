@@ -206,6 +206,19 @@ export async function POST(req: Request) {
       const toolsJson = JSON.stringify(prompt.tools);
       const mockJson = JSON.stringify(prompt.mockToolResponses);
 
+      const promptTargetHold = calculateUpfrontScanHold(
+        [prompt],
+        [targetModel],
+        seedExtractorModel,
+        attackGeneratorModel,
+        judgeModel,
+        dbModels,
+        enableHardening,
+        hardenerModel,
+        extractorModel,
+        templateTokens,
+      );
+
       await db.scan.create({
         data: {
           reportId,
@@ -234,21 +247,11 @@ export async function POST(req: Request) {
           status: ScanStatus.Running,
           currentStep: 0,
           totalSteps: 0,
+          metadata: JSON.stringify({
+            upfrontHold: promptTargetHold,
+          }),
         },
       });
-
-      const promptTargetHold = calculateUpfrontScanHold(
-        [prompt],
-        [targetModel],
-        seedExtractorModel,
-        attackGeneratorModel,
-        judgeModel,
-        dbModels,
-        enableHardening,
-        hardenerModel,
-        extractorModel,
-        templateTokens,
-      );
 
       const pipelineConfig: RunScanWithGenerationConfig = {
         systemPrompt: prompt.systemPrompt,

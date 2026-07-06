@@ -249,6 +249,9 @@ export async function POST(
         status: ScanStatus.Running,
         currentStep: 0,
         totalSteps: 0,
+        metadata: JSON.stringify({
+          upfrontHold,
+        }),
       },
     });
 

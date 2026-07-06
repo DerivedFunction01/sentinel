@@ -1527,6 +1527,7 @@ export async function runSingleScanPipeline(
    * phase (equal to attackSet.attacks.length when prebuiltMeta is supplied).
    */
   attacksCompletedOffset: number = 0,
+  existingTotalSteps?: number,
 ): Promise<void> {
   const tracker: UsageTracker = { totalCost: 0, dbModels };
   const modelShort =
@@ -1549,7 +1550,7 @@ export async function runSingleScanPipeline(
     // Called from runSingleScanPipelineWithGeneration — generation already done.
     // totalSteps was already set to attackCount * 3 (gen + target + judge).
     meta = prebuiltMeta;
-    totalSteps = attackSet.attacks.length * 3;
+    totalSteps = existingTotalSteps ?? (attackSet.attacks.length * 3);
     // currentStep is already at attacksCompletedOffset in the DB; leave it.
   } else {
     // Standalone call (original behaviour): attacks are pre-generated externally.
@@ -1855,6 +1856,7 @@ export async function runSingleScanPipeline(
       breachedAttacks: breachedAttacksWithVerdicts,
       summarizedAt: new Date().toISOString(),
     },
+    upfrontHold: options.upfrontHold,
   };
 
   // Determine final status: completed if all steps done, completed_with_failures if some failed
@@ -2035,6 +2037,14 @@ export async function resumeFromCheckpoint(
     return;
   }
 
+  let upfrontHold: number | undefined;
+  if (scan.metadata) {
+    try {
+      const parsed = JSON.parse(scan.metadata);
+      upfrontHold = parsed.upfrontHold;
+    } catch {}
+  }
+
   let meta: ProgressMeta | null = null;
   if (scan.progressMeta) {
     try {
@@ -2084,9 +2094,12 @@ export async function resumeFromCheckpoint(
             : ScanStatus.Completed,
           currentStep: scan.totalSteps ?? summary.totalTrials,
           totalSteps: scan.totalSteps ?? summary.totalTrials,
-          partialTrials: scan.partialTrials,
+          partialTrials: null,
         },
       });
+      // NOTE: In the partial-trial fast-path, we finalize the scan using already computed trials.
+      // Any token refund for the original run is handled by the initial run's completion or failure path,
+      // or is treated as consumed since work was performed. No additional refund is processed here.
       invalidateScanProgress(reportId);
       return;
     } catch {
@@ -2134,12 +2147,14 @@ export async function resumeFromCheckpoint(
       includeToolRecommendation: true,
       enableHardening: true,
       allowNoToolsFallback: scan.allowNoToolsFallback,
+      upfrontHold,
     },
     reportId,
     attackSet,
     dbModels,
     meta,
     attackSet.attacks.length,
+    scan.totalSteps ?? undefined,
   );
 }
 
