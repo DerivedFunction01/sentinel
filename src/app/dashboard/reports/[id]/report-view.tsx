@@ -32,6 +32,7 @@ import { ReportHeader } from "@/components/report/report-header";
 import { TagSelectedDialog } from "@/components/shared/tag-selected-dialog";
 import { getCachedUserTags } from "@/lib/indexed-db";
 import { AutoReevalDialog } from "@/components/report/auto-reeval-dialog";
+import { RetryFailedDialog } from "@/components/report/retry-failed-dialog";
 
 interface ReportViewProps {
   scan: Scan;
@@ -50,6 +51,8 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   const [deselectedProposals, setDeselectedProposals] = useState<number[]>([]);
   const [isSavingBatch, setIsSavingBatch] = useState(false);
   const [autoReevalDialogOpen, setAutoReevalDialogOpen] = useState(false);
+  const [retryFailedDialogOpen, setRetryFailedDialogOpen] = useState(false);
+  const [isRetryingFailed, setIsRetryingFailed] = useState(false);
 
   const handleAutoReevaluate = async (
     trialNumbers?: number[],
@@ -101,6 +104,49 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
       toast.error(e.message || "An error occurred", { id: toastId });
     } finally {
       setIsAutoReevaluating(false);
+    }
+  };
+
+  const handleRetryFailed = async (trialNumbers?: number[]) => {
+    setIsRetryingFailed(true);
+    const toastId = toast.loading(
+      trialNumbers
+        ? `Retrying ${trialNumbers.length} unknown trial(s)...`
+        : "Retrying all unknown trials...",
+    );
+    try {
+      const bodyObj: Record<string, unknown> = {};
+      if (trialNumbers) bodyObj.trialNumbers = trialNumbers;
+
+      const res = await fetch(`/api/scan/${scan.id}/retry-failed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyObj),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        if (res.status === 402) {
+          toast.error(err.message || "Insufficient scan tokens.", {
+            id: toastId,
+            duration: 6000,
+          });
+          return;
+        }
+        throw new Error(err.error || "Failed to retry failed trials");
+      }
+      const data = await res.json();
+      toast.success(
+        `Retried ${data.trials?.length || 0} trials. ${data.remainingFailures || 0} still failing.`,
+        { id: toastId },
+      );
+      setRetryFailedDialogOpen(false);
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (e: any) {
+      toast.error(e.message || "An error occurred", { id: toastId });
+    } finally {
+      setIsRetryingFailed(false);
     }
   };
 
@@ -403,9 +449,12 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
   });
 
   const breachedCount = scan.trials.filter(
-    (t) => t.verdict === TrialVerdict.Breached,
+    (t: any) => t.verdict === TrialVerdict.Breached,
   ).length;
   const defendedCount = scan.totalTrials - breachedCount;
+  const unknownCount = scan.trials.filter(
+    (t: any) => t.verdict === TrialVerdict.Unknown,
+  ).length;
 
   const handleOpenToolManager = () => {
     setToolManagerOpen(true);
@@ -496,6 +545,8 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         onDelete={() => setDeleteDialogOpen(true)}
         isAutoReevaluating={isAutoReevaluating}
         onOpenAutoReeval={() => setAutoReevalDialogOpen(true)}
+        onOpenRetryFailed={() => setRetryFailedDialogOpen(true)}
+        unknownCount={unknownCount}
         onTag={() => setTagDialogOpen(true)}
       />
 
@@ -783,6 +834,13 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         scan={scan}
         scanTokens={scanTokens ?? 0}
         onConfirm={handleAutoReevaluate}
+      />
+      <RetryFailedDialog
+        open={retryFailedDialogOpen}
+        onOpenChange={setRetryFailedDialogOpen}
+        scan={scan}
+        scanTokens={scanTokens ?? 0}
+        onConfirm={handleRetryFailed}
       />
     </div>
   );

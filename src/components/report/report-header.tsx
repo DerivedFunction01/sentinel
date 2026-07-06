@@ -24,6 +24,9 @@ interface ReportHeaderProps {
   onAutoReevaluate?: () => void;
   onTag?: () => void;
   onOpenAutoReeval?: () => void;
+  unknownCount?: number;
+  onRetryFailed?: () => void;
+  onOpenRetryFailed?: () => void;
 }
 
 export function ReportHeader({
@@ -35,6 +38,9 @@ export function ReportHeader({
   onAutoReevaluate,
   onTag,
   onOpenAutoReeval,
+  onRetryFailed,
+  onOpenRetryFailed,
+  unknownCount,
 }: ReportHeaderProps) {
   return (
     <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-md">
@@ -100,6 +106,20 @@ export function ReportHeader({
               <span>Auto Re-evaluate</span>
             </Button>
           )}
+          {(onRetryFailed || onOpenRetryFailed) &&
+            typeof unknownCount === "number" &&
+            unknownCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenRetryFailed || onRetryFailed}
+                disabled={refreshing}
+                className="border-slate-700/60 text-slate-200 hover:text-white hover:bg-slate-800/55"
+              >
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                Retry Unknown ({unknownCount})
+              </Button>
+            )}
           {onDelete && (
             <Button
               variant="outline"
