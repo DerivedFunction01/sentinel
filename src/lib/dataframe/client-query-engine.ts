@@ -1,4 +1,4 @@
-import { TrialVerdict } from "./enums";
+import { TrialVerdict } from "../enums";
 
 export interface FilterCondition {
   property: string;
@@ -357,8 +357,14 @@ export interface PivotDefinition {
   aggType: "count" | "sum" | "avg";
 }
 
-export function executePivot(data: any[], pivot: PivotDefinition): { pivotedData: any[], columns: string[] } {
-  const rowMap = new Map<string, { [key: string]: any, _values: { [key: string]: number[] } }>();
+export function executePivot(
+  data: any[],
+  pivot: PivotDefinition,
+): { pivotedData: any[]; columns: string[] } {
+  const rowMap = new Map<
+    string,
+    { [key: string]: any; _values: { [key: string]: number[] } }
+  >();
   const allColValues = new Set<string>();
 
   for (const row of data) {
@@ -376,7 +382,7 @@ export function executePivot(data: any[], pivot: PivotDefinition): { pivotedData
     if (!rowMap.has(rVal)) {
       rowMap.set(rVal, {
         [pivot.rowKey]: rVal,
-        _values: {}
+        _values: {},
       });
     }
 

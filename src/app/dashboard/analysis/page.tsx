@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { 
-  Play, 
-  RefreshCw, 
-  Plus, 
-  Trash2, 
-  Layers, 
-  Database, 
-  FileCode, 
-  BookOpen, 
-  Download, 
+import {
+  Play,
+  RefreshCw,
+  Plus,
+  Trash2,
+  Layers,
+  Database,
+  FileCode,
+  BookOpen,
+  Download,
   HelpCircle,
   AlertCircle,
   Save,
@@ -18,84 +18,261 @@ import {
   Upload,
   ChevronRight,
   GitBranch,
-  Terminal
+  Terminal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { 
-  executeQuery, 
+import {
+  executeQuery,
   executePivot,
-  QueryDefinition, 
+  QueryDefinition,
   PivotDefinition,
-  FilterCondition, 
-  Aggregation, 
-  SortInstruction 
-} from "@/lib/client-query-engine";
-import { 
-  getAllCachedScanDetails, 
-  setCachedScanDetail, 
+  FilterCondition,
+  Aggregation,
+  SortInstruction,
+} from "@/lib/dataframe/client-query-engine";
+import {
+  getAllCachedScanDetails,
+  setCachedScanDetail,
   clearCachedReports,
   getSavedQueries,
   saveQuery,
-  deleteSavedQuery
+  deleteSavedQuery,
 } from "@/lib/indexed-db";
-import { translateQueryToPython } from "@/lib/python-compiler";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  ResponsiveContainer, 
-  LineChart, 
-  Line, 
-  CartesianGrid, 
+import { translateQueryToPython } from "@/lib/dataframe/python-compiler";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
   Legend,
   PieChart,
   Pie,
-  Cell
+  Cell,
 } from "recharts";
+import { PRESETS } from "./PRESETS";
 
 const SCAN_FIELDS = [
-  { name: "id", label: "Scan ID", type: "string", desc: "Internal scan identifier" },
-  { name: "reportId", label: "Report ID", type: "string", desc: "Human-readable report ID" },
-  { name: "targetModel", label: "Tested Model", type: "string", desc: "Tested target model name" },
-  { name: "attackerModel", label: "Attacker Model", type: "string", desc: "Attacker model used" },
-  { name: "forbiddenTask", label: "Forbidden Task / Policy", type: "string", desc: "System policy description" },
-  { name: "totalTrials", label: "Total Trials", type: "number", desc: "Total runs conducted" },
-  { name: "breaches", label: "Breach Count", type: "number", desc: "Count of successful breaches" },
-  { name: "defendedCount", label: "Defended Count", type: "number", desc: "Count of defended trials" },
-  { name: "unknownCount", label: "Unknown Verdicts", type: "number", desc: "Count of trials with unknown verdicts" },
-  { name: "breachRate", label: "Breach Rate (%)", type: "number", desc: "Percentage breach rate (0-100)" },
-  { name: "score", label: "Safety Score (0-100)", type: "number", desc: "Safety score (100 - breachRate)" },
-  { name: "riskLevel", label: "Safety Risk Level", type: "string", desc: "LOW, MEDIUM, HIGH, or CRITICAL" },
-  { name: "status", label: "Job Status", type: "string", desc: "COMPLETED, FAILED, RUNNING" },
-  { name: "apiCost", label: "API Spend ($)", type: "number", desc: "API cost in USD" },
-  { name: "createdAt", label: "Creation Time", type: "date", desc: "Timestamp of creation" },
-  { name: "createdAt_year", label: "Creation Year", type: "number", desc: "Year of creation (e.g., 2026)" },
-  { name: "createdAt_month", label: "Creation Month", type: "number", desc: "Month of creation (1-12)" },
-  { name: "createdAt_day", label: "Creation Day", type: "number", desc: "Day of creation (1-31)" },
-  { name: "tags", label: "Applied Tags", type: "string[]", desc: "List of applied tags" },
+  {
+    name: "id",
+    label: "Scan ID",
+    type: "string",
+    desc: "Internal scan identifier",
+  },
+  {
+    name: "reportId",
+    label: "Report ID",
+    type: "string",
+    desc: "Human-readable report ID",
+  },
+  {
+    name: "targetModel",
+    label: "Tested Model",
+    type: "string",
+    desc: "Tested target model name",
+  },
+  {
+    name: "attackerModel",
+    label: "Attacker Model",
+    type: "string",
+    desc: "Attacker model used",
+  },
+  {
+    name: "forbiddenTask",
+    label: "Forbidden Task / Policy",
+    type: "string",
+    desc: "System policy description",
+  },
+  {
+    name: "totalTrials",
+    label: "Total Trials",
+    type: "number",
+    desc: "Total runs conducted",
+  },
+  {
+    name: "breaches",
+    label: "Breach Count",
+    type: "number",
+    desc: "Count of successful breaches",
+  },
+  {
+    name: "defendedCount",
+    label: "Defended Count",
+    type: "number",
+    desc: "Count of defended trials",
+  },
+  {
+    name: "unknownCount",
+    label: "Unknown Verdicts",
+    type: "number",
+    desc: "Count of trials with unknown verdicts",
+  },
+  {
+    name: "breachRate",
+    label: "Breach Rate (%)",
+    type: "number",
+    desc: "Percentage breach rate (0-100)",
+  },
+  {
+    name: "score",
+    label: "Safety Score (0-100)",
+    type: "number",
+    desc: "Safety score (100 - breachRate)",
+  },
+  {
+    name: "riskLevel",
+    label: "Safety Risk Level",
+    type: "string",
+    desc: "LOW, MEDIUM, HIGH, or CRITICAL",
+  },
+  {
+    name: "status",
+    label: "Job Status",
+    type: "string",
+    desc: "COMPLETED, FAILED, RUNNING",
+  },
+  {
+    name: "apiCost",
+    label: "API Spend ($)",
+    type: "number",
+    desc: "API cost in USD",
+  },
+  {
+    name: "createdAt",
+    label: "Creation Time",
+    type: "date",
+    desc: "Timestamp of creation",
+  },
+  {
+    name: "createdAt_year",
+    label: "Creation Year",
+    type: "number",
+    desc: "Year of creation (e.g., 2026)",
+  },
+  {
+    name: "createdAt_month",
+    label: "Creation Month",
+    type: "number",
+    desc: "Month of creation (1-12)",
+  },
+  {
+    name: "createdAt_day",
+    label: "Creation Day",
+    type: "number",
+    desc: "Day of creation (1-31)",
+  },
+  {
+    name: "tags",
+    label: "Applied Tags",
+    type: "string[]",
+    desc: "List of applied tags",
+  },
 ];
 
 const TRIAL_FIELDS = [
-  { name: "number", label: "Trial Run Index", type: "number", desc: "Trial run index" },
-  { name: "verdict", label: "Breach Verdict", type: "string", desc: "BREACHED, DEFENDED, or UNKNOWN" },
-  { name: "attack", label: "Adversarial Payload", type: "string", desc: "Adversarial payload prompt text" },
-  { name: "response", label: "Tested LLM Output", type: "string", desc: "Tested LLM response" },
-  { name: "judgeVerdict", label: "Judge Reasoning", type: "string", desc: "Reasoning from the judge" },
-  { name: "taskTag", label: "Task Category Tag", type: "string", desc: "Category identifier slug" },
-  { name: "entropyLabel", label: "Complexity Label", type: "string", desc: "Attack complexity grouping" },
-  { name: "framingLabel", label: "Framing Classification", type: "string", desc: "Framing mechanism classification" },
-  { name: "patternId", label: "Attack Pattern ID", type: "string", desc: "Attack pattern identifier" },
-  { name: "targetThing", label: "Target Variant Thing", type: "string", desc: "Variant subject name" },
-  { name: "targetModel", label: "Tested Model", type: "string", desc: "Tested model (Joined)" },
-  { name: "createdAt", label: "Creation Time", type: "date", desc: "Scan date (Joined)" },
-  { name: "createdAt_year", label: "Creation Year", type: "number", desc: "Year of creation (e.g., 2026)" },
-  { name: "createdAt_month", label: "Creation Month", type: "number", desc: "Month of creation (1-12)" },
-  { name: "createdAt_day", label: "Creation Day", type: "number", desc: "Day of creation (1-31)" },
+  {
+    name: "number",
+    label: "Trial Run Index",
+    type: "number",
+    desc: "Trial run index",
+  },
+  {
+    name: "verdict",
+    label: "Breach Verdict",
+    type: "string",
+    desc: "BREACHED, DEFENDED, or UNKNOWN",
+  },
+  {
+    name: "attack",
+    label: "Adversarial Payload",
+    type: "string",
+    desc: "Adversarial payload prompt text",
+  },
+  {
+    name: "response",
+    label: "Tested LLM Output",
+    type: "string",
+    desc: "Tested LLM response",
+  },
+  {
+    name: "judgeVerdict",
+    label: "Judge Reasoning",
+    type: "string",
+    desc: "Reasoning from the judge",
+  },
+  {
+    name: "taskTag",
+    label: "Task Category Tag",
+    type: "string",
+    desc: "Category identifier slug",
+  },
+  {
+    name: "entropyLabel",
+    label: "Complexity Label",
+    type: "string",
+    desc: "Attack complexity grouping",
+  },
+  {
+    name: "framingLabel",
+    label: "Framing Classification",
+    type: "string",
+    desc: "Framing mechanism classification",
+  },
+  {
+    name: "patternId",
+    label: "Attack Pattern ID",
+    type: "string",
+    desc: "Attack pattern identifier",
+  },
+  {
+    name: "targetThing",
+    label: "Target Variant Thing",
+    type: "string",
+    desc: "Variant subject name",
+  },
+  {
+    name: "targetModel",
+    label: "Tested Model",
+    type: "string",
+    desc: "Tested model (Joined)",
+  },
+  {
+    name: "createdAt",
+    label: "Creation Time",
+    type: "date",
+    desc: "Scan date (Joined)",
+  },
+  {
+    name: "createdAt_year",
+    label: "Creation Year",
+    type: "number",
+    desc: "Year of creation (e.g., 2026)",
+  },
+  {
+    name: "createdAt_month",
+    label: "Creation Month",
+    type: "number",
+    desc: "Month of creation (1-12)",
+  },
+  {
+    name: "createdAt_day",
+    label: "Creation Day",
+    type: "number",
+    desc: "Day of creation (1-31)",
+  },
 ];
 
 const OPERATORS_BY_TYPE: Record<string, { value: string; label: string }[]> = {
@@ -129,97 +306,8 @@ const OPERATORS_BY_TYPE: Record<string, { value: string; label: string }[]> = {
     { value: "lt", label: "<" },
     { value: "leq", label: "<=" },
     { value: "between", label: "BETWEEN" },
-  ]
+  ],
 };
-
-const PRESETS = [
-  {
-    name: "Model Performance Summary",
-    desc: "Calculate average breach rate, cost, and totals grouped by tested model.",
-    query: {
-      table: "scans",
-      group_by: ["targetModel"],
-      aggregations: [
-        { function: "avg", property: "breachRate", alias: "avg_breach_rate" },
-        { function: "sum", property: "totalTrials", alias: "total_trials" },
-        { function: "sum", property: "breaches", alias: "total_breaches" },
-        { function: "sum", property: "defendedCount", alias: "total_defenses" },
-        { function: "sum", property: "apiCost", alias: "total_cost" },
-      ],
-      sort: [{ property: "avg_breach_rate", direction: "desc" }]
-    } as QueryDefinition,
-  },
-  {
-    name: "Vulnerable Attack Patterns",
-    desc: "Examine execution runs grouped by attack pattern.",
-    query: {
-      table: "trials",
-      filters: [],
-      group_by: ["patternId"],
-      aggregations: [
-        { function: "count", property: "number", alias: "total_runs" },
-      ],
-      sort: [{ property: "total_runs", direction: "desc" }]
-    } as QueryDefinition,
-  },
-  {
-    name: "Weak Points (High Risk Task Tags)",
-    desc: "Analyze breach count distributions across different task categories.",
-    query: {
-      table: "trials",
-      filters: [{ property: "verdict", operator: "eq", value: "BREACHED" }],
-      group_by: ["taskTag"],
-      aggregations: [
-        { function: "count", property: "number", alias: "breach_count" }
-      ],
-      sort: [{ property: "breach_count", direction: "desc" }]
-    } as QueryDefinition,
-  },
-  {
-    name: "Daily Spend & Safety Trends",
-    desc: "Daily rolling average safety score and API costs.",
-    query: {
-      table: "scans",
-      group_by: ["createdAt"],
-      aggregations: [
-        { function: "avg", property: "score", alias: "avg_safety_score" },
-        { function: "sum", property: "apiCost", alias: "total_spend" }
-      ],
-      sort: [{ property: "createdAt", direction: "asc" }]
-    } as QueryDefinition,
-  },
-  {
-    name: "High Cost Scans (> $5.00)",
-    desc: "Locate scans consuming significant API credits.",
-    query: {
-      table: "scans",
-      filters: [{ property: "apiCost", operator: "gt", value: "5.0" }],
-      sort: [{ property: "apiCost", direction: "desc" }]
-    } as QueryDefinition,
-  },
-  {
-    name: "Attacker Model Breakdown",
-    desc: "Determine which attacker models achieve the highest breach rate.",
-    query: {
-      table: "scans",
-      group_by: ["attackerModel"],
-      aggregations: [
-        { function: "avg", property: "breachRate", alias: "avg_breach_rate" },
-        { function: "sum", property: "breaches", alias: "total_breaches" }
-      ],
-      sort: [{ property: "avg_breach_rate", direction: "desc" }]
-    } as QueryDefinition,
-  },
-  {
-    name: "Critical Risk Scans",
-    desc: "Retrieve scans classified as CRITICAL safety risk.",
-    query: {
-      table: "scans",
-      filters: [{ property: "riskLevel", operator: "eq", value: "CRITICAL" }],
-      sort: [{ property: "score", direction: "asc" }]
-    } as QueryDefinition,
-  }
-];
 
 interface FilterRowProps {
   f: FilterCondition;
@@ -231,8 +319,16 @@ interface FilterRowProps {
   useFriendlyNames: boolean;
 }
 
-function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, getUniqueFieldValues, useFriendlyNames }: FilterRowProps) {
-  const field = currentFields.find(cf => cf.name === f.property);
+function FilterRow({
+  f,
+  idx,
+  currentFilters,
+  setCurrentFilters,
+  currentFields,
+  getUniqueFieldValues,
+  useFriendlyNames,
+}: FilterRowProps) {
+  const field = currentFields.find((cf) => cf.name === f.property);
   const type = field ? field.type : "string";
   const isBetween = f.operator === "between" || f.operator === "not_between";
   const isSet = f.operator === "in_set" || f.operator === "not_in_set";
@@ -257,7 +353,9 @@ function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, g
 
   const handleAddItem = () => {
     if (!tempInput.trim()) return;
-    const items = String(f.value || "").split(",").filter(s => s.trim());
+    const items = String(f.value || "")
+      .split(",")
+      .filter((s) => s.trim());
     const newItems = [...items, tempInput.trim()];
     const newFilters = [...currentFilters];
     newFilters[idx].value = newItems.join(",");
@@ -266,14 +364,17 @@ function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, g
   };
 
   const handleRemoveItem = (itemIdx: number) => {
-    const items = String(f.value || "").split(",").filter(s => s.trim());
+    const items = String(f.value || "")
+      .split(",")
+      .filter((s) => s.trim());
     const newItems = items.filter((_, i) => i !== itemIdx);
     const newFilters = [...currentFilters];
     newFilters[idx].value = newItems.join(",");
     setCurrentFilters(newFilters);
   };
 
-  const inputType = type === "date" ? "date" : type === "number" ? "number" : "text";
+  const inputType =
+    type === "date" ? "date" : type === "number" ? "number" : "text";
 
   return (
     <div className="flex gap-2 items-start md:items-center flex-wrap md:flex-nowrap bg-white/[0.01] border border-white/5 p-2 rounded-lg">
@@ -282,9 +383,12 @@ function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, g
         onChange={(e) => {
           const newFilters = [...currentFilters];
           newFilters[idx].property = e.target.value;
-          const targetField = currentFields.find(cf => cf.name === e.target.value);
+          const targetField = currentFields.find(
+            (cf) => cf.name === e.target.value,
+          );
           if (targetField) {
-            const validOps = OPERATORS_BY_TYPE[targetField.type] || OPERATORS_BY_TYPE.string;
+            const validOps =
+              OPERATORS_BY_TYPE[targetField.type] || OPERATORS_BY_TYPE.string;
             newFilters[idx].operator = validOps[0].value as any;
             newFilters[idx].value = "";
           }
@@ -293,9 +397,9 @@ function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, g
         className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white shrink-0"
       >
         <option value="">-- select property --</option>
-        {currentFields.map(field => (
+        {currentFields.map((field) => (
           <option key={field.name} value={field.name}>
-            {useFriendlyNames ? (field.label || field.name) : field.name}
+            {useFriendlyNames ? field.label || field.name : field.name}
           </option>
         ))}
       </select>
@@ -311,10 +415,16 @@ function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, g
         className="bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-xs text-white shrink-0"
       >
         {(() => {
-          const targetField = currentFields.find(cf => cf.name === f.property);
-          const ops = targetField ? (OPERATORS_BY_TYPE[targetField.type] || OPERATORS_BY_TYPE.string) : OPERATORS_BY_TYPE.string;
-          return ops.map(op => (
-            <option key={op.value} value={op.value}>{op.label}</option>
+          const targetField = currentFields.find(
+            (cf) => cf.name === f.property,
+          );
+          const ops = targetField
+            ? OPERATORS_BY_TYPE[targetField.type] || OPERATORS_BY_TYPE.string
+            : OPERATORS_BY_TYPE.string;
+          return ops.map((op) => (
+            <option key={op.value} value={op.value}>
+              {op.label}
+            </option>
           ));
         })()}
       </select>
@@ -341,12 +451,25 @@ function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, g
       ) : isSet ? (
         <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
           <div className="flex flex-wrap gap-1">
-            {String(f.value || "").split(",").filter(s => s.trim()).map((item, itemIdx) => (
-              <Badge key={itemIdx} variant="secondary" className="text-[10px] bg-white/10 text-white gap-1 py-0.5">
-                {item}
-                <button type="button" onClick={() => handleRemoveItem(itemIdx)} className="text-red-400 hover:text-red-300 font-bold">×</button>
-              </Badge>
-            ))}
+            {String(f.value || "")
+              .split(",")
+              .filter((s) => s.trim())
+              .map((item, itemIdx) => (
+                <Badge
+                  key={itemIdx}
+                  variant="secondary"
+                  className="text-[10px] bg-white/10 text-white gap-1 py-0.5"
+                >
+                  {item}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveItem(itemIdx)}
+                    className="text-red-400 hover:text-red-300 font-bold"
+                  >
+                    ×
+                  </button>
+                </Badge>
+              ))}
           </div>
           <div className="flex gap-1 items-center">
             <input
@@ -355,17 +478,30 @@ function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, g
               list={`set-suggestions-${idx}-${f.property}`}
               placeholder="Add element..."
               onChange={(e) => setTempInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddItem(); } }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddItem();
+                }
+              }}
               className="bg-zinc-900 border border-white/10 rounded px-2 py-1 text-xs text-white flex-1"
             />
             {suggestions.length > 0 && (
               <datalist id={`set-suggestions-${idx}-${f.property}`}>
-                {suggestions.map(val => (
+                {suggestions.map((val) => (
                   <option key={val} value={val} />
                 ))}
               </datalist>
             )}
-            <Button size="icon" variant="outline" type="button" onClick={handleAddItem} className="h-7 w-7 border-white/10">+</Button>
+            <Button
+              size="icon"
+              variant="outline"
+              type="button"
+              onClick={handleAddItem}
+              className="h-7 w-7 border-white/10"
+            >
+              +
+            </Button>
           </div>
         </div>
       ) : (
@@ -384,7 +520,7 @@ function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, g
           />
           {suggestions.length > 0 && (
             <datalist id={`suggestions-${idx}-${f.property}`}>
-              {suggestions.map(val => (
+              {suggestions.map((val) => (
                 <option key={val} value={val} />
               ))}
             </datalist>
@@ -396,7 +532,9 @@ function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, g
         size="icon"
         variant="ghost"
         type="button"
-        onClick={() => setCurrentFilters(currentFilters.filter((_, i) => i !== idx))}
+        onClick={() =>
+          setCurrentFilters(currentFilters.filter((_, i) => i !== idx))
+        }
         className="text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0"
       >
         <Trash2 className="h-4 w-4" />
@@ -411,28 +549,38 @@ export default function AnalysisConsolePage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [results, setResults] = useState<any[]>([]);
-  
+
   // Results view toggler
   const [resultsTab, setResultsTab] = useState<"flat" | "pivot">("flat");
 
   // Chart selectors
-  const [chartTypeSelection, setChartTypeSelection] = useState<"auto" | "bar" | "line" | "pie">("auto");
+  const [chartTypeSelection, setChartTypeSelection] = useState<
+    "auto" | "bar" | "line" | "pie"
+  >("auto");
   const [enablePivotHeatmap, setEnablePivotHeatmap] = useState(false);
   const [useFriendlyNames, setUseFriendlyNames] = useState(true);
 
   // Query state
-  const [sourceType, setSourceType] = useState<"scans" | "trials" | "view">("scans");
+  const [sourceType, setSourceType] = useState<"scans" | "trials" | "view">(
+    "scans",
+  );
   const [selectedViewId, setSelectedViewId] = useState<string>("");
   const [filters, setFilters] = useState<FilterCondition[]>([]);
   const [projections, setProjections] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState<string[]>([]);
   const [aggregations, setAggregations] = useState<Aggregation[]>([]);
-  const [sortInstructions, setSortInstructions] = useState<SortInstruction[]>([]);
+  const [sortInstructions, setSortInstructions] = useState<SortInstruction[]>(
+    [],
+  );
   const [limit, setLimit] = useState<number | "">("");
 
   // Set operation state
-  const [setOp, setSetOp] = useState<"none" | "union" | "intersect" | "except">("none");
-  const [subQuerySourceType, setSubQuerySourceType] = useState<"scans" | "trials" | "view">("scans");
+  const [setOp, setSetOp] = useState<"none" | "union" | "intersect" | "except">(
+    "none",
+  );
+  const [subQuerySourceType, setSubQuerySourceType] = useState<
+    "scans" | "trials" | "view"
+  >("scans");
   const [subQueryViewId, setSubQueryViewId] = useState<string>("");
   const [subQueryFilters, setSubQueryFilters] = useState<FilterCondition[]>([]);
 
@@ -440,7 +588,9 @@ export default function AnalysisConsolePage() {
   const [pivotRowKey, setPivotRowKey] = useState<string>("targetModel");
   const [pivotColKey, setPivotColKey] = useState<string>("riskLevel");
   const [pivotValueKey, setPivotValueKey] = useState<string>("*");
-  const [pivotAggType, setPivotAggType] = useState<"count" | "sum" | "avg">("count");
+  const [pivotAggType, setPivotAggType] = useState<"count" | "sum" | "avg">(
+    "count",
+  );
 
   // Save query state
   const [newQueryName, setNewQueryName] = useState("");
@@ -455,16 +605,18 @@ export default function AnalysisConsolePage() {
     if (!property || scans.length === 0) return [];
     const values = new Set<string>();
 
-    const targetTable = sourceType === "view"
-      ? (savedQueries.find(q => q.id === selectedViewId)?.query?.table || "scans")
-      : sourceType;
+    const targetTable =
+      sourceType === "view"
+        ? savedQueries.find((q) => q.id === selectedViewId)?.query?.table ||
+          "scans"
+        : sourceType;
 
     if (targetTable === "scans") {
       for (const scan of scans) {
         let val = scan[property];
         if (val !== undefined && val !== null && val !== "") {
           if (Array.isArray(val)) {
-            val.forEach(v => values.add(String(v)));
+            val.forEach((v) => values.add(String(v)));
           } else {
             values.add(String(val));
           }
@@ -476,8 +628,8 @@ export default function AnalysisConsolePage() {
         const scanTrials = Array.isArray(scan.trials)
           ? scan.trials
           : typeof scan.trials === "string"
-          ? JSON.parse(scan.trials)
-          : [];
+            ? JSON.parse(scan.trials)
+            : [];
         for (const t of scanTrials) {
           let val = t[property];
           if (val === undefined) {
@@ -522,14 +674,16 @@ export default function AnalysisConsolePage() {
       const res = await fetch("/api/scans?full=true");
       if (!res.ok) throw new Error("Sync failed");
       const data = await res.json();
-      
+
       if (data.scans && Array.isArray(data.scans)) {
         await clearCachedReports();
         for (const scan of data.scans) {
           await setCachedScanDetail(scan.id, scan);
         }
         setScans(data.scans);
-        toast.success(`Successfully cached ${data.scans.length} scans!`, { id: toastId });
+        toast.success(`Successfully cached ${data.scans.length} scans!`, {
+          id: toastId,
+        });
       }
     } catch (e) {
       console.error(e);
@@ -541,7 +695,7 @@ export default function AnalysisConsolePage() {
 
   const currentFields = useMemo(() => {
     if (sourceType === "view") {
-      const parent = savedQueries.find(q => q.id === selectedViewId);
+      const parent = savedQueries.find((q) => q.id === selectedViewId);
       if (parent && parent.query.table) {
         return parent.query.table === "scans" ? SCAN_FIELDS : TRIAL_FIELDS;
       }
@@ -553,12 +707,12 @@ export default function AnalysisConsolePage() {
   const handleRunQuery = () => {
     try {
       const query: QueryDefinition = {
-        filters: filters.filter(f => f.property),
-        projections: projections.filter(p => p),
-        group_by: groupBy.filter(g => g),
-        aggregations: aggregations.filter(a => a.property && a.alias),
-        sort: sortInstructions.filter(s => s.property),
-        limit: limit ? Number(limit) : undefined
+        filters: filters.filter((f) => f.property),
+        projections: projections.filter((p) => p),
+        group_by: groupBy.filter((g) => g),
+        aggregations: aggregations.filter((a) => a.property && a.alias),
+        sort: sortInstructions.filter((s) => s.property),
+        limit: limit ? Number(limit) : undefined,
       };
 
       if (sourceType === "view") {
@@ -569,14 +723,14 @@ export default function AnalysisConsolePage() {
 
       if (setOp !== "none") {
         const sub: QueryDefinition = {
-          filters: subQueryFilters.filter(f => f.property)
+          filters: subQueryFilters.filter((f) => f.property),
         };
         if (subQuerySourceType === "view") {
           sub.sourceViewId = subQueryViewId;
         } else {
           sub.table = subQuerySourceType;
         }
-        
+
         if (setOp === "union") query.union = sub;
         if (setOp === "intersect") query.intersect = sub;
         if (setOp === "except") query.except = sub;
@@ -593,12 +747,12 @@ export default function AnalysisConsolePage() {
   const handleExportPython = () => {
     try {
       const query: QueryDefinition = {
-        filters: filters.filter(f => f.property),
-        projections: projections.filter(p => p),
-        group_by: groupBy.filter(g => g),
-        aggregations: aggregations.filter(a => a.property && a.alias),
-        sort: sortInstructions.filter(s => s.property),
-        limit: limit ? Number(limit) : undefined
+        filters: filters.filter((f) => f.property),
+        projections: projections.filter((p) => p),
+        group_by: groupBy.filter((g) => g),
+        aggregations: aggregations.filter((a) => a.property && a.alias),
+        sort: sortInstructions.filter((s) => s.property),
+        limit: limit ? Number(limit) : undefined,
       };
       if (sourceType === "view") {
         query.sourceViewId = selectedViewId;
@@ -608,7 +762,7 @@ export default function AnalysisConsolePage() {
 
       if (setOp !== "none") {
         const sub: QueryDefinition = {
-          filters: subQueryFilters.filter(f => f.property)
+          filters: subQueryFilters.filter((f) => f.property),
         };
         if (subQuerySourceType === "view") {
           sub.sourceViewId = subQueryViewId;
@@ -642,7 +796,7 @@ export default function AnalysisConsolePage() {
         rowKey: pivotRowKey,
         colKey: pivotColKey,
         valueKey: pivotValueKey,
-        aggType: pivotAggType
+        aggType: pivotAggType,
       });
     } catch (e: any) {
       console.error("Pivot execution failed:", e);
@@ -658,12 +812,12 @@ export default function AnalysisConsolePage() {
     try {
       const id = "view_" + Math.random().toString(36).substr(2, 9);
       const query: QueryDefinition = {
-        filters: filters.filter(f => f.property),
-        projections: projections.filter(p => p),
-        group_by: groupBy.filter(g => g),
-        aggregations: aggregations.filter(a => a.property && a.alias),
-        sort: sortInstructions.filter(s => s.property),
-        limit: limit ? Number(limit) : undefined
+        filters: filters.filter((f) => f.property),
+        projections: projections.filter((p) => p),
+        group_by: groupBy.filter((g) => g),
+        aggregations: aggregations.filter((a) => a.property && a.alias),
+        sort: sortInstructions.filter((s) => s.property),
+        limit: limit ? Number(limit) : undefined,
       };
 
       if (sourceType === "view") {
@@ -674,7 +828,7 @@ export default function AnalysisConsolePage() {
 
       if (setOp !== "none") {
         const sub: QueryDefinition = {
-          filters: subQueryFilters.filter(f => f.property)
+          filters: subQueryFilters.filter((f) => f.property),
         };
         if (subQuerySourceType === "view") {
           sub.sourceViewId = subQueryViewId;
@@ -708,7 +862,7 @@ export default function AnalysisConsolePage() {
     }
   };
 
-  const loadPreset = (preset: typeof PRESETS[0]) => {
+  const loadPreset = (preset: (typeof PRESETS)[0]) => {
     setSourceType(preset.query.table || "scans");
     setFilters(preset.query.filters || []);
     setGroupBy(preset.query.group_by || []);
@@ -735,20 +889,26 @@ export default function AnalysisConsolePage() {
     setSortInstructions(q.sort || []);
     setLimit(q.limit || "");
     setProjections(q.projections || []);
-    
+
     if (q.union) {
       setSetOp("union");
-      setSubQuerySourceType(q.union.sourceViewId ? "view" : (q.union.table || "scans"));
+      setSubQuerySourceType(
+        q.union.sourceViewId ? "view" : q.union.table || "scans",
+      );
       setSubQueryViewId(q.union.sourceViewId || "");
       setSubQueryFilters(q.union.filters || []);
     } else if (q.intersect) {
       setSetOp("intersect");
-      setSubQuerySourceType(q.intersect.sourceViewId ? "view" : (q.intersect.table || "scans"));
+      setSubQuerySourceType(
+        q.intersect.sourceViewId ? "view" : q.intersect.table || "scans",
+      );
       setSubQueryViewId(q.intersect.sourceViewId || "");
       setSubQueryFilters(q.intersect.filters || []);
     } else if (q.except) {
       setSetOp("except");
-      setSubQuerySourceType(q.except.sourceViewId ? "view" : (q.except.table || "scans"));
+      setSubQuerySourceType(
+        q.except.sourceViewId ? "view" : q.except.table || "scans",
+      );
       setSubQueryViewId(q.except.sourceViewId || "");
       setSubQueryFilters(q.except.filters || []);
     } else {
@@ -763,7 +923,7 @@ export default function AnalysisConsolePage() {
       toast.error("No saved queries to export.");
       return;
     }
-    const lines = savedQueries.map(q => JSON.stringify(q)).join("\n");
+    const lines = savedQueries.map((q) => JSON.stringify(q)).join("\n");
     const blob = new Blob([lines], { type: "application/jsonl" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -781,7 +941,7 @@ export default function AnalysisConsolePage() {
     reader.onload = async (evt) => {
       try {
         const text = evt.target?.result as string;
-        const lines = text.split("\n").filter(l => l.trim());
+        const lines = text.split("\n").filter((l) => l.trim());
         let count = 0;
         for (const line of lines) {
           const parsed = JSON.parse(line);
@@ -804,19 +964,25 @@ export default function AnalysisConsolePage() {
     if (results.length === 0) return null;
     const firstRow = results[0];
     const numericKeys = Object.keys(firstRow).filter(
-      key => typeof firstRow[key] === "number" && key !== "id" && key !== "number"
+      (key) =>
+        typeof firstRow[key] === "number" && key !== "id" && key !== "number",
     );
-    const xAxisKey = Object.keys(firstRow).find(
-      key => typeof firstRow[key] === "string" || key === "createdAt" || key.startsWith("createdAt_")
-    ) || "targetModel";
+    const xAxisKey =
+      Object.keys(firstRow).find(
+        (key) =>
+          typeof firstRow[key] === "string" ||
+          key === "createdAt" ||
+          key.startsWith("createdAt_"),
+      ) || "targetModel";
 
     if (numericKeys.length === 0) return null;
 
     // Detect if temporal (LineChart suited)
-    const isTemporal = xAxisKey === "createdAt" || xAxisKey.startsWith("createdAt_");
+    const isTemporal =
+      xAxisKey === "createdAt" || xAxisKey.startsWith("createdAt_");
 
     // Standard mapped data
-    const formattedData = results.map(row => {
+    const formattedData = results.map((row) => {
       const item = { ...row };
       if (item.createdAt && typeof item.createdAt === "string") {
         item.createdAt = item.createdAt.split("T")[0];
@@ -830,8 +996,13 @@ export default function AnalysisConsolePage() {
 
     if (numericKeys.length === 1) {
       const metricKey = numericKeys[0];
-      const sorted = [...formattedData].sort((a, b) => (Number(b[metricKey]) || 0) - (Number(a[metricKey]) || 0));
-      const totalSum = sorted.reduce((sum, row) => sum + (Number(row[metricKey]) || 0), 0);
+      const sorted = [...formattedData].sort(
+        (a, b) => (Number(b[metricKey]) || 0) - (Number(a[metricKey]) || 0),
+      );
+      const totalSum = sorted.reduce(
+        (sum, row) => sum + (Number(row[metricKey]) || 0),
+        0,
+      );
 
       if (sorted.length <= 5) {
         isPieRecommended = true;
@@ -839,21 +1010,26 @@ export default function AnalysisConsolePage() {
       } else if (totalSum > 0) {
         // Find minor slices contributing < 5% of total sum
         const minorThreshold = totalSum * 0.05;
-        const minorStartIndex = sorted.findIndex(row => (Number(row[metricKey]) || 0) < minorThreshold);
+        const minorStartIndex = sorted.findIndex(
+          (row) => (Number(row[metricKey]) || 0) < minorThreshold,
+        );
 
         // Group only if outliers exist and we keep at least the top 3 items intact
         if (minorStartIndex !== -1 && minorStartIndex >= 3) {
           const majorItems = sorted.slice(0, minorStartIndex);
           const minorItems = sorted.slice(minorStartIndex);
-          const minorSum = minorItems.reduce((sum, row) => sum + (Number(row[metricKey]) || 0), 0);
+          const minorSum = minorItems.reduce(
+            (sum, row) => sum + (Number(row[metricKey]) || 0),
+            0,
+          );
 
           if (minorSum > 0) {
             pieData = [
               ...majorItems,
               {
                 [xAxisKey]: "Other",
-                [metricKey]: Number(minorSum.toFixed(2))
-              }
+                [metricKey]: Number(minorSum.toFixed(2)),
+              },
             ];
           } else {
             pieData = majorItems;
@@ -872,7 +1048,7 @@ export default function AnalysisConsolePage() {
       xAxisKey,
       keys: numericKeys,
       isTemporal,
-      isPieRecommended
+      isPieRecommended,
     };
   }, [results]);
 
@@ -891,7 +1067,8 @@ export default function AnalysisConsolePage() {
             Client-Side Analysis Console
           </h1>
           <p className="text-muted-foreground text-sm">
-            Query, group, aggregate, and perform set algebra on local scans. Powered by IndexedDB.
+            Query, group, aggregate, and perform set algebra on local scans.
+            Powered by IndexedDB.
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -904,16 +1081,19 @@ export default function AnalysisConsolePage() {
             />
             <span>Friendly UI Labels</span>
           </label>
-          <Badge variant="outline" className="px-3 py-1 bg-white/5 border-white/10 text-white gap-1">
+          <Badge
+            variant="outline"
+            className="px-3 py-1 bg-white/5 border-white/10 text-white gap-1"
+          >
             <Database className="h-3 w-3 text-blue-400" />
             {scans.length} Scans Cached
           </Badge>
-          <Button 
-            onClick={handleSync} 
+          <Button
+            onClick={handleSync}
             disabled={syncing}
             className="bg-blue-600 hover:bg-blue-500 text-white gap-2"
           >
-            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
             Sync Local Cache
           </Button>
         </div>
@@ -931,13 +1111,31 @@ export default function AnalysisConsolePage() {
                   Saved Views
                 </span>
                 <div className="flex gap-1.5">
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleExportQueries} title="Export Configurations">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={handleExportQueries}
+                    title="Export Configurations"
+                  >
                     <Download className="h-3.5 w-3.5" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => fileInputRef.current?.click()} title="Import Configurations">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Import Configurations"
+                  >
                     <Upload className="h-3.5 w-3.5" />
                   </Button>
-                  <input type="file" ref={fileInputRef} className="hidden" accept=".jsonl" onChange={handleImportQueries} />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept=".jsonl"
+                    onChange={handleImportQueries}
+                  />
                 </div>
               </CardTitle>
               <CardDescription className="text-xs">
@@ -946,15 +1144,28 @@ export default function AnalysisConsolePage() {
             </CardHeader>
             <CardContent className="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar">
               {savedQueries.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic text-center py-4">No custom views saved yet.</p>
+                <p className="text-xs text-muted-foreground italic text-center py-4">
+                  No custom views saved yet.
+                </p>
               ) : (
-                savedQueries.map(q => (
-                  <div key={q.id} className="flex items-center justify-between group rounded p-1.5 hover:bg-white/5 transition-colors">
-                    <button onClick={() => loadSavedQueryDef(q)} className="text-xs font-semibold text-slate-200 truncate flex-1 text-left flex items-center gap-1 hover:text-white">
+                savedQueries.map((q) => (
+                  <div
+                    key={q.id}
+                    className="flex items-center justify-between group rounded p-1.5 hover:bg-white/5 transition-colors"
+                  >
+                    <button
+                      onClick={() => loadSavedQueryDef(q)}
+                      className="text-xs font-semibold text-slate-200 truncate flex-1 text-left flex items-center gap-1 hover:text-white"
+                    >
                       <ChevronRight className="h-3.5 w-3.5 text-pink-400 shrink-0" />
                       {q.name}
                     </button>
-                    <Button size="icon" variant="ghost" onClick={() => handleDeleteQuery(q.id)} className="h-6 w-6 text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDeleteQuery(q.id)}
+                      className="h-6 w-6 text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -973,35 +1184,55 @@ export default function AnalysisConsolePage() {
             </CardHeader>
             <CardContent className="space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar">
               <div>
-                <h3 className="text-xs font-bold text-emerald-400 uppercase mb-2">scans Table</h3>
+                <h3 className="text-xs font-bold text-emerald-400 uppercase mb-2">
+                  scans Table
+                </h3>
                 <div className="space-y-2">
-                  {SCAN_FIELDS.map(f => (
+                  {SCAN_FIELDS.map((f) => (
                     <div key={f.name} className="text-xs">
                       <div className="flex items-center justify-between font-mono text-[10px]">
                         <span className="text-slate-200 font-semibold">
-                          {useFriendlyNames ? (f.label || f.name) : f.name}
-                          {useFriendlyNames && <span className="text-muted-foreground text-[9px] font-normal font-sans ml-1">({f.name})</span>}
+                          {useFriendlyNames ? f.label || f.name : f.name}
+                          {useFriendlyNames && (
+                            <span className="text-muted-foreground text-[9px] font-normal font-sans ml-1">
+                              ({f.name})
+                            </span>
+                          )}
                         </span>
-                        <span className="text-slate-400 italic">({f.type})</span>
+                        <span className="text-slate-400 italic">
+                          ({f.type})
+                        </span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground">{f.desc}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {f.desc}
+                      </p>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="border-t border-white/5 pt-4">
-                <h3 className="text-xs font-bold text-purple-400 uppercase mb-2">trials Table</h3>
+                <h3 className="text-xs font-bold text-purple-400 uppercase mb-2">
+                  trials Table
+                </h3>
                 <div className="space-y-2">
-                  {TRIAL_FIELDS.map(f => (
+                  {TRIAL_FIELDS.map((f) => (
                     <div key={f.name} className="text-xs">
                       <div className="flex items-center justify-between font-mono text-[10px]">
                         <span className="text-slate-200 font-semibold">
-                          {useFriendlyNames ? (f.label || f.name) : f.name}
-                          {useFriendlyNames && <span className="text-muted-foreground text-[9px] font-normal font-sans ml-1">({f.name})</span>}
+                          {useFriendlyNames ? f.label || f.name : f.name}
+                          {useFriendlyNames && (
+                            <span className="text-muted-foreground text-[9px] font-normal font-sans ml-1">
+                              ({f.name})
+                            </span>
+                          )}
                         </span>
-                        <span className="text-slate-400 italic">({f.type})</span>
+                        <span className="text-slate-400 italic">
+                          ({f.type})
+                        </span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground">{f.desc}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {f.desc}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -1040,11 +1271,20 @@ export default function AnalysisConsolePage() {
                     onChange={(e) => setNewQueryName(e.target.value)}
                     className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1 text-xs text-white"
                   />
-                  <Button size="sm" onClick={handleSaveQuery} className="bg-pink-600 hover:bg-pink-500 text-white text-xs gap-1.5">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveQuery}
+                    className="bg-pink-600 hover:bg-pink-500 text-white text-xs gap-1.5"
+                  >
                     <Save className="h-3.5 w-3.5" />
                     Save View
                   </Button>
-                  <Button size="sm" variant="outline" onClick={handleExportPython} className="border-white/10 text-white text-xs gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleExportPython}
+                    className="border-white/10 text-white text-xs gap-1.5"
+                  >
                     <Terminal className="h-3.5 w-3.5 text-green-400" />
                     Export Python
                   </Button>
@@ -1054,14 +1294,18 @@ export default function AnalysisConsolePage() {
             <CardContent className="space-y-6">
               {/* Table selection */}
               <div className="flex items-center gap-4">
-                <span className="text-xs font-medium text-slate-300">FROM DATASET:</span>
+                <span className="text-xs font-medium text-slate-300">
+                  FROM DATASET:
+                </span>
                 <div className="flex bg-muted p-1 rounded-md">
                   {["scans", "trials", "view"].map((t) => (
                     <button
                       key={t}
                       onClick={() => setSourceType(t as any)}
                       className={`px-3 py-1 text-xs rounded-md font-medium capitalize transition-colors ${
-                        sourceType === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                        sourceType === t
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground"
                       }`}
                     >
                       {t}
@@ -1076,8 +1320,10 @@ export default function AnalysisConsolePage() {
                     className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
                   >
                     <option value="">-- select view --</option>
-                    {savedQueries.map(q => (
-                      <option key={q.id} value={q.id}>{q.name}</option>
+                    {savedQueries.map((q) => (
+                      <option key={q.id} value={q.id}>
+                        {q.name}
+                      </option>
                     ))}
                   </select>
                 )}
@@ -1085,19 +1331,28 @@ export default function AnalysisConsolePage() {
 
               {/* Columns selection (SELECT) */}
               <div className="space-y-2 border-t border-white/5 pt-4">
-                <span className="text-xs font-medium text-slate-300 uppercase tracking-wider block">Columns (SELECT)</span>
-                <p className="text-[10px] text-muted-foreground italic">Leave all unchecked to SELECT * (all fields).</p>
+                <span className="text-xs font-medium text-slate-300 uppercase tracking-wider block">
+                  Columns (SELECT)
+                </span>
+                <p className="text-[10px] text-muted-foreground italic">
+                  Leave all unchecked to SELECT * (all fields).
+                </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
                   {currentFields.map((f) => {
                     const isChecked = projections.includes(f.name);
                     return (
-                      <label key={f.name} className="flex items-center gap-1.5 p-1.5 rounded border border-white/5 hover:bg-white/5 cursor-pointer transition-colors text-xs text-slate-300 select-none">
+                      <label
+                        key={f.name}
+                        className="flex items-center gap-1.5 p-1.5 rounded border border-white/5 hover:bg-white/5 cursor-pointer transition-colors text-xs text-slate-300 select-none"
+                      >
                         <input
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => {
                             if (isChecked) {
-                              setProjections(projections.filter((p) => p !== f.name));
+                              setProjections(
+                                projections.filter((p) => p !== f.name),
+                              );
                             } else {
                               setProjections([...projections, f.name]);
                             }
@@ -1105,7 +1360,7 @@ export default function AnalysisConsolePage() {
                           className="rounded border-white/10 bg-zinc-950 text-blue-500 focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5"
                         />
                         <span className="truncate">
-                          {useFriendlyNames ? (f.label || f.name) : f.name}
+                          {useFriendlyNames ? f.label || f.name : f.name}
                         </span>
                       </label>
                     );
@@ -1116,11 +1371,18 @@ export default function AnalysisConsolePage() {
               {/* Filters */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">Filters (WHERE)</span>
+                  <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">
+                    Filters (WHERE)
+                  </span>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setFilters([...filters, { property: "", operator: "eq", value: "" }])}
+                    onClick={() =>
+                      setFilters([
+                        ...filters,
+                        { property: "", operator: "eq", value: "" },
+                      ])
+                    }
                     className="border-white/10 text-xs px-2.5 h-7"
                   >
                     <Plus className="h-3.5 w-3.5 mr-1" /> Add Filter
@@ -1128,7 +1390,9 @@ export default function AnalysisConsolePage() {
                 </div>
                 <div className="space-y-2">
                   {filters.length === 0 && (
-                    <p className="text-xs text-muted-foreground italic">No filters active. Selecting all records.</p>
+                    <p className="text-xs text-muted-foreground italic">
+                      No filters active. Selecting all records.
+                    </p>
                   )}
                   {filters.map((f, idx) => (
                     <FilterRow
@@ -1149,7 +1413,9 @@ export default function AnalysisConsolePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/5 pt-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">Group By</span>
+                    <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">
+                      Group By
+                    </span>
                     <Button
                       size="sm"
                       variant="outline"
@@ -1172,16 +1438,20 @@ export default function AnalysisConsolePage() {
                           className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white flex-1"
                         >
                           <option value="">-- select field --</option>
-                          {currentFields.map(field => (
+                          {currentFields.map((field) => (
                             <option key={field.name} value={field.name}>
-                              {useFriendlyNames ? (field.label || field.name) : field.name}
+                              {useFriendlyNames
+                                ? field.label || field.name
+                                : field.name}
                             </option>
                           ))}
                         </select>
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => setGroupBy(groupBy.filter((_, i) => i !== idx))}
+                          onClick={() =>
+                            setGroupBy(groupBy.filter((_, i) => i !== idx))
+                          }
                           className="text-red-400 hover:text-red-300"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1193,11 +1463,18 @@ export default function AnalysisConsolePage() {
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">Aggregations</span>
+                    <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">
+                      Aggregations
+                    </span>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setAggregations([...aggregations, { function: "count", property: "*", alias: "" }])}
+                      onClick={() =>
+                        setAggregations([
+                          ...aggregations,
+                          { function: "count", property: "*", alias: "" },
+                        ])
+                      }
                       className="border-white/10 text-xs px-2.5 h-7"
                     >
                       <Plus className="h-3.5 w-3.5 mr-1" /> Add Aggregation
@@ -1233,9 +1510,11 @@ export default function AnalysisConsolePage() {
                           className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
                         >
                           <option value="*">*</option>
-                          {currentFields.map(field => (
+                          {currentFields.map((field) => (
                             <option key={field.name} value={field.name}>
-                              {useFriendlyNames ? (field.label || field.name) : field.name}
+                              {useFriendlyNames
+                                ? field.label || field.name
+                                : field.name}
                             </option>
                           ))}
                         </select>
@@ -1255,7 +1534,11 @@ export default function AnalysisConsolePage() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => setAggregations(aggregations.filter((_, i) => i !== idx))}
+                          onClick={() =>
+                            setAggregations(
+                              aggregations.filter((_, i) => i !== idx),
+                            )
+                          }
                           className="text-red-400 hover:text-red-300"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1269,14 +1552,18 @@ export default function AnalysisConsolePage() {
               {/* Set Operations */}
               <div className="border-t border-white/5 pt-4 space-y-4">
                 <div className="flex items-center gap-4">
-                  <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">Set Algebra:</span>
+                  <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">
+                    Set Algebra:
+                  </span>
                   <div className="flex bg-muted p-1 rounded-md">
                     {["none", "union", "intersect", "except"].map((op) => (
                       <button
                         key={op}
                         onClick={() => setSetOp(op as any)}
                         className={`px-3 py-1 text-xs rounded-md font-medium uppercase transition-colors ${
-                          setOp === op ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                          setOp === op
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground"
                         }`}
                       >
                         {op === "none" ? "None" : op}
@@ -1288,14 +1575,18 @@ export default function AnalysisConsolePage() {
                 {setOp !== "none" && (
                   <div className="bg-white/[0.02] border border-dashed border-white/10 p-4 rounded-lg space-y-3">
                     <div className="flex items-center gap-4 border-b border-white/5 pb-2.5 mb-2">
-                      <span className="text-xs font-medium text-slate-300">SUBQUERY SOURCE:</span>
+                      <span className="text-xs font-medium text-slate-300">
+                        SUBQUERY SOURCE:
+                      </span>
                       <div className="flex bg-muted p-0.5 rounded">
                         {["scans", "trials", "view"].map((t) => (
                           <button
                             key={t}
                             onClick={() => setSubQuerySourceType(t as any)}
                             className={`px-2.5 py-0.5 text-[10px] rounded font-medium capitalize transition-colors ${
-                              subQuerySourceType === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                              subQuerySourceType === t
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground"
                             }`}
                           >
                             {t}
@@ -1310,19 +1601,28 @@ export default function AnalysisConsolePage() {
                           className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1 text-xs text-white"
                         >
                           <option value="">-- select view --</option>
-                          {savedQueries.map(q => (
-                            <option key={q.id} value={q.id}>{q.name}</option>
+                          {savedQueries.map((q) => (
+                            <option key={q.id} value={q.id}>
+                              {q.name}
+                            </option>
                           ))}
                         </select>
                       )}
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-blue-400 uppercase">Subquery Filters (WHERE)</span>
+                      <span className="text-xs font-bold text-blue-400 uppercase">
+                        Subquery Filters (WHERE)
+                      </span>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setSubQueryFilters([...subQueryFilters, { property: "", operator: "eq", value: "" }])}
+                        onClick={() =>
+                          setSubQueryFilters([
+                            ...subQueryFilters,
+                            { property: "", operator: "eq", value: "" },
+                          ])
+                        }
                         className="border-white/10 text-xs px-2 h-6"
                       >
                         <Plus className="h-3 w-3 mr-1" /> Add Sub-Filter
@@ -1330,7 +1630,9 @@ export default function AnalysisConsolePage() {
                     </div>
                     <div className="space-y-2">
                       {subQueryFilters.length === 0 && (
-                        <p className="text-xs text-muted-foreground italic">No subquery filters added yet.</p>
+                        <p className="text-xs text-muted-foreground italic">
+                          No subquery filters added yet.
+                        </p>
                       )}
                       {subQueryFilters.map((f, idx) => (
                         <FilterRow
@@ -1350,7 +1652,11 @@ export default function AnalysisConsolePage() {
                     {sourceType !== subQuerySourceType && (
                       <div className="flex items-center gap-2 p-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-xs rounded">
                         <AlertCircle className="h-4 w-4 shrink-0" />
-                        <span>Warning: Operations between different datasets ({sourceType} × {subQuerySourceType}) might produce misaligned schema shapes.</span>
+                        <span>
+                          Warning: Operations between different datasets (
+                          {sourceType} × {subQuerySourceType}) might produce
+                          misaligned schema shapes.
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1361,11 +1667,18 @@ export default function AnalysisConsolePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/5 pt-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">Order By</span>
+                    <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">
+                      Order By
+                    </span>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setSortInstructions([...sortInstructions, { property: "", direction: "asc" }])}
+                      onClick={() =>
+                        setSortInstructions([
+                          ...sortInstructions,
+                          { property: "", direction: "asc" },
+                        ])
+                      }
                       className="border-white/10 text-xs px-2.5 h-7"
                     >
                       <Plus className="h-3.5 w-3.5 mr-1" /> Add Order
@@ -1384,13 +1697,17 @@ export default function AnalysisConsolePage() {
                           className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white flex-1"
                         >
                           <option value="">-- select property --</option>
-                          {currentFields.map(field => (
+                          {currentFields.map((field) => (
                             <option key={field.name} value={field.name}>
-                              {useFriendlyNames ? (field.label || field.name) : field.name}
+                              {useFriendlyNames
+                                ? field.label || field.name
+                                : field.name}
                             </option>
                           ))}
-                          {aggregations.map(agg => (
-                            <option key={agg.alias} value={agg.alias}>{agg.alias} (aggregated)</option>
+                          {aggregations.map((agg) => (
+                            <option key={agg.alias} value={agg.alias}>
+                              {agg.alias} (aggregated)
+                            </option>
                           ))}
                         </select>
 
@@ -1409,7 +1726,11 @@ export default function AnalysisConsolePage() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={() => setSortInstructions(sortInstructions.filter((_, i) => i !== idx))}
+                          onClick={() =>
+                            setSortInstructions(
+                              sortInstructions.filter((_, i) => i !== idx),
+                            )
+                          }
                           className="text-red-400 hover:text-red-300"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1420,19 +1741,23 @@ export default function AnalysisConsolePage() {
                 </div>
 
                 <div className="space-y-3">
-                  <span className="text-xs font-medium text-slate-300 uppercase tracking-wider block">Limit</span>
+                  <span className="text-xs font-medium text-slate-300 uppercase tracking-wider block">
+                    Limit
+                  </span>
                   <input
                     type="number"
                     value={limit}
                     placeholder="None (Return all records)"
-                    onChange={(e) => setLimit(e.target.value ? Number(e.target.value) : "")}
+                    onChange={(e) =>
+                      setLimit(e.target.value ? Number(e.target.value) : "")
+                    }
                     className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
                   />
                 </div>
               </div>
 
               <div className="flex justify-end gap-3 border-t border-white/5 pt-4">
-                <Button 
+                <Button
                   onClick={handleRunQuery}
                   className="bg-blue-600 hover:bg-blue-500 text-white gap-2 w-full sm:w-auto font-bold"
                 >
@@ -1488,7 +1813,9 @@ export default function AnalysisConsolePage() {
                               key={type}
                               onClick={() => setChartTypeSelection(type as any)}
                               className={`px-2 py-0.5 rounded font-medium uppercase transition-colors ${
-                                chartTypeSelection === type ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                                chartTypeSelection === type
+                                  ? "bg-background text-foreground shadow-sm"
+                                  : "text-muted-foreground"
                               }`}
                             >
                               {type}
@@ -1501,22 +1828,47 @@ export default function AnalysisConsolePage() {
                           <ResponsiveContainer width="100%" height="100%">
                             {resolvedChartType === "line" ? (
                               <LineChart data={chartData.data}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                                <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={10} tickLine={false} />
-                                <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
-                                <Tooltip 
-                                  contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }} 
+                                <CartesianGrid
+                                  strokeDasharray="3 3"
+                                  stroke="rgba(255,255,255,0.05)"
+                                />
+                                <XAxis
+                                  dataKey={chartData.xAxisKey}
+                                  stroke="#94a3b8"
+                                  fontSize={10}
+                                  tickLine={false}
+                                />
+                                <YAxis
+                                  stroke="#94a3b8"
+                                  fontSize={10}
+                                  tickLine={false}
+                                />
+                                <Tooltip
+                                  contentStyle={{
+                                    background: "#18181b",
+                                    border: "1px solid rgba(255,255,255,0.1)",
+                                    borderRadius: "6px",
+                                  }}
                                   labelClassName="text-slate-400 font-bold text-xs"
                                 />
                                 <Legend wrapperStyle={{ fontSize: 10 }} />
                                 {chartData.keys.map((key, i) => {
-                                  const colors = ["#3b82f6", "#e11d48", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+                                  const colors = [
+                                    "#3b82f6",
+                                    "#e11d48",
+                                    "#10b981",
+                                    "#f59e0b",
+                                    "#8b5cf6",
+                                    "#ec4899",
+                                    "#14b8a6",
+                                    "#f97316",
+                                  ];
                                   return (
-                                    <Line 
-                                      key={key} 
+                                    <Line
+                                      key={key}
                                       type="monotone"
-                                      dataKey={key} 
-                                      stroke={colors[i % colors.length]} 
+                                      dataKey={key}
+                                      stroke={colors[i % colors.length]}
                                       strokeWidth={2}
                                       dot={{ r: 3 }}
                                     />
@@ -1525,8 +1877,12 @@ export default function AnalysisConsolePage() {
                               </LineChart>
                             ) : resolvedChartType === "pie" ? (
                               <PieChart>
-                                <Tooltip 
-                                  contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }} 
+                                <Tooltip
+                                  contentStyle={{
+                                    background: "#18181b",
+                                    border: "1px solid rgba(255,255,255,0.1)",
+                                    borderRadius: "6px",
+                                  }}
                                   labelClassName="text-slate-400 font-bold text-xs"
                                 />
                                 <Legend wrapperStyle={{ fontSize: 10 }} />
@@ -1542,29 +1898,68 @@ export default function AnalysisConsolePage() {
                                   label={{ fontSize: 10, fill: "#94a3b8" }}
                                 >
                                   {chartData.pieData.map((entry, idx) => {
-                                    const colors = ["#3b82f6", "#e11d48", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
-                                    return <Cell key={`cell-${idx}`} fill={colors[idx % colors.length]} />;
+                                    const colors = [
+                                      "#3b82f6",
+                                      "#e11d48",
+                                      "#10b981",
+                                      "#f59e0b",
+                                      "#8b5cf6",
+                                      "#ec4899",
+                                      "#14b8a6",
+                                      "#f97316",
+                                    ];
+                                    return (
+                                      <Cell
+                                        key={`cell-${idx}`}
+                                        fill={colors[idx % colors.length]}
+                                      />
+                                    );
                                   })}
                                 </Pie>
                               </PieChart>
                             ) : (
                               <BarChart data={chartData.data}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                                <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={10} tickLine={false} />
-                                <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
-                                <Tooltip 
-                                  contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }} 
+                                <CartesianGrid
+                                  strokeDasharray="3 3"
+                                  stroke="rgba(255,255,255,0.05)"
+                                />
+                                <XAxis
+                                  dataKey={chartData.xAxisKey}
+                                  stroke="#94a3b8"
+                                  fontSize={10}
+                                  tickLine={false}
+                                />
+                                <YAxis
+                                  stroke="#94a3b8"
+                                  fontSize={10}
+                                  tickLine={false}
+                                />
+                                <Tooltip
+                                  contentStyle={{
+                                    background: "#18181b",
+                                    border: "1px solid rgba(255,255,255,0.1)",
+                                    borderRadius: "6px",
+                                  }}
                                   labelClassName="text-slate-400 font-bold text-xs"
                                 />
                                 <Legend wrapperStyle={{ fontSize: 10 }} />
                                 {chartData.keys.map((key, i) => {
-                                  const colors = ["#3b82f6", "#e11d48", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+                                  const colors = [
+                                    "#3b82f6",
+                                    "#e11d48",
+                                    "#10b981",
+                                    "#f59e0b",
+                                    "#8b5cf6",
+                                    "#ec4899",
+                                    "#14b8a6",
+                                    "#f97316",
+                                  ];
                                   return (
-                                    <Bar 
-                                      key={key} 
-                                      dataKey={key} 
-                                      fill={colors[i % colors.length]} 
-                                      radius={[4, 4, 0, 0]} 
+                                    <Bar
+                                      key={key}
+                                      dataKey={key}
+                                      fill={colors[i % colors.length]}
+                                      radius={[4, 4, 0, 0]}
                                     />
                                   );
                                 })}
@@ -1592,13 +1987,25 @@ export default function AnalysisConsolePage() {
                           const headers = Object.keys(results[0]);
                           csvRows.push(headers.join(","));
                           for (const row of results) {
-                            csvRows.push(headers.map(h => `"${String(row[h] ?? "").replace(/"/g, '""')}"`).join(","));
+                            csvRows.push(
+                              headers
+                                .map(
+                                  (h) =>
+                                    `"${String(row[h] ?? "").replace(/"/g, '""')}"`,
+                                )
+                                .join(","),
+                            );
                           }
-                          const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+                          const blob = new Blob([csvRows.join("\n")], {
+                            type: "text/csv",
+                          });
                           const url = window.URL.createObjectURL(blob);
                           const a = document.createElement("a");
                           a.setAttribute("href", url);
-                          a.setAttribute("download", `query_export_${Date.now()}.csv`);
+                          a.setAttribute(
+                            "download",
+                            `query_export_${Date.now()}.csv`,
+                          );
                           a.click();
                         }}
                         className="border-white/10 text-xs gap-1.5"
@@ -1612,7 +2019,9 @@ export default function AnalysisConsolePage() {
                         <thead className="bg-white/[0.02] text-muted-foreground font-semibold">
                           <tr>
                             {Object.keys(results[0]).map((key) => {
-                              const fieldLabel = currentFields.find(cf => cf.name === key)?.label || key;
+                              const fieldLabel =
+                                currentFields.find((cf) => cf.name === key)
+                                  ?.label || key;
                               return (
                                 <th key={key} className="px-4 py-2.5">
                                   {useFriendlyNames ? fieldLabel : key}
@@ -1625,8 +2034,13 @@ export default function AnalysisConsolePage() {
                           {results.slice(0, 100).map((row, rIdx) => (
                             <tr key={rIdx} className="hover:bg-white/[0.02]">
                               {Object.keys(row).map((key, cIdx) => (
-                                <td key={cIdx} className="px-4 py-2 max-w-[250px] truncate">
-                                  {typeof row[key] === "object" ? JSON.stringify(row[key]) : String(row[key])}
+                                <td
+                                  key={cIdx}
+                                  className="px-4 py-2 max-w-[250px] truncate"
+                                >
+                                  {typeof row[key] === "object"
+                                    ? JSON.stringify(row[key])
+                                    : String(row[key])}
                                 </td>
                               ))}
                             </tr>
@@ -1635,7 +2049,8 @@ export default function AnalysisConsolePage() {
                       </table>
                       {results.length > 100 && (
                         <div className="p-3 text-center text-xs text-muted-foreground border-t border-white/5">
-                          Showing first 100 records only. Export to CSV to view full dataset.
+                          Showing first 100 records only. Export to CSV to view
+                          full dataset.
                         </div>
                       )}
                     </CardContent>
@@ -1647,53 +2062,61 @@ export default function AnalysisConsolePage() {
                   <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
                     <CardContent className="p-4 grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Rows Dimension</label>
+                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">
+                          Rows Dimension
+                        </label>
                         <select
                           value={pivotRowKey}
                           onChange={(e) => setPivotRowKey(e.target.value)}
                           className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
                         >
-                          {currentFields.map(f => (
+                          {currentFields.map((f) => (
                             <option key={f.name} value={f.name}>
-                              {useFriendlyNames ? (f.label || f.name) : f.name}
+                              {useFriendlyNames ? f.label || f.name : f.name}
                             </option>
                           ))}
                         </select>
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Columns Dimension</label>
+                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">
+                          Columns Dimension
+                        </label>
                         <select
                           value={pivotColKey}
                           onChange={(e) => setPivotColKey(e.target.value)}
                           className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
                         >
-                          {currentFields.map(f => (
+                          {currentFields.map((f) => (
                             <option key={f.name} value={f.name}>
-                              {useFriendlyNames ? (f.label || f.name) : f.name}
+                              {useFriendlyNames ? f.label || f.name : f.name}
                             </option>
                           ))}
                         </select>
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Aggregated Value</label>
+                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">
+                          Aggregated Value
+                        </label>
                         <select
                           value={pivotValueKey}
                           onChange={(e) => setPivotValueKey(e.target.value)}
                           className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
                         >
                           <option value="*">Row Count (*)</option>
-                          {currentFields.map(f => (
+                          {currentFields.map((f) => (
                             <option key={f.name} value={f.name}>
-                              {useFriendlyNames ? (f.label || f.name) : f.name}
+                              {useFriendlyNames ? f.label || f.name : f.name}
                             </option>
                           ))}
                         </select>
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Aggregation Function</label>
+                        <label className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">
+                          Aggregation Function
+                        </label>
                         <select
                           value={pivotAggType}
                           onChange={(e: any) => setPivotAggType(e.target.value)}
@@ -1710,7 +2133,9 @@ export default function AnalysisConsolePage() {
                           <input
                             type="checkbox"
                             checked={enablePivotHeatmap}
-                            onChange={(e) => setEnablePivotHeatmap(e.target.checked)}
+                            onChange={(e) =>
+                              setEnablePivotHeatmap(e.target.checked)
+                            }
                             className="rounded border-white/10 bg-zinc-950 text-pink-500 focus:ring-0 h-4 w-4"
                           />
                           <span>Heatmap Grid Overlay</span>
@@ -1724,23 +2149,48 @@ export default function AnalysisConsolePage() {
                     <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                          Pivoted Stacked Chart (Row: {pivotRowKey} × Col: {pivotColKey})
+                          Pivoted Stacked Chart (Row: {pivotRowKey} × Col:{" "}
+                          {pivotColKey})
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="h-[300px] w-full mt-4">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={pivotResults.pivotedData}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                              <XAxis dataKey={pivotRowKey} stroke="#94a3b8" fontSize={10} tickLine={false} />
-                              <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
-                              <Tooltip 
-                                contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }}
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="rgba(255,255,255,0.05)"
+                              />
+                              <XAxis
+                                dataKey={pivotRowKey}
+                                stroke="#94a3b8"
+                                fontSize={10}
+                                tickLine={false}
+                              />
+                              <YAxis
+                                stroke="#94a3b8"
+                                fontSize={10}
+                                tickLine={false}
+                              />
+                              <Tooltip
+                                contentStyle={{
+                                  background: "#18181b",
+                                  border: "1px solid rgba(255,255,255,0.1)",
+                                  borderRadius: "6px",
+                                }}
                                 labelClassName="text-slate-400 font-bold text-xs"
                               />
                               <Legend wrapperStyle={{ fontSize: 10 }} />
                               {pivotResults.columns.map((col, idx) => {
-                                const colors = ["#3b82f6", "#e11d48", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"];
+                                const colors = [
+                                  "#3b82f6",
+                                  "#e11d48",
+                                  "#10b981",
+                                  "#f59e0b",
+                                  "#8b5cf6",
+                                  "#ec4899",
+                                  "#14b8a6",
+                                ];
                                 return (
                                   <Bar
                                     key={col}
@@ -1759,78 +2209,93 @@ export default function AnalysisConsolePage() {
                   )}
 
                   {/* Pivot Grid Table */}
-                  {pivotResults && (() => {
-                    // Extract min/max values for heatmap overlay
-                    let minVal = Infinity;
-                    let maxVal = -Infinity;
-                    for (const row of pivotResults.pivotedData) {
-                      for (const col of pivotResults.columns) {
-                        const val = Number(row[col]);
-                        if (!isNaN(val)) {
-                          if (val < minVal) minVal = val;
-                          if (val > maxVal) maxVal = val;
+                  {pivotResults &&
+                    (() => {
+                      // Extract min/max values for heatmap overlay
+                      let minVal = Infinity;
+                      let maxVal = -Infinity;
+                      for (const row of pivotResults.pivotedData) {
+                        for (const col of pivotResults.columns) {
+                          const val = Number(row[col]);
+                          if (!isNaN(val)) {
+                            if (val < minVal) minVal = val;
+                            if (val > maxVal) maxVal = val;
+                          }
                         }
                       }
-                    }
-                    if (minVal === Infinity) minVal = 0;
-                    if (maxVal === -Infinity) maxVal = 0;
+                      if (minVal === Infinity) minVal = 0;
+                      if (maxVal === -Infinity) maxVal = 0;
 
-                    const getHeatmapBg = (cellVal: any) => {
-                      if (!enablePivotHeatmap) return undefined;
-                      const val = Number(cellVal);
-                      if (isNaN(val) || maxVal === minVal) return undefined;
-                      const intensity = (val - minVal) / (maxVal - minVal || 1);
-                      const isBreach = pivotValueKey.toLowerCase().includes("breach");
-                      const rgb = isBreach ? `225, 29, 72` : `59, 130, 246`;
-                      return `rgba(${rgb}, ${intensity * 0.4})`;
-                    };
+                      const getHeatmapBg = (cellVal: any) => {
+                        if (!enablePivotHeatmap) return undefined;
+                        const val = Number(cellVal);
+                        if (isNaN(val) || maxVal === minVal) return undefined;
+                        const intensity =
+                          (val - minVal) / (maxVal - minVal || 1);
+                        const isBreach = pivotValueKey
+                          .toLowerCase()
+                          .includes("breach");
+                        const rgb = isBreach ? `225, 29, 72` : `59, 130, 246`;
+                        return `rgba(${rgb}, ${intensity * 0.4})`;
+                      };
 
-                    const rowLabel = currentFields.find(cf => cf.name === pivotRowKey)?.label || pivotRowKey;
+                      const rowLabel =
+                        currentFields.find((cf) => cf.name === pivotRowKey)
+                          ?.label || pivotRowKey;
 
-                    return (
-                      <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
-                        <CardHeader>
-                          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                            Pivot Matrix Data Grid
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0 overflow-x-auto">
-                          <table className="min-w-full divide-y divide-white/5 text-xs text-left">
-                            <thead className="bg-white/[0.02] text-muted-foreground font-semibold">
-                              <tr>
-                                <th className="px-4 py-2.5 uppercase tracking-wider text-blue-400">
-                                  {useFriendlyNames ? rowLabel : pivotRowKey}
-                                </th>
-                                {pivotResults.columns.map(col => (
-                                  <th key={col} className="px-4 py-2.5">{col}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5 font-mono text-slate-300">
-                              {pivotResults.pivotedData.map((row, idx) => (
-                                <tr key={idx} className="hover:bg-white/[0.02]">
-                                  <td className="px-4 py-2 font-semibold text-white">{row[pivotRowKey]}</td>
-                                  {pivotResults.columns.map(col => {
-                                    const cellVal = row[col];
-                                    const bgStyle = getHeatmapBg(cellVal);
-                                    return (
-                                      <td 
-                                        key={col} 
-                                        className="px-4 py-2 transition-colors duration-200" 
-                                        style={{ backgroundColor: bgStyle }}
-                                      >
-                                        {cellVal !== undefined ? cellVal : "-"}
-                                      </td>
-                                    );
-                                  })}
+                      return (
+                        <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
+                          <CardHeader>
+                            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                              Pivot Matrix Data Grid
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-0 overflow-x-auto">
+                            <table className="min-w-full divide-y divide-white/5 text-xs text-left">
+                              <thead className="bg-white/[0.02] text-muted-foreground font-semibold">
+                                <tr>
+                                  <th className="px-4 py-2.5 uppercase tracking-wider text-blue-400">
+                                    {useFriendlyNames ? rowLabel : pivotRowKey}
+                                  </th>
+                                  {pivotResults.columns.map((col) => (
+                                    <th key={col} className="px-4 py-2.5">
+                                      {col}
+                                    </th>
+                                  ))}
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </CardContent>
-                      </Card>
-                    );
-                  })()}
+                              </thead>
+                              <tbody className="divide-y divide-white/5 font-mono text-slate-300">
+                                {pivotResults.pivotedData.map((row, idx) => (
+                                  <tr
+                                    key={idx}
+                                    className="hover:bg-white/[0.02]"
+                                  >
+                                    <td className="px-4 py-2 font-semibold text-white">
+                                      {row[pivotRowKey]}
+                                    </td>
+                                    {pivotResults.columns.map((col) => {
+                                      const cellVal = row[col];
+                                      const bgStyle = getHeatmapBg(cellVal);
+                                      return (
+                                        <td
+                                          key={col}
+                                          className="px-4 py-2 transition-colors duration-200"
+                                          style={{ backgroundColor: bgStyle }}
+                                        >
+                                          {cellVal !== undefined
+                                            ? cellVal
+                                            : "-"}
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </CardContent>
+                        </Card>
+                      );
+                    })()}
                 </div>
               )}
             </div>

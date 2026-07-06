@@ -1,4 +1,9 @@
-import { QueryDefinition, FilterCondition, Aggregation, SortInstruction } from "./client-query-engine";
+import {
+  QueryDefinition,
+  FilterCondition,
+  Aggregation,
+  SortInstruction,
+} from "./client-query-engine";
 
 function escapeString(val: string): string {
   return val.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -34,13 +39,19 @@ function compileFilterCondition(f: FilterCondition): string {
     case "not_like":
       return `df[~df[${formatValue(prop)}].astype(str).str.contains(${formatValue(val)}, case=False, na=False)]`;
     case "in_set": {
-      const items = String(val).split(",").map(s => s.trim()).filter(Boolean);
-      const pyList = `[${items.map(i => formatValue(i)).join(", ")}]`;
+      const items = String(val)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const pyList = `[${items.map((i) => formatValue(i)).join(", ")}]`;
       return `df[df[${formatValue(prop)}].isin(${pyList})]`;
     }
     case "not_in_set": {
-      const items = String(val).split(",").map(s => s.trim()).filter(Boolean);
-      const pyList = `[${items.map(i => formatValue(i)).join(", ")}]`;
+      const items = String(val)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const pyList = `[${items.map((i) => formatValue(i)).join(", ")}]`;
       return `df[~df[${formatValue(prop)}].isin(${pyList})]`;
     }
     case "between": {
@@ -60,23 +71,31 @@ function compileFilterCondition(f: FilterCondition): string {
   }
 }
 
-function compileQueryBody(query: QueryDefinition, savedQueries: any[], indent: string): string[] {
+function compileQueryBody(
+  query: QueryDefinition,
+  savedQueries: any[],
+  indent: string,
+): string[] {
   const parts: string[] = [];
 
   // Find target source
   if (query.sourceViewId) {
-    const parent = savedQueries.find(q => q.id === query.sourceViewId);
+    const parent = savedQueries.find((q) => q.id === query.sourceViewId);
     if (parent) {
       const parentNameSafe = parent.name.replace(/[^a-zA-Z0-9_]/g, "_");
       parts.push(`${indent}# Load parent view: ${parent.name}`);
       parts.push(`${indent}df = get_view_${parentNameSafe}(scans_list)`);
     } else {
-      parts.push(`${indent}# Parent view ${query.sourceViewId} not found, falling back to scans`);
+      parts.push(
+        `${indent}# Parent view ${query.sourceViewId} not found, falling back to scans`,
+      );
       parts.push(`${indent}df = pd.DataFrame(scans_list)`);
     }
   } else {
     const targetTable = query.table || "scans";
-    parts.push(`${indent}# Prepare Base DataFrame (Source Table: ${targetTable})`);
+    parts.push(
+      `${indent}# Prepare Base DataFrame (Source Table: ${targetTable})`,
+    );
     if (targetTable === "trials") {
       parts.push(`${indent}trials_rows = []`);
       parts.push(`${indent}for s in scans_list:`);
@@ -96,16 +115,23 @@ function compileQueryBody(query: QueryDefinition, savedQueries: any[], indent: s
 
   // Check if any date components are queried
   const allFieldsStr = JSON.stringify(query);
-  const referencesDateComponents = allFieldsStr.includes("createdAt_year") || 
-                                  allFieldsStr.includes("createdAt_month") || 
-                                  allFieldsStr.includes("createdAt_day");
+  const referencesDateComponents =
+    allFieldsStr.includes("createdAt_year") ||
+    allFieldsStr.includes("createdAt_month") ||
+    allFieldsStr.includes("createdAt_day");
 
   if (referencesDateComponents) {
     parts.push(`${indent}# Project Virtual Date Fields`);
     parts.push(`${indent}if "createdAt" in df.columns:`);
-    parts.push(`${indent}    df["createdAt_dt"] = pd.to_datetime(df["createdAt"])`);
-    parts.push(`${indent}    df["createdAt_year"] = df["createdAt_dt"].dt.year`);
-    parts.push(`${indent}    df["createdAt_month"] = df["createdAt_dt"].dt.month`);
+    parts.push(
+      `${indent}    df["createdAt_dt"] = pd.to_datetime(df["createdAt"])`,
+    );
+    parts.push(
+      `${indent}    df["createdAt_year"] = df["createdAt_dt"].dt.year`,
+    );
+    parts.push(
+      `${indent}    df["createdAt_month"] = df["createdAt_dt"].dt.month`,
+    );
     parts.push(`${indent}    df["createdAt_day"] = df["createdAt_dt"].dt.day`);
     parts.push("");
   }
@@ -131,19 +157,23 @@ function compileQueryBody(query: QueryDefinition, savedQueries: any[], indent: s
         const func = agg.function;
         const pyFunc = func === "count_distinct" ? "nunique" : func;
         const prop = agg.property === "*" ? "id" : agg.property;
-        aggDict.push(`${indent}    ${agg.alias || agg.property}=pd.NamedAgg(column="${prop}", aggfunc="${pyFunc}")`);
+        aggDict.push(
+          `${indent}    ${agg.alias || agg.property}=pd.NamedAgg(column="${prop}", aggfunc="${pyFunc}")`,
+        );
       }
     } else {
-      aggDict.push(`${indent}    count=pd.NamedAgg(column="id", aggfunc="size")`);
+      aggDict.push(
+        `${indent}    count=pd.NamedAgg(column="id", aggfunc="size")`,
+      );
     }
-    const groupKeys = query.group_by.map(g => `"${g}"`).join(", ");
+    const groupKeys = query.group_by.map((g) => `"${g}"`).join(", ");
     parts.push(`${indent}df = df.groupby([${groupKeys}]).agg(`);
     parts.push(aggDict.join(",\n"));
     parts.push(`${indent}).reset_index()`);
     parts.push("");
   } else if (query.projections && query.projections.length > 0) {
     parts.push(`${indent}# SELECT Projected Columns`);
-    const projKeys = query.projections.map(p => `"${p}"`).join(", ");
+    const projKeys = query.projections.map((p) => `"${p}"`).join(", ");
     parts.push(`${indent}df = df[[${projKeys}]]`);
     parts.push("");
   }
@@ -151,9 +181,13 @@ function compileQueryBody(query: QueryDefinition, savedQueries: any[], indent: s
   // Sort
   if (query.sort && query.sort.length > 0) {
     parts.push(`${indent}# ORDER BY Sorting instructions`);
-    const sortKeys = query.sort.map(s => `"${s.property}"`).join(", ");
-    const ascendingKeys = query.sort.map(s => s.direction === "asc" ? "True" : "False").join(", ");
-    parts.push(`${indent}df = df.sort_values(by=[${sortKeys}], ascending=[${ascendingKeys}])`);
+    const sortKeys = query.sort.map((s) => `"${s.property}"`).join(", ");
+    const ascendingKeys = query.sort
+      .map((s) => (s.direction === "asc" ? "True" : "False"))
+      .join(", ");
+    parts.push(
+      `${indent}df = df.sort_values(by=[${sortKeys}], ascending=[${ascendingKeys}])`,
+    );
     parts.push("");
   }
 
@@ -167,22 +201,31 @@ function compileQueryBody(query: QueryDefinition, savedQueries: any[], indent: s
   return parts;
 }
 
-function gatherAncestorViews(viewId: string, savedQueries: any[], visited = new Set<string>()): any[] {
+function gatherAncestorViews(
+  viewId: string,
+  savedQueries: any[],
+  visited = new Set<string>(),
+): any[] {
   if (visited.has(viewId)) return [];
   visited.add(viewId);
 
-  const parent = savedQueries.find(q => q.id === viewId);
+  const parent = savedQueries.find((q) => q.id === viewId);
   if (!parent) return [];
 
   const ancestors: any[] = [];
   if (parent.query.sourceViewId) {
-    ancestors.push(...gatherAncestorViews(parent.query.sourceViewId, savedQueries, visited));
+    ancestors.push(
+      ...gatherAncestorViews(parent.query.sourceViewId, savedQueries, visited),
+    );
   }
   ancestors.push(parent);
   return ancestors;
 }
 
-export function translateQueryToPython(query: QueryDefinition, savedQueries: any[] = []): string {
+export function translateQueryToPython(
+  query: QueryDefinition,
+  savedQueries: any[] = [],
+): string {
   const parts: string[] = [];
 
   parts.push("#!/usr/bin/env python3");
@@ -203,16 +246,22 @@ export function translateQueryToPython(query: QueryDefinition, savedQueries: any
   parts.push("                if line.strip():");
   parts.push("                    scans.append(json.loads(line))");
   parts.push("    except FileNotFoundError:");
-  parts.push('        print(f"File not found: {filepath}. Please supply a valid backup file.")');
+  parts.push(
+    '        print(f"File not found: {filepath}. Please supply a valid backup file.")',
+  );
   parts.push("    return scans");
   parts.push("");
-  parts.push('# Replace with your local backup file path (e.g. download via "Export Local DB" button)');
+  parts.push(
+    '# Replace with your local backup file path (e.g. download via "Export Local DB" button)',
+  );
   parts.push('FILENAME = "scans_export.jsonl"');
   parts.push("scans_list = load_scans_data(FILENAME)");
   parts.push("");
 
   // Recursively compile parent views if referenced
-  const ancestors = query.sourceViewId ? gatherAncestorViews(query.sourceViewId, savedQueries) : [];
+  const ancestors = query.sourceViewId
+    ? gatherAncestorViews(query.sourceViewId, savedQueries)
+    : [];
   if (ancestors.length > 0) {
     parts.push("# --- Recursive Parent View Helper Functions ---");
     for (const parent of ancestors) {
