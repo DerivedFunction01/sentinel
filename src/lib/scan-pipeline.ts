@@ -1715,6 +1715,83 @@ export async function runSingleScanPipeline(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Shared attack-set cache
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Module-level promise cache scoped by prompt/model parameters.
+ * Guarantees that even when multiple background workers are launched
+ * for the same prompt, only one `generateAttackSet` call runs and every
+ * caller shares the identical attack texts.
+ */
+const promptAttackSetCache = new Map<
+  string,
+  Promise<Awaited<ReturnType<typeof generateAttackSet>>>
+>();
+
+export function clearAttackSetCache(): void {
+  promptAttackSetCache.clear();
+}
+
+function getAttackSetCacheKey(options: {
+  systemPrompt: string;
+  forbiddenTask: string;
+  judgeInstructions: string;
+  tools: ToolDef[];
+  mockToolResponses: Record<string, unknown>;
+  attackerModel: string;
+  seedExtractorModel: string;
+  extractorModel: string;
+  cachedSeedInfo?: SeedInfo | null;
+}): string {
+  const {
+    systemPrompt,
+    forbiddenTask,
+    judgeInstructions,
+    tools,
+    mockToolResponses,
+    attackerModel,
+    seedExtractorModel,
+    extractorModel,
+    cachedSeedInfo,
+  } = options;
+  return [
+    systemPrompt,
+    forbiddenTask,
+    judgeInstructions,
+    JSON.stringify(tools),
+    JSON.stringify(mockToolResponses),
+    attackerModel,
+    seedExtractorModel,
+    extractorModel,
+    cachedSeedInfo ? "cached" : "fresh",
+  ].join("||");
+}
+
+export async function getOrGenerateAttackSet(
+  options: {
+    systemPrompt: string;
+    forbiddenTask: string;
+    judgeInstructions: string;
+    tools: ToolDef[];
+    mockToolResponses: Record<string, unknown>;
+    attackerModel: string;
+    seedExtractorModel: string;
+    extractorModel: string;
+    cachedSeedInfo?: SeedInfo;
+  },
+  tracker?: UsageTracker,
+): Promise<Awaited<ReturnType<typeof generateAttackSet>>> {
+  const key = getAttackSetCacheKey(options);
+  const cached = promptAttackSetCache.get(key);
+  if (cached) return cached;
+
+  const promise = generateAttackSet(options, tracker);
+  promptAttackSetCache.set(key, promise);
+  return promise;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Background pipeline with integrated attack generation
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -1754,8 +1831,6 @@ export async function runSingleScanPipelineWithGeneration(
   let seedInfo: SeedInfo;
   try {
     const { systemPrompt, forbiddenTask, tools, mockToolResponses } = options;
-    const toolsJson = JSON.stringify(tools);
-    const mockJson = JSON.stringify(mockToolResponses);
 
     let coreSystemPrompt = systemPrompt;
     try {
@@ -1765,7 +1840,7 @@ export async function runSingleScanPipelineWithGeneration(
         tracker,
       );
     } catch {
-      // Non-fatal — fall back to original
+      // Non-fatal - fall back to original
     }
 
     if (options.cachedSeedInfo) {
@@ -1780,8 +1855,8 @@ export async function runSingleScanPipelineWithGeneration(
           extracted = await extractSeedInfo(
             options.seedExtractorModel,
             systemPrompt,
-            toolsJson,
-            mockJson,
+            JSON.stringify(tools),
+            JSON.stringify(mockToolResponses),
             forbiddenTask,
             tracker,
             coreSystemPrompt,
@@ -1825,7 +1900,6 @@ export async function runSingleScanPipelineWithGeneration(
     return;
   }
 
-  // ── Phase 1: Build attack layout list ─────────────────────────────────────
   const thingsToUse = [...(seedInfo.things || [])];
   if (thingsToUse.length === 0) {
     await db.scan.update({
@@ -1838,92 +1912,24 @@ export async function runSingleScanPipelineWithGeneration(
     return;
   }
 
-  const totalTargetCount = patterns.length * 3;
-  const countPerThing = Math.max(
-    patterns.length,
-    Math.ceil(totalTargetCount / thingsToUse.length),
+  // Use a shared attack-set cache so every target for the same prompt
+  // gets the exact same adversarial prompts.
+  const attackSet = await getOrGenerateAttackSet(
+    {
+      systemPrompt: options.systemPrompt,
+      forbiddenTask: options.forbiddenTask,
+      judgeInstructions: options.judgeInstructions,
+      tools: options.tools,
+      mockToolResponses: options.mockToolResponses,
+      attackerModel: options.attackerModel,
+      seedExtractorModel: options.seedExtractorModel,
+      extractorModel: options.extractorModel,
+      cachedSeedInfo: options.cachedSeedInfo,
+    },
+    tracker,
   );
 
-  interface PendingLayout {
-    layout: any;
-    thing: (typeof thingsToUse)[0];
-    credCtx: { credential: string; instruction: CredentialMode } | undefined;
-    thingSeedInfo: any;
-    concreteScenario: string | undefined;
-  }
-
-  const pendingLayouts: PendingLayout[] = [];
-  for (const thing of thingsToUse) {
-    const attackLayouts = generateAttacks(
-      thing.thingName,
-      thing.thingDescription,
-      countPerThing,
-      thing.thingNameVariants,
-      thing.thingDescriptionVariants,
-    );
-
-    const concreteScenarioIndices = new Set<number>();
-    const numConcrete = Math.ceil(attackLayouts.length / 2);
-    while (concreteScenarioIndices.size < numConcrete) {
-      concreteScenarioIndices.add(
-        Math.floor(Math.random() * attackLayouts.length),
-      );
-    }
-
-    for (let idx = 0; idx < attackLayouts.length; idx++) {
-      const layout = attackLayouts[idx];
-      const hasCredentials = thing.credentials.length > 0;
-      let credCtx:
-        | { credential: string; instruction: CredentialMode }
-        | undefined;
-      if (hasCredentials) {
-        const isVerificationCheck =
-          layout.strategy === FramingStrategy.InsiderVerification;
-        if (isVerificationCheck || Math.random() < 0.5) {
-          const instruction = isVerificationCheck
-            ? CredentialMode.EXACT
-            : Math.random() < 0.5
-              ? CredentialMode.EXACT
-              : CredentialMode.FICTIONAL;
-          const credential =
-            thing.credentials[
-              Math.floor(Math.random() * thing.credentials.length)
-            ];
-          credCtx = { credential, instruction };
-        }
-      }
-
-      const thingSeedInfo: any = {
-        ...seedInfo,
-        things: [thing],
-        thingName: thing.thingName,
-        thingDescription: thing.thingDescription,
-        thingNameVariants: thing.thingNameVariants,
-        thingDescriptionVariants: thing.thingDescriptionVariants,
-        credentials: thing.credentials,
-        businessScenarios: thing.businessScenarios,
-      };
-
-      const scenarioPool = thing.concreteScenarios?.length
-        ? thing.concreteScenarios
-        : thing.businessScenarios;
-      const concreteScenario = concreteScenarioIndices.has(idx)
-        ? scenarioPool?.length
-          ? scenarioPool[Math.floor(Math.random() * scenarioPool.length)]
-          : undefined
-        : undefined;
-
-      pendingLayouts.push({
-        layout,
-        thing,
-        credCtx,
-        thingSeedInfo,
-        concreteScenario,
-      });
-    }
-  }
-
-  const attackCount = pendingLayouts.length;
+  const attackCount = attackSet.attacks.length;
 
   // Initialise full progressMeta now that we know the attack count
   const meta: ProgressMeta = {
@@ -1947,59 +1953,13 @@ export async function runSingleScanPipelineWithGeneration(
   });
   await writeProgressMeta(reportId, meta);
 
-  // ── Phase 2: Generate attacks in PARALLEL, then flush progressMeta ─────────────
-  const attacks: AttackEntry[] = [];
-  const attackPromises = pendingLayouts.map(
-    async ({ layout, thing, credCtx, thingSeedInfo, concreteScenario }, i) => {
-      const pattern =
-        patterns.find((p) => p.patternId === layout.patternId) || patterns[0];
-      let attackText: string;
-      try {
-        attackText = await generateCohesiveAttack(
-          options.attackerModel,
-          pattern,
-          thingSeedInfo,
-          credCtx?.instruction,
-          tracker,
-          concreteScenario,
-        );
-      } catch (err: any) {
-        const draftParts = renderAttack(
-          pattern,
-          thing.thingName,
-          thing.thingDescription,
-        );
-        attackText = Array.isArray(draftParts)
-          ? draftParts.join(" ")
-          : draftParts;
-      }
-      return { pattern, layout, attackText, thing, credCtx, idx: i };
-    },
-  );
-
-  const attackResults = await Promise.all(attackPromises);
-  for (const {
-    pattern,
-    layout,
-    attackText,
-    thing,
-    credCtx,
-    idx,
-  } of attackResults) {
-    meta.attacks[idx] = {
+  // Mark attacks as completed (they were generated by the shared generator)
+  for (let i = 0; i < attackCount; i++) {
+    meta.attacks[i] = {
       status: ProgressStepStatus.Completed,
       retries: 0,
-      text: attackText,
+      text: attackSet.attacks[i].attackText,
     };
-    attacks.push({
-      patternId: layout.patternId,
-      attackDescription: layout.attackDescription,
-      entropyLabel: layout.entropyLabel,
-      framingLabel: layout.framingLabel,
-      attackText,
-      targetForbiddenTask: thing.forbiddenTask,
-      credentialContext: credCtx,
-    });
   }
   await writeProgressMeta(reportId, meta);
 
@@ -2009,8 +1969,6 @@ export async function runSingleScanPipelineWithGeneration(
     data: { currentStep: attackCount },
   });
 
-  // ── Phase 3+: Hand off to target/judge pipeline ───────────────────────────
-  const attackSet: AttackSet = { seedInfo, attacks };
   await runSingleScanPipeline(
     options,
     reportId,
