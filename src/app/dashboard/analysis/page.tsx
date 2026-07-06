@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { RefreshCw, Database, BookOpen, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +58,27 @@ function AnalysisConsoleInner({
   const [pivotColKey, setPivotColKey] = useState("riskLevel");
   const [pivotValueKey, setPivotValueKey] = useState("*");
   const [pivotAggType, setPivotAggType] = useState<"count" | "sum" | "avg">("count");
+
+  // ── Available pivot fields (only columns present in the current results) ──
+  const availablePivotFields = useMemo(() => {
+    if (results.length === 0) return currentFields;
+    const resultKeys = Object.keys(results[0]);
+    return resultKeys.map((key) => {
+      const matched = currentFields.find((f) => f.name === key);
+      return matched ?? { name: key, label: key, type: "string", desc: key };
+    });
+  }, [results, currentFields]);
+
+  // Auto-reset pivot keys if they're no longer in the available fields
+  useEffect(() => {
+    if (availablePivotFields.length === 0) return;
+    const keys = availablePivotFields.map((f) => f.name);
+    const firstKey = keys[0];
+    if (!keys.includes(pivotRowKey)) setPivotRowKey(firstKey);
+    if (!keys.includes(pivotColKey)) setPivotColKey(keys[1] ?? firstKey);
+    // pivotValueKey "*" is always valid (row count)
+    if (pivotValueKey !== "*" && !keys.includes(pivotValueKey)) setPivotValueKey("*");
+  }, [availablePivotFields]);
 
   // ── Preset loader ───────────────────────────────────────────────────────
   const loadPreset = (preset: (typeof PRESETS)[0]) => {
@@ -326,7 +347,7 @@ function AnalysisConsoleInner({
                   setPivotAggType={setPivotAggType}
                   enablePivotHeatmap={enablePivotHeatmap}
                   setEnablePivotHeatmap={setEnablePivotHeatmap}
-                  currentFields={currentFields}
+                  currentFields={availablePivotFields}
                   useFriendlyNames={useFriendlyNames}
                 />
                 {pivotResults && pivotResults.pivotedData.length > 0 && (
@@ -341,7 +362,7 @@ function AnalysisConsoleInner({
                     pivotResults={pivotResults}
                     enablePivotHeatmap={enablePivotHeatmap}
                     pivotValueKey={pivotValueKey}
-                    currentFields={currentFields}
+                    currentFields={availablePivotFields}
                     pivotRowKey={pivotRowKey}
                     useFriendlyNames={useFriendlyNames}
                   />
