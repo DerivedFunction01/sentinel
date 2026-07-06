@@ -13,6 +13,7 @@ import {
   ChevronRight,
   KeyRound,
   Rocket,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -51,6 +52,11 @@ const NAV_ENTRIES: NavEntry[] = [
     href: "/dashboard/agent-deployment",
     label: "Agent Deployment",
     icon: Rocket,
+  },
+  {
+    href: "/dashboard/scan-export-format",
+    label: "Scan Export Format",
+    icon: BookOpen,
   },
   { href: "/dashboard/settings", label: "Settings & Billing", icon: Settings },
   { href: "/admin", label: "Admin Panel", icon: Shield, adminOnly: true },
