@@ -17,7 +17,8 @@ import {
   FolderHeart,
   Upload,
   ChevronRight,
-  GitBranch
+  GitBranch,
+  Terminal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +41,7 @@ import {
   saveQuery,
   deleteSavedQuery
 } from "@/lib/indexed-db";
+import { translateQueryToPython } from "@/lib/python-compiler";
 import { 
   BarChart, 
   Bar, 
@@ -57,43 +59,43 @@ import {
 } from "recharts";
 
 const SCAN_FIELDS = [
-  { name: "id", type: "string", desc: "Internal scan cuid" },
-  { name: "reportId", type: "string", desc: "Human-readable report ID" },
-  { name: "targetModel", type: "string", desc: "Tested target model name" },
-  { name: "attackerModel", type: "string", desc: "Attacker model used" },
-  { name: "forbiddenTask", type: "string", desc: "System restriction description" },
-  { name: "totalTrials", type: "number", desc: "Total runs conducted" },
-  { name: "breaches", type: "number", desc: "Count of successful breaches" },
-  { name: "defendedCount", type: "number", desc: "Count of defended trials" },
-  { name: "unknownCount", type: "number", desc: "Count of trials with unknown verdicts" },
-  { name: "breachRate", type: "number", desc: "Percentage breach rate (0-100)" },
-  { name: "score", type: "number", desc: "Safety score (100 - breachRate)" },
-  { name: "riskLevel", type: "string", desc: "LOW, MEDIUM, HIGH, or CRITICAL" },
-  { name: "status", type: "string", desc: "COMPLETED, FAILED, RUNNING" },
-  { name: "apiCost", type: "number", desc: "API cost in USD" },
-  { name: "createdAt", type: "date", desc: "Timestamp of creation" },
-  { name: "createdAt_year", type: "number", desc: "Year of creation (e.g., 2026)" },
-  { name: "createdAt_month", type: "number", desc: "Month of creation (1-12)" },
-  { name: "createdAt_day", type: "number", desc: "Day of creation (1-31)" },
-  { name: "tags", type: "string[]", desc: "List of applied tags" },
+  { name: "id", label: "Scan ID", type: "string", desc: "Internal scan identifier" },
+  { name: "reportId", label: "Report ID", type: "string", desc: "Human-readable report ID" },
+  { name: "targetModel", label: "Tested Model", type: "string", desc: "Tested target model name" },
+  { name: "attackerModel", label: "Attacker Model", type: "string", desc: "Attacker model used" },
+  { name: "forbiddenTask", label: "Forbidden Task / Policy", type: "string", desc: "System policy description" },
+  { name: "totalTrials", label: "Total Trials", type: "number", desc: "Total runs conducted" },
+  { name: "breaches", label: "Breach Count", type: "number", desc: "Count of successful breaches" },
+  { name: "defendedCount", label: "Defended Count", type: "number", desc: "Count of defended trials" },
+  { name: "unknownCount", label: "Unknown Verdicts", type: "number", desc: "Count of trials with unknown verdicts" },
+  { name: "breachRate", label: "Breach Rate (%)", type: "number", desc: "Percentage breach rate (0-100)" },
+  { name: "score", label: "Safety Score (0-100)", type: "number", desc: "Safety score (100 - breachRate)" },
+  { name: "riskLevel", label: "Safety Risk Level", type: "string", desc: "LOW, MEDIUM, HIGH, or CRITICAL" },
+  { name: "status", label: "Job Status", type: "string", desc: "COMPLETED, FAILED, RUNNING" },
+  { name: "apiCost", label: "API Spend ($)", type: "number", desc: "API cost in USD" },
+  { name: "createdAt", label: "Creation Time", type: "date", desc: "Timestamp of creation" },
+  { name: "createdAt_year", label: "Creation Year", type: "number", desc: "Year of creation (e.g., 2026)" },
+  { name: "createdAt_month", label: "Creation Month", type: "number", desc: "Month of creation (1-12)" },
+  { name: "createdAt_day", label: "Creation Day", type: "number", desc: "Day of creation (1-31)" },
+  { name: "tags", label: "Applied Tags", type: "string[]", desc: "List of applied tags" },
 ];
 
 const TRIAL_FIELDS = [
-  { name: "number", type: "number", desc: "Trial run index" },
-  { name: "verdict", type: "string", desc: "BREACHED, DEFENDED, or UNKNOWN" },
-  { name: "attack", type: "string", desc: "Adversarial payload prompt text" },
-  { name: "response", type: "string", desc: "Tested LLM response" },
-  { name: "judgeVerdict", type: "string", desc: "Reasoning from the judge" },
-  { name: "taskTag", type: "string", desc: "Category identifier slug" },
-  { name: "entropyLabel", type: "string", desc: "Attack complexity grouping" },
-  { name: "framingLabel", type: "string", desc: "Framing mechanism classification" },
-  { name: "patternId", type: "string", desc: "Attack pattern identifier" },
-  { name: "targetThing", type: "string", desc: "Variant subject name" },
-  { name: "targetModel", type: "string", desc: "Tested model (Joined)" },
-  { name: "createdAt", type: "date", desc: "Scan date (Joined)" },
-  { name: "createdAt_year", type: "number", desc: "Year of creation (e.g., 2026)" },
-  { name: "createdAt_month", type: "number", desc: "Month of creation (1-12)" },
-  { name: "createdAt_day", type: "number", desc: "Day of creation (1-31)" },
+  { name: "number", label: "Trial Run Index", type: "number", desc: "Trial run index" },
+  { name: "verdict", label: "Breach Verdict", type: "string", desc: "BREACHED, DEFENDED, or UNKNOWN" },
+  { name: "attack", label: "Adversarial Payload", type: "string", desc: "Adversarial payload prompt text" },
+  { name: "response", label: "Tested LLM Output", type: "string", desc: "Tested LLM response" },
+  { name: "judgeVerdict", label: "Judge Reasoning", type: "string", desc: "Reasoning from the judge" },
+  { name: "taskTag", label: "Task Category Tag", type: "string", desc: "Category identifier slug" },
+  { name: "entropyLabel", label: "Complexity Label", type: "string", desc: "Attack complexity grouping" },
+  { name: "framingLabel", label: "Framing Classification", type: "string", desc: "Framing mechanism classification" },
+  { name: "patternId", label: "Attack Pattern ID", type: "string", desc: "Attack pattern identifier" },
+  { name: "targetThing", label: "Target Variant Thing", type: "string", desc: "Variant subject name" },
+  { name: "targetModel", label: "Tested Model", type: "string", desc: "Tested model (Joined)" },
+  { name: "createdAt", label: "Creation Time", type: "date", desc: "Scan date (Joined)" },
+  { name: "createdAt_year", label: "Creation Year", type: "number", desc: "Year of creation (e.g., 2026)" },
+  { name: "createdAt_month", label: "Creation Month", type: "number", desc: "Month of creation (1-12)" },
+  { name: "createdAt_day", label: "Creation Day", type: "number", desc: "Day of creation (1-31)" },
 ];
 
 const OPERATORS_BY_TYPE: Record<string, { value: string; label: string }[]> = {
@@ -226,9 +228,10 @@ interface FilterRowProps {
   setCurrentFilters: (filters: FilterCondition[]) => void;
   currentFields: any[];
   getUniqueFieldValues: (property: string) => string[];
+  useFriendlyNames: boolean;
 }
 
-function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, getUniqueFieldValues }: FilterRowProps) {
+function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, getUniqueFieldValues, useFriendlyNames }: FilterRowProps) {
   const field = currentFields.find(cf => cf.name === f.property);
   const type = field ? field.type : "string";
   const isBetween = f.operator === "between" || f.operator === "not_between";
@@ -291,7 +294,9 @@ function FilterRow({ f, idx, currentFilters, setCurrentFilters, currentFields, g
       >
         <option value="">-- select property --</option>
         {currentFields.map(field => (
-          <option key={field.name} value={field.name}>{field.name}</option>
+          <option key={field.name} value={field.name}>
+            {useFriendlyNames ? (field.label || field.name) : field.name}
+          </option>
         ))}
       </select>
 
@@ -413,6 +418,7 @@ export default function AnalysisConsolePage() {
   // Chart selectors
   const [chartTypeSelection, setChartTypeSelection] = useState<"auto" | "bar" | "line" | "pie">("auto");
   const [enablePivotHeatmap, setEnablePivotHeatmap] = useState(false);
+  const [useFriendlyNames, setUseFriendlyNames] = useState(true);
 
   // Query state
   const [sourceType, setSourceType] = useState<"scans" | "trials" | "view">("scans");
@@ -581,6 +587,50 @@ export default function AnalysisConsolePage() {
       toast.success(`Query executed. Returned ${runResults.length} records.`);
     } catch (e: any) {
       toast.error(`Query Execution Error: ${e.message}`);
+    }
+  };
+
+  const handleExportPython = () => {
+    try {
+      const query: QueryDefinition = {
+        filters: filters.filter(f => f.property),
+        projections: projections.filter(p => p),
+        group_by: groupBy.filter(g => g),
+        aggregations: aggregations.filter(a => a.property && a.alias),
+        sort: sortInstructions.filter(s => s.property),
+        limit: limit ? Number(limit) : undefined
+      };
+      if (sourceType === "view") {
+        query.sourceViewId = selectedViewId;
+      } else {
+        query.table = sourceType;
+      }
+
+      if (setOp !== "none") {
+        const sub: QueryDefinition = {
+          filters: subQueryFilters.filter(f => f.property)
+        };
+        if (subQuerySourceType === "view") {
+          sub.sourceViewId = subQueryViewId;
+        } else {
+          sub.table = subQuerySourceType;
+        }
+        if (setOp === "union") query.union = sub;
+        if (setOp === "intersect") query.intersect = sub;
+        if (setOp === "except") query.except = sub;
+      }
+
+      const script = translateQueryToPython(query, savedQueries);
+      const blob = new Blob([script], { type: "text/x-python" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.setAttribute("href", url);
+      a.setAttribute("download", `pandas_pipeline_${sourceType}.py`);
+      a.click();
+      toast.success("Exported executable Python Pandas script!");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to generate Python Pandas code.");
     }
   };
 
@@ -844,7 +894,16 @@ export default function AnalysisConsolePage() {
             Query, group, aggregate, and perform set algebra on local scans. Powered by IndexedDB.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-2 cursor-pointer bg-white/5 border border-white/10 px-3 py-1.5 rounded-md text-xs text-slate-300 select-none hover:bg-white/10 transition-colors">
+            <input
+              type="checkbox"
+              checked={useFriendlyNames}
+              onChange={(e) => setUseFriendlyNames(e.target.checked)}
+              className="rounded border-white/10 bg-zinc-950 text-blue-500 focus:ring-0 h-4 w-4"
+            />
+            <span>Friendly UI Labels</span>
+          </label>
           <Badge variant="outline" className="px-3 py-1 bg-white/5 border-white/10 text-white gap-1">
             <Database className="h-3 w-3 text-blue-400" />
             {scans.length} Scans Cached
@@ -919,7 +978,10 @@ export default function AnalysisConsolePage() {
                   {SCAN_FIELDS.map(f => (
                     <div key={f.name} className="text-xs">
                       <div className="flex items-center justify-between font-mono text-[10px]">
-                        <span className="text-slate-200 font-semibold">{f.name}</span>
+                        <span className="text-slate-200 font-semibold">
+                          {useFriendlyNames ? (f.label || f.name) : f.name}
+                          {useFriendlyNames && <span className="text-muted-foreground text-[9px] font-normal font-sans ml-1">({f.name})</span>}
+                        </span>
                         <span className="text-slate-400 italic">({f.type})</span>
                       </div>
                       <p className="text-[10px] text-muted-foreground">{f.desc}</p>
@@ -933,7 +995,10 @@ export default function AnalysisConsolePage() {
                   {TRIAL_FIELDS.map(f => (
                     <div key={f.name} className="text-xs">
                       <div className="flex items-center justify-between font-mono text-[10px]">
-                        <span className="text-slate-200 font-semibold">{f.name}</span>
+                        <span className="text-slate-200 font-semibold">
+                          {useFriendlyNames ? (f.label || f.name) : f.name}
+                          {useFriendlyNames && <span className="text-muted-foreground text-[9px] font-normal font-sans ml-1">({f.name})</span>}
+                        </span>
                         <span className="text-slate-400 italic">({f.type})</span>
                       </div>
                       <p className="text-[10px] text-muted-foreground">{f.desc}</p>
@@ -978,6 +1043,10 @@ export default function AnalysisConsolePage() {
                   <Button size="sm" onClick={handleSaveQuery} className="bg-pink-600 hover:bg-pink-500 text-white text-xs gap-1.5">
                     <Save className="h-3.5 w-3.5" />
                     Save View
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleExportPython} className="border-white/10 text-white text-xs gap-1.5">
+                    <Terminal className="h-3.5 w-3.5 text-green-400" />
+                    Export Python
                   </Button>
                 </div>
               </CardTitle>
@@ -1035,7 +1104,9 @@ export default function AnalysisConsolePage() {
                           }}
                           className="rounded border-white/10 bg-zinc-950 text-blue-500 focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5"
                         />
-                        <span className="truncate">{f.name}</span>
+                        <span className="truncate">
+                          {useFriendlyNames ? (f.label || f.name) : f.name}
+                        </span>
                       </label>
                     );
                   })}
@@ -1068,6 +1139,7 @@ export default function AnalysisConsolePage() {
                       setCurrentFilters={setFilters}
                       currentFields={currentFields}
                       getUniqueFieldValues={getUniqueFieldValues}
+                      useFriendlyNames={useFriendlyNames}
                     />
                   ))}
                 </div>
@@ -1101,7 +1173,9 @@ export default function AnalysisConsolePage() {
                         >
                           <option value="">-- select field --</option>
                           {currentFields.map(field => (
-                            <option key={field.name} value={field.name}>{field.name}</option>
+                            <option key={field.name} value={field.name}>
+                              {useFriendlyNames ? (field.label || field.name) : field.name}
+                            </option>
                           ))}
                         </select>
                         <Button
@@ -1160,7 +1234,9 @@ export default function AnalysisConsolePage() {
                         >
                           <option value="*">*</option>
                           {currentFields.map(field => (
-                            <option key={field.name} value={field.name}>{field.name}</option>
+                            <option key={field.name} value={field.name}>
+                              {useFriendlyNames ? (field.label || field.name) : field.name}
+                            </option>
                           ))}
                         </select>
 
@@ -1265,6 +1341,7 @@ export default function AnalysisConsolePage() {
                           setCurrentFilters={setSubQueryFilters}
                           currentFields={currentFields}
                           getUniqueFieldValues={getUniqueFieldValues}
+                          useFriendlyNames={useFriendlyNames}
                         />
                       ))}
                     </div>
@@ -1308,7 +1385,9 @@ export default function AnalysisConsolePage() {
                         >
                           <option value="">-- select property --</option>
                           {currentFields.map(field => (
-                            <option key={field.name} value={field.name}>{field.name}</option>
+                            <option key={field.name} value={field.name}>
+                              {useFriendlyNames ? (field.label || field.name) : field.name}
+                            </option>
                           ))}
                           {aggregations.map(agg => (
                             <option key={agg.alias} value={agg.alias}>{agg.alias} (aggregated)</option>
@@ -1430,16 +1509,19 @@ export default function AnalysisConsolePage() {
                                   labelClassName="text-slate-400 font-bold text-xs"
                                 />
                                 <Legend wrapperStyle={{ fontSize: 10 }} />
-                                {chartData.keys.map((key, i) => (
-                                  <Line 
-                                    key={key} 
-                                    type="monotone"
-                                    dataKey={key} 
-                                    stroke={i % 2 === 0 ? "#3b82f6" : "#e11d48"} 
-                                    strokeWidth={2}
-                                    dot={{ r: 3 }}
-                                  />
-                                ))}
+                                {chartData.keys.map((key, i) => {
+                                  const colors = ["#3b82f6", "#e11d48", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+                                  return (
+                                    <Line 
+                                      key={key} 
+                                      type="monotone"
+                                      dataKey={key} 
+                                      stroke={colors[i % colors.length]} 
+                                      strokeWidth={2}
+                                      dot={{ r: 3 }}
+                                    />
+                                  );
+                                })}
                               </LineChart>
                             ) : resolvedChartType === "pie" ? (
                               <PieChart>
@@ -1460,7 +1542,7 @@ export default function AnalysisConsolePage() {
                                   label={{ fontSize: 10, fill: "#94a3b8" }}
                                 >
                                   {chartData.pieData.map((entry, idx) => {
-                                    const colors = ["#3b82f6", "#e11d48", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"];
+                                    const colors = ["#3b82f6", "#e11d48", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
                                     return <Cell key={`cell-${idx}`} fill={colors[idx % colors.length]} />;
                                   })}
                                 </Pie>
@@ -1475,14 +1557,17 @@ export default function AnalysisConsolePage() {
                                   labelClassName="text-slate-400 font-bold text-xs"
                                 />
                                 <Legend wrapperStyle={{ fontSize: 10 }} />
-                                {chartData.keys.map((key, i) => (
-                                  <Bar 
-                                    key={key} 
-                                    dataKey={key} 
-                                    fill={i % 2 === 0 ? "#3b82f6" : "#e11d48"} 
-                                    radius={[4, 4, 0, 0]} 
-                                  />
-                                ))}
+                                {chartData.keys.map((key, i) => {
+                                  const colors = ["#3b82f6", "#e11d48", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+                                  return (
+                                    <Bar 
+                                      key={key} 
+                                      dataKey={key} 
+                                      fill={colors[i % colors.length]} 
+                                      radius={[4, 4, 0, 0]} 
+                                    />
+                                  );
+                                })}
                               </BarChart>
                             )}
                           </ResponsiveContainer>
@@ -1526,9 +1611,14 @@ export default function AnalysisConsolePage() {
                       <table className="min-w-full divide-y divide-white/5 text-xs text-left">
                         <thead className="bg-white/[0.02] text-muted-foreground font-semibold">
                           <tr>
-                            {Object.keys(results[0]).map((key) => (
-                              <th key={key} className="px-4 py-2.5">{key}</th>
-                            ))}
+                            {Object.keys(results[0]).map((key) => {
+                              const fieldLabel = currentFields.find(cf => cf.name === key)?.label || key;
+                              return (
+                                <th key={key} className="px-4 py-2.5">
+                                  {useFriendlyNames ? fieldLabel : key}
+                                </th>
+                              );
+                            })}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5 font-mono text-slate-300">
@@ -1564,7 +1654,9 @@ export default function AnalysisConsolePage() {
                           className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
                         >
                           {currentFields.map(f => (
-                            <option key={f.name} value={f.name}>{f.name}</option>
+                            <option key={f.name} value={f.name}>
+                              {useFriendlyNames ? (f.label || f.name) : f.name}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -1577,7 +1669,9 @@ export default function AnalysisConsolePage() {
                           className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
                         >
                           {currentFields.map(f => (
-                            <option key={f.name} value={f.name}>{f.name}</option>
+                            <option key={f.name} value={f.name}>
+                              {useFriendlyNames ? (f.label || f.name) : f.name}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -1591,7 +1685,9 @@ export default function AnalysisConsolePage() {
                         >
                           <option value="*">Row Count (*)</option>
                           {currentFields.map(f => (
-                            <option key={f.name} value={f.name}>{f.name}</option>
+                            <option key={f.name} value={f.name}>
+                              {useFriendlyNames ? (f.label || f.name) : f.name}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -1689,6 +1785,8 @@ export default function AnalysisConsolePage() {
                       return `rgba(${rgb}, ${intensity * 0.4})`;
                     };
 
+                    const rowLabel = currentFields.find(cf => cf.name === pivotRowKey)?.label || pivotRowKey;
+
                     return (
                       <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
                         <CardHeader>
@@ -1700,7 +1798,9 @@ export default function AnalysisConsolePage() {
                           <table className="min-w-full divide-y divide-white/5 text-xs text-left">
                             <thead className="bg-white/[0.02] text-muted-foreground font-semibold">
                               <tr>
-                                <th className="px-4 py-2.5 uppercase tracking-wider text-blue-400">{pivotRowKey}</th>
+                                <th className="px-4 py-2.5 uppercase tracking-wider text-blue-400">
+                                  {useFriendlyNames ? rowLabel : pivotRowKey}
+                                </th>
                                 {pivotResults.columns.map(col => (
                                   <th key={col} className="px-4 py-2.5">{col}</th>
                                 ))}
