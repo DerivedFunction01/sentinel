@@ -8,7 +8,7 @@ import type { Trial } from "@/lib/types";
 import { revalidateTag } from "next/cache";
 import { FALLBACK_DEFAULT_MODEL, type UsageTracker } from "@/lib/model-utils";
 import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
-import { calculateSingleReevalHold } from "@/lib/token-utils";
+import { calculateSingleReevalHold, processRefund } from "@/lib/token-utils";
 
 export async function POST(
   req: Request,
@@ -202,14 +202,13 @@ export async function POST(
       targetTrial.transcript,
     );
 
-    // Refund unused portion of hold
-    const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
-    const refund = upfrontHold - finalTokenCost;
-
-    await db.user.update({
-      where: { id: session.user.id },
-      data: { scanTokens: { increment: refund } },
-    });
+    const { finalTokenCost, refund } = await processRefund(
+      session.user.id,
+      upfrontHold,
+      tracker,
+      db,
+      "re-evaluate trial",
+    );
 
     const userAfter = await db.user.findUnique({
       where: { id: session.user.id },
@@ -227,11 +226,13 @@ export async function POST(
     });
   } catch (error: any) {
     console.error("Re-evaluation prompt failed:", error);
-    // Refund the entire hold on failure
-    await db.user.update({
-      where: { id: session.user.id },
-      data: { scanTokens: { increment: upfrontHold } },
-    });
+    await processRefund(
+      session.user.id,
+      upfrontHold,
+      tracker,
+      db,
+      "re-evaluate trial (error)",
+    );
     return NextResponse.json(
       { error: error.message || "Judge failed to re-evaluate" },
       { status: 500 },

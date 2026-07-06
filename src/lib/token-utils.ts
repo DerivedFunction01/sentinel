@@ -309,3 +309,30 @@ export function calculateSingleReevalHold(
 
   return upfrontHold;
 }
+
+export async function processRefund(
+  userId: string,
+  upfrontHold: number | undefined,
+  tracker: { totalCost: number },
+  db: any,
+  context?: string,
+): Promise<{ finalTokenCost: number; refund: number }> {
+  if (upfrontHold == null)
+    return { finalTokenCost: 0, refund: 0 };
+
+  const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
+  const refund = Math.max(0, upfrontHold - finalTokenCost);
+
+  await db.user.update({
+    where: { id: userId },
+    data: { scanTokens: { increment: refund } },
+  });
+
+  if (context) {
+    console.log(
+      `[refund] ${context}: upfront=${upfrontHold}, cost=${finalTokenCost}, refunded=${refund}`,
+    );
+  }
+
+  return { finalTokenCost, refund };
+}

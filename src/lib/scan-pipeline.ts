@@ -27,6 +27,7 @@ import {
   replacePlaceholders,
   processTemplateConditions,
 } from "@/lib/prompt-loader";
+import { processRefund } from "@/lib/token-utils";
 import {
   getAttackGeneratorSystemPrefix,
   buildAttackGeneratorUserContent,
@@ -1718,18 +1719,13 @@ export async function runSingleScanPipeline(
   });
   invalidateScanProgress(reportId);
 
-  // Dynamic token hold refund
-  if (options.upfrontHold != null) {
-    const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
-    const refund = options.upfrontHold - finalTokenCost;
-    await db.user.update({
-      where: { id: options.userId },
-      data: { scanTokens: { increment: refund } },
-    });
-    console.log(
-      `[pipeline] Scan ${reportId} finished. Upfront hold: ${options.upfrontHold}, actual USD cost: $${tracker.totalCost.toFixed(6)} (${finalTokenCost} tokens). Refunded ${refund} tokens.`,
-    );
-  }
+  await processRefund(
+    options.userId,
+    options.upfrontHold,
+    tracker,
+    db,
+    `Scan ${reportId}`,
+  );
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1909,12 +1905,13 @@ export async function runSingleScanPipelineWithGeneration(
       where: { reportId },
       data: { status: ScanStatus.Failed, summaryDetail: err.message },
     });
-    if (options.upfrontHold != null) {
-      await db.user.update({
-        where: { id: options.userId },
-        data: { scanTokens: { increment: options.upfrontHold } },
-      });
-    }
+    await processRefund(
+      options.userId,
+      options.upfrontHold,
+      { totalCost: 0 },
+      db,
+      `Seed failure ${reportId}`,
+    );
     invalidateScanProgress(reportId);
     return;
   }

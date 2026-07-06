@@ -7,6 +7,7 @@ import {
 } from "@/lib/models-cache";
 import { db } from "@/lib/db";
 import { extractSeedInfo } from "@/lib/seed-extractor";
+import { processRefund } from "@/lib/token-utils";
 
 export async function POST(req: Request) {
   const authUser = await authenticateRequest(req);
@@ -79,14 +80,13 @@ export async function POST(req: Request) {
       tracker,
     );
 
-    // Refund unused hold
-    const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
-    const refund = upfrontHold - finalTokenCost;
-
-    await db.user.update({
-      where: { id: authUser.userId },
-      data: { scanTokens: { increment: refund } },
-    });
+    const { finalTokenCost, refund } = await processRefund(
+      authUser.userId,
+      upfrontHold,
+      tracker,
+      db,
+      "suggest-forbidden",
+    );
 
     return NextResponse.json({
       success: true,

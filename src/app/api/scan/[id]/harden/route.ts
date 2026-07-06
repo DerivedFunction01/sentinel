@@ -10,6 +10,7 @@ import { Granularity } from "@/lib/enums";
 import { generateHardenedPrompt } from "@/lib/hardening";
 import { getDeterministicHardenedPrompt } from "@/lib/scan-prompts";
 import { summarizeBreachedAttacks } from "@/lib/scan-pipeline";
+import { processRefund } from "@/lib/token-utils";
 
 export async function GET(
   req: Request,
@@ -275,14 +276,13 @@ export async function POST(
       } catch {}
     }
 
-    // Refund unused portion of the upfront hold
-    const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
-    const refund = upfrontHold - finalTokenCost;
-
-    await db.user.update({
-      where: { id: session.user.id },
-      data: { scanTokens: { increment: refund } },
-    });
+    const { finalTokenCost, refund } = await processRefund(
+      session.user.id,
+      upfrontHold,
+      tracker,
+      db,
+      "harden",
+    );
 
     // Fetch updated balance to return in response
     const userAfter = await db.user.findUnique({

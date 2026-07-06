@@ -4,6 +4,7 @@ import { suggestForbiddenTasks } from "@/lib/seed-extractor";
 import { FALLBACK_DEFAULT_MODEL, type UsageTracker } from "@/lib/model-utils";
 import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
 import { db } from "@/lib/db";
+import { processRefund } from "@/lib/token-utils";
 
 export async function POST(req: Request) {
   // Authenticate user
@@ -65,14 +66,13 @@ export async function POST(req: Request) {
       tracker,
     );
 
-    // Refund unused hold
-    const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
-    const refund = upfrontHold - finalTokenCost;
-
-    await db.user.update({
-      where: { id: authUser.userId },
-      data: { scanTokens: { increment: refund } },
-    });
+    await processRefund(
+      authUser.userId,
+      upfrontHold,
+      tracker,
+      db,
+      "fast-suggest-forbidden",
+    );
 
     return NextResponse.json({
       success: true,

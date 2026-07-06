@@ -8,6 +8,7 @@ import type { Trial } from "@/lib/types";
 import { revalidateTag } from "next/cache";
 import { FALLBACK_DEFAULT_MODEL, type UsageTracker } from "@/lib/model-utils";
 import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
+import { processRefund } from "@/lib/token-utils";
 
 export async function POST(
   req: Request,
@@ -199,14 +200,13 @@ export async function POST(
     }
   }
 
-  // Refund unused portion of hold
-  const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
-  const refund = upfrontHold - finalTokenCost;
-
-  await db.user.update({
-    where: { id: session.user.id },
-    data: { scanTokens: { increment: refund } },
-  });
+  const { finalTokenCost, refund } = await processRefund(
+    session.user.id,
+    upfrontHold,
+    tracker,
+    db,
+    "auto-re-evaluate",
+  );
 
   return NextResponse.json({
     success: true,

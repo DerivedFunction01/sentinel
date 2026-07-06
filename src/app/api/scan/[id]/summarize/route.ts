@@ -6,6 +6,7 @@ import { callOpenRouter, FALLBACK_DEFAULT_MODEL, type UsageTracker } from "@/lib
 import { getCachedDbModels, findDefaultModelFromCache } from "@/lib/models-cache";
 import { TrialVerdict } from "@/lib/enums";
 import { summarizeBreachedAttacks } from "@/lib/scan-pipeline";
+import { processRefund } from "@/lib/token-utils";
 
 export async function POST(
   req: Request,
@@ -102,14 +103,13 @@ export async function POST(
       },
     });
 
-    // Refund unused portion of hold
-    const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
-    const refund = upfrontHold - finalTokenCost;
-
-    await db.user.update({
-      where: { id: session.user.id },
-      data: { scanTokens: { increment: refund } },
-    });
+    await processRefund(
+      session.user.id,
+      upfrontHold,
+      tracker,
+      db,
+      "summarize",
+    );
 
     return NextResponse.json({ summary: summaryText });
   } catch (error: any) {

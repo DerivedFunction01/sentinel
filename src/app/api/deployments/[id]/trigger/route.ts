@@ -103,7 +103,8 @@ export async function POST(
     } catch {}
 
     // Import hold calculation utility and estimateTokens
-    const { calculateUpfrontScanHold, estimateTokens } = await import("@/lib/token-utils");
+    const { calculateUpfrontScanHold, estimateTokens, processRefund } =
+        await import("@/lib/token-utils");
 
     // Compute ontology token sizes (same as scan/launch route)
     const ONTOLOGY_DIR = path.join(process.cwd(), "uploads", "ontology");
@@ -197,11 +198,13 @@ export async function POST(
         err.message?.startsWith("SeedExtractionFailed") ||
         err.message?.includes("failed")
       ) {
-        // Refund the upfront hold
-        await db.user.update({
-          where: { id: user.id },
-          data: { scanTokens: { increment: upfrontHold } },
-        });
+        await processRefund(
+          user.id,
+          upfrontHold,
+          { totalCost: 0 },
+          db,
+          "deploy-trigger-seed-failure",
+        );
         console.warn(
           `[deploy-trigger] Seed extraction failed for deployment ${id} — refunded ${upfrontHold} tokens.`,
         );
