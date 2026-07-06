@@ -72,6 +72,7 @@ model Scan {
   currentStep          Int      @default(0) // Current progress step
   totalSteps           Int      @default(0) // Total steps for progress calculation
   progressMeta         String? // JSON: granular per-attack/target/judge progress with retry state
+  partialTrials        String? // JSON: Trial[] — in-progress results written at target/judge boundaries
   allowNoToolsFallback Boolean  @default(false)
   createdAt            DateTime @default(now())
   metadata             String? // JSON: ScanMetadata - stores seed extraction results, attack summaries, etc.

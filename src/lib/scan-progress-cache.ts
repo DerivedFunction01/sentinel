@@ -15,6 +15,7 @@
 export interface CachedProgress {
   currentStep: number;
   progressMeta: string | null;
+  partialTrials: string | null;
   updatedAt: number;
 }
 
@@ -26,7 +27,11 @@ const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
  */
 export function setScanProgress(
   reportId: string,
-  data: { currentStep?: number; progressMeta?: string | null },
+  data: {
+    currentStep?: number;
+    progressMeta?: string | null;
+    partialTrials?: string | null;
+  },
 ): void {
   const existing = cache.get(reportId);
   cache.set(reportId, {
@@ -35,6 +40,10 @@ export function setScanProgress(
       data.progressMeta !== undefined
         ? data.progressMeta
         : (existing?.progressMeta ?? null),
+    partialTrials:
+      data.partialTrials !== undefined
+        ? data.partialTrials
+        : (existing?.partialTrials ?? null),
     updatedAt: Date.now(),
   });
 }

@@ -1296,6 +1296,119 @@ async function writeProgressMeta(
   });
 }
 
+function assembleTrial(
+  idx: number,
+  entry: AttackEntry,
+  targetResult:
+    | { responseText: string; toolCalls: any[]; transcript: TrialTurn[] }
+    | undefined,
+  judgeResult: { verdict: TrialVerdict; reasoning: string } | undefined,
+  seedInfo: SeedInfo,
+): Trial {
+  const matchedThing =
+    seedInfo.things?.find(
+      (t) => t.forbiddenTask === entry.targetForbiddenTask,
+    ) || seedInfo.things?.[0];
+  const thingNameVariants = matchedThing?.thingNameVariants || [];
+  const thingDescriptionVariants = matchedThing?.thingDescriptionVariants || [];
+  const thingName = matchedThing?.thingName || "confidential info";
+  const thingDescription =
+    matchedThing?.thingDescription ||
+    "disclosing confidential or protected information";
+  const variantIdx = idx % (thingNameVariants.length || 1);
+  const selectedThingName = thingNameVariants[variantIdx] || thingName;
+  const selectedThingDesc =
+    thingDescriptionVariants[variantIdx] || thingDescription;
+  const pattern =
+    attack_patterns.find((p) => p.patternId === entry.patternId) ||
+    attack_patterns[0];
+  const isBreached = judgeResult?.verdict === TrialVerdict.Breached;
+
+  return {
+    number: idx + 1,
+    verdict: judgeResult?.verdict || TrialVerdict.Unknown,
+    attack: entry.attackText,
+    response: targetResult?.responseText || "",
+    judgeLabel: isBreached ? TrialVerdict.Breached : TrialVerdict.Defended,
+    judgeVerdict: judgeResult?.reasoning || "",
+    taskTag: matchedThing
+      ? slugify(matchedThing.thingName)
+      : "forbidden_task_1",
+    entropyLabel: entry.entropyLabel,
+    framingLabel: entry.framingLabel,
+    patternId: entry.patternId,
+    targetThing: selectedThingName,
+    seedTemplate: renderAttack(pattern, selectedThingName, selectedThingDesc),
+    toolCalls: targetResult?.toolCalls?.length
+      ? targetResult.toolCalls
+      : undefined,
+    transcript: targetResult?.transcript,
+  };
+}
+
+async function checkpoint(
+  reportId: string,
+  meta: ProgressMeta,
+  targetResponses: Map<
+    number,
+    { responseText: string; toolCalls: any[]; transcript: TrialTurn[] }
+  >,
+  judgeVerdicts: Map<number, { verdict: TrialVerdict; reasoning: string }>,
+  attackSet: AttackSet,
+  seedInfo: SeedInfo,
+): Promise<void> {
+  for (const [idx, result] of targetResponses) {
+    meta.trials[idx].target = {
+      status: ProgressStepStatus.Completed,
+      retries: meta.trials[idx].target.retries,
+      response: result.responseText,
+    };
+  }
+  for (const [idx, verdict] of judgeVerdicts) {
+    meta.trials[idx].judge = {
+      status: ProgressStepStatus.Completed,
+      retries: meta.trials[idx].judge.retries,
+      verdict: verdict.verdict,
+      reasoning: verdict.reasoning,
+    };
+  }
+
+  const partialTrials = attackSet.attacks.map((entry, idx) =>
+    assembleTrial(
+      idx,
+      entry,
+      targetResponses.get(idx),
+      judgeVerdicts.get(idx),
+      seedInfo,
+    ),
+  );
+
+  const completedAttacks = meta.attacks.filter(
+    (a) => a.status === ProgressStepStatus.Completed,
+  ).length;
+  const completedTargets = meta.trials.filter(
+    (t) => t.target?.status === ProgressStepStatus.Completed,
+  ).length;
+  const completedJudges = meta.trials.filter(
+    (t) => t.judge?.status === ProgressStepStatus.Completed,
+  ).length;
+  const currentStep = completedAttacks + completedTargets + completedJudges;
+
+  await db.scan.update({
+    where: { reportId },
+    data: {
+      currentStep,
+      progressMeta: JSON.stringify(meta),
+      partialTrials: JSON.stringify(partialTrials),
+    },
+  });
+  setScanProgress(reportId, {
+    currentStep,
+    progressMeta: JSON.stringify(meta),
+    partialTrials: JSON.stringify(partialTrials),
+  });
+}
+
 /** Execute a step with at most 1 retry (2 total attempts). */
 async function withRetry<T>(
   stepName: string,
@@ -1383,6 +1496,13 @@ export async function runSingleScanPipeline(
   const modelShort =
     options.targetModel.split("/").pop() || options.targetModel;
 
+  const targetResponses: Map<
+    number,
+    { responseText: string; toolCalls: any[]; transcript: TrialTurn[] }
+  > = new Map();
+  const judgeVerdicts: Map<number, { verdict: TrialVerdict; reasoning: string }> =
+    new Map();
+
   let meta: ProgressMeta;
   let totalSteps: number;
 
@@ -1431,7 +1551,14 @@ export async function runSingleScanPipeline(
       currentStep: attackSet.attacks.length,
       progressMeta: JSON.stringify(meta),
     });
-    await writeProgressMeta(reportId, meta, false);
+    await checkpoint(
+      reportId,
+      meta,
+      targetResponses,
+      judgeVerdicts,
+      attackSet,
+      attackSet.seedInfo,
+    );
   }
 
   // Phase 3: Target + Judge per trial — ALL TARGETS IN PARALLEL, then ALL JUDGES IN PARALLEL
@@ -1444,16 +1571,6 @@ export async function runSingleScanPipeline(
   // This avoids race conditions where parallel writes clobber each other.
   const trialResults: Trial[] = [];
   const attackCount = attackSet.attacks.length;
-
-  // In-memory store for results (avoids race conditions from parallel DB writes)
-  const targetResponses: Map<
-    number,
-    { responseText: string; toolCalls: any[]; transcript: TrialTurn[] }
-  > = new Map();
-  const judgeVerdicts: Map<
-    number,
-    { verdict: TrialVerdict; reasoning: string }
-  > = new Map();
 
   // Step A: Launch all target simulations in parallel
   // Use allSettled so one failure doesn't cancel the entire batch.
@@ -1503,11 +1620,14 @@ export async function runSingleScanPipeline(
   );
 
   // Persist target-phase completion to DB (critical recovery checkpoint)
-  await writeProgressMeta(reportId, meta, false, attackCount + attacksCompletedOffset);
-  setScanProgress(reportId, {
-    currentStep: attackCount + attacksCompletedOffset,
-    progressMeta: JSON.stringify(meta),
-  });
+  await checkpoint(
+    reportId,
+    meta,
+    targetResponses,
+    judgeVerdicts,
+    attackSet,
+    attackSet.seedInfo,
+  );
 
   // Step B: Launch all judge evaluations in parallel
   // Use allSettled so one failure doesn't cancel the entire batch.
@@ -1591,11 +1711,14 @@ export async function runSingleScanPipeline(
   );
 
   // Persist judge-phase completion to DB (critical recovery checkpoint)
-  await writeProgressMeta(reportId, meta, false, attackCount * 2 + attacksCompletedOffset);
-  setScanProgress(reportId, {
-    currentStep: attackCount * 2 + attacksCompletedOffset,
-    progressMeta: JSON.stringify(meta),
-  });
+  await checkpoint(
+    reportId,
+    meta,
+    targetResponses,
+    judgeVerdicts,
+    attackSet,
+    attackSet.seedInfo,
+  );
 
   // Step C: Build trial results from IN-MEMORY data (not re-reading from DB)
   // This avoids the race condition where parallel withRetry writes to
@@ -1734,6 +1857,7 @@ export async function runSingleScanPipeline(
       status: finalStatus,
       currentStep: totalSteps,
       totalSteps,
+      partialTrials: JSON.stringify(trialResults),
     },
   });
   invalidateScanProgress(reportId);
@@ -2003,7 +2127,14 @@ export async function runSingleScanPipelineWithGeneration(
   });
 
   // Persist attack-phase completion to DB (critical recovery checkpoint)
-  await writeProgressMeta(reportId, meta, false, attackCount);
+  await checkpoint(
+    reportId,
+    meta,
+    new Map(),
+    new Map(),
+    attackSet,
+    seedInfo,
+  );
 
   await runSingleScanPipeline(
     options,

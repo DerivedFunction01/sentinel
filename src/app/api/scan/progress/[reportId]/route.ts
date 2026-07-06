@@ -42,6 +42,7 @@ export async function GET(
         score: true,
         createdAt: true,
         progressMeta: true,
+        partialTrials: true,
       },
     });
 
@@ -53,6 +54,8 @@ export async function GET(
     const cached = getScanProgress(reportId);
     const effectiveCurrentStep = cached?.currentStep ?? scan.currentStep;
     const effectiveProgressMeta = cached?.progressMeta ?? scan.progressMeta;
+    const effectivePartialTrials =
+      cached?.partialTrials ?? scan.partialTrials;
 
     // Calculate progress percentage
     const progress =
@@ -65,6 +68,9 @@ export async function GET(
     if (effectiveProgressMeta) {
       try {
         const meta = JSON.parse(effectiveProgressMeta);
+        const partialTrials = effectivePartialTrials
+          ? JSON.parse(effectivePartialTrials)
+          : [];
         const attackCount = meta.attacks?.length || 0;
         const completedAttacks =
           meta.attacks?.filter(
@@ -87,17 +93,26 @@ export async function GET(
               retries: a.retries || 0,
             })) || [],
           trials:
-            meta.trials?.map((t: any, i: number) => ({
-              idx: i,
-              target: {
-                status: t.target?.status || ProgressStepStatus.Pending,
-                retries: t.target?.retries || 0,
-              },
-              judge: {
-                status: t.judge?.status || ProgressStepStatus.Pending,
-                retries: t.judge?.retries || 0,
-              },
-            })) || [],
+            meta.trials?.map((t: any, i: number) => {
+              const partialTrial = Array.isArray(partialTrials)
+                ? partialTrials[i]
+                : undefined;
+              return {
+                idx: i,
+                target: {
+                  status: t.target?.status || ProgressStepStatus.Pending,
+                  retries: t.target?.retries || 0,
+                  response: partialTrial?.response || t.target?.response || "",
+                },
+                judge: {
+                  status: t.judge?.status || ProgressStepStatus.Pending,
+                  retries: t.judge?.retries || 0,
+                  verdict: partialTrial?.verdict || t.judge?.verdict || undefined,
+                  reasoning:
+                    partialTrial?.judgeVerdict || t.judge?.reasoning || "",
+                },
+              };
+            }) || [],
           hardening: meta.hardening?.status || ProgressStepStatus.Pending,
           summary: {
             attackCount,
