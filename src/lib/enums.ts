@@ -187,17 +187,11 @@ export enum CredentialMode {
 
 /**
  * Restriction behavior classification — determines how a restriction is enforced.
- *
- *   HARD_REFUSAL       — Direct conversational shut-down (no tool needed)
- *   HARD_REDIRECT      — Out-routing to URLs, emails, or static destinations
- *   TOOL_HANDOFF       — Halting generation and passing context to an external backend tool
- *   COMPLEX_PIPELINE    — Multi-step validation, sequence checking, or context parsing
- *   DISCLAIMER_APPEND  — Appending/prepending a static legal, clinical, or corporate disclaimer
- *   ALLOWED_BOUNDARIES — Nuanced rule defining explicit trigger vs. exclusion conditions
  */
 export enum RestrictionBehavior {
   HARD_REFUSAL = "hard_refusal",
   HARD_REDIRECT = "hard_redirect",
+  TOOL_GATED_REFUSAL = "tool_gated_refusal",
   TOOL_HANDOFF = "tool_handoff",
   COMPLEX_PIPELINE = "complex_pipeline",
   DISCLAIMER_APPEND = "disclaimer_append",

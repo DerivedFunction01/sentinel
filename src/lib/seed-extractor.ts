@@ -204,26 +204,23 @@ export async function classifyRestrictions(
 
   const template = getPromptFile(PromptFileType.ClassifyRestrictions);
 
-  const restrictionsJson = JSON.stringify(
-    restrictions.map((r) => ({
-      forbiddenTask: r.forbiddenTask,
-      thingName: r.thingName,
-      thingDescription: r.thingDescription,
-    })),
-    null,
-    2,
-  );
-
   const systemMessage = replacePlaceholders(template, {
-    RESTRICTIONS_JSON: restrictionsJson,
+    RESTRICTIONS_JSON: JSON.stringify(
+      restrictions.map((r, i) => ({
+        index: i,
+        forbiddenTask: r.forbiddenTask,
+        thingName: r.thingName,
+      })),
+    ),
   });
 
   const userMessage = `<core_system_prompt>\n${coreSystemPrompt}\n</core_system_prompt>
 
-Classify each restriction in the JSON array above. Return ONLY the JSON array with behaviorType added to each object.`;
+Classify each restriction using the format: index|category`;
 
+  let response: any;
   try {
-    const response = await callOpenRouter(
+    response = await callOpenRouter(
       extractorModel,
       [
         { role: "system", content: systemMessage },
@@ -233,34 +230,61 @@ Classify each restriction in the JSON array above. Return ONLY the JSON array wi
       tracker,
     );
 
-    const text = (response.content || "").trim();
-    const cleaned = text
-      .replace(/```json/gi, "")
-      .replace(/```/g, "")
-      .trim();
+    const text = (response?.content || "").trim();
 
-    const parsed = JSON.parse(cleaned);
-    const classified: Array<{
-      forbiddenTask: string;
-      thingName: string;
-      behaviorType: string;
-    }> = Array.isArray(parsed) ? parsed : [];
+    // Use existing parseReasoningAndOutput to extract the output block
+    const outputBlock = parseReasoningAndOutput(text, false);
 
-    // Map classification results back to the original restrictions
-    const result = restrictions.map((r) => {
-      const cls = classified.find(
-        (c) =>
-          c.forbiddenTask === r.forbiddenTask && c.thingName === r.thingName,
-      );
-      if (cls && isValidBehaviorType(cls.behaviorType)) {
-        return { ...r, behaviorType: cls.behaviorType as RestrictionBehavior };
+    // Parse lines as "index|behaviorType"
+    const classifications = new Map<number, string>();
+    const lines = outputBlock.split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      // Match format: "0|hard_refusal" or "1|tool_handoff"
+      const match = trimmed.match(/^(\d+)\|([a-z_]+)$/);
+      if (match) {
+        const index = parseInt(match[1], 10);
+        const behaviorType = match[2];
+        classifications.set(index, behaviorType);
       }
+    }
+
+    console.log(
+      `[classifyRestrictions] Parsed ${classifications.size}/${restrictions.length} classifications from model output`,
+    );
+
+    // Map classifications back to restrictions by index
+    const result = restrictions.map((r, idx) => {
+      const classifiedType = classifications.get(idx);
+      if (classifiedType && isValidBehaviorType(classifiedType)) {
+        return { ...r, behaviorType: classifiedType as RestrictionBehavior };
+      }
+      // If classification failed for this restriction, log it and return original
+      console.warn(
+        `[classifyRestrictions] No valid classification for restriction ${idx}: ${r.thingName}`,
+      );
       return r;
     });
 
+    const validCount = result.filter((r) =>
+      isValidBehaviorType(r.behaviorType),
+    ).length;
+    console.log(
+      `[classifyRestrictions] Successfully classified ${validCount}/${restrictions.length} restrictions`,
+    );
+
     return result;
   } catch (error) {
-    console.error("Error classifying restrictions:", error);
+    console.error(
+      "[classifyRestrictions] Error classifying restrictions:",
+      error,
+    );
+    console.error(
+      "[classifyRestrictions] Raw model output:",
+      (response?.content || "").trim(),
+    );
     return restrictions;
   }
 }

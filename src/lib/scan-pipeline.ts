@@ -1276,6 +1276,7 @@ async function withRetry<T>(
   setStep: (meta: ProgressMeta, step: ProgressStep) => void,
   fn: () => Promise<T>,
   onSuccess: (meta: ProgressMeta, result: T) => void,
+  onProgress?: () => void,
 ): Promise<T | null> {
   const step = getStep(meta);
   if (step.status === ProgressStepStatus.Completed) return null; // already done
@@ -1287,6 +1288,13 @@ async function withRetry<T>(
       retries: step.retries,
     });
     onSuccess(meta, result);
+    if (onProgress) {
+      try {
+        await onProgress();
+      } catch {
+        // Non-fatal: keep the pipeline running even if progress reporting hiccups.
+      }
+    }
     return result;
   } catch (err) {
     const errMsg = (err as Error).message || "Unknown error";
@@ -1305,7 +1313,7 @@ async function withRetry<T>(
       return null;
     }
     // Retry once
-    return withRetry(stepName, reportId, meta, getStep, setStep, fn, onSuccess);
+    return withRetry(stepName, reportId, meta, getStep, setStep, fn, onSuccess, onProgress);
   }
 }
 

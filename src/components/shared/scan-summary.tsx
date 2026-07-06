@@ -141,6 +141,7 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
   const [selectedExportPrompts, setSelectedExportPrompts] = useState<string[]>(
     [],
   );
+  const [selectedTask, setSelectedTask] = useState<any>(null);
   const router = useRouter();
 
   // Initialize selected prompts when dialog opens
@@ -275,225 +276,254 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
       </div>
 
       {/* Summary cards grid */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Defense Rate */}
+      <div className="space-y-4">
+        {/* Defense Rate + Adversarial Tasks merged */}
         <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
               <Shield className="h-4 w-4" />
               Defense Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center gap-5">
-            <DefenseRateDonut
-              defended={defended}
-              breached={scan.breaches}
-              defenseRate={defenseRate}
-            />
-            {/* Counts */}
-            <div className="min-w-0 flex-1 space-y-2.5">
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                  Defended
-                </span>
-                <span className="font-mono font-medium text-emerald-400">
-                  {defended}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <span className="h-2 w-2 rounded-full bg-red-400" />
-                  Breached
-                </span>
-                <span className="font-mono font-medium text-red-400">
-                  {scan.breaches}
-                </span>
-              </div>
-              <div className="mt-2 border-t border-white/5 pt-2">
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  {postureMessage}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Top Vulnerability */}
-        <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              <Target className="h-4 w-4" />
-              Top Vulnerability
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div>
-                <p className="font-mono text-sm text-foreground">
-                  {topVulnerability?.name || "Confidential Info"}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  <span className="font-medium text-red-400">
-                    {topVulnerability?.breachRate || 0}% breach rate
-                  </span>{" "}
-                  · {topVulnerability?.breaches || 0} of{" "}
-                  {topVulnerability?.totalTrials || 0} attacks succeeded
-                </p>
-              </div>
-              <div className="rounded-md border border-white/5 bg-background/40 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Target Phrase
-                </p>
-                <p className="mt-1 truncate text-sm text-foreground">
-                  {topVulnerability?.description ? (
-                    <>
-                      {topVulnerability.description.slice(0, 80)}
-                      {topVulnerability.description.length > 80 ? "…" : ""}
-                    </>
-                  ) : (
-                    scan.forbiddenTask.slice(0, 80)
-                  )}
-                </p>
-              </div>
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
-                This is the weakest area of your prompt. Review the breached
-                trials below and add explicit guardrails against this phrase.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Agent Models Used */}
-        <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              <Swords className="h-4 w-4" />
-              Agent Models Used
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Swords className="h-3.5 w-3.5 text-red-400" />
-                Attacker
-              </span>
-              <span
-                className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
-                title={scan.attackerModel}
-              >
-                {scan.attackerModelName || scan.attackerModel || (
-                  <span className="italic text-muted-foreground">
-                    anonymous
-                  </span>
-                )}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Gavel className="h-3.5 w-3.5 text-emerald-400" />
-                Judge
-              </span>
-              <span
-                className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
-                title={scan.judgeModel}
-              >
-                {scan.judgeModelName || scan.judgeModel || (
-                  <span className="italic text-muted-foreground">
-                    anonymous
-                  </span>
-                )}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                Hardener
-              </span>
-              <span
-                className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
-                title={scan.hardenerModel}
-              >
-                {scan.hardenerModelName || scan.hardenerModel || (
-                  <span className="italic text-muted-foreground">
-                    anonymous
-                  </span>
-                )}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Target className="h-3.5 w-3.5 text-blue-400" />
-                Target
-              </span>
-              <span
-                className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
-                title={scan.targetModel}
-              >
-                {scan.modelName || scan.targetModel}
-              </span>
-            </div>
-            {scan.apiCost > 0 && (
-              <div className="border-t border-white/5 pt-2 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">API Cost</span>
-                <span className="font-mono text-xs text-amber-400">
-                  ${scan.apiCost.toFixed(4)}
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Adversarial Tasks */}
-        <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              <AlertTriangle className="h-4 w-4" />
-              Adversarial Tasks
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {thingsWithStats.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between rounded-md border border-white/5 bg-background/40 p-3"
+              {selectedTask && (
+                <button
+                  onClick={() => setSelectedTask(null)}
+                  className="ml-2 text-[10px] font-semibold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded px-2 py-0.5 hover:bg-blue-500/20 transition-colors cursor-pointer"
                 >
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle
-                      className={`h-4 w-4 ${item.breachRate > 0 ? "text-red-400" : "text-emerald-400"}`}
-                    />
-                    <div>
-                      <p className="font-mono text-xs text-foreground">
-                        {item.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Target: {item.description.slice(0, 40)}
-                        {item.description.length > 40 ? "…" : ""}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        Tool Call Rate:{" "}
-                        <span className="font-mono text-purple-400 font-semibold">
-                          {item.toolCallRate}
-                        </span>
-                      </p>
-                    </div>
+                  ← Overall
+                </button>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col lg:flex-row gap-6 items-start">
+              <div className="flex flex-col items-center gap-3 lg:w-[260px] shrink-0">
+                <DefenseRateDonut
+                  defended={
+                    selectedTask
+                      ? selectedTask.totalTrials - selectedTask.breaches
+                      : defended
+                  }
+                  breached={
+                    selectedTask ? selectedTask.breaches : scan.breaches
+                  }
+                  defenseRate={
+                    selectedTask
+                      ? selectedTask.totalTrials > 0
+                        ? Math.round(
+                            ((selectedTask.totalTrials - selectedTask.breaches) /
+                              selectedTask.totalTrials) *
+                              100,
+                          )
+                        : 0
+                      : defenseRate
+                  }
+                />
+                <p className="text-[11px] leading-relaxed text-muted-foreground text-center">
+                  {selectedTask
+                    ? `Task: ${selectedTask.name} — ${selectedTask.breaches}/${selectedTask.totalTrials} attacks breached this restriction.`
+                    : postureMessage}
+                </p>
+                <div className="w-full space-y-2.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                      Defended
+                    </span>
+                    <span className="font-mono font-medium text-emerald-400">
+                      {selectedTask
+                        ? selectedTask.totalTrials - selectedTask.breaches
+                        : defended}
+                    </span>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={
-                      item.breachRate > 0
-                        ? "border-red-500/30 bg-red-500/10 text-red-400"
-                        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                    }
-                  >
-                    {item.breaches}/{item.totalTrials}
-                  </Badge>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="h-2 w-2 rounded-full bg-red-400" />
+                      Breached
+                    </span>
+                    <span className="font-mono font-medium text-red-400">
+                      {selectedTask ? selectedTask.breaches : scan.breaches}
+                    </span>
+                  </div>
                 </div>
-              ))}
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-3">
+                  {selectedTask ? "Select Task" : "Adversarial Tasks"}
+                </p>
+                <div className="space-y-2">
+                  {thingsWithStats.map((item, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedTask(item)}
+                      className={`w-full flex items-center justify-between rounded-md border p-3 transition-colors cursor-pointer ${
+                        selectedTask?.name === item.name
+                          ? "border-blue-500/40 bg-blue-500/10"
+                          : "border-white/5 bg-background/40 hover:border-white/20 hover:bg-background/60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <AlertTriangle
+                          className={`h-4 w-4 shrink-0 ${item.breachRate > 0 ? "text-red-400" : "text-emerald-400"}`}
+                        />
+                        <div className="text-left min-w-0">
+                          <p className="font-mono text-xs text-foreground truncate">
+                            {item.name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            Target: {item.description.slice(0, 50)}
+                            {item.description.length > 50 ? "…" : ""}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Tool Call Rate:{" "}
+                            <span className="font-mono text-purple-400 font-semibold">
+                              {item.toolCallRate}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={
+                          item.breachRate > 0
+                            ? "border-red-500/30 bg-red-500/10 text-red-400"
+                            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                        }
+                      >
+                        {item.breaches}/{item.totalTrials}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Top Vulnerability */}
+          <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                <Target className="h-4 w-4" />
+                Top Vulnerability
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div>
+                  <p className="font-mono text-sm text-foreground">
+                    {topVulnerability?.name || "Confidential Info"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    <span className="font-medium text-red-400">
+                      {topVulnerability?.breachRate || 0}% breach rate
+                    </span>{" "}
+                    · {topVulnerability?.breaches || 0} of{" "}
+                    {topVulnerability?.totalTrials || 0} attacks succeeded
+                  </p>
+                </div>
+                <div className="rounded-md border border-white/5 bg-background/40 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Target Phrase
+                  </p>
+                  <p className="mt-1 truncate text-sm text-foreground">
+                    {topVulnerability?.description ? (
+                      <>
+                        {topVulnerability.description.slice(0, 80)}
+                        {topVulnerability.description.length > 80 ? "…" : ""}
+                      </>
+                    ) : (
+                      scan.forbiddenTask.slice(0, 80)
+                    )}
+                  </p>
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  This is the weakest area of your prompt. Review the breached
+                  trials below and add explicit guardrails against this phrase.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Agent Models Used */}
+          <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                <Swords className="h-4 w-4" />
+                Agent Models Used
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Swords className="h-3.5 w-3.5 text-red-400" />
+                  Attacker
+                </span>
+                <span
+                  className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
+                  title={scan.attackerModel}
+                >
+                  {scan.attackerModelName || scan.attackerModel || (
+                    <span className="italic text-muted-foreground">
+                      anonymous
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Gavel className="h-3.5 w-3.5 text-emerald-400" />
+                  Judge
+                </span>
+                <span
+                  className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
+                  title={scan.judgeModel}
+                >
+                  {scan.judgeModelName || scan.judgeModel || (
+                    <span className="italic text-muted-foreground">
+                      anonymous
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                  Hardener
+                </span>
+                <span
+                  className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
+                  title={scan.hardenerModel}
+                >
+                  {scan.hardenerModelName || scan.hardenerModel || (
+                    <span className="italic text-muted-foreground">
+                      anonymous
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Target className="h-3.5 w-3.5 text-blue-400" />
+                  Target
+                </span>
+                <span
+                  className="max-w-[55%] truncate text-right font-mono text-xs text-foreground"
+                  title={scan.targetModel}
+                >
+                  {scan.modelName || scan.targetModel}
+                </span>
+              </div>
+              {scan.apiCost > 0 && (
+                <div className="border-t border-white/5 pt-2 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">API Cost</span>
+                  <span className="font-mono text-xs text-amber-400">
+                    ${scan.apiCost.toFixed(4)}
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>

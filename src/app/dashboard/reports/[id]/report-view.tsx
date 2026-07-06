@@ -406,6 +406,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
     (t) => t.verdict === TrialVerdict.Breached,
   ).length;
   const defendedCount = scan.totalTrials - breachedCount;
+
   const handleOpenToolManager = () => {
     setToolManagerOpen(true);
   };

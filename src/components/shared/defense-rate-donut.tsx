@@ -6,12 +6,14 @@ interface DefenseRateDonutProps {
   defended: number;
   breached: number;
   defenseRate: number;
+  size?: number;
 }
 
 export function DefenseRateDonut({
   defended,
   breached,
   defenseRate,
+  size = 140,
 }: DefenseRateDonutProps) {
   const total = defended + breached;
   const data = [
@@ -20,15 +22,15 @@ export function DefenseRateDonut({
   ];
 
   return (
-    <div className="relative w-[140px] shrink-0">
-      <ResponsiveContainer width="100%" height={140}>
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <ResponsiveContainer width="100%" height={size}>
         <PieChart>
           <Pie
             data={data}
             cx="50%"
             cy="50%"
-            innerRadius={55}
-            outerRadius={65}
+            innerRadius={size * 0.39}
+            outerRadius={size * 0.46}
             paddingAngle={3}
             dataKey="value"
             stroke="transparent"
