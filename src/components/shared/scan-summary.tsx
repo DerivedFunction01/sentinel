@@ -39,10 +39,11 @@ interface ScanSummaryProps {
 }
 
 export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
-  const defended = scan.defendedCount ?? scan.trials.filter((t: any) => t.verdict === TrialVerdict.Defended).length;
-  const unknown = scan.unknownCount ?? scan.trials.filter((t: any) => t.verdict === TrialVerdict.Unknown).length;
+  const defended = (scan.trials || []).filter((t: any) => t.verdict === TrialVerdict.Defended).length;
+  const unknown = (scan.trials || []).filter((t: any) => t.verdict === TrialVerdict.Unknown).length;
   const defenseRate =
     scan.totalTrials > 0 ? Math.round((defended / scan.totalTrials) * 100) : 0;
+  console.log("[ScanSummary] overall stats", { totalTrials: scan.totalTrials, defended, unknown, defenseRate, defendedCount: scan.defendedCount, trialsLength: scan.trials?.length });
   const metadata = useMemo(() => {
     if (!scan.metadata) return null;
     if (typeof scan.metadata === "object") return scan.metadata as any;
@@ -310,29 +311,25 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
           <CardContent>
             <div className="flex flex-col lg:flex-row gap-6 items-start">
               <div className="flex flex-col items-center gap-3 lg:w-[260px] shrink-0">
-                <DefenseRateDonut
-                  defended={
-                    selectedTask
-                      ? selectedTask.defended
-                      : defended
-                  }
-                  breached={
-                    selectedTask ? selectedTask.breaches : scan.breaches
-                  }
-                  unknown={
-                    selectedTask ? selectedTask.unknown : unknown
-                  }
-                  defenseRate={
-                    selectedTask
-                      ? selectedTask.totalTrials > 0
-                        ? Math.round(
-                            (selectedTask.defended / selectedTask.totalTrials) *
-                              100,
-                          )
-                        : 0
-                      : defenseRate
-                  }
-                />
+                {(() => {
+                  const donutDefended = selectedTask ? selectedTask.defended : defended;
+                  const donutBreached = selectedTask ? selectedTask.breaches : scan.breaches;
+                  const donutUnknown = selectedTask ? selectedTask.unknown : unknown;
+                  const donutRate = selectedTask
+                    ? selectedTask.totalTrials > 0
+                      ? Math.round((selectedTask.defended / selectedTask.totalTrials) * 100)
+                      : 0
+                    : defenseRate;
+                  console.log("[ScanSummary] DefenseRateDonut props", { selectedTask: selectedTask?.name, donutDefended, donutBreached, donutUnknown, donutRate });
+                  return (
+                    <DefenseRateDonut
+                      defended={donutDefended}
+                      breached={donutBreached}
+                      unknown={donutUnknown}
+                      defenseRate={donutRate}
+                    />
+                  );
+                })()}
                 <p className="text-[11px] leading-relaxed text-muted-foreground text-center">
                   {selectedTask
                     ? `Task: ${selectedTask.name} — ${selectedTask.breaches}/${selectedTask.totalTrials} attacks breached this restriction.`

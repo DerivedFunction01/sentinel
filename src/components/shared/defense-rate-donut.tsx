@@ -17,11 +17,13 @@ export function DefenseRateDonut({
   defenseRate,
   size = 140,
 }: DefenseRateDonutProps) {
+  console.log("[DefenseRateDonut] props", { defended, breached, unknown, defenseRate });
   const data = [
     { name: "Defended", value: defended, color: "#34d399" },
     ...(unknown > 0 ? [{ name: "Unknown", value: unknown, color: "#94a3b8" }] : []),
     { name: "Breached", value: breached, color: "#f87171" },
   ].filter((d) => d.value > 0);
+  console.log("[DefenseRateDonut] filtered data", data);
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
