@@ -1,31 +1,10 @@
 import { getEncoding } from "js-tiktoken";
 import { patterns } from "./attack-templates";
 import { getPromptFile, PromptFileType } from "./prompt-loader";
+import { TOKEN_CONSTANTS } from "./token-constants";
 
 const enc = getEncoding("cl100k_base");
 
-// Token estimate constants
-const TOKEN_CONSTANTS = {
-  MESSAGE_ROLE_OVERHEAD: 4,
-  MESSAGE_STRUCTURAL_OVERHEAD: 3,
-  ONTOLOGY_DEFAULT_MAIN_AGENT_TOKENS: 500,
-  ONTOLOGY_DEFAULT_GENERAL_BUSINESS_TOKENS: 2000,
-  ONTOLOGY_DEFAULT_AVG_DOMAIN_TOKENS: 1000,
-  DEFAULT_NUM_THINGS: 4,
-  SEED_EXTRACTION_COMPLETION_BUFFER: 1500,
-  ATTACK_GEN_COMPLETION_BUFFER: 7200,
-  TARGET_SIM_PROMPT_BUFFER: 1000,
-  TARGET_SIM_COMPLETION_BUFFER: 200,
-  JUDGE_EVAL_COMPLETION_BUFFER: 100,
-  RE_EVAL_TRIALS_BUDGET: 5,
-  RE_EVAL_COMPLETION_BUFFER: 200,
-  HARDENING_COMPLETION_BUFFER: 1500,
-  TOOL_EXTRACTOR_COMPLETION_BUFFER: 1500,
-  REEVAL_SYSTEM_PROMPT_OVERHEAD: 1500,
-  REEVAL_COMPLETION_BUFFER: 1000,
-  TOKEN_HOLD_SCALE_MULTIPLIER: 1000000,
-  SAFETY_BUFFER_MULTIPLIER: 1.15,
-} as const;
 
 /**
  * Estimates the token count of a given string using the cl100k_base encoding (GPT-4 standard).
@@ -317,8 +296,7 @@ export async function processRefund(
   db: any,
   context?: string,
 ): Promise<{ finalTokenCost: number; refund: number }> {
-  if (upfrontHold == null)
-    return { finalTokenCost: 0, refund: 0 };
+  if (upfrontHold == null) return { finalTokenCost: 0, refund: 0 };
 
   const finalTokenCost = Math.ceil(tracker.totalCost * 1000000);
   const refund = Math.max(0, upfrontHold - finalTokenCost);

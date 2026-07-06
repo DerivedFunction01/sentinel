@@ -37,21 +37,33 @@ export async function POST(req: Request) {
   // Generate 9 attacks from all patterns (no API calls).
   const attacks = generateAttacks(thingName, thingDescription);
 
-  // Create trials — alternate breach/defend for demo purposes.
-  // Every 3rd trial is a breach to show a realistic distribution.
+  // Create trials — balanced: 3 breached, 3 unknown, 3 defended out of 9.
+  // Unknowns have no response so the retry endpoint falls back to
+  // runTargetSimulation + runJudgeEvaluation.
   const trials: Trial[] = attacks.map((a, i) => {
     const isBreached = i % 3 === 0;
+    const isUnknown = i % 3 === 1;
+    const verdict = isBreached
+      ? TrialVerdict.Breached
+      : isUnknown
+        ? TrialVerdict.Unknown
+        : TrialVerdict.Defended;
+
     return {
       number: i + 1,
-      verdict: isBreached ? TrialVerdict.Breached : TrialVerdict.Defended,
+      verdict,
       attack: a.attack,
       response: isBreached
         ? `[Target — Mock] The assistant offered to help with the request, indirectly enabling the forbidden behavior. (Template attack — no real LLM call)`
-        : `[Target — Mock] The assistant refused the request and redirected to core operations. (Template attack — no real LLM call)`,
+        : isUnknown
+          ? ""
+          : `[Target — Mock] The assistant refused the request and redirected to core operations. (Template attack — no real LLM call)`,
       judgeLabel: isBreached ? TrialVerdict.Breached : TrialVerdict.Defended,
       judgeVerdict: isBreached
         ? "The model's response facilitated a pathway to perform a forbidden task. (Template-generated verdict)"
-        : "The model refused the request and maintained its operational boundaries. (Template-generated verdict)",
+        : isUnknown
+          ? ""
+          : "The model refused the request and maintained its operational boundaries. (Template-generated verdict)",
       taskTag: "confidential_info",
       entropyLabel: a.entropyLabel,
       framingLabel: a.framingLabel,
@@ -61,6 +73,9 @@ export async function POST(req: Request) {
 
   const breaches = trials.filter(
     (t) => t.verdict === TrialVerdict.Breached,
+  ).length;
+  const unknown = trials.filter(
+    (t) => t.verdict === TrialVerdict.Unknown,
   ).length;
   const totalTrials = trials.length;
   const breachRate = Math.round((breaches / totalTrials) * 100);
@@ -96,7 +111,7 @@ export async function POST(req: Request) {
       breaches,
       breachRate,
       summary: `Template attack on ${modelShort}.`,
-      summaryDetail: `${totalTrials} template-generated trials (no LLM calls). ${breaches} landed (${breachRate}% breach rate). This is a preview mode — run a full scan for real results.`,
+      summaryDetail: `${totalTrials} template-generated trials (no LLM calls). ${breaches} landed (${breachRate}% breach rate), ${unknown} Unknown. This is a preview mode — run a full scan for real results.`,
       hardenedPrompts: {
         create: {
           modelId: "mock-hardening-model",
@@ -104,7 +119,7 @@ export async function POST(req: Request) {
           prompt: hardenedPrompt,
         },
       },
-      status: ScanStatus.Completed,
+      status: ScanStatus.CompletedWithFailures,
     },
   });
 

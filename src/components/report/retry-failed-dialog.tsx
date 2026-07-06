@@ -16,6 +16,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { TrialVerdict } from "@/lib/enums";
 import type { Trial, Scan } from "@/lib/types";
+import {
+  CostPreviewWidget,
+  type CostEstimationItem,
+} from "@/components/shared/cost-preview-widget";
+import { TOKEN_CONSTANTS } from "@/lib/token-constants";
 
 interface RetryFailedDialogProps {
   open: boolean;
@@ -34,20 +39,27 @@ export function RetryFailedDialog({
 }: RetryFailedDialogProps) {
   const [selectedTrials, setSelectedTrials] = useState<number[]>([]);
   const [confirming, setConfirming] = useState(false);
+  const [templateTokens, setTemplateTokens] = useState<Record<
+    string,
+    number
+  > | null>(null);
 
   useEffect(() => {
     if (open) {
       setSelectedTrials([]);
       setConfirming(false);
+
+      fetch("/api/scan/template-tokens")
+        .then((r) => r.json())
+        .then(setTemplateTokens)
+        .catch(() => {});
     }
   }, [open]);
 
   const unknownTrials = useMemo(
     () =>
       scan.trials.filter(
-        (t: Trial) =>
-          t.verdict === TrialVerdict.Unknown &&
-          t.attack?.trim(),
+        (t: Trial) => t.verdict === TrialVerdict.Unknown && t.attack?.trim(),
       ),
     [scan.trials],
   );
@@ -76,6 +88,94 @@ export function RetryFailedDialog({
     }
   };
 
+  const judgeModelId = scan.judgeModel;
+  const targetModelId = scan.targetModel;
+  const overhead = templateTokens?.judgeReEvalOverhead ?? TOKEN_CONSTANTS.REEVAL_SYSTEM_PROMPT_OVERHEAD;
+  const judgeCompletionBuffer = templateTokens?.reEvalCompletionBuffer ?? TOKEN_CONSTANTS.REEVAL_COMPLETION_BUFFER;
+  const targetCompletionBuffer = templateTokens?.targetCompletionBuffer ?? TOKEN_CONSTANTS.TARGET_SIM_COMPLETION_BUFFER;
+
+  const selectedUnknownTrials = useMemo(
+    () =>
+      selectedTrials
+        .map((num) => unknownTrials.find((t) => t.number === num))
+        .filter((t): t is Trial => !!t),
+    [selectedTrials, unknownTrials],
+  );
+
+  const costItems = useMemo<CostEstimationItem[]>(() => {
+    if (selectedTrials.length === 0) return [];
+
+    const items: CostEstimationItem[] = [];
+
+    const trialsNeedingTarget = selectedUnknownTrials.filter(
+      (t) => !t.response?.trim(),
+    );
+
+    for (const trial of trialsNeedingTarget) {
+      const promptText = [scan.systemPrompt || "", trial.attack || ""]
+        .filter(Boolean)
+        .join("\n");
+      items.push({
+        modelId: targetModelId,
+        type: "prompt",
+        text: promptText,
+      });
+      items.push({
+        modelId: targetModelId,
+        type: "completion",
+        tokensCount: targetCompletionBuffer,
+      });
+    }
+
+    for (const trial of selectedUnknownTrials) {
+      const transcriptStr =
+        typeof trial.transcript === "string"
+          ? trial.transcript
+          : JSON.stringify(trial.transcript || "");
+      const toolCallsStr =
+        typeof trial.toolCalls === "string"
+          ? trial.toolCalls
+          : JSON.stringify(trial.toolCalls || []);
+
+      const dynamicContent = [
+        scan.forbiddenTask || "",
+        trial.attack || "",
+        trial.response || "",
+        transcriptStr,
+        toolCallsStr,
+        scan.systemPrompt || "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      items.push({
+        modelId: judgeModelId,
+        type: "prompt",
+        text: dynamicContent,
+        additionalTokens: overhead,
+      });
+      items.push({
+        modelId: judgeModelId,
+        type: "completion",
+        tokensCount: judgeCompletionBuffer,
+      });
+    }
+
+    return items;
+  }, [
+    selectedUnknownTrials,
+    scan,
+    targetModelId,
+    targetCompletionBuffer,
+    judgeModelId,
+    overhead,
+    judgeCompletionBuffer,
+  ]);
+
+  const trialsNeedingTargetCount = selectedUnknownTrials.filter(
+    (t) => !t.response?.trim(),
+  ).length;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-amber-500/20 bg-slate-900 text-slate-100 max-w-3xl max-h-[90vh] flex flex-col">
@@ -85,8 +185,9 @@ export function RetryFailedDialog({
             Retry Unknown Trials
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            Select which indeterminate trials to retry. Each retry re-runs
-            the target model and re-evaluates the judge verdict.
+            Select which indeterminate trials to retry. Each retry re-runs the
+            target model (if no response exists) and re-evaluates the judge
+            verdict.
           </DialogDescription>
         </DialogHeader>
 
@@ -145,21 +246,31 @@ export function RetryFailedDialog({
                         <span className="text-[10px] rounded-full bg-amber-500/20 text-amber-300 px-2 py-0.5 uppercase tracking-wide">
                           Unknown
                         </span>
+                        {!trial.response?.trim() && (
+                          <span className="text-[10px] rounded-full bg-red-500/20 text-red-300 px-2 py-0.5 uppercase tracking-wide">
+                            No response
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-slate-300 font-mono whitespace-pre-wrap line-clamp-2 break-all">
                         {trial.attack}
                       </p>
-                      {trial.response && (
-                        <p className="text-[11px] text-slate-500 font-mono line-clamp-1 break-all">
-                          ↳ {trial.response}
-                        </p>
-                      )}
                     </div>
                   </label>
                 );
               })
             )}
           </div>
+
+          {selectedTrials.length > 0 && (
+            <div className="shrink-0">
+              <CostPreviewWidget
+                items={costItems}
+                tokens={scanTokens}
+                label={`${selectedTrials.length} trial${selectedTrials.length === 1 ? "" : "s"} selected · ${trialsNeedingTargetCount} need target re-run · all need judge re-evaluation`}
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter className="mt-4 flex gap-2 justify-end shrink-0">

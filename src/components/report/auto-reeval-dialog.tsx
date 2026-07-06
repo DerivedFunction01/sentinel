@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { TrialVerdict } from "@/lib/enums";
 import type { Trial, Scan } from "@/lib/types";
+import { TOKEN_CONSTANTS } from "@/lib/token-constants";
 import {
   CostPreviewWidget,
   type CostEstimationItem,
@@ -129,8 +130,8 @@ export function AutoReevalDialog({
     if (selectedTrials.length === 0) return [];
 
     const judgeModelId = scan.judgeModel;
-    const overhead = templateTokens?.judgeReEvalOverhead ?? 1500;
-    const completionBuffer = templateTokens?.reEvalCompletionBuffer ?? 1000;
+    const overhead = templateTokens?.judgeReEvalOverhead ?? TOKEN_CONSTANTS.REEVAL_SYSTEM_PROMPT_OVERHEAD;
+    const completionBuffer = templateTokens?.reEvalCompletionBuffer ?? TOKEN_CONSTANTS.REEVAL_COMPLETION_BUFFER;
 
     const refText = examplesForCost
       .map(
