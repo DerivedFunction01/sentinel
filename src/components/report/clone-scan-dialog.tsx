@@ -151,7 +151,7 @@ export function CloneScanDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-amber-500/20 bg-slate-900 text-slate-100 lg:min-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="dark border-amber-500/20 bg-background text-foreground lg:min-w-4xl max-h-[90vh] flex flex-col [--background:oklch(0.16_0.018_264)] [--foreground:oklch(0.93_0.008_264)] [--card:oklch(0.21_0.02_264)] [--card-foreground:oklch(0.93_0.008_264)] [--popover:oklch(0.21_0.02_264)] [--popover-foreground:oklch(0.93_0.008_264)] [--primary:oklch(0.623_0.214_259.815)] [--primary-foreground:oklch(0.985_0_0)] [--secondary:oklch(0.28_0.02_264)] [--secondary-foreground:oklch(0.93_0.008_264)] [--muted:oklch(0.28_0.02_264)] [--muted-foreground:oklch(0.68_0.015_264)] [--accent:oklch(0.28_0.02_264)] [--accent-foreground:oklch(0.93_0.008_264)] [--border:oklch(0.3_0.015_264)] [--input:oklch(0.25_0.018_264)] [--ring:oklch(0.623_0.214_259.815)] [--destructive:oklch(0.704_0.191_22.216)]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-amber-400">
             <Copy className="h-5 w-5 text-amber-400" />

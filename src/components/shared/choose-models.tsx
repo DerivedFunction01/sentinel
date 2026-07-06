@@ -65,6 +65,10 @@ export function ChooseModels({
   setName,
 }: ChooseModelsProps) {
   const isMulti = multiple;
+  const showTarget = setTargetModel !== undefined || setTargetModels !== undefined;
+  const numCols = (showTarget ? 1 : 0) + (!hideAttacker ? 1 : 0) + 1;
+  const gridCols = numCols >= 3 ? "sm:grid-cols-3" : numCols === 2 ? "sm:grid-cols-2" : "sm:grid-cols-1";
+  const nameColSpan = numCols >= 3 ? "sm:col-span-3" : "sm:col-span-2";
 
   const handleTargetChange = (value: string[]) => {
     if (setTargetModels) setTargetModels(value);
@@ -79,9 +83,9 @@ export function ChooseModels({
       <CardHeader>
         <CardTitle className="text-base">Models Selection</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <CardContent className={"grid grid-cols-1 gap-4 " + gridCols}>
         {name !== undefined && setName !== undefined && (
-          <div className="space-y-2 sm:col-span-3">
+          <div className={"space-y-2 " + nameColSpan}>
             <Label className="text-sm font-medium">Deployment Name</Label>
             <Input
               value={name}
@@ -91,7 +95,7 @@ export function ChooseModels({
           </div>
         )}
 
-        {!hideTarget && (
+        {showTarget && !hideTarget && (
           <div className="space-y-2">
             <Label className="text-sm font-medium">
               Target AI Model{isMulti ? "(s)" : ""}
