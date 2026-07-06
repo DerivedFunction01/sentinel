@@ -365,13 +365,26 @@ export async function getSavedQueries(): Promise<any[]> {
   }
 }
 
-export async function saveQuery(id: string, name: string, queryDef: any): Promise<void> {
+export async function saveQuery(
+  id: string,
+  name: string,
+  queryDef: any,
+  pivotConfig?: {
+    rowKey: string;
+    colKey: string;
+    valueKey: string;
+    aggType: "count" | "sum" | "avg";
+    enableHeatmap: boolean;
+  } | null,
+): Promise<void> {
   try {
     const db = await getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_SAVED_QUERIES, "readwrite");
       const store = transaction.objectStore(STORE_SAVED_QUERIES);
-      const request = store.put({ id, name, query: queryDef, createdAt: new Date().toISOString() }, id);
+      const record: any = { id, name, query: queryDef, createdAt: new Date().toISOString() };
+      if (pivotConfig) record.pivotConfig = pivotConfig;
+      const request = store.put(record, id);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });

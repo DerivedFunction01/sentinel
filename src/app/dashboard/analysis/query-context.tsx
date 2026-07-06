@@ -71,11 +71,21 @@ export interface QueryContextValue {
   // Actions
   handleRunQuery: () => void;
   handleSaveQuery: () => Promise<void>;
+  handleSavePivotView: (pivotConfig: PivotConfig) => Promise<void>;
   handleExportPython: () => void;
 
   // Shared data (from provider)
   savedQueries: any[];
   refreshSavedQueries: () => Promise<void>;
+}
+
+/** Pivot configuration shape stored alongside a saved query. */
+export interface PivotConfig {
+  rowKey: string;
+  colKey: string;
+  valueKey: string;
+  aggType: "count" | "sum" | "avg";
+  enableHeatmap: boolean;
 }
 
 const QueryContext = createContext<QueryContextValue | null>(null);
@@ -246,6 +256,23 @@ export function QueryProvider({
     }
   }, [newQueryName, buildQuery, refreshSavedQueries]);
 
+  const handleSavePivotView = useCallback(async (pivotConfig: PivotConfig) => {
+    if (!newQueryName.trim()) {
+      toast.error("Please enter a name for the pivot view");
+      return;
+    }
+    try {
+      const id = "view_" + Math.random().toString(36).substr(2, 9);
+      await saveQuery(id, newQueryName, buildQuery(), pivotConfig);
+      setNewQueryName("");
+      toast.success("Pivot view saved!");
+      await refreshSavedQueries();
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to save pivot view");
+    }
+  }, [newQueryName, buildQuery, refreshSavedQueries]);
+
   const handleExportPython = useCallback(() => {
     try {
       const script = translateQueryToPython(buildQuery(), savedQueries);
@@ -281,6 +308,7 @@ export function QueryProvider({
     getUniqueFieldValues,
     handleRunQuery,
     handleSaveQuery,
+    handleSavePivotView,
     handleExportPython,
     savedQueries,
     refreshSavedQueries,
