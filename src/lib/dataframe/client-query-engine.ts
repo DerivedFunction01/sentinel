@@ -208,7 +208,27 @@ export function executeQuery(
     return row;
   });
 
-  // 2. Apply Filters
+  // Explode tags[] -> tag (singular) if the query references the virtual "tag" field.
+  // Each scan row becomes one row per tag; rows with no tags are dropped (like UNNEST).
+  const referencesTag = [
+    ...(query.filters ?? []).map((f) => f.property),
+    ...(query.projections ?? []),
+    ...(query.group_by ?? []),
+    ...(query.sort ?? []).map((s) => s.property),
+  ].includes("tag");
+
+  if (referencesTag) {
+    dataset = dataset.flatMap((row) => {
+      const tagsArr: string[] = Array.isArray(row.tags)
+        ? row.tags
+        : typeof row.tags === "string"
+          ? JSON.parse(row.tags)
+          : [];
+      if (tagsArr.length === 0) return [];
+      return tagsArr.map((t: string) => ({ ...row, tag: t }));
+    });
+  }
+
   let filtered = dataset;
   if (query.filters && query.filters.length > 0) {
     filtered = dataset.filter((row) => {

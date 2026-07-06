@@ -136,6 +136,27 @@ function compileQueryBody(
     parts.push("");
   }
 
+  // Explode tags[] -> tag if the virtual "tag" field is referenced
+  const allFieldsReferenced = [
+    ...(query.filters ?? []).map((f) => f.property),
+    ...(query.projections ?? []),
+    ...(query.group_by ?? []),
+    ...(query.sort ?? []).map((s) => s.property),
+  ];
+  const referencesTag = allFieldsReferenced.includes("tag");
+
+  if (referencesTag) {
+    parts.push(
+      `${indent}# Explode tags[] array -> one row per tag (virtual 'tag' field)`,
+    );
+    parts.push(`${indent}if "tags" in df.columns:`);
+    parts.push(
+      `${indent}    df = df.explode("tags").rename(columns={"tags": "tag"})`,
+    );
+    parts.push(`${indent}    df = df[df["tag"].notna() & (df["tag"] != "")]`);
+    parts.push("");
+  }
+
   // Filters
   if (query.filters && query.filters.length > 0) {
     parts.push(`${indent}# Apply WHERE Filter Conditions`);

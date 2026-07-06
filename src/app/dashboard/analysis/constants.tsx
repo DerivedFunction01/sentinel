@@ -114,6 +114,12 @@ export const SCAN_FIELDS = [
     type: "string[]",
     desc: "List of applied tags",
   },
+  {
+    name: "tag",
+    label: "Tag (Exploded)",
+    type: "string",
+    desc: "One row per tag — use for GROUP BY tag or filtering by a single tag value",
+  },
 ];
 export const TRIAL_FIELDS = [
   {
