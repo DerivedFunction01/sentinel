@@ -58,7 +58,7 @@ export function ModelSelector({ value, onChange, role }: ModelSelectorProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="dark w-[var(--radix-popover-trigger-width)] min-w-[300px] border-border bg-popover p-0 text-popover-foreground"
+        className="w-[var(--radix-popover-trigger-width)] min-w-[300px] border-border bg-popover p-0 text-popover-foreground [--popover:oklch(0.21_0.02_264)] [--popover-foreground:oklch(0.93_0.008_264)]"
         align="start"
       >
         <ModelSelectorList

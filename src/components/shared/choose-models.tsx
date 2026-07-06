@@ -27,6 +27,9 @@ export interface ChooseModelsProps {
   setExtractorModel: (model: string) => void;
   showAdvancedModels: boolean;
   setShowAdvancedModels: (show: boolean) => void;
+  hideAttacker?: boolean;
+  hideTarget?: boolean;
+  hideToolExtractor?: boolean;
   enableHardening?: boolean;
   setEnableHardening?: (enabled: boolean) => void;
   tokens?: number | null;
@@ -52,6 +55,9 @@ export function ChooseModels({
   setExtractorModel,
   showAdvancedModels,
   setShowAdvancedModels,
+  hideAttacker = false,
+  hideTarget = false,
+  hideToolExtractor = false,
   enableHardening,
   setEnableHardening,
   tokens,
@@ -85,44 +91,48 @@ export function ChooseModels({
           </div>
         )}
 
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">
-            Target AI Model{isMulti ? "(s)" : ""}
-          </Label>
-          {isMulti ? (
-            <MultiModelSelector
-              value={targetModels}
-              onChange={handleTargetChange}
-              role={ModelSelectorRole.Target}
-            />
-          ) : (
-            <ModelSelector
-              value={targetModel || ""}
-              onChange={handleSingleTargetChange}
-              role={ModelSelectorRole.Target}
-            />
-          )}
-          {isMulti && (
-            <p className="text-xs text-muted-foreground">
-              Select one or more models to test in parallel.
-            </p>
-          )}
-        </div>
+        {!hideTarget && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              Target AI Model{isMulti ? "(s)" : ""}
+            </Label>
+            {isMulti ? (
+              <MultiModelSelector
+                value={targetModels}
+                onChange={handleTargetChange}
+                role={ModelSelectorRole.Target}
+              />
+            ) : (
+              <ModelSelector
+                value={targetModel || ""}
+                onChange={handleSingleTargetChange}
+                role={ModelSelectorRole.Target}
+              />
+            )}
+            {isMulti && (
+              <p className="text-xs text-muted-foreground">
+                Select one or more models to test in parallel.
+              </p>
+            )}
+          </div>
+        )}
 
-        <div className="space-y-2">
-          <Label className="flex items-center gap-1.5 text-sm font-medium">
-            <Swords className="h-3.5 w-3.5 text-red-400" />
-            Attacker Model
-          </Label>
-          <ModelSelector
-            value={attackerModel}
-            onChange={setAttackerModel}
-            role={ModelSelectorRole.Attack}
-          />
-          <p className="text-xs text-muted-foreground">
-            Generates adversarial prompts targeting the forbidden task.
-          </p>
-        </div>
+        {!hideAttacker && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5 text-sm font-medium">
+              <Swords className="h-3.5 w-3.5 text-red-400" />
+              Attacker Model
+            </Label>
+            <ModelSelector
+              value={attackerModel}
+              onChange={setAttackerModel}
+              role={ModelSelectorRole.Attack}
+            />
+            <p className="text-xs text-muted-foreground">
+              Generates adversarial prompts targeting the forbidden task.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label className="flex items-center gap-1.5 text-sm font-medium">
@@ -186,21 +196,23 @@ export function ChooseModels({
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-                  <Braces className="h-3.5 w-3.5 text-purple-400" />
-                  Tool Extractor Model
-                </Label>
-                <ModelSelector
-                  value={extractorModel}
-                  onChange={setExtractorModel}
-                  role={ModelSelectorRole.ToolExtractor}
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Custom model used to extract tools and analyze mock responses
-                  during hardening.
-                </p>
-              </div>
+              {!hideToolExtractor && (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                    <Braces className="h-3.5 w-3.5 text-purple-400" />
+                    Tool Extractor Model
+                  </Label>
+                  <ModelSelector
+                    value={extractorModel}
+                    onChange={setExtractorModel}
+                    role={ModelSelectorRole.ToolExtractor}
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Custom model used to extract tools and analyze mock responses
+                    during hardening.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
