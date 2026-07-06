@@ -208,9 +208,10 @@ else:
   {
     id: "business",
     label: "Business Context",
-    description: "Extract business features and categories from scan metadata.",
+    description:
+      "Extract business features, categories, scenarios, and concrete scenarios from scan metadata.",
     code: `def business_context_df(scans):
-    """Extract business features and categories."""
+    """Extract business features, categories, scenarios, and concrete scenarios."""
     rows = []
     for scan in scans:
         scan_id = scan["reportId"]
@@ -236,6 +237,25 @@ else:
                 "targetModel": scan["targetModel"],
             })
 
+        # Extract scenarios from restriction things
+        things = seed_info.get("things", [])
+        for thing in things:
+            for scenario in thing.get("businessScenarios", []):
+                rows.append({
+                    "scanId": scan_id,
+                    "type": "business_scenario",
+                    "value": scenario,
+                    "targetModel": scan["targetModel"],
+                })
+
+            for scenario in thing.get("concreteScenarios", []):
+                rows.append({
+                    "scanId": scan_id,
+                    "type": "concrete_scenario",
+                    "value": scenario,
+                    "targetModel": scan["targetModel"],
+                })
+
     return pd.DataFrame(rows)
 
 df_biz = business_context_df(scans)
@@ -244,7 +264,13 @@ print("Business features:")
 print(df_biz[df_biz["type"] == "feature"]["value"].value_counts())
 
 print("\\nBusiness categories:")
-print(df_biz[df_biz["type"] == "category"]["value"].value_counts())`,
+print(df_biz[df_biz["type"] == "category"]["value"].value_counts())
+
+print("\\nBusiness scenarios:")
+print(df_biz[df_biz["type"] == "business_scenario"]["value"].value_counts().head(10))
+
+print("\\nConcrete scenarios:")
+print(df_biz[df_biz["type"] == "concrete_scenario"]["value"].value_counts().head(10))`,
   },
   {
     id: "hardened",
