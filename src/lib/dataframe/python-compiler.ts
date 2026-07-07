@@ -86,7 +86,9 @@ function compileQueryBody(
     if (parent) {
       const parentNameSafe = parent.name.replace(/[^a-zA-Z0-9_]/g, "_");
       parts.push(`${indent}# Load parent view: ${parent.name}`);
-      parts.push(`${indent}${varName} = get_view_${parentNameSafe}(scans_list)`);
+      parts.push(
+        `${indent}${varName} = get_view_${parentNameSafe}(scans_list)`,
+      );
     } else {
       parts.push(
         `${indent}# Parent view ${query.sourceViewId} not found, falling back to scans`,
@@ -134,7 +136,9 @@ function compileQueryBody(
     parts.push(
       `${indent}    ${varName}["createdAt_month"] = ${varName}["createdAt_dt"].dt.month`,
     );
-    parts.push(`${indent}    ${varName}["createdAt_day"] = ${varName}["createdAt_dt"].dt.day`);
+    parts.push(
+      `${indent}    ${varName}["createdAt_day"] = ${varName}["createdAt_dt"].dt.day`,
+    );
     parts.push("");
   }
 
@@ -155,7 +159,9 @@ function compileQueryBody(
     parts.push(
       `${indent}    ${varName} = ${varName}.explode("tags").rename(columns={"tags": "tag"})`,
     );
-    parts.push(`${indent}    ${varName} = ${varName}[${varName}["tag"].notna() & (${varName}["tag"] != "")]`);
+    parts.push(
+      `${indent}    ${varName} = ${varName}[${varName}["tag"].notna() & (${varName}["tag"] != "")]`,
+    );
     parts.push("");
   }
 
@@ -181,18 +187,45 @@ function compileQueryBody(
         // Map engine function names to pandas aggfunc strings or lambdas
         let pyFunc: string;
         switch (agg.function) {
-          case "count":        pyFunc = '"count"'; break;
-          case "count_distinct": pyFunc = '"nunique"'; break;
-          case "sum":          pyFunc = '"sum"'; break;
-          case "avg":          pyFunc = '"mean"'; break;
-          case "min":          pyFunc = '"min"'; break;
-          case "max":          pyFunc = '"max"'; break;
-          case "std_dev":      pyFunc = '"std"'; break;
-          case "median":       pyFunc = '"median"'; break;
-          case "q1":           pyFunc = "lambda x: x.quantile(0.25)"; break;
-          case "q3":           pyFunc = "lambda x: x.quantile(0.75)"; break;
-          case "range":        pyFunc = "lambda x: x.max() - x.min()"; break;
-          default:             pyFunc = `"${agg.function}"`;
+          case "count":
+            pyFunc = '"count"';
+            break;
+          case "count_distinct":
+            pyFunc = '"nunique"';
+            break;
+          case "sum":
+            pyFunc = '"sum"';
+            break;
+          case "avg":
+            pyFunc = '"mean"';
+            break;
+          case "min":
+            pyFunc = '"min"';
+            break;
+          case "max":
+            pyFunc = '"max"';
+            break;
+          case "std_dev":
+            pyFunc = '"std"';
+            break;
+          case "median":
+            pyFunc = '"median"';
+            break;
+          case "q1":
+            pyFunc = "lambda x: x.quantile(0.25)";
+            break;
+          case "q3":
+            pyFunc = "lambda x: x.quantile(0.75)";
+            break;
+          case "range":
+            pyFunc = "lambda x: x.max() - x.min()";
+            break;
+          case "stat":
+            pyFunc =
+              'lambda x: {"min": float(x.min()) if not pd.isna(x.min()) else 0.0, "q1": float(x.quantile(0.25)) if not pd.isna(x.quantile(0.25)) else 0.0, "median": float(x.median()) if not pd.isna(x.median()) else 0.0, "q3": float(x.quantile(0.75)) if not pd.isna(x.quantile(0.75)) else 0.0, "max": float(x.max()) if not pd.isna(x.max()) else 0.0, "mean": float(x.mean()) if not pd.isna(x.mean()) else 0.0, "count": int(x.count()), "_isStatObj": True}';
+            break;
+          default:
+            pyFunc = `"${agg.function}"`;
         }
         const groupPrefix =
           query.group_by && query.group_by.length
@@ -242,7 +275,9 @@ function compileQueryBody(
   }
 
   // Set Algebra (UNION / INTERSECT / EXCEPT) — applied after LIMIT, matching engine order
-  const setOps: Array<["union" | "intersect" | "except", keyof QueryDefinition]> = [
+  const setOps: Array<
+    ["union" | "intersect" | "except", keyof QueryDefinition]
+  > = [
     ["union", "union"],
     ["intersect", "intersect"],
     ["except", "except"],
@@ -252,7 +287,9 @@ function compileQueryBody(
     if (!sub) continue;
     const rightVar = freshVar();
     parts.push(`${indent}# Set Operation: ${op.toUpperCase()}`);
-    parts.push(...compileQueryBody(sub, savedQueries, indent, rightVar, freshVar));
+    parts.push(
+      ...compileQueryBody(sub, savedQueries, indent, rightVar, freshVar),
+    );
     if (op === "union") {
       parts.push(
         `${indent}${varName} = pd.concat([${varName}, ${rightVar}], ignore_index=True)`,
@@ -354,7 +391,9 @@ export function translateQueryToPython(
     for (const parent of ancestors) {
       const parentNameSafe = parent.name.replace(/[^a-zA-Z0-9_]/g, "_");
       parts.push(`def get_view_${parentNameSafe}(scans_list):`);
-      parts.push(...compileQueryBody(parent.query, savedQueries, "    ", "df", freshVar));
+      parts.push(
+        ...compileQueryBody(parent.query, savedQueries, "    ", "df", freshVar),
+      );
       parts.push("    return df");
       parts.push("");
     }

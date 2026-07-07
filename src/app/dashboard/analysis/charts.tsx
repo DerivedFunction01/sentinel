@@ -128,11 +128,19 @@ export function FlatCharts({
   // Render a single sub-chart card for a given key
   const renderSubChartCard = (key: string, idx: number) => {
     const firstRow = chartData.data[0];
-    const isCategorical = firstRow ? (typeof firstRow[key] === "string" || typeof firstRow[key] === "boolean") : false;
+    const rawFirstVal = firstRow ? firstRow[key] : null;
+    let parsedFirstVal = rawFirstVal;
+    if (typeof rawFirstVal === "string" && rawFirstVal.startsWith("{")) {
+      try {
+        parsedFirstVal = JSON.parse(rawFirstVal);
+      } catch (e) {}
+    }
+    const isStatObject = !!(parsedFirstVal && typeof parsedFirstVal === "object" && (parsedFirstVal as any)._isStatObj);
+    const isCategorical = firstRow && !isStatObject ? (typeof firstRow[key] === "string" || typeof firstRow[key] === "boolean") : false;
     const metricType = getMetricType(key);
     const dataPoints = chartData.data.map((d) => d[key]);
     const distinctValues = new Set(dataPoints.filter((v) => v !== undefined && v !== null)).size;
-    const resolvedType = resolveChartTypeForKey(key, distinctValues, isCategorical);
+    const resolvedType = isStatObject ? "box" : resolveChartTypeForKey(key, distinctValues, isCategorical);
     const color = CHART_COLORS[idx % CHART_COLORS.length];
 
     // frequency data helper for non-numerical categorical columns
@@ -372,6 +380,78 @@ export function FlatCharts({
                   ))}
                 </Pie>
               </PieChart>
+            ) : resolvedType === "box" ? (
+              /* Custom Box-and-Whisker distribution layout */
+              <div className="flex flex-col gap-3 h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                {(() => {
+                  const getStatObj = (row: any) => {
+                    const rawVal = row[key];
+                    if (typeof rawVal === "string" && rawVal.startsWith("{")) {
+                      try {
+                        return JSON.parse(rawVal);
+                      } catch (e) {}
+                    }
+                    return rawVal || { min: 0, q1: 0, median: 0, q3: 0, max: 0, mean: 0, count: 0 };
+                  };
+
+                  const minGlobal = Math.min(...chartData.data.map(row => Number(getStatObj(row)?.min ?? 0)));
+                  const maxGlobal = Math.max(...chartData.data.map(row => Number(getStatObj(row)?.max ?? 100)));
+                  const globalRange = maxGlobal - minGlobal || 1;
+
+                  return chartData.data.map((row, rIdx) => {
+                    const label = String(row[chartData.xAxisKey] ?? `Item ${rIdx}`);
+                    const stat = getStatObj(row);
+                    
+                    const leftWhisker = ((stat.min - minGlobal) / globalRange) * 100;
+                    const rightWhisker = ((stat.max - minGlobal) / globalRange) * 100;
+                    const leftBox = ((stat.q1 - minGlobal) / globalRange) * 100;
+                    const rightBox = ((stat.q3 - minGlobal) / globalRange) * 100;
+                    const medianPos = ((stat.median - minGlobal) / globalRange) * 100;
+                    const meanPos = ((stat.mean - minGlobal) / globalRange) * 100;
+
+                    return (
+                      <div key={rIdx} className="flex items-center gap-4 text-[10px]">
+                        <div className="w-[100px] truncate text-slate-300 font-semibold" title={label}>
+                          {label}
+                        </div>
+                        <div className="flex-1 relative h-6 bg-white/5 border border-white/5 rounded flex items-center group">
+                          {/* Whisker Line */}
+                          <div
+                            className="absolute h-0.5 bg-slate-500"
+                            style={{ left: `${leftWhisker}%`, right: `${100 - rightWhisker}%` }}
+                          />
+                          {/* Whisker End-Ticks */}
+                          <div className="absolute w-0.5 h-3 bg-slate-400" style={{ left: `${leftWhisker}%` }} />
+                          <div className="absolute w-0.5 h-3 bg-slate-400" style={{ left: `${rightWhisker}%` }} />
+                          {/* Box (Q1 to Q3) */}
+                          <div
+                            className="absolute h-4 bg-blue-500/30 border border-blue-500/70 rounded-sm"
+                            style={{ left: `${leftBox}%`, right: `${100 - rightBox}%` }}
+                          />
+                          {/* Median Line */}
+                          <div className="absolute w-0.5 h-4 bg-rose-500" style={{ left: `${medianPos}%` }} title={`Median: ${stat.median}`} />
+                          {/* Mean Dot */}
+                          <div
+                            className="absolute w-2 h-2 rounded-full bg-emerald-400 border border-black shadow"
+                            style={{ left: `calc(${meanPos}% - 4px)` }}
+                            title={`Mean: ${stat.mean}`}
+                          />
+                          
+                          {/* Tooltip on Hover */}
+                          <div className="absolute opacity-0 group-hover:opacity-100 bg-zinc-900 border border-white/10 p-2 rounded shadow-xl text-[9px] pointer-events-none transition-opacity z-10 -top-12 left-1/2 -translate-x-1/2 flex gap-2 whitespace-nowrap text-slate-300">
+                            <span>Min: <strong>{stat.min}</strong></span>
+                            <span>Q1: <strong>{stat.q1}</strong></span>
+                            <span>Med: <strong className="text-rose-400">{stat.median}</strong></span>
+                            <span>Q3: <strong>{stat.q3}</strong></span>
+                            <span>Max: <strong>{stat.max}</strong></span>
+                            <span>Count: <strong>{stat.count}</strong></span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
             ) : resolvedType === "scatter" ? (
               <ScatterChart>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />

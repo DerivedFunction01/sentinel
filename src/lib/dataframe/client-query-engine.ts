@@ -30,7 +30,8 @@ export interface Aggregation {
     | "median"
     | "q1"
     | "q3"
-    | "range";
+    | "range"
+    | "stat";
   property: string; // use '*' or any field for count
   alias: string;
 }
@@ -351,6 +352,26 @@ export function executeQuery(
                 nums.length > 0
                   ? Number((Math.max(...nums) - Math.min(...nums)).toFixed(4))
                   : 0;
+              break;
+            }
+            case "stat": {
+              const nums = values.map(Number).filter((v) => !isNaN(v));
+              if (nums.length === 0) {
+                resultRow[agg.alias] = { min: 0, q1: 0, median: 0, q3: 0, max: 0, mean: 0, count: 0, _isStatObj: true };
+              } else {
+                const sortedNums = [...nums].sort((a, b) => a - b);
+                const sumVal = sortedNums.reduce((s, x) => s + x, 0);
+                resultRow[agg.alias] = {
+                  min: sortedNums[0],
+                  q1: Number(percentile(sortedNums, 25).toFixed(4)),
+                  median: Number(percentile(sortedNums, 50).toFixed(4)),
+                  q3: Number(percentile(sortedNums, 75).toFixed(4)),
+                  max: sortedNums[sortedNums.length - 1],
+                  mean: Number((sumVal / sortedNums.length).toFixed(4)),
+                  count: sortedNums.length,
+                  _isStatObj: true,
+                };
+              }
               break;
             }
           }

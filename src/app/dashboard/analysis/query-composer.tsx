@@ -285,6 +285,7 @@ export function QueryComposer({ useFriendlyNames }: QueryComposerProps) {
                       <option value="q1">Q1 (25th %ile)</option>
                       <option value="q3">Q3 (75th %ile)</option>
                       <option value="range">RANGE (max−min)</option>
+                      <option value="stat">STAT (Summary stats)</option>
                     </optgroup>
                   </select>
                   <select
