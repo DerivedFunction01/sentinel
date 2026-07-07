@@ -15,7 +15,7 @@ function formatValue(val: any, type?: string): string {
   return `"${escapeString(String(val))}"`;
 }
 
-function compileFilterCondition(f: FilterCondition): string {
+function compileFilterCondition(f: FilterCondition, varName: string): string {
   const prop = f.property;
   if (!prop) return "";
   const op = f.operator;
@@ -23,28 +23,28 @@ function compileFilterCondition(f: FilterCondition): string {
 
   switch (op) {
     case "eq":
-      return `df[df[${formatValue(prop)}] == ${formatValue(val)}]`;
+      return `${varName}[${varName}[${formatValue(prop)}] == ${formatValue(val)}]`;
     case "neq":
-      return `df[df[${formatValue(prop)}] != ${formatValue(val)}]`;
+      return `${varName}[${varName}[${formatValue(prop)}] != ${formatValue(val)}]`;
     case "gt":
-      return `df[df[${formatValue(prop)}] > ${Number(val) || 0}]`;
+      return `${varName}[${varName}[${formatValue(prop)}] > ${Number(val) || 0}]`;
     case "lt":
-      return `df[df[${formatValue(prop)}] < ${Number(val) || 0}]`;
+      return `${varName}[${varName}[${formatValue(prop)}] < ${Number(val) || 0}]`;
     case "geq":
-      return `df[df[${formatValue(prop)}] >= ${Number(val) || 0}]`;
+      return `${varName}[${varName}[${formatValue(prop)}] >= ${Number(val) || 0}]`;
     case "leq":
-      return `df[df[${formatValue(prop)}] <= ${Number(val) || 0}]`;
+      return `${varName}[${varName}[${formatValue(prop)}] <= ${Number(val) || 0}]`;
     case "like":
-      return `df[df[${formatValue(prop)}].astype(str).str.contains(${formatValue(val)}, case=False, na=False)]`;
+      return `${varName}[${varName}[${formatValue(prop)}].astype(str).str.contains(${formatValue(val)}, case=False, na=False)]`;
     case "not_like":
-      return `df[~df[${formatValue(prop)}].astype(str).str.contains(${formatValue(val)}, case=False, na=False)]`;
+      return `${varName}[~${varName}[${formatValue(prop)}].astype(str).str.contains(${formatValue(val)}, case=False, na=False)]`;
     case "in_set": {
       const items = String(val)
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
       const pyList = `[${items.map((i) => formatValue(i)).join(", ")}]`;
-      return `df[df[${formatValue(prop)}].isin(${pyList})]`;
+      return `${varName}[${varName}[${formatValue(prop)}].isin(${pyList})]`;
     }
     case "not_in_set": {
       const items = String(val)
@@ -52,19 +52,19 @@ function compileFilterCondition(f: FilterCondition): string {
         .map((s) => s.trim())
         .filter(Boolean);
       const pyList = `[${items.map((i) => formatValue(i)).join(", ")}]`;
-      return `df[~df[${formatValue(prop)}].isin(${pyList})]`;
+      return `${varName}[~${varName}[${formatValue(prop)}].isin(${pyList})]`;
     }
     case "between": {
       const parts = String(val).split(",");
       const minVal = parts[0] ? parts[0].trim() : "";
       const maxVal = parts[1] ? parts[1].trim() : "";
-      return `df[(df[${formatValue(prop)}] >= ${formatValue(minVal)}) & (df[${formatValue(prop)}] <= ${formatValue(maxVal)})]`;
+      return `${varName}[(${varName}[${formatValue(prop)}] >= ${formatValue(minVal)}) & (${varName}[${formatValue(prop)}] <= ${formatValue(maxVal)})]`;
     }
     case "not_between": {
       const parts = String(val).split(",");
       const minVal = parts[0] ? parts[0].trim() : "";
       const maxVal = parts[1] ? parts[1].trim() : "";
-      return `df[~((df[${formatValue(prop)}] >= ${formatValue(minVal)}) & (df[${formatValue(prop)}] <= ${formatValue(maxVal)}))]`;
+      return `${varName}[~((${varName}[${formatValue(prop)}] >= ${formatValue(minVal)}) & (${varName}[${formatValue(prop)}] <= ${formatValue(maxVal)}))]`;
     }
     default:
       return "";
@@ -75,6 +75,8 @@ function compileQueryBody(
   query: QueryDefinition,
   savedQueries: any[],
   indent: string,
+  varName: string = "df",
+  freshVar: () => string = () => "df_right",
 ): string[] {
   const parts: string[] = [];
 
@@ -84,12 +86,12 @@ function compileQueryBody(
     if (parent) {
       const parentNameSafe = parent.name.replace(/[^a-zA-Z0-9_]/g, "_");
       parts.push(`${indent}# Load parent view: ${parent.name}`);
-      parts.push(`${indent}df = get_view_${parentNameSafe}(scans_list)`);
+      parts.push(`${indent}${varName} = get_view_${parentNameSafe}(scans_list)`);
     } else {
       parts.push(
         `${indent}# Parent view ${query.sourceViewId} not found, falling back to scans`,
       );
-      parts.push(`${indent}df = pd.DataFrame(scans_list)`);
+      parts.push(`${indent}${varName} = pd.DataFrame(scans_list)`);
     }
   } else {
     const targetTable = query.table || "scans";
@@ -106,9 +108,9 @@ function compileQueryBody(
       parts.push(`${indent}        t["targetModel"] = s.get("targetModel")`);
       parts.push(`${indent}        t["createdAt"] = s.get("createdAt")`);
       parts.push(`${indent}        trials_rows.append(t)`);
-      parts.push(`${indent}df = pd.DataFrame(trials_rows)`);
+      parts.push(`${indent}${varName} = pd.DataFrame(trials_rows)`);
     } else {
-      parts.push(`${indent}df = pd.DataFrame(scans_list)`);
+      parts.push(`${indent}${varName} = pd.DataFrame(scans_list)`);
     }
   }
   parts.push("");
@@ -122,17 +124,17 @@ function compileQueryBody(
 
   if (referencesDateComponents) {
     parts.push(`${indent}# Project Virtual Date Fields`);
-    parts.push(`${indent}if "createdAt" in df.columns:`);
+    parts.push(`${indent}if "createdAt" in ${varName}.columns:`);
     parts.push(
-      `${indent}    df["createdAt_dt"] = pd.to_datetime(df["createdAt"])`,
+      `${indent}    ${varName}["createdAt_dt"] = pd.to_datetime(${varName}["createdAt"])`,
     );
     parts.push(
-      `${indent}    df["createdAt_year"] = df["createdAt_dt"].dt.year`,
+      `${indent}    ${varName}["createdAt_year"] = ${varName}["createdAt_dt"].dt.year`,
     );
     parts.push(
-      `${indent}    df["createdAt_month"] = df["createdAt_dt"].dt.month`,
+      `${indent}    ${varName}["createdAt_month"] = ${varName}["createdAt_dt"].dt.month`,
     );
-    parts.push(`${indent}    df["createdAt_day"] = df["createdAt_dt"].dt.day`);
+    parts.push(`${indent}    ${varName}["createdAt_day"] = ${varName}["createdAt_dt"].dt.day`);
     parts.push("");
   }
 
@@ -149,11 +151,11 @@ function compileQueryBody(
     parts.push(
       `${indent}# Explode tags[] array -> one row per tag (virtual 'tag' field)`,
     );
-    parts.push(`${indent}if "tags" in df.columns:`);
+    parts.push(`${indent}if "tags" in ${varName}.columns:`);
     parts.push(
-      `${indent}    df = df.explode("tags").rename(columns={"tags": "tag"})`,
+      `${indent}    ${varName} = ${varName}.explode("tags").rename(columns={"tags": "tag"})`,
     );
-    parts.push(`${indent}    df = df[df["tag"].notna() & (df["tag"] != "")]`);
+    parts.push(`${indent}    ${varName} = ${varName}[${varName}["tag"].notna() & (${varName}["tag"] != "")]`);
     parts.push("");
   }
 
@@ -161,9 +163,9 @@ function compileQueryBody(
   if (query.filters && query.filters.length > 0) {
     parts.push(`${indent}# Apply WHERE Filter Conditions`);
     for (const f of query.filters) {
-      const code = compileFilterCondition(f);
+      const code = compileFilterCondition(f, varName);
       if (code) {
-        parts.push(`${indent}df = ${code}`);
+        parts.push(`${indent}${varName} = ${code}`);
       }
     }
     parts.push("");
@@ -208,14 +210,14 @@ function compileQueryBody(
       );
     }
     const groupKeys = query.group_by.map((g) => `"${g}"`).join(", ");
-    parts.push(`${indent}df = df.groupby([${groupKeys}]).agg(`);
+    parts.push(`${indent}${varName} = ${varName}.groupby([${groupKeys}]).agg(`);
     parts.push(aggDict.join(",\n"));
     parts.push(`${indent}).reset_index()`);
     parts.push("");
   } else if (query.projections && query.projections.length > 0) {
     parts.push(`${indent}# SELECT Projected Columns`);
     const projKeys = query.projections.map((p) => `"${p}"`).join(", ");
-    parts.push(`${indent}df = df[[${projKeys}]]`);
+    parts.push(`${indent}${varName} = ${varName}[[${projKeys}]]`);
     parts.push("");
   }
 
@@ -227,7 +229,7 @@ function compileQueryBody(
       .map((s) => (s.direction === "asc" ? "True" : "False"))
       .join(", ");
     parts.push(
-      `${indent}df = df.sort_values(by=[${sortKeys}], ascending=[${ascendingKeys}])`,
+      `${indent}${varName} = ${varName}.sort_values(by=[${sortKeys}], ascending=[${ascendingKeys}])`,
     );
     parts.push("");
   }
@@ -235,7 +237,38 @@ function compileQueryBody(
   // Limit
   if (query.limit !== undefined) {
     parts.push(`${indent}# LIMIT Constraint`);
-    parts.push(`${indent}df = df.head(${query.limit})`);
+    parts.push(`${indent}${varName} = ${varName}.head(${query.limit})`);
+    parts.push("");
+  }
+
+  // Set Algebra (UNION / INTERSECT / EXCEPT) — applied after LIMIT, matching engine order
+  const setOps: Array<["union" | "intersect" | "except", keyof QueryDefinition]> = [
+    ["union", "union"],
+    ["intersect", "intersect"],
+    ["except", "except"],
+  ];
+  for (const [op, key] of setOps) {
+    const sub = query[key] as QueryDefinition | undefined;
+    if (!sub) continue;
+    const rightVar = freshVar();
+    parts.push(`${indent}# Set Operation: ${op.toUpperCase()}`);
+    parts.push(...compileQueryBody(sub, savedQueries, indent, rightVar, freshVar));
+    if (op === "union") {
+      parts.push(
+        `${indent}${varName} = pd.concat([${varName}, ${rightVar}], ignore_index=True)`,
+      );
+      parts.push(
+        `${indent}${varName} = ${varName}.drop_duplicates(subset="id") if "id" in ${varName}.columns else ${varName}.drop_duplicates()`,
+      );
+    } else if (op === "intersect") {
+      parts.push(
+        `${indent}${varName} = ${varName}[${varName}["id"].isin(${rightVar}["id"])] if "id" in ${varName}.columns else ${varName}.merge(${rightVar}, how="inner")`,
+      );
+    } else if (op === "except") {
+      parts.push(
+        `${indent}${varName} = ${varName}[~${varName}["id"].isin(${rightVar}["id"])] if "id" in ${varName}.columns else ${varName}[~${varName}.index.isin(${rightVar}.index)]`,
+      );
+    }
     parts.push("");
   }
 
@@ -266,8 +299,21 @@ function gatherAncestorViews(
 export function translateQueryToPython(
   query: QueryDefinition,
   savedQueries: any[] = [],
+  pivotConfig?: {
+    rowKey: string;
+    colKey: string;
+    valueKey: string;
+    aggType: "count" | "sum" | "avg";
+    enableHeatmap: boolean;
+  } | null,
 ): string {
   const parts: string[] = [];
+
+  // Variable name generators for uniquely-named intermediate frames
+  let varCounter = 1;
+  const freshVar = () => `df${++varCounter}`;
+  let pivotCounter = 0;
+  const freshPivotVar = () => `df_pivot${++pivotCounter}`;
 
   parts.push("#!/usr/bin/env python3");
   parts.push('"""');
@@ -308,18 +354,53 @@ export function translateQueryToPython(
     for (const parent of ancestors) {
       const parentNameSafe = parent.name.replace(/[^a-zA-Z0-9_]/g, "_");
       parts.push(`def get_view_${parentNameSafe}(scans_list):`);
-      parts.push(...compileQueryBody(parent.query, savedQueries, "    "));
+      parts.push(...compileQueryBody(parent.query, savedQueries, "    ", "df", freshVar));
       parts.push("    return df");
       parts.push("");
     }
   }
 
   parts.push("# --- Execute Main Pipeline ---");
-  parts.push(...compileQueryBody(query, savedQueries, ""));
+  parts.push(...compileQueryBody(query, savedQueries, "", "df", freshVar));
+
+  // Pivot Matrix (optional, separate variable each time)
+  let pivotVarName: string | null = null;
+  if (pivotConfig && pivotConfig.rowKey && pivotConfig.colKey) {
+    pivotVarName = freshPivotVar();
+    const aggfunc =
+      pivotConfig.aggType === "avg"
+        ? '"mean"'
+        : pivotConfig.aggType === "sum"
+          ? '"sum"'
+          : '"count"';
+    parts.push("# --- Pivot Matrix ---");
+    if (pivotConfig.valueKey === "*") {
+      parts.push(`df["__pivot_count"] = 1`);
+      parts.push(
+        `${pivotVarName} = pd.pivot_table(df, index="${pivotConfig.rowKey}", columns="${pivotConfig.colKey}", values="__pivot_count", aggfunc="sum")`,
+      );
+    } else {
+      parts.push(
+        `${pivotVarName} = pd.pivot_table(df, index="${pivotConfig.rowKey}", columns="${pivotConfig.colKey}", values=${formatValue(pivotConfig.valueKey)}, aggfunc=${aggfunc})`,
+      );
+    }
+    if (pivotConfig.enableHeatmap) {
+      parts.push(
+        "# enableHeatmap is a UI-only overlay; the matrix above is the underlying data",
+      );
+    }
+    parts.push("");
+  }
 
   parts.push("# Output Pipeline Results");
   parts.push("print(f'Pipeline completed. Returned {len(df)} rows:')");
   parts.push("print(df.head(20))");
+  if (pivotVarName) {
+    parts.push(
+      `print(f'Pivot matrix (${pivotConfig!.rowKey} x ${pivotConfig!.colKey}):')`,
+    );
+    parts.push(`print(${pivotVarName}.head(20))`);
+  }
   parts.push("");
 
   return parts.join("\n");

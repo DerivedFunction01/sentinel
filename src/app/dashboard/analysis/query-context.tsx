@@ -345,7 +345,7 @@ export function QueryProvider({
 
   const handleExportPython = useCallback(() => {
     try {
-      const script = translateQueryToPython(buildQuery(), savedQueries);
+      const script = translateQueryToPython(buildQuery(), savedQueries, pivotConfig);
       const blob = new Blob([script], { type: "text/x-python" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
