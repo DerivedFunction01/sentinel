@@ -192,8 +192,14 @@ function compileQueryBody(
           case "range":        pyFunc = "lambda x: x.max() - x.min()"; break;
           default:             pyFunc = `"${agg.function}"`;
         }
+        const groupPrefix =
+          query.group_by && query.group_by.length
+            ? query.group_by.join("_") + "_"
+            : "";
+        const aliasBase = agg.property === "*" ? "count" : agg.property;
+        const alias = agg.alias || `${groupPrefix}${aliasBase}_${agg.function}`;
         aggDict.push(
-          `${indent}    ${agg.alias || agg.property}=pd.NamedAgg(column="${prop}", aggfunc=${pyFunc})`,
+          `${indent}    ${alias}=pd.NamedAgg(column="${prop}", aggfunc=${pyFunc})`,
         );
       }
     } else {

@@ -121,6 +121,23 @@ export const SCAN_FIELDS = [
     desc: "One row per tag — use for GROUP BY tag or filtering by a single tag value",
   },
 ];
+// Fields the query engine relies on that are not part of the display schema.
+const SCAN_INTERNAL_FIELDS = ["trials"];
+export const SCAN_WHITELIST = new Set<string>([
+  ...SCAN_FIELDS.map((f) => f.name),
+  ...SCAN_INTERNAL_FIELDS,
+]);
+
+// Drop scan-object keys that aren't part of the known schema so the analysis
+// console and query engine only operate on curated fields.
+export function sanitizeScan(scan: any): any {
+  if (!scan || typeof scan !== "object") return scan;
+  const clean: Record<string, any> = {};
+  for (const key of Object.keys(scan)) {
+    if (SCAN_WHITELIST.has(key)) clean[key] = scan[key];
+  }
+  return clean;
+}
 export const TRIAL_FIELDS = [
   {
     name: "number",

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -187,6 +188,13 @@ export function FlatDataTable({ results, currentFields, useFriendlyNames }: Flat
     a.click();
   };
 
+  // Derive a stable column set across ALL rows, not just the first, so ragged
+  // rows (e.g. SELECT * where some records omit optional fields) keep aligned.
+  const columns = useMemo(() => {
+    if (results.length === 0) return [];
+    return Array.from(new Set(results.flatMap((r) => Object.keys(r))));
+  }, [results]);
+
   return (
     <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -207,7 +215,7 @@ export function FlatDataTable({ results, currentFields, useFriendlyNames }: Flat
         <table className="min-w-full divide-y divide-white/5 text-xs text-left">
           <thead className="bg-white/[0.02] text-muted-foreground font-semibold">
             <tr>
-              {Object.keys(results[0]).map((key) => {
+              {columns.map((key) => {
                 const label = currentFields.find((cf) => cf.name === key)?.label || key;
                 return (
                   <th key={key} className="px-4 py-2.5">
@@ -220,11 +228,29 @@ export function FlatDataTable({ results, currentFields, useFriendlyNames }: Flat
           <tbody className="divide-y divide-white/5 font-mono text-slate-300">
             {results.slice(0, 100).map((row, rIdx) => (
               <tr key={rIdx} className="hover:bg-white/[0.02]">
-                {Object.keys(row).map((key, cIdx) => (
-                  <td key={cIdx} className="px-4 py-2 max-w-[250px] truncate">
-                    {typeof row[key] === "object" ? JSON.stringify(row[key]) : String(row[key])}
-                  </td>
-                ))}
+                {columns.map((key) => {
+                  if (!(key in row) || row[key] === undefined || row[key] === null) {
+                    return (
+                      <td key={key} className="px-4 py-2 max-w-[250px] truncate text-muted-foreground/50">
+                        -
+                      </td>
+                    );
+                  }
+                  if (typeof row[key] === "object") {
+                    const json = JSON.stringify(row[key]);
+                    const capped = json.length > 80 ? json.slice(0, 80) + "…" : json;
+                    return (
+                      <td key={key} className="px-4 py-2 max-w-[250px] truncate" title={json}>
+                        {capped}
+                      </td>
+                    );
+                  }
+                  return (
+                    <td key={key} className="px-4 py-2 max-w-[250px] truncate">
+                      {String(row[key])}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

@@ -15,6 +15,7 @@ import {
   deleteSavedQuery,
 } from "@/lib/indexed-db";
 import { PRESETS } from "./presets";
+import { sanitizeScan } from "./constants";
 import { QueryProvider, useQueryContext } from "./query-context";
 import { QueryComposer } from "./query-composer";
 import {
@@ -435,7 +436,7 @@ export default function AnalysisConsolePage() {
     setLoading(true);
     try {
       const cached = await getAllCachedScanDetails();
-      setScans(cached || []);
+      setScans((cached || []).map(sanitizeScan));
     } catch (e) {
       console.error(e);
       toast.error("Failed to load local scans from cache");
@@ -465,7 +466,7 @@ export default function AnalysisConsolePage() {
         for (const scan of data.scans) {
           await setCachedScanDetail(scan.id, scan);
         }
-        setScans(data.scans);
+        setScans(data.scans.map(sanitizeScan));
         toast.success(`Successfully cached ${data.scans.length} scans!`, { id: toastId });
       }
     } catch (e) {
