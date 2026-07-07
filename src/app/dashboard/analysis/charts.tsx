@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -15,6 +15,9 @@ import {
   PieChart,
   Pie,
   Cell,
+  ScatterChart,
+  Scatter,
+  ZAxis,
 } from "recharts";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +27,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { SCAN_FIELDS, TRIAL_FIELDS } from "./constants";
 
 /** Shared colour palette used across all chart types. */
 const CHART_COLORS = [
@@ -40,25 +45,393 @@ const CHART_COLORS = [
 // ─── FlatCharts ───────────────────────────────────────────────────────────────
 
 interface FlatChartsProps {
-  chartTypeSelection: "auto" | "bar" | "line" | "pie";
-  setChartTypeSelection: (v: "auto" | "bar" | "line" | "pie") => void;
-  resolvedChartType: string;
+  chartTypeSelection: "auto" | "bar" | "line" | "pie" | "histogram" | "scatter";
+  setChartTypeSelection: (v: "auto" | "bar" | "line" | "pie" | "histogram" | "scatter") => void;
   chartData: {
     data: any[];
-    pieData: any[];
     xAxisKey: string;
     keys: string[];
     isTemporal: boolean;
-    isPieRecommended: boolean;
+    isCategoricalFrequency?: boolean;
   };
+}
+
+/** Classify metric key to rate/score, distribution (trials/runs), or count/cost */
+function getMetricType(key: string): "rate_or_score" | "distribution" | "count_or_cost" {
+  const normalized = key.toLowerCase();
+  if (
+    normalized.includes("rate") ||
+    normalized.includes("score") ||
+    normalized.includes("ratio") ||
+    normalized.includes("pct") ||
+    normalized.includes("percent")
+  ) {
+    return "rate_or_score";
+  }
+  if (
+    normalized.includes("trial") ||
+    normalized.includes("run") ||
+    normalized.includes("scan_count")
+  ) {
+    return "distribution";
+  }
+  return "count_or_cost";
 }
 
 export function FlatCharts({
   chartTypeSelection,
   setChartTypeSelection,
-  resolvedChartType,
   chartData,
 }: FlatChartsProps) {
+  // 1. Resolve localized chart type for each key individually (under auto mode)
+  const resolveChartTypeForKey = useCallback(
+    (key: string, distinctCount: number, isCategorical: boolean) => {
+      if (chartTypeSelection !== "auto") return chartTypeSelection;
+      if (isCategorical) {
+        if (distinctCount <= 5) return "pie";
+        return "bar";
+      }
+
+      // Detect if categorical labels on X-axis are identical/redundant (e.g. 10 rows all labeled the same)
+      const labels = chartData.data.map((row) => String(row[chartData.xAxisKey] ?? ""));
+      const uniqueLabels = new Set(labels).size;
+      const totalRows = chartData.data.length;
+      
+      // Only render Line Chart if there are at least 3 distinct date values to show a real trend
+      if (chartData.isTemporal && uniqueLabels >= 3) return "line";
+
+      const labelsAreRedundant = uniqueLabels <= 1 || (totalRows > 3 && uniqueLabels < totalRows * 0.4);
+
+      const type = getMetricType(key);
+      if (type === "distribution") {
+        return "histogram";
+      }
+
+      if (type === "rate_or_score") {
+        if (distinctCount > 10 || labelsAreRedundant) return "histogram";
+        return "bar";
+      } else {
+        // count_or_cost
+        if (distinctCount <= 5) return "pie";
+        if (distinctCount > 10 || labelsAreRedundant) return "histogram";
+        return "bar";
+      }
+    },
+    [chartTypeSelection, chartData.isTemporal, chartData.data, chartData.xAxisKey],
+  );
+
+  // Render a single sub-chart card for a given key
+  const renderSubChartCard = (key: string, idx: number) => {
+    const firstRow = chartData.data[0];
+    const isCategorical = firstRow ? (typeof firstRow[key] === "string" || typeof firstRow[key] === "boolean") : false;
+    const metricType = getMetricType(key);
+    const dataPoints = chartData.data.map((d) => d[key]);
+    const distinctValues = new Set(dataPoints.filter((v) => v !== undefined && v !== null)).size;
+    const resolvedType = resolveChartTypeForKey(key, distinctValues, isCategorical);
+    const color = CHART_COLORS[idx % CHART_COLORS.length];
+
+    // frequency data helper for non-numerical categorical columns
+    const freqData = (() => {
+      if (!isCategorical) return [];
+      const counts: Record<string, number> = {};
+      for (const d of chartData.data) {
+        const val = String(d[key] ?? "null");
+        counts[val] = (counts[val] || 0) + 1;
+      }
+      const sorted = Object.keys(counts)
+        .map((name) => ({ name, count: counts[name] }))
+        .sort((a, b) => b.count - a.count);
+
+      if (sorted.length <= 15) return sorted;
+
+      const head = sorted.slice(0, 14);
+      const tail = sorted.slice(14);
+      const tailSum = tail.reduce((sum, item) => sum + item.count, 0);
+      const maxHead = Math.max(...head.map((h) => h.count), 0);
+
+      if (tailSum > maxHead) {
+        const avg = Number((tailSum / tail.length).toFixed(1));
+        return [...head, { name: "Other (Avg)", count: avg }];
+      }
+      return [...head, { name: "Other (Sum)", count: tailSum }];
+    })();
+
+    // Localized Histogram computation
+    const histogramData = (() => {
+      if (isCategorical) return [];
+      const vals = dataPoints.map(Number).filter((v) => !isNaN(v));
+      if (vals.length === 0) return [];
+      const minVal = Math.min(...vals);
+      const maxVal = Math.max(...vals);
+      const numBins = Math.min(10, vals.length);
+      const range = maxVal - minVal;
+
+      if (range === 0) {
+        return [{ rangeLabel: `${minVal.toFixed(1)}`, count: vals.length }];
+      }
+
+      const binWidth = range / numBins;
+      const bins = Array.from({ length: numBins }, (_, i) => {
+        const start = minVal + i * binWidth;
+        const end = start + binWidth;
+        return {
+          start,
+          end,
+          rangeLabel: `${start.toFixed(1)} - ${end.toFixed(1)}`,
+          count: 0,
+        };
+      });
+
+      for (const v of vals) {
+        for (let i = 0; i < numBins; i++) {
+          const bin = bins[i];
+          if (i === numBins - 1) {
+            if (v >= bin.start && v <= bin.end) {
+              bin.count++;
+              break;
+            }
+          } else {
+            if (v >= bin.start && v < bin.end) {
+              bin.count++;
+              break;
+            }
+          }
+        }
+      }
+      return bins;
+    })();
+
+    // Localized Pie chart data sorting and slice capping
+    const pieData = (() => {
+      if (isCategorical) {
+        // Cap slice count for categorical frequency pie charts
+        if (freqData.length <= 5) return freqData.map((d) => ({ name: d.name, value: d.count }));
+        const head = freqData.slice(0, 4).map((d) => ({ name: d.name, value: d.count }));
+        const tail = freqData.slice(4);
+        const tailSum = tail.reduce((sum, item) => sum + item.count, 0);
+        const maxHead = Math.max(...head.map((h) => h.value), 0);
+
+        if (tailSum > maxHead) {
+          const avg = Number((tailSum / tail.length).toFixed(1));
+          return [...head, { name: "Other (Avg)", value: avg }];
+        }
+        return [...head, { name: "Other (Sum)", value: tailSum }];
+      }
+
+      const sorted = [...chartData.data]
+        .map((row) => ({
+          name: String(row[chartData.xAxisKey] ?? ""),
+          value: Number(row[key]) || 0,
+        }))
+        .sort((a, b) => b.value - a.value);
+
+      if (sorted.length <= 5) return sorted;
+
+      const head = sorted.slice(0, 4);
+      const tail = sorted.slice(4);
+      const tailSum = tail.reduce((sum, item) => sum + item.value, 0);
+      const maxHead = Math.max(...head.map((h) => h.value), 0);
+
+      if (tailSum > 0) {
+        if (tailSum > maxHead) {
+          const avg = Number((tailSum / tail.length).toFixed(2));
+          return [...head, { name: "Other (Avg)", value: avg }];
+        }
+        return [...head, { name: "Other (Sum)", value: Number(tailSum.toFixed(2)) }];
+      }
+      return head;
+    })();
+
+    const yAxisDomain = metricType === "rate_or_score" ? ([0, 100] as const) : undefined;
+    const shouldRenderHorizontalBar = resolvedType === "bar";
+
+    // Localized Scatter chart data mapping
+    const scatterData = (() => {
+      return chartData.data.map((row, rIdx) => {
+        const xVal = Number(row[chartData.xAxisKey]);
+        const yVal = Number(row[key]);
+        return {
+          x: isNaN(xVal) ? rIdx : xVal,
+          y: isNaN(yVal) ? 0 : yVal,
+          name: String(row[chartData.xAxisKey] ?? rIdx),
+        };
+      });
+    })();
+
+    return (
+      <div
+        key={key}
+        className="border border-white/5 bg-zinc-950/40 p-4 rounded-lg flex flex-col justify-between"
+      >
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+            {key.replace(/_/g, " ")} {isCategorical ? "(Frequency)" : ""}
+          </span>
+          <Badge variant="outline" className="text-[9px] uppercase tracking-normal">
+            {resolvedType} {metricType === "rate_or_score" && !isCategorical ? "(0-100%)" : ""}
+          </Badge>
+        </div>
+
+        <div className="h-[200px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            {isCategorical && resolvedType !== "pie" ? (
+              /* Horizontal Bar Chart for Categorical Frequency counts */
+              <BarChart layout="vertical" data={freqData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis type="number" stroke="#94a3b8" fontSize={9} tickLine={false} />
+                <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={9} tickLine={false} width={100} />
+                <Tooltip
+                  contentStyle={{
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "6px",
+                  }}
+                  labelClassName="text-slate-400 font-bold text-xs"
+                />
+                <Bar name="Record Count" dataKey="count" fill={color} radius={[0, 3, 3, 0]} />
+              </BarChart>
+            ) : resolvedType === "line" ? (
+              <LineChart data={chartData.data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={9} tickLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} domain={yAxisDomain} />
+                <Tooltip
+                  contentStyle={{
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "6px",
+                  }}
+                  labelClassName="text-slate-400 font-bold text-xs"
+                />
+                <Line
+                  type="monotone"
+                  dataKey={key}
+                  stroke={color}
+                  strokeWidth={2}
+                  dot={{ r: 2 }}
+                />
+              </LineChart>
+            ) : resolvedType === "pie" ? (
+              <PieChart>
+                <Tooltip
+                  contentStyle={{
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "6px",
+                  }}
+                  labelClassName="text-slate-400 font-bold text-xs"
+                />
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={65}
+                  fill={color}
+                  label={{ fontSize: 9, fill: "#94a3b8" }}
+                >
+                  {pieData.map((_, pIdx) => (
+                    <Cell key={`cell-${pIdx}`} fill={CHART_COLORS[pIdx % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+              </PieChart>
+            ) : resolvedType === "scatter" ? (
+              <ScatterChart>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis type="number" dataKey="x" name={chartData.xAxisKey} stroke="#94a3b8" fontSize={9} tickLine={false} />
+                <YAxis type="number" dataKey="y" name={key} stroke="#94a3b8" fontSize={9} tickLine={false} domain={yAxisDomain} />
+                <Tooltip
+                  cursor={{ strokeDasharray: "3 3" }}
+                  contentStyle={{
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "6px",
+                  }}
+                  labelClassName="text-slate-400 font-bold text-xs"
+                />
+                <Scatter name={key} data={scatterData} fill={color} />
+              </ScatterChart>
+            ) : resolvedType === "histogram" ? (
+              <BarChart data={histogramData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey="rangeLabel" stroke="#94a3b8" fontSize={9} tickLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "6px",
+                  }}
+                  labelClassName="text-slate-400 font-bold text-xs"
+                />
+                <Bar dataKey="count" fill="#10b981" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            ) : shouldRenderHorizontalBar ? (
+              <BarChart layout="vertical" data={chartData.data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis type="number" stroke="#94a3b8" fontSize={9} tickLine={false} />
+                <YAxis type="category" dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={9} tickLine={false} width={100} />
+                <Tooltip
+                  contentStyle={{
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "6px",
+                  }}
+                  labelClassName="text-slate-400 font-bold text-xs"
+                />
+                <Bar dataKey={key} fill={color} radius={[0, 3, 3, 0]} />
+              </BarChart>
+            ) : (
+              <BarChart data={chartData.data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={9} tickLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} domain={yAxisDomain} />
+                <Tooltip
+                  contentStyle={{
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "6px",
+                  }}
+                  labelClassName="text-slate-400 font-bold text-xs"
+                />
+                <Bar dataKey={key} fill={color} radius={[3, 3, 0, 0]} />
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  };
+
+
+  // Filter out keys that have only zero or invalid/null values, or are marked hidden in schema
+  const meaningfulKeys = useMemo(() => {
+    const isFieldHidden = (k: string) => {
+      const match = [...SCAN_FIELDS, ...TRIAL_FIELDS].find((f) => f.name === k) as any;
+      return match ? !!match.hidden : false;
+    };
+
+    const firstRow = chartData.data[0];
+    if (!firstRow) return [];
+
+    return chartData.keys.filter((key) => {
+      if (isFieldHidden(key)) return false;
+      const isColCategorical = typeof firstRow[key] === "string" || typeof firstRow[key] === "boolean";
+      if (isColCategorical) {
+        return chartData.data.some((d) => d[key] !== undefined && d[key] !== null && d[key] !== "");
+      } else {
+        return chartData.data.some((d) => {
+          const val = Number(d[key]);
+          return !isNaN(val) && val !== 0;
+        });
+      }
+    });
+  }, [chartData.keys, chartData.data]);
+
+  const isMultiGrid = meaningfulKeys.length > 1;
+
   return (
     <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
       <CardHeader className="pb-2 flex flex-row items-center justify-between gap-4">
@@ -66,7 +439,7 @@ export function FlatCharts({
           Query Visualizations Plot
         </CardTitle>
         <div className="flex bg-muted p-0.5 rounded text-[10px]">
-          {(["auto", "bar", "line", "pie"] as const).map((type) => (
+          {(["auto", "bar", "line", "pie", "histogram", "scatter"] as const).map((type) => (
             <button
               key={type}
               onClick={() => setChartTypeSelection(type)}
@@ -81,75 +454,22 @@ export function FlatCharts({
           ))}
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="h-[250px] w-full mt-4">
-          <ResponsiveContainer width="100%" height="100%">
-            {resolvedChartType === "line" ? (
-              <LineChart data={chartData.data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={10} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }}
-                  labelClassName="text-slate-400 font-bold text-xs"
-                />
-                <Legend wrapperStyle={{ fontSize: 10 }} />
-                {chartData.keys.map((key, i) => (
-                  <Line
-                    key={key}
-                    type="monotone"
-                    dataKey={key}
-                    stroke={CHART_COLORS[i % CHART_COLORS.length]}
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                ))}
-              </LineChart>
-            ) : resolvedChartType === "pie" ? (
-              <PieChart>
-                <Tooltip
-                  contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }}
-                  labelClassName="text-slate-400 font-bold text-xs"
-                />
-                <Legend wrapperStyle={{ fontSize: 10 }} />
-                <Pie
-                  data={chartData.pieData}
-                  dataKey={chartData.keys[0]}
-                  nameKey={chartData.xAxisKey}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  fill="#3b82f6"
-                  label={{ fontSize: 10, fill: "#94a3b8" }}
-                >
-                  {chartData.pieData.map((_, idx) => (
-                    <Cell key={`cell-${idx}`} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            ) : (
-              <BarChart data={chartData.data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={10} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }}
-                  labelClassName="text-slate-400 font-bold text-xs"
-                />
-                <Legend wrapperStyle={{ fontSize: 10 }} />
-                {chartData.keys.map((key, i) => (
-                  <Bar
-                    key={key}
-                    dataKey={key}
-                    fill={CHART_COLORS[i % CHART_COLORS.length]}
-                    radius={[4, 4, 0, 0]}
-                  />
-                ))}
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        </div>
+      <CardContent className="p-4">
+        {meaningfulKeys.length === 0 ? (
+          <div className="h-[200px] flex flex-col items-center justify-center text-center text-xs text-muted-foreground border border-dashed border-white/5 rounded-lg">
+            No active non-zero metrics to plot.
+          </div>
+        ) : (
+          <div
+            className={
+              isMultiGrid
+                ? "grid grid-cols-1 md:grid-cols-2 gap-6"
+                : "grid grid-cols-1"
+            }
+          >
+            {meaningfulKeys.map(renderSubChartCard)}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

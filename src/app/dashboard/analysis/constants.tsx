@@ -101,18 +101,21 @@ export const SCAN_FIELDS = [
     label: "Creation Year",
     type: "number",
     desc: "Year of creation (e.g., 2026)",
+    hidden: true,
   },
   {
     name: "createdAt_month",
     label: "Creation Month",
     type: "number",
     desc: "Month of creation (1-12)",
+    hidden: true,
   },
   {
     name: "createdAt_day",
     label: "Creation Day",
     type: "number",
     desc: "Day of creation (1-31)",
+    hidden: true,
   },
   {
     name: "tags",

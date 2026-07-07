@@ -57,11 +57,15 @@ export function SchemaExplorer({ useFriendlyNames }: SchemaExplorerProps) {
       <CardContent className="space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar">
         <div>
           <h3 className="text-xs font-bold text-emerald-400 uppercase mb-2">scans Table</h3>
-          <div className="space-y-2">{SCAN_FIELDS.map(renderField)}</div>
+          <div className="space-y-2">
+            {SCAN_FIELDS.filter((f: any) => !f.hidden).map(renderField)}
+          </div>
         </div>
         <div className="border-t border-white/5 pt-4">
           <h3 className="text-xs font-bold text-purple-400 uppercase mb-2">trials Table</h3>
-          <div className="space-y-2">{TRIAL_FIELDS.map(renderField)}</div>
+          <div className="space-y-2">
+            {TRIAL_FIELDS.filter((f: any) => !f.hidden).map(renderField)}
+          </div>
         </div>
       </CardContent>
     </Card>

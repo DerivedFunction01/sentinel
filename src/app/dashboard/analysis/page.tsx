@@ -83,7 +83,7 @@ function AnalysisConsoleInner({
   const [resultsTab, setResultsTab] = useState<"flat" | "pivot">("flat");
 
   // ── Chart selectors ─────────────────────────────────────────────────────
-  const [chartTypeSelection, setChartTypeSelection] = useState<"auto" | "bar" | "line" | "pie">("auto");
+  const [chartTypeSelection, setChartTypeSelection] = useState<"auto" | "bar" | "line" | "pie" | "histogram" | "scatter">("auto");
 
   // ── Available pivot fields (only columns present in the current results) ──
   const availablePivotFields = useMemo(() => {
@@ -220,18 +220,44 @@ function AnalysisConsoleInner({
   const chartData = useMemo(() => {
     if (results.length === 0) return null;
     const firstRow = results[0];
-    const numericKeys = Object.keys(firstRow).filter(
-      (key) => typeof firstRow[key] === "number" && key !== "id" && key !== "number",
-    );
-    const xAxisKey =
-      Object.keys(firstRow).find(
-        (key) =>
-          typeof firstRow[key] === "string" ||
-          key === "createdAt" ||
-          key.startsWith("createdAt_"),
-      ) || "targetModel";
+    const rowKeys = Object.keys(firstRow);
 
-    if (numericKeys.length === 0) return null;
+    // Prioritized temporal/timeline key (useful if rendering timeline comparison)
+    const xAxisKey = (() => {
+      const timeField = rowKeys.find((k) => k === "createdAt" || k.startsWith("createdAt_"));
+      if (timeField) return timeField;
+      const highQualityEntities = [
+        "targetModel",
+        "attackerModel",
+        "judgeModel",
+        "forbiddenTask",
+        "taskTag",
+        "tag",
+        "category",
+        "verdict",
+      ];
+      const entityField = rowKeys.find((k) => highQualityEntities.includes(k));
+      if (entityField) return entityField;
+      const generalStringField = rowKeys.find(
+        (k) => typeof firstRow[k] === "string" && !k.toLowerCase().endsWith("id") && k !== "id",
+      );
+      if (generalStringField) return generalStringField;
+      return "targetModel";
+    })();
+
+    // Keys of fields that are chartable (exclude raw IDs, complex arrays, and internal fields)
+    const keys = rowKeys.filter((key) => {
+      const val = firstRow[key];
+      return (
+        key !== "id" &&
+        key !== "trials" &&
+        key !== "tags" &&
+        !key.toLowerCase().endsWith("id") &&
+        (typeof val === "number" || typeof val === "string" || typeof val === "boolean")
+      );
+    });
+
+    if (keys.length === 0) return null;
 
     const isTemporal = xAxisKey === "createdAt" || xAxisKey.startsWith("createdAt_");
 
@@ -243,49 +269,13 @@ function AnalysisConsoleInner({
       return item;
     });
 
-    // Smart Pie Chart Aggregations
-    let isPieRecommended = false;
-    let pieData = formattedData;
-
-    if (numericKeys.length === 1) {
-      const metricKey = numericKeys[0];
-      const sorted = [...formattedData].sort(
-        (a, b) => (Number(b[metricKey]) || 0) - (Number(a[metricKey]) || 0),
-      );
-      const totalSum = sorted.reduce((sum, row) => sum + (Number(row[metricKey]) || 0), 0);
-
-      if (sorted.length <= 5) {
-        isPieRecommended = true;
-        pieData = sorted;
-      } else if (totalSum > 0) {
-        const minorThreshold = totalSum * 0.05;
-        const minorStartIndex = sorted.findIndex(
-          (row) => (Number(row[metricKey]) || 0) < minorThreshold,
-        );
-
-        if (minorStartIndex !== -1 && minorStartIndex >= 3) {
-          const majorItems = sorted.slice(0, minorStartIndex);
-          const minorItems = sorted.slice(minorStartIndex);
-          const minorSum = minorItems.reduce((sum, row) => sum + (Number(row[metricKey]) || 0), 0);
-          pieData = minorSum > 0
-            ? [...majorItems, { [xAxisKey]: "Other", [metricKey]: Number(minorSum.toFixed(2)) }]
-            : majorItems;
-        } else {
-          pieData = sorted;
-        }
-        isPieRecommended = true;
-      }
-    }
-
-    return { data: formattedData, pieData, xAxisKey, keys: numericKeys, isTemporal, isPieRecommended };
+    return {
+      data: formattedData,
+      xAxisKey,
+      keys,
+      isTemporal,
+    };
   }, [results]);
-
-  const resolvedChartType = useMemo(() => {
-    if (chartTypeSelection !== "auto") return chartTypeSelection;
-    if (chartData?.isTemporal) return "line";
-    if (chartData?.isPieRecommended) return "pie";
-    return "bar";
-  }, [chartTypeSelection, chartData]);
 
   const pivotResults = useMemo(() => {
     if (results.length === 0 || !pivotRowKey || !pivotColKey) return null;
@@ -365,7 +355,6 @@ function AnalysisConsoleInner({
                   <FlatCharts
                     chartTypeSelection={chartTypeSelection}
                     setChartTypeSelection={setChartTypeSelection}
-                    resolvedChartType={resolvedChartType}
                     chartData={chartData}
                   />
                 )}

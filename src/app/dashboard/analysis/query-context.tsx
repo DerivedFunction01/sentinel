@@ -205,9 +205,9 @@ export function QueryProvider({
           return match ?? { name, label: name, type: "string", desc: name };
         });
       }
-      return base;
+      return base.filter((f: any) => !f.hidden);
     }
-    return sourceType === "scans" ? SCAN_FIELDS : TRIAL_FIELDS;
+    return (sourceType === "scans" ? SCAN_FIELDS : TRIAL_FIELDS).filter((f: any) => !f.hidden);
   }, [sourceType, selectedViewId, savedQueries]);
 
   const getUniqueFieldValues = useCallback(
