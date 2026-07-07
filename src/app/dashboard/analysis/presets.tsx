@@ -15,7 +15,11 @@ export const PRESETS: { name: string; desc: string; query: QueryDefinition }[] =
           { function: "avg", property: "breachRate", alias: "avg_breach_rate" },
           { function: "sum", property: "totalTrials", alias: "total_trials" },
           { function: "sum", property: "breaches", alias: "total_breaches" },
-          { function: "sum", property: "defendedCount", alias: "total_defenses" },
+          {
+            function: "sum",
+            property: "defendedCount",
+            alias: "total_defenses",
+          },
           { function: "sum", property: "apiCost", alias: "total_cost" },
         ],
         sort: [{ property: "avg_breach_rate", direction: "desc" }],
@@ -96,11 +100,11 @@ export const PRESETS: { name: string; desc: string; query: QueryDefinition }[] =
     },
 
     {
-      name: "High Cost Scans (> $5.00)",
-      desc: "Locate scans consuming significant API credits.",
+      name: "Filter Scans By Cost",
+      desc: "Locate scans consuming API credits.",
       query: {
         table: "scans",
-        filters: [{ property: "apiCost", operator: "gt", value: "5.0" }],
+        filters: [{ property: "apiCost", operator: "gt", value: "0.01" }],
         sort: [{ property: "apiCost", direction: "desc" }],
       } as QueryDefinition,
     },
