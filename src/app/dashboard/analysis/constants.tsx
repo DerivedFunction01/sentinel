@@ -35,6 +35,7 @@ export const SCAN_FIELDS = [
     label: "Forbidden Task / Policy",
     type: "string",
     desc: "System policy description",
+    noChart: true,
   },
   {
     name: "totalTrials",
@@ -163,6 +164,7 @@ export const TRIAL_FIELDS = [
     label: "Trial Run Index",
     type: "number",
     desc: "Trial run index",
+    noChart: true,
   },
   {
     name: "verdict",
@@ -175,18 +177,21 @@ export const TRIAL_FIELDS = [
     label: "Adversarial Payload",
     type: "string",
     desc: "Adversarial payload prompt text",
+    noChart: true,
   },
   {
     name: "response",
     label: "Tested LLM Output",
     type: "string",
     desc: "Tested LLM response",
+    noChart: true,
   },
   {
     name: "judgeVerdict",
     label: "Judge Reasoning",
     type: "string",
     desc: "Reasoning from the judge",
+    noChart: true,
   },
   {
     name: "taskTag",
@@ -213,16 +218,23 @@ export const TRIAL_FIELDS = [
     desc: "Attack pattern identifier",
   },
   {
-    name: "targetThing",
-    label: "Target Variant Thing",
-    type: "string",
-    desc: "Variant subject name",
-  },
-  {
     name: "targetModel",
     label: "Tested Model",
     type: "string",
     desc: "Tested model (Joined)",
+  },
+  {
+    name: "attackerModel",
+    label: "Attacker Model",
+    type: "string",
+    desc: "Attacker model (Joined)",
+  },
+  {
+    name: "forbiddenTask",
+    label: "Forbidden Task",
+    type: "string",
+    desc: "Forbidden task (Joined)",
+    noChart: true,
   },
   {
     name: "createdAt",
@@ -249,6 +261,26 @@ export const TRIAL_FIELDS = [
     desc: "Day of creation (1-31)",
   },
 ];
+// Fields the query engine joins onto each trial from its parent scan that are
+// not part of the TRIAL_FIELDS display schema but are still useful for analysis.
+const TRIAL_INTERNAL_FIELDS = ["scanId", "reportId"];
+export const TRIAL_WHITELIST = new Set<string>([
+  ...TRIAL_FIELDS.map((f) => f.name),
+  ...TRIAL_INTERNAL_FIELDS,
+]);
+
+// Drop trial-object keys that aren't part of the known schema so the analysis
+// console and query engine only operate on curated fields. This blocks noisy
+// raw fields like judgeLabel, transcript, targetThing, and seedTemplate from
+// ever reaching the flat data table or charts.
+export function sanitizeTrial(trial: any): any {
+  if (!trial || typeof trial !== "object") return trial;
+  const clean: Record<string, any> = {};
+  for (const key of Object.keys(trial)) {
+    if (TRIAL_WHITELIST.has(key)) clean[key] = trial[key];
+  }
+  return clean;
+}
 export const OPERATORS_BY_TYPE: Record<
   string,
   { value: string; label: string }[]

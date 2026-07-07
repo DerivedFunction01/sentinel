@@ -1,4 +1,4 @@
-import { TrialVerdict } from "../enums";
+import { sanitizeTrial } from "../../app/dashboard/analysis/constants";
 
 export interface FilterCondition {
   property: string;
@@ -184,7 +184,9 @@ function percentile(nums: number[], p: number): number {
   const idx = (p / 100) * (sorted.length - 1);
   const lo = Math.floor(idx);
   const hi = Math.ceil(idx);
-  return lo === hi ? sorted[lo] : sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+  return lo === hi
+    ? sorted[lo]
+    : sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
 }
 
 // Main execution function
@@ -213,15 +215,17 @@ export function executeQuery(
         : typeof scan.trials === "string"
           ? JSON.parse(scan.trials)
           : [];
-      return scanTrials.map((t: any) => ({
-        ...t,
-        scanId: scan.id,
-        reportId: scan.reportId,
-        targetModel: scan.targetModel,
-        attackerModel: scan.attackerModel,
-        forbiddenTask: scan.forbiddenTask,
-        createdAt: scan.createdAt,
-      }));
+      return scanTrials.map((t: any) =>
+        sanitizeTrial({
+          ...t,
+          scanId: scan.id,
+          reportId: scan.reportId,
+          targetModel: scan.targetModel,
+          attackerModel: scan.attackerModel,
+          forbiddenTask: scan.forbiddenTask,
+          createdAt: scan.createdAt,
+        }),
+      );
     });
   }
 
@@ -328,22 +332,26 @@ export function executeQuery(
               break;
             case "std_dev": {
               const nums = values.map(Number);
-              resultRow[agg.alias] = nums.length >= 2 ? Number(stdDev(nums).toFixed(4)) : 0;
+              resultRow[agg.alias] =
+                nums.length >= 2 ? Number(stdDev(nums).toFixed(4)) : 0;
               break;
             }
             case "median": {
               const nums = values.map(Number);
-              resultRow[agg.alias] = nums.length > 0 ? Number(percentile(nums, 50).toFixed(4)) : 0;
+              resultRow[agg.alias] =
+                nums.length > 0 ? Number(percentile(nums, 50).toFixed(4)) : 0;
               break;
             }
             case "q1": {
               const nums = values.map(Number);
-              resultRow[agg.alias] = nums.length > 0 ? Number(percentile(nums, 25).toFixed(4)) : 0;
+              resultRow[agg.alias] =
+                nums.length > 0 ? Number(percentile(nums, 25).toFixed(4)) : 0;
               break;
             }
             case "q3": {
               const nums = values.map(Number);
-              resultRow[agg.alias] = nums.length > 0 ? Number(percentile(nums, 75).toFixed(4)) : 0;
+              resultRow[agg.alias] =
+                nums.length > 0 ? Number(percentile(nums, 75).toFixed(4)) : 0;
               break;
             }
             case "range": {
@@ -357,7 +365,16 @@ export function executeQuery(
             case "stat": {
               const nums = values.map(Number).filter((v) => !isNaN(v));
               if (nums.length === 0) {
-                resultRow[agg.alias] = { min: 0, q1: 0, median: 0, q3: 0, max: 0, mean: 0, count: 0, _isStatObj: true };
+                resultRow[agg.alias] = {
+                  min: 0,
+                  q1: 0,
+                  median: 0,
+                  q3: 0,
+                  max: 0,
+                  mean: 0,
+                  count: 0,
+                  _isStatObj: true,
+                };
               } else {
                 const sortedNums = [...nums].sort((a, b) => a - b);
                 const sumVal = sortedNums.reduce((s, x) => s + x, 0);

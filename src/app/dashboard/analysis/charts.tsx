@@ -523,11 +523,16 @@ export function FlatCharts({
   };
 
 
-  // Filter out keys that have only zero or invalid/null values, or are marked hidden in schema
+  // Filter out keys that have only zero or invalid/null values, or are marked hidden/noChart in schema
   const meaningfulKeys = useMemo(() => {
     const isFieldHidden = (k: string) => {
       const match = [...SCAN_FIELDS, ...TRIAL_FIELDS].find((f) => f.name === k) as any;
       return match ? !!match.hidden : false;
+    };
+
+    const isFieldNoChart = (k: string) => {
+      const match = [...SCAN_FIELDS, ...TRIAL_FIELDS].find((f) => f.name === k) as any;
+      return match ? !!match.noChart : false;
     };
 
     const firstRow = chartData.data[0];
@@ -535,6 +540,7 @@ export function FlatCharts({
 
     return chartData.keys.filter((key) => {
       if (isFieldHidden(key)) return false;
+      if (isFieldNoChart(key)) return false;
       // Do not render the grouping key as its own independent card in a grouped query
       if (chartData.isGroupedQuery && key === chartData.xAxisKey) return false;
 
