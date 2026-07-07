@@ -220,10 +220,7 @@ function compileQueryBody(
           case "range":
             pyFunc = "lambda x: x.max() - x.min()";
             break;
-          case "stat":
-            pyFunc =
-              'lambda x: {"min": float(x.min()) if not pd.isna(x.min()) else 0.0, "q1": float(x.quantile(0.25)) if not pd.isna(x.quantile(0.25)) else 0.0, "median": float(x.median()) if not pd.isna(x.median()) else 0.0, "q3": float(x.quantile(0.75)) if not pd.isna(x.quantile(0.75)) else 0.0, "max": float(x.max()) if not pd.isna(x.max()) else 0.0, "mean": float(x.mean()) if not pd.isna(x.mean()) else 0.0, "count": int(x.count()), "_isStatObj": True}';
-            break;
+
           default:
             pyFunc = `"${agg.function}"`;
         }

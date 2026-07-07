@@ -14,6 +14,7 @@ interface FilterRowProps {
   // Which filter array this row belongs to (main or subquery)
   currentFilters: FilterCondition[];
   setCurrentFilters: (filters: FilterCondition[]) => void;
+  useFriendlyNames?: boolean;
 }
 
 export function FilterRow({
@@ -21,6 +22,7 @@ export function FilterRow({
   idx,
   currentFilters,
   setCurrentFilters,
+  useFriendlyNames = true,
 }: FilterRowProps) {
   const { currentFields, getUniqueFieldValues, sourceType } = useQueryContext();
 
@@ -108,7 +110,7 @@ export function FilterRow({
         <option value="">-- select property --</option>
         {currentFields.map((cf) => (
           <option key={cf.name} value={cf.name}>
-            {cf.name}
+            {useFriendlyNames ? cf.label || cf.name : cf.name}
           </option>
         ))}
       </select>

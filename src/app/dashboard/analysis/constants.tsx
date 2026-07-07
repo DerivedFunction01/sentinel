@@ -145,6 +145,16 @@ export function sanitizeScan(scan: any): any {
   for (const key of Object.keys(scan)) {
     if (SCAN_WHITELIST.has(key)) clean[key] = scan[key];
   }
+  if (clean.createdAt && typeof clean.createdAt === "string") {
+    try {
+      const date = new Date(clean.createdAt);
+      if (!isNaN(date.getTime())) {
+        clean.createdAt_year = date.getFullYear();
+        clean.createdAt_month = date.getMonth() + 1;
+        clean.createdAt_day = date.getDate();
+      }
+    } catch (e) {}
+  }
   return clean;
 }
 export const TRIAL_FIELDS = [

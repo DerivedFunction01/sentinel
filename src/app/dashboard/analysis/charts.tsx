@@ -399,7 +399,9 @@ export function FlatCharts({
                   const globalRange = maxGlobal - minGlobal || 1;
 
                   return chartData.data.map((row, rIdx) => {
-                    const label = String(row[chartData.xAxisKey] ?? `Item ${rIdx}`);
+                    const rowKeys = Object.keys(row);
+                    const labelKey = rowKeys.find(k => k !== key && (typeof row[k] === "string" || typeof row[k] === "boolean")) || rowKeys[0];
+                    const label = String(row[labelKey] ?? `Item ${rIdx}`);
                     const stat = getStatObj(row);
                     
                     const leftWhisker = ((stat.min - minGlobal) / globalRange) * 100;
@@ -536,6 +538,16 @@ export function FlatCharts({
       // Do not render the grouping key as its own independent card in a grouped query
       if (chartData.isGroupedQuery && key === chartData.xAxisKey) return false;
 
+      const rawVal = firstRow[key];
+      let parsedVal = rawVal;
+      if (typeof rawVal === "string" && rawVal.startsWith("{")) {
+        try {
+          parsedVal = JSON.parse(rawVal);
+        } catch (e) {}
+      }
+      const isStat = !!(parsedVal && typeof parsedVal === "object" && (parsedVal as any)._isStatObj);
+      if (isStat) return true;
+
       const isColCategorical = typeof firstRow[key] === "string" || typeof firstRow[key] === "boolean";
       if (isColCategorical) {
         return chartData.data.some((d) => d[key] !== undefined && d[key] !== null && d[key] !== "");
@@ -602,6 +614,42 @@ interface FieldDef {
   desc: string;
 }
 
+export function getFriendlyHeaderLabel(key: string, currentFields: FieldDef[]): string {
+  const matched = currentFields.find((cf) => cf.name === key);
+  if (matched) return matched.label || matched.name;
+
+  const parts = key.split("_");
+  if (parts.length >= 2) {
+    const aggSuffixes = ["count", "sum", "avg", "min", "max", "median", "range", "std", "dev", "std_dev"];
+    let suffix = parts[parts.length - 1];
+    let baseKey = parts.slice(0, -1).join("_");
+
+    // Handle std_dev double suffix
+    if (suffix === "dev" && parts[parts.length - 2] === "std") {
+      suffix = "std_dev";
+      baseKey = parts.slice(0, -2).join("_");
+    }
+
+    const baseMatched = currentFields.find((cf) => cf.name === baseKey);
+    if (baseMatched) {
+      const baseLabel = baseMatched.label || baseMatched.name;
+      const aggLabelMap: Record<string, string> = {
+        count: "Count",
+        sum: "Sum",
+        avg: "Average",
+        min: "Minimum",
+        max: "Maximum",
+        median: "Median",
+        range: "Range",
+        std: "Std Dev",
+        std_dev: "Std Dev",
+      };
+      return `${baseLabel} (${aggLabelMap[suffix] || suffix})`;
+    }
+  }
+  return key;
+}
+
 interface FlatDataTableProps {
   results: any[];
   currentFields: FieldDef[];
@@ -654,7 +702,7 @@ export function FlatDataTable({ results, currentFields, useFriendlyNames }: Flat
           <thead className="bg-white/[0.02] text-muted-foreground font-semibold">
             <tr>
               {columns.map((key) => {
-                const label = currentFields.find((cf) => cf.name === key)?.label || key;
+                const label = getFriendlyHeaderLabel(key, currentFields);
                 return (
                   <th key={key} className="px-4 py-2.5">
                     {useFriendlyNames ? label : key}

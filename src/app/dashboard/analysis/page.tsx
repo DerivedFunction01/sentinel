@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { RefreshCw, Database, BookOpen, GitBranch } from "lucide-react";
+import {
+  RefreshCw,
+  Database,
+  BookOpen,
+  GitBranch,
+  Sliders,
+  BoxSelect,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -26,6 +33,7 @@ import {
   PivotTableControls,
 } from "./charts";
 import { SavedViews, SchemaExplorer } from "./explorer";
+import { SummaryStatsView } from "./summary-stats";
 
 // ─── Inner page — has access to QueryContext ────────────────────────────────
 
@@ -81,10 +89,14 @@ function AnalysisConsoleInner({
     setPivotConfig({ ...pivotConfig, enableHeatmap: v });
 
   // ── Results view ────────────────────────────────────────────────────────
-  const [resultsTab, setResultsTab] = useState<"flat" | "pivot">("flat");
+  const [resultsTab, setResultsTab] = useState<"flat" | "pivot" | "stats">(
+    "flat",
+  );
 
   // ── Chart selectors ─────────────────────────────────────────────────────
-  const [chartTypeSelection, setChartTypeSelection] = useState<"auto" | "bar" | "line" | "pie" | "histogram" | "scatter">("auto");
+  const [chartTypeSelection, setChartTypeSelection] = useState<
+    "auto" | "bar" | "line" | "pie" | "histogram" | "scatter"
+  >("auto");
 
   // ── Available pivot fields (only columns present in the current results) ──
   const availablePivotFields = useMemo(() => {
@@ -104,7 +116,8 @@ function AnalysisConsoleInner({
     if (!keys.includes(pivotRowKey)) setPivotRowKey(firstKey);
     if (!keys.includes(pivotColKey)) setPivotColKey(keys[1] ?? firstKey);
     // pivotValueKey "*" is always valid (row count)
-    if (pivotValueKey !== "*" && !keys.includes(pivotValueKey)) setPivotValueKey("*");
+    if (pivotValueKey !== "*" && !keys.includes(pivotValueKey))
+      setPivotValueKey("*");
   }, [availablePivotFields]);
 
   // ── Preset loader ───────────────────────────────────────────────────────
@@ -227,12 +240,19 @@ function AnalysisConsoleInner({
     const xAxisKey = (() => {
       // 0. Group by fields (highest priority for grouped summary metrics comparison)
       const activeGroup = rowKeys.find((k) =>
-        groupBy.some((g) => g === k || g.replace(/_/g, "").toLowerCase() === k.replace(/_/g, "").toLowerCase())
+        groupBy.some(
+          (g) =>
+            g === k ||
+            g.replace(/_/g, "").toLowerCase() ===
+              k.replace(/_/g, "").toLowerCase(),
+        ),
       );
       if (activeGroup) return activeGroup;
 
       // 1. Time fields (high priority for timelines)
-      const timeField = rowKeys.find((k) => k === "createdAt" || k.startsWith("createdAt_"));
+      const timeField = rowKeys.find(
+        (k) => k === "createdAt" || k.startsWith("createdAt_"),
+      );
       if (timeField) return timeField;
 
       // 2. High-quality categorical/entity keys
@@ -252,7 +272,9 @@ function AnalysisConsoleInner({
       // 3. Any string field that is not an ID
       const blacklistedIds = ["id", "scanid", "reportid", "runid", "trialid"];
       const generalStringField = rowKeys.find(
-        (k) => typeof firstRow[k] === "string" && !blacklistedIds.includes(k.toLowerCase()),
+        (k) =>
+          typeof firstRow[k] === "string" &&
+          !blacklistedIds.includes(k.toLowerCase()),
       );
       if (generalStringField) return generalStringField;
       return "targetModel";
@@ -262,17 +284,23 @@ function AnalysisConsoleInner({
     // Keys of fields that are chartable (exclude raw IDs, complex arrays, and internal fields)
     const keys = rowKeys.filter((key) => {
       const val = firstRow[key];
+      const isStat =
+        typeof val === "object" && val !== null && (val as any)._isStatObj;
       return (
         key !== "trials" &&
         key !== "tags" &&
         !blacklistedIds.includes(key.toLowerCase()) &&
-        (typeof val === "number" || typeof val === "string" || typeof val === "boolean")
+        (typeof val === "number" ||
+          typeof val === "string" ||
+          typeof val === "boolean" ||
+          isStat)
       );
     });
 
     if (keys.length === 0) return null;
 
-    const isTemporal = xAxisKey === "createdAt" || xAxisKey.startsWith("createdAt_");
+    const isTemporal =
+      xAxisKey === "createdAt" || xAxisKey.startsWith("createdAt_");
 
     const formattedData = results.map((row) => {
       const item = { ...row };
@@ -294,7 +322,12 @@ function AnalysisConsoleInner({
   const pivotResults = useMemo(() => {
     if (results.length === 0 || !pivotRowKey || !pivotColKey) return null;
     try {
-      return executePivot(results, { rowKey: pivotRowKey, colKey: pivotColKey, valueKey: pivotValueKey, aggType: pivotAggType });
+      return executePivot(results, {
+        rowKey: pivotRowKey,
+        colKey: pivotColKey,
+        valueKey: pivotValueKey,
+        aggType: pivotAggType,
+      });
     } catch (e: any) {
       console.error("Pivot execution failed:", e);
       return null;
@@ -361,6 +394,17 @@ function AnalysisConsoleInner({
                 <GitBranch className="h-3.5 w-3.5" />
                 Pivot Matrix Console
               </button>
+              <button
+                onClick={() => setResultsTab("stats")}
+                className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
+                  resultsTab === "stats"
+                    ? "border-emerald-500 text-white"
+                    : "border-transparent text-muted-foreground hover:text-white"
+                }`}
+              >
+                <Sliders className="h-3.5 w-3.5" />
+                Summary Stats (Box Plot)
+              </button>
             </div>
 
             {resultsTab === "flat" ? (
@@ -378,7 +422,7 @@ function AnalysisConsoleInner({
                   useFriendlyNames={useFriendlyNames}
                 />
               </div>
-            ) : (
+            ) : resultsTab === "pivot" ? (
               <div className="space-y-6">
                 <PivotTableControls
                   pivotRowKey={pivotRowKey}
@@ -412,6 +456,12 @@ function AnalysisConsoleInner({
                   />
                 )}
               </div>
+            ) : (
+              <SummaryStatsView
+                results={results}
+                currentFields={availablePivotFields}
+                useFriendlyNames={useFriendlyNames}
+              />
             )}
           </div>
         )}
@@ -470,7 +520,9 @@ export default function AnalysisConsolePage() {
           await setCachedScanDetail(scan.id, scan);
         }
         setScans(data.scans.map(sanitizeScan));
-        toast.success(`Successfully cached ${data.scans.length} scans!`, { id: toastId });
+        toast.success(`Successfully cached ${data.scans.length} scans!`, {
+          id: toastId,
+        });
       }
     } catch (e) {
       console.error(e);
@@ -489,7 +541,8 @@ export default function AnalysisConsolePage() {
             Client-Side Analysis Console
           </h1>
           <p className="text-muted-foreground text-sm">
-            Query, group, aggregate, and perform set algebra on local scans. Powered by IndexedDB.
+            Query, group, aggregate, and perform set algebra on local scans.
+            Powered by IndexedDB.
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -502,7 +555,10 @@ export default function AnalysisConsolePage() {
             />
             <span>Friendly UI Labels</span>
           </label>
-          <Badge variant="outline" className="px-3 py-1 bg-white/5 border-white/10 text-white gap-1">
+          <Badge
+            variant="outline"
+            className="px-3 py-1 bg-white/5 border-white/10 text-white gap-1"
+          >
             <Database className="h-3 w-3 text-blue-400" />
             {scans.length} Scans Cached
           </Badge>
