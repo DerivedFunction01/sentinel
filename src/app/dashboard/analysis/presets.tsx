@@ -285,7 +285,6 @@ export const PRESETS: { name: string; desc: string; query: QueryDefinition }[] =
           "framingLabel",
           "entropyLabel",
           "taskTag",
-          "targetThing",
           "createdAt",
         ],
         sort: [{ property: "targetModel", direction: "asc" }],
