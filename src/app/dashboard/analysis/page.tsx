@@ -92,6 +92,11 @@ function AnalysisConsoleInner({
   const [resultsTab, setResultsTab] = useState<"flat" | "pivot" | "stats">(
     "flat",
   );
+  // Preselected dimension/metric for the Summary Stats (box) tab.
+  const [statsConfig, setStatsConfig] = useState<{
+    dimension: string;
+    metric: string;
+  } | null>(null);
 
   // ── Chart selectors ─────────────────────────────────────────────────────
   const [chartTypeSelection, setChartTypeSelection] = useState<
@@ -119,20 +124,6 @@ function AnalysisConsoleInner({
     if (pivotValueKey !== "*" && !keys.includes(pivotValueKey))
       setPivotValueKey("*");
   }, [availablePivotFields]);
-
-  // ── Preset loader ───────────────────────────────────────────────────────
-  const loadPreset = (preset: (typeof PRESETS)[0]) => {
-    setSourceType(preset.query.table || "scans");
-    setFilters(preset.query.filters || []);
-    setGroupBy(preset.query.group_by || []);
-    setAggregations(preset.query.aggregations || []);
-    setSortInstructions(preset.query.sort || []);
-    setLimit(preset.query.limit || "");
-    setProjections(preset.query.projections || []);
-    setSetOp("none");
-    setSubQueryFilters([]);
-    toast.info(`Loaded preset: ${preset.name}`);
-  };
 
   // ── Saved view loader ───────────────────────────────────────────────────
   const loadSavedQueryDef = (saved: any) => {
@@ -169,7 +160,18 @@ function AnalysisConsoleInner({
         enableHeatmap: saved.pivotConfig.enableHeatmap,
       });
     }
+    if (saved.openTab === "pivot" || saved.openTab === "stats") {
+      setResultsTab(saved.openTab);
+    } else {
+      setResultsTab("flat");
+    }
+    setStatsConfig(saved.statsConfig ?? null);
     toast.info(`Loaded view: ${saved.name}`);
+  };
+
+  // ── Preset loader (presets share the saved-view shape, so reuse the same loader) ──
+  const loadPreset = (preset: (typeof PRESETS)[0]) => {
+    loadSavedQueryDef(preset);
   };
 
   // ── Export/import helpers ───────────────────────────────────────────────
@@ -461,6 +463,7 @@ function AnalysisConsoleInner({
                 results={results}
                 currentFields={availablePivotFields}
                 useFriendlyNames={useFriendlyNames}
+                statsConfig={statsConfig}
               />
             )}
           </div>

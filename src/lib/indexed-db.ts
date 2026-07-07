@@ -349,6 +349,30 @@ export async function getAllCachedScanDetails(): Promise<any[]> {
   }
 }
 
+/** Shape of a saved (or preset) analysis view, persisted to IndexedDB. */
+export interface SavedQuery {
+  id: string;
+  name: string;
+  desc?: string;
+  query: any; // QueryDefinition from @/lib/dataframe/client-query-engine
+  // Which results tab to auto-open when this view/preset is loaded.
+  // "pivot" pairs with pivotConfig; "stats" opens the Summary Stats (box) view
+  // which computes distributions from the grouped results client-side.
+  openTab?: "flat" | "pivot" | "stats";
+  // When openTab === "stats", preselects the exact dimension (group) and metric
+  // (numerical value) for the Summary Stats box plot.
+  statsConfig?: { dimension: string; metric: string };
+  pivotConfig?: {
+    rowKey: string;
+    colKey: string;
+    valueKey: string;
+    aggType: "count" | "sum" | "avg";
+    enableHeatmap: boolean;
+  } | null;
+  selectableColumns?: string[];
+  createdAt?: string;
+}
+
 export async function getSavedQueries(): Promise<any[]> {
   try {
     const db = await getDB();

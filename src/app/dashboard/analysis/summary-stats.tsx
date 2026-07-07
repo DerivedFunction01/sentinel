@@ -8,12 +8,15 @@ export interface SummaryStatsViewProps {
   results: any[];
   currentFields: any[];
   useFriendlyNames: boolean;
+  // Preselected dimension/metric (e.g. from a saved view or preset statsConfig).
+  statsConfig?: { dimension: string; metric: string } | null;
 }
 
 export function SummaryStatsView({
   results,
   currentFields,
   useFriendlyNames,
+  statsConfig,
 }: SummaryStatsViewProps) {
   const rowKeys = useMemo(() => {
     if (results.length === 0) return [];
@@ -38,8 +41,20 @@ export function SummaryStatsView({
     return rowKeys.filter((k) => typeof firstRow[k] === "number" && k !== "id");
   }, [results, rowKeys]);
 
-  const [dimensionKey, setDimensionKey] = useState("");
-  const [valueKey, setValueKey] = useState("");
+  // Initialize selections from an explicit statsConfig (preset/saved view),
+  // otherwise fall back to the first available dimension/metric. Manual changes
+  // still override via the selectors.
+  const initialDim =
+    statsConfig?.dimension && dimensionKeys.includes(statsConfig.dimension)
+      ? statsConfig.dimension
+      : dimensionKeys[0] || "";
+  const initialVal =
+    statsConfig?.metric && valueKeys.includes(statsConfig.metric)
+      ? statsConfig.metric
+      : valueKeys[0] || "";
+
+  const [dimensionKey, setDimensionKey] = useState(initialDim);
+  const [valueKey, setValueKey] = useState(initialVal);
 
   const activeDim = dimensionKey || dimensionKeys[0] || "";
   const activeVal = valueKey || valueKeys[0] || "";
