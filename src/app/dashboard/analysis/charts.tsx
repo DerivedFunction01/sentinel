@@ -21,12 +21,7 @@ import {
 } from "recharts";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SCAN_FIELDS, TRIAL_FIELDS } from "./constants";
 
@@ -46,7 +41,9 @@ const CHART_COLORS = [
 
 interface FlatChartsProps {
   chartTypeSelection: "auto" | "bar" | "line" | "pie" | "histogram" | "scatter";
-  setChartTypeSelection: (v: "auto" | "bar" | "line" | "pie" | "histogram" | "scatter") => void;
+  setChartTypeSelection: (
+    v: "auto" | "bar" | "line" | "pie" | "histogram" | "scatter",
+  ) => void;
   chartData: {
     data: any[];
     xAxisKey: string;
@@ -58,7 +55,9 @@ interface FlatChartsProps {
 }
 
 /** Classify metric key to rate/score, distribution (trials/runs), or count/cost */
-function getMetricType(key: string): "rate_or_score" | "distribution" | "count_or_cost" {
+function getMetricType(
+  key: string,
+): "rate_or_score" | "distribution" | "count_or_cost" {
   const normalized = key.toLowerCase();
   if (
     normalized.includes("rate") ||
@@ -94,15 +93,20 @@ export function FlatCharts({
       }
 
       // Detect if categorical labels on X-axis are identical/redundant (e.g. 10 rows all labeled the same)
-      const labels = chartData.data.map((row) => String(row[chartData.xAxisKey] ?? ""));
+      const labels = chartData.data.map((row) =>
+        String(row[chartData.xAxisKey] ?? ""),
+      );
       const uniqueLabels = new Set(labels).size;
       const totalRows = chartData.data.length;
-      
+
       // Only render Line Chart if there are at least 3 distinct date values to show a real trend
       if (chartData.isTemporal && uniqueLabels >= 3) return "line";
 
-      const labelsAreRedundant = uniqueLabels <= 1 || (totalRows > 3 && uniqueLabels < totalRows * 0.4);
-      const isAggregatedSummary = !!chartData.isGroupedQuery || (uniqueLabels === totalRows && totalRows > 1);
+      const labelsAreRedundant =
+        uniqueLabels <= 1 || (totalRows > 3 && uniqueLabels < totalRows * 0.4);
+      const isAggregatedSummary =
+        !!chartData.isGroupedQuery ||
+        (uniqueLabels === totalRows && totalRows > 1);
 
       const type = getMetricType(key);
       if (type === "distribution") {
@@ -122,7 +126,13 @@ export function FlatCharts({
         return "bar";
       }
     },
-    [chartTypeSelection, chartData.isTemporal, chartData.data, chartData.xAxisKey, chartData.isGroupedQuery],
+    [
+      chartTypeSelection,
+      chartData.isTemporal,
+      chartData.data,
+      chartData.xAxisKey,
+      chartData.isGroupedQuery,
+    ],
   );
 
   // Render a single sub-chart card for a given key
@@ -135,12 +145,24 @@ export function FlatCharts({
         parsedFirstVal = JSON.parse(rawFirstVal);
       } catch (e) {}
     }
-    const isStatObject = !!(parsedFirstVal && typeof parsedFirstVal === "object" && (parsedFirstVal as any)._isStatObj);
-    const isCategorical = firstRow && !isStatObject ? (typeof firstRow[key] === "string" || typeof firstRow[key] === "boolean") : false;
+    const isStatObject = !!(
+      parsedFirstVal &&
+      typeof parsedFirstVal === "object" &&
+      (parsedFirstVal as any)._isStatObj
+    );
+    const isCategorical =
+      firstRow && !isStatObject
+        ? typeof firstRow[key] === "string" ||
+          typeof firstRow[key] === "boolean"
+        : false;
     const metricType = getMetricType(key);
     const dataPoints = chartData.data.map((d) => d[key]);
-    const distinctValues = new Set(dataPoints.filter((v) => v !== undefined && v !== null)).size;
-    const resolvedType = isStatObject ? "box" : resolveChartTypeForKey(key, distinctValues, isCategorical);
+    const distinctValues = new Set(
+      dataPoints.filter((v) => v !== undefined && v !== null),
+    ).size;
+    const resolvedType = isStatObject
+      ? "box"
+      : resolveChartTypeForKey(key, distinctValues, isCategorical);
     const color = CHART_COLORS[idx % CHART_COLORS.length];
 
     // frequency data helper for non-numerical categorical columns
@@ -218,8 +240,11 @@ export function FlatCharts({
     const pieData = (() => {
       if (isCategorical) {
         // Cap slice count for categorical frequency pie charts
-        if (freqData.length <= 5) return freqData.map((d) => ({ name: d.name, value: d.count }));
-        const head = freqData.slice(0, 4).map((d) => ({ name: d.name, value: d.count }));
+        if (freqData.length <= 5)
+          return freqData.map((d) => ({ name: d.name, value: d.count }));
+        const head = freqData
+          .slice(0, 4)
+          .map((d) => ({ name: d.name, value: d.count }));
         const tail = freqData.slice(4);
         const tailSum = tail.reduce((sum, item) => sum + item.count, 0);
         const maxHead = Math.max(...head.map((h) => h.value), 0);
@@ -250,12 +275,16 @@ export function FlatCharts({
           const avg = Number((tailSum / tail.length).toFixed(2));
           return [...head, { name: "Other (Avg)", value: avg }];
         }
-        return [...head, { name: "Other (Sum)", value: Number(tailSum.toFixed(2)) }];
+        return [
+          ...head,
+          { name: "Other (Sum)", value: Number(tailSum.toFixed(2)) },
+        ];
       }
       return head;
     })();
 
-    const yAxisDomain = metricType === "rate_or_score" ? ([0, 100] as const) : undefined;
+    const yAxisDomain =
+      metricType === "rate_or_score" ? ([0, 100] as const) : undefined;
     const shouldRenderHorizontalBar = resolvedType === "bar";
 
     // Localized Scatter chart data mapping
@@ -275,13 +304,18 @@ export function FlatCharts({
     const barData = (() => {
       if (resolvedType !== "bar") return [];
       const labelKey = chartData.xAxisKey;
-      const uniqueLabels = new Set(chartData.data.map((r) => String(r[labelKey] ?? "")));
+      const uniqueLabels = new Set(
+        chartData.data.map((r) => String(r[labelKey] ?? "")),
+      );
 
       if (uniqueLabels.size === chartData.data.length) {
         return chartData.data;
       }
 
-      const grouped: Record<string, { name: string; sum: number; count: number }> = {};
+      const grouped: Record<
+        string,
+        { name: string; sum: number; count: number }
+      > = {};
       for (const row of chartData.data) {
         const label = String(row[labelKey] ?? "null");
         const val = Number(row[key]) || 0;
@@ -296,7 +330,9 @@ export function FlatCharts({
         const isAvg = metricType === "rate_or_score";
         return {
           [labelKey]: g.name,
-          [key]: isAvg ? Number((g.sum / g.count).toFixed(2)) : Number(g.sum.toFixed(2)),
+          [key]: isAvg
+            ? Number((g.sum / g.count).toFixed(2))
+            : Number(g.sum.toFixed(2)),
         };
       });
     })();
@@ -310,8 +346,12 @@ export function FlatCharts({
           <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
             {key.replace(/_/g, " ")} {isCategorical ? "(Frequency)" : ""}
           </span>
-          <Badge variant="outline" className="text-[9px] uppercase tracking-normal">
-            {resolvedType} {metricType === "rate_or_score" && !isCategorical ? "(0-100%)" : ""}
+          <Badge
+            variant="outline"
+            className="text-[9px] uppercase tracking-normal"
+          >
+            {resolvedType}{" "}
+            {metricType === "rate_or_score" && !isCategorical ? "(0-100%)" : ""}
           </Badge>
         </div>
 
@@ -320,9 +360,24 @@ export function FlatCharts({
             {isCategorical && resolvedType !== "pie" ? (
               /* Horizontal Bar Chart for Categorical Frequency counts */
               <BarChart layout="vertical" data={freqData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis type="number" stroke="#94a3b8" fontSize={9} tickLine={false} />
-                <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={9} tickLine={false} width={100} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.05)"
+                />
+                <XAxis
+                  type="number"
+                  stroke="#94a3b8"
+                  fontSize={9}
+                  tickLine={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  stroke="#94a3b8"
+                  fontSize={9}
+                  tickLine={false}
+                  width={100}
+                />
                 <Tooltip
                   contentStyle={{
                     background: "#18181b",
@@ -331,13 +386,31 @@ export function FlatCharts({
                   }}
                   labelClassName="text-slate-400 font-bold text-xs"
                 />
-                <Bar name="Record Count" dataKey="count" fill={color} radius={[0, 3, 3, 0]} />
+                <Bar
+                  name="Record Count"
+                  dataKey="count"
+                  fill={color}
+                  radius={[0, 3, 3, 0]}
+                />
               </BarChart>
             ) : resolvedType === "line" ? (
               <LineChart data={chartData.data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={9} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} domain={yAxisDomain} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.05)"
+                />
+                <XAxis
+                  dataKey={chartData.xAxisKey}
+                  stroke="#94a3b8"
+                  fontSize={9}
+                  tickLine={false}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={9}
+                  tickLine={false}
+                  domain={yAxisDomain}
+                />
                 <Tooltip
                   contentStyle={{
                     background: "#18181b",
@@ -376,7 +449,10 @@ export function FlatCharts({
                   label={{ fontSize: 9, fill: "#94a3b8" }}
                 >
                   {pieData.map((_, pIdx) => (
-                    <Cell key={`cell-${pIdx}`} fill={CHART_COLORS[pIdx % CHART_COLORS.length]} />
+                    <Cell
+                      key={`cell-${pIdx}`}
+                      fill={CHART_COLORS[pIdx % CHART_COLORS.length]}
+                    />
                   ))}
                 </Pie>
               </PieChart>
@@ -391,62 +467,128 @@ export function FlatCharts({
                         return JSON.parse(rawVal);
                       } catch (e) {}
                     }
-                    return rawVal || { min: 0, q1: 0, median: 0, q3: 0, max: 0, mean: 0, count: 0 };
+                    return (
+                      rawVal || {
+                        min: 0,
+                        q1: 0,
+                        median: 0,
+                        q3: 0,
+                        max: 0,
+                        mean: 0,
+                        count: 0,
+                      }
+                    );
                   };
 
-                  const minGlobal = Math.min(...chartData.data.map(row => Number(getStatObj(row)?.min ?? 0)));
-                  const maxGlobal = Math.max(...chartData.data.map(row => Number(getStatObj(row)?.max ?? 100)));
+                  const minGlobal = Math.min(
+                    ...chartData.data.map((row) =>
+                      Number(getStatObj(row)?.min ?? 0),
+                    ),
+                  );
+                  const maxGlobal = Math.max(
+                    ...chartData.data.map((row) =>
+                      Number(getStatObj(row)?.max ?? 100),
+                    ),
+                  );
                   const globalRange = maxGlobal - minGlobal || 1;
 
                   return chartData.data.map((row, rIdx) => {
                     const rowKeys = Object.keys(row);
-                    const labelKey = rowKeys.find(k => k !== key && (typeof row[k] === "string" || typeof row[k] === "boolean")) || rowKeys[0];
+                    const labelKey =
+                      rowKeys.find(
+                        (k) =>
+                          k !== key &&
+                          (typeof row[k] === "string" ||
+                            typeof row[k] === "boolean"),
+                      ) || rowKeys[0];
                     const label = String(row[labelKey] ?? `Item ${rIdx}`);
                     const stat = getStatObj(row);
-                    
-                    const leftWhisker = ((stat.min - minGlobal) / globalRange) * 100;
-                    const rightWhisker = ((stat.max - minGlobal) / globalRange) * 100;
+
+                    const leftWhisker =
+                      ((stat.min - minGlobal) / globalRange) * 100;
+                    const rightWhisker =
+                      ((stat.max - minGlobal) / globalRange) * 100;
                     const leftBox = ((stat.q1 - minGlobal) / globalRange) * 100;
-                    const rightBox = ((stat.q3 - minGlobal) / globalRange) * 100;
-                    const medianPos = ((stat.median - minGlobal) / globalRange) * 100;
-                    const meanPos = ((stat.mean - minGlobal) / globalRange) * 100;
+                    const rightBox =
+                      ((stat.q3 - minGlobal) / globalRange) * 100;
+                    const medianPos =
+                      ((stat.median - minGlobal) / globalRange) * 100;
+                    const meanPos =
+                      ((stat.mean - minGlobal) / globalRange) * 100;
 
                     return (
-                      <div key={rIdx} className="flex items-center gap-4 text-[10px]">
-                        <div className="w-[100px] truncate text-slate-300 font-semibold" title={label}>
+                      <div
+                        key={rIdx}
+                        className="flex items-center gap-4 text-[10px]"
+                      >
+                        <div
+                          className="w-[100px] truncate text-slate-300 font-semibold"
+                          title={label}
+                        >
                           {label}
                         </div>
                         <div className="flex-1 relative h-6 bg-white/5 border border-white/5 rounded flex items-center group">
                           {/* Whisker Line */}
                           <div
                             className="absolute h-0.5 bg-slate-500"
-                            style={{ left: `${leftWhisker}%`, right: `${100 - rightWhisker}%` }}
+                            style={{
+                              left: `${leftWhisker}%`,
+                              right: `${100 - rightWhisker}%`,
+                            }}
                           />
                           {/* Whisker End-Ticks */}
-                          <div className="absolute w-0.5 h-3 bg-slate-400" style={{ left: `${leftWhisker}%` }} />
-                          <div className="absolute w-0.5 h-3 bg-slate-400" style={{ left: `${rightWhisker}%` }} />
+                          <div
+                            className="absolute w-0.5 h-3 bg-slate-400"
+                            style={{ left: `${leftWhisker}%` }}
+                          />
+                          <div
+                            className="absolute w-0.5 h-3 bg-slate-400"
+                            style={{ left: `${rightWhisker}%` }}
+                          />
                           {/* Box (Q1 to Q3) */}
                           <div
                             className="absolute h-4 bg-blue-500/30 border border-blue-500/70 rounded-sm"
-                            style={{ left: `${leftBox}%`, right: `${100 - rightBox}%` }}
+                            style={{
+                              left: `${leftBox}%`,
+                              right: `${100 - rightBox}%`,
+                            }}
                           />
                           {/* Median Line */}
-                          <div className="absolute w-0.5 h-4 bg-rose-500" style={{ left: `${medianPos}%` }} title={`Median: ${stat.median}`} />
+                          <div
+                            className="absolute w-0.5 h-4 bg-rose-500"
+                            style={{ left: `${medianPos}%` }}
+                            title={`Median: ${stat.median}`}
+                          />
                           {/* Mean Dot */}
                           <div
                             className="absolute w-2 h-2 rounded-full bg-emerald-400 border border-black shadow"
                             style={{ left: `calc(${meanPos}% - 4px)` }}
                             title={`Mean: ${stat.mean}`}
                           />
-                          
+
                           {/* Tooltip on Hover */}
                           <div className="absolute opacity-0 group-hover:opacity-100 bg-zinc-900 border border-white/10 p-2 rounded shadow-xl text-[9px] pointer-events-none transition-opacity z-10 -top-12 left-1/2 -translate-x-1/2 flex gap-2 whitespace-nowrap text-slate-300">
-                            <span>Min: <strong>{stat.min}</strong></span>
-                            <span>Q1: <strong>{stat.q1}</strong></span>
-                            <span>Med: <strong className="text-rose-400">{stat.median}</strong></span>
-                            <span>Q3: <strong>{stat.q3}</strong></span>
-                            <span>Max: <strong>{stat.max}</strong></span>
-                            <span>Count: <strong>{stat.count}</strong></span>
+                            <span>
+                              Min: <strong>{stat.min}</strong>
+                            </span>
+                            <span>
+                              Q1: <strong>{stat.q1}</strong>
+                            </span>
+                            <span>
+                              Med:{" "}
+                              <strong className="text-rose-400">
+                                {stat.median}
+                              </strong>
+                            </span>
+                            <span>
+                              Q3: <strong>{stat.q3}</strong>
+                            </span>
+                            <span>
+                              Max: <strong>{stat.max}</strong>
+                            </span>
+                            <span>
+                              Count: <strong>{stat.count}</strong>
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -456,9 +598,27 @@ export function FlatCharts({
               </div>
             ) : resolvedType === "scatter" ? (
               <ScatterChart>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis type="number" dataKey="x" name={chartData.xAxisKey} stroke="#94a3b8" fontSize={9} tickLine={false} />
-                <YAxis type="number" dataKey="y" name={key} stroke="#94a3b8" fontSize={9} tickLine={false} domain={yAxisDomain} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.05)"
+                />
+                <XAxis
+                  type="number"
+                  dataKey="x"
+                  name={chartData.xAxisKey}
+                  stroke="#94a3b8"
+                  fontSize={9}
+                  tickLine={false}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="y"
+                  name={key}
+                  stroke="#94a3b8"
+                  fontSize={9}
+                  tickLine={false}
+                  domain={yAxisDomain}
+                />
                 <Tooltip
                   cursor={{ strokeDasharray: "3 3" }}
                   contentStyle={{
@@ -472,8 +632,16 @@ export function FlatCharts({
               </ScatterChart>
             ) : resolvedType === "histogram" ? (
               <BarChart data={histogramData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="rangeLabel" stroke="#94a3b8" fontSize={9} tickLine={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.05)"
+                />
+                <XAxis
+                  dataKey="rangeLabel"
+                  stroke="#94a3b8"
+                  fontSize={9}
+                  tickLine={false}
+                />
                 <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} />
                 <Tooltip
                   contentStyle={{
@@ -487,9 +655,24 @@ export function FlatCharts({
               </BarChart>
             ) : shouldRenderHorizontalBar ? (
               <BarChart layout="vertical" data={barData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis type="number" stroke="#94a3b8" fontSize={9} tickLine={false} />
-                <YAxis type="category" dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={9} tickLine={false} width={100} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.05)"
+                />
+                <XAxis
+                  type="number"
+                  stroke="#94a3b8"
+                  fontSize={9}
+                  tickLine={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey={chartData.xAxisKey}
+                  stroke="#94a3b8"
+                  fontSize={9}
+                  tickLine={false}
+                  width={100}
+                />
                 <Tooltip
                   contentStyle={{
                     background: "#18181b",
@@ -502,9 +685,22 @@ export function FlatCharts({
               </BarChart>
             ) : (
               <BarChart data={barData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={9} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} domain={yAxisDomain} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.05)"
+                />
+                <XAxis
+                  dataKey={chartData.xAxisKey}
+                  stroke="#94a3b8"
+                  fontSize={9}
+                  tickLine={false}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={9}
+                  tickLine={false}
+                  domain={yAxisDomain}
+                />
                 <Tooltip
                   contentStyle={{
                     background: "#18181b",
@@ -522,16 +718,19 @@ export function FlatCharts({
     );
   };
 
-
   // Filter out keys that have only zero or invalid/null values, or are marked hidden/noChart in schema
   const meaningfulKeys = useMemo(() => {
     const isFieldHidden = (k: string) => {
-      const match = [...SCAN_FIELDS, ...TRIAL_FIELDS].find((f) => f.name === k) as any;
+      const match = [...SCAN_FIELDS, ...TRIAL_FIELDS].find(
+        (f) => f.name === k,
+      ) as any;
       return match ? !!match.hidden : false;
     };
 
     const isFieldNoChart = (k: string) => {
-      const match = [...SCAN_FIELDS, ...TRIAL_FIELDS].find((f) => f.name === k) as any;
+      const match = [...SCAN_FIELDS, ...TRIAL_FIELDS].find(
+        (f) => f.name === k,
+      ) as any;
       return match ? !!match.noChart : false;
     };
 
@@ -551,12 +750,19 @@ export function FlatCharts({
           parsedVal = JSON.parse(rawVal);
         } catch (e) {}
       }
-      const isStat = !!(parsedVal && typeof parsedVal === "object" && (parsedVal as any)._isStatObj);
+      const isStat = !!(
+        parsedVal &&
+        typeof parsedVal === "object" &&
+        (parsedVal as any)._isStatObj
+      );
       if (isStat) return true;
 
-      const isColCategorical = typeof firstRow[key] === "string" || typeof firstRow[key] === "boolean";
+      const isColCategorical =
+        typeof firstRow[key] === "string" || typeof firstRow[key] === "boolean";
       if (isColCategorical) {
-        return chartData.data.some((d) => d[key] !== undefined && d[key] !== null && d[key] !== "");
+        return chartData.data.some(
+          (d) => d[key] !== undefined && d[key] !== null && d[key] !== "",
+        );
       } else {
         return chartData.data.some((d) => {
           const val = Number(d[key]);
@@ -564,7 +770,12 @@ export function FlatCharts({
         });
       }
     });
-  }, [chartData.keys, chartData.data, chartData.isGroupedQuery, chartData.xAxisKey]);
+  }, [
+    chartData.keys,
+    chartData.data,
+    chartData.isGroupedQuery,
+    chartData.xAxisKey,
+  ]);
 
   const isMultiGrid = meaningfulKeys.length > 1;
 
@@ -575,7 +786,9 @@ export function FlatCharts({
           Query Visualizations Plot
         </CardTitle>
         <div className="flex bg-muted p-0.5 rounded text-[10px]">
-          {(["auto", "bar", "line", "pie", "histogram", "scatter"] as const).map((type) => (
+          {(
+            ["auto", "bar", "line", "pie", "histogram", "scatter"] as const
+          ).map((type) => (
             <button
               key={type}
               onClick={() => setChartTypeSelection(type)}
@@ -620,13 +833,27 @@ interface FieldDef {
   desc: string;
 }
 
-export function getFriendlyHeaderLabel(key: string, currentFields: FieldDef[]): string {
+export function getFriendlyHeaderLabel(
+  key: string,
+  currentFields: FieldDef[],
+): string {
   const matched = currentFields.find((cf) => cf.name === key);
   if (matched) return matched.label || matched.name;
 
   const parts = key.split("_");
   if (parts.length >= 2) {
-    const aggSuffixes = ["count", "sum", "avg", "min", "max", "median", "range", "std", "dev", "std_dev"];
+    const aggSuffixes = [
+      "count",
+      "sum",
+      "avg",
+      "min",
+      "max",
+      "median",
+      "range",
+      "std",
+      "dev",
+      "std_dev",
+    ];
     let suffix = parts[parts.length - 1];
     let baseKey = parts.slice(0, -1).join("_");
 
@@ -662,14 +889,20 @@ interface FlatDataTableProps {
   useFriendlyNames: boolean;
 }
 
-export function FlatDataTable({ results, currentFields, useFriendlyNames }: FlatDataTableProps) {
+export function FlatDataTable({
+  results,
+  currentFields,
+  useFriendlyNames,
+}: FlatDataTableProps) {
   const handleCsvExport = () => {
     const csvRows: string[] = [];
     const headers = Object.keys(results[0]);
     csvRows.push(headers.join(","));
     for (const row of results) {
       csvRows.push(
-        headers.map((h) => `"${String(row[h] ?? "").replace(/"/g, '""')}"`).join(","),
+        headers
+          .map((h) => `"${String(row[h] ?? "").replace(/"/g, '""')}"`)
+          .join(","),
       );
     }
     const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
@@ -721,18 +954,30 @@ export function FlatDataTable({ results, currentFields, useFriendlyNames }: Flat
             {results.slice(0, 100).map((row, rIdx) => (
               <tr key={rIdx} className="hover:bg-white/[0.02]">
                 {columns.map((key) => {
-                  if (!(key in row) || row[key] === undefined || row[key] === null) {
+                  if (
+                    !(key in row) ||
+                    row[key] === undefined ||
+                    row[key] === null
+                  ) {
                     return (
-                      <td key={key} className="px-4 py-2 max-w-[250px] truncate text-muted-foreground/50">
+                      <td
+                        key={key}
+                        className="px-4 py-2 max-w-[250px] truncate text-muted-foreground/50"
+                      >
                         -
                       </td>
                     );
                   }
                   if (typeof row[key] === "object") {
                     const json = JSON.stringify(row[key]);
-                    const capped = json.length > 80 ? json.slice(0, 80) + "…" : json;
+                    const capped =
+                      json.length > 80 ? json.slice(0, 80) + "…" : json;
                     return (
-                      <td key={key} className="px-4 py-2 max-w-[250px] truncate" title={json}>
+                      <td
+                        key={key}
+                        className="px-4 py-2 max-w-[250px] truncate"
+                        title={json}
+                      >
                         {capped}
                       </td>
                     );
@@ -775,15 +1020,21 @@ interface PivotTableControlsProps {
 }
 
 export function PivotTableControls({
-  pivotRowKey, setPivotRowKey,
-  pivotColKey, setPivotColKey,
-  pivotValueKey, setPivotValueKey,
-  pivotAggType, setPivotAggType,
-  enablePivotHeatmap, setEnablePivotHeatmap,
+  pivotRowKey,
+  setPivotRowKey,
+  pivotColKey,
+  setPivotColKey,
+  pivotValueKey,
+  setPivotValueKey,
+  pivotAggType,
+  setPivotAggType,
+  enablePivotHeatmap,
+  setEnablePivotHeatmap,
   currentFields,
   useFriendlyNames,
 }: PivotTableControlsProps) {
-  const label = (f: FieldDef) => (useFriendlyNames ? f.label || f.name : f.name);
+  const label = (f: FieldDef) =>
+    useFriendlyNames ? f.label || f.name : f.name;
 
   return (
     <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
@@ -798,7 +1049,9 @@ export function PivotTableControls({
             className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
           >
             {currentFields.map((f) => (
-              <option key={f.name} value={f.name}>{label(f)}</option>
+              <option key={f.name} value={f.name}>
+                {label(f)}
+              </option>
             ))}
           </select>
         </div>
@@ -813,7 +1066,9 @@ export function PivotTableControls({
             className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
           >
             {currentFields.map((f) => (
-              <option key={f.name} value={f.name}>{label(f)}</option>
+              <option key={f.name} value={f.name}>
+                {label(f)}
+              </option>
             ))}
           </select>
         </div>
@@ -829,7 +1084,9 @@ export function PivotTableControls({
           >
             <option value="*">Row Count (*)</option>
             {currentFields.map((f) => (
-              <option key={f.name} value={f.name}>{label(f)}</option>
+              <option key={f.name} value={f.name}>
+                {label(f)}
+              </option>
             ))}
           </select>
         </div>
@@ -840,7 +1097,9 @@ export function PivotTableControls({
           </label>
           <select
             value={pivotAggType}
-            onChange={(e) => setPivotAggType(e.target.value as "count" | "sum" | "avg")}
+            onChange={(e) =>
+              setPivotAggType(e.target.value as "count" | "sum" | "avg")
+            }
             className="bg-zinc-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white w-full"
           >
             <option value="count">COUNT</option>
@@ -909,7 +1168,8 @@ export function PivotTable({
     return `rgba(${rgb}, ${intensity * 0.4})`;
   };
 
-  const rowLabel = currentFields.find((cf) => cf.name === pivotRowKey)?.label || pivotRowKey;
+  const rowLabel =
+    currentFields.find((cf) => cf.name === pivotRowKey)?.label || pivotRowKey;
 
   return (
     <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
@@ -926,19 +1186,23 @@ export function PivotTable({
                 {useFriendlyNames ? rowLabel : pivotRowKey}
               </th>
               {pivotResults.columns.map((col) => (
-                <th key={col} className="px-4 py-2.5">{col}</th>
+                <th key={col} className="px-4 py-2.5">
+                  {col}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 font-mono text-slate-300">
             {pivotResults.pivotedData.map((row, idx) => (
               <tr key={idx} className="hover:bg-white/[0.02]">
-                <td className="px-4 py-2 font-semibold text-white">{row[pivotRowKey]}</td>
+                <td className="px-4 py-2 font-semibold text-white">
+                  {row[pivotRowKey]}
+                </td>
                 {pivotResults.columns.map((col) => {
                   const cellVal = row[col];
                   return (
                     <td
-                      key={col}
+                      key={`${idx}-${col || ""}`}
                       className="px-4 py-2 transition-colors duration-200"
                       style={{ backgroundColor: getHeatmapBg(cellVal) }}
                     >
@@ -963,7 +1227,11 @@ interface PivotChartProps {
   pivotResults: { pivotedData: any[]; columns: string[] };
 }
 
-export function PivotChart({ pivotRowKey, pivotColKey, pivotResults }: PivotChartProps) {
+export function PivotChart({
+  pivotRowKey,
+  pivotColKey,
+  pivotResults,
+}: PivotChartProps) {
   return (
     <Card className="border-white/10 bg-card/40 backdrop-blur-sm">
       <CardHeader className="pb-2">
@@ -975,11 +1243,23 @@ export function PivotChart({ pivotRowKey, pivotColKey, pivotResults }: PivotChar
         <div className="h-[300px] w-full mt-4">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={pivotResults.pivotedData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey={pivotRowKey} stroke="#94a3b8" fontSize={10} tickLine={false} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="rgba(255,255,255,0.05)"
+              />
+              <XAxis
+                dataKey={pivotRowKey}
+                stroke="#94a3b8"
+                fontSize={10}
+                tickLine={false}
+              />
               <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
               <Tooltip
-                contentStyle={{ background: "#18181b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px" }}
+                contentStyle={{
+                  background: "#18181b",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "6px",
+                }}
                 labelClassName="text-slate-400 font-bold text-xs"
               />
               <Legend wrapperStyle={{ fontSize: 10 }} />
