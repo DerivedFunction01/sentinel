@@ -49,6 +49,7 @@ function AnalysisConsoleInner({
     setSourceType,
     setSelectedViewId,
     setFilters,
+    groupBy,
     setGroupBy,
     setAggregations,
     setSortInstructions,
@@ -224,8 +225,17 @@ function AnalysisConsoleInner({
 
     // Prioritized temporal/timeline key (useful if rendering timeline comparison)
     const xAxisKey = (() => {
+      // 0. Group by fields (highest priority for grouped summary metrics comparison)
+      const activeGroup = rowKeys.find((k) =>
+        groupBy.some((g) => g === k || g.replace(/_/g, "").toLowerCase() === k.replace(/_/g, "").toLowerCase())
+      );
+      if (activeGroup) return activeGroup;
+
+      // 1. Time fields (high priority for timelines)
       const timeField = rowKeys.find((k) => k === "createdAt" || k.startsWith("createdAt_"));
       if (timeField) return timeField;
+
+      // 2. High-quality categorical/entity keys
       const highQualityEntities = [
         "targetModel",
         "attackerModel",
@@ -238,21 +248,24 @@ function AnalysisConsoleInner({
       ];
       const entityField = rowKeys.find((k) => highQualityEntities.includes(k));
       if (entityField) return entityField;
+
+      // 3. Any string field that is not an ID
+      const blacklistedIds = ["id", "scanid", "reportid", "runid", "trialid"];
       const generalStringField = rowKeys.find(
-        (k) => typeof firstRow[k] === "string" && !k.toLowerCase().endsWith("id") && k !== "id",
+        (k) => typeof firstRow[k] === "string" && !blacklistedIds.includes(k.toLowerCase()),
       );
       if (generalStringField) return generalStringField;
       return "targetModel";
     })();
 
+    const blacklistedIds = ["id", "scanid", "reportid", "runid", "trialid"];
     // Keys of fields that are chartable (exclude raw IDs, complex arrays, and internal fields)
     const keys = rowKeys.filter((key) => {
       const val = firstRow[key];
       return (
-        key !== "id" &&
         key !== "trials" &&
         key !== "tags" &&
-        !key.toLowerCase().endsWith("id") &&
+        !blacklistedIds.includes(key.toLowerCase()) &&
         (typeof val === "number" || typeof val === "string" || typeof val === "boolean")
       );
     });
@@ -274,8 +287,9 @@ function AnalysisConsoleInner({
       xAxisKey,
       keys,
       isTemporal,
+      isGroupedQuery: groupBy.length > 0,
     };
-  }, [results]);
+  }, [results, groupBy]);
 
   const pivotResults = useMemo(() => {
     if (results.length === 0 || !pivotRowKey || !pivotColKey) return null;

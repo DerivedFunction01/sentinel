@@ -53,6 +53,7 @@ interface FlatChartsProps {
     keys: string[];
     isTemporal: boolean;
     isCategoricalFrequency?: boolean;
+    isGroupedQuery?: boolean;
   };
 }
 
@@ -101,23 +102,27 @@ export function FlatCharts({
       if (chartData.isTemporal && uniqueLabels >= 3) return "line";
 
       const labelsAreRedundant = uniqueLabels <= 1 || (totalRows > 3 && uniqueLabels < totalRows * 0.4);
+      const isAggregatedSummary = !!chartData.isGroupedQuery || (uniqueLabels === totalRows && totalRows > 1);
 
       const type = getMetricType(key);
       if (type === "distribution") {
+        if (isAggregatedSummary) return "bar";
         return "histogram";
       }
 
       if (type === "rate_or_score") {
+        if (isAggregatedSummary) return "bar";
         if (distinctCount > 10 || labelsAreRedundant) return "histogram";
         return "bar";
       } else {
         // count_or_cost
+        if (isAggregatedSummary) return "bar";
         if (distinctCount <= 5) return "pie";
         if (distinctCount > 10 || labelsAreRedundant) return "histogram";
         return "bar";
       }
     },
-    [chartTypeSelection, chartData.isTemporal, chartData.data, chartData.xAxisKey],
+    [chartTypeSelection, chartData.isTemporal, chartData.data, chartData.xAxisKey, chartData.isGroupedQuery],
   );
 
   // Render a single sub-chart card for a given key
@@ -258,6 +263,36 @@ export function FlatCharts({
       });
     })();
 
+    // Localized Bar chart data mapping to aggregate rows with duplicate text labels
+    const barData = (() => {
+      if (resolvedType !== "bar") return [];
+      const labelKey = chartData.xAxisKey;
+      const uniqueLabels = new Set(chartData.data.map((r) => String(r[labelKey] ?? "")));
+
+      if (uniqueLabels.size === chartData.data.length) {
+        return chartData.data;
+      }
+
+      const grouped: Record<string, { name: string; sum: number; count: number }> = {};
+      for (const row of chartData.data) {
+        const label = String(row[labelKey] ?? "null");
+        const val = Number(row[key]) || 0;
+        if (!grouped[label]) {
+          grouped[label] = { name: label, sum: 0, count: 0 };
+        }
+        grouped[label].sum += val;
+        grouped[label].count += 1;
+      }
+
+      return Object.values(grouped).map((g) => {
+        const isAvg = metricType === "rate_or_score";
+        return {
+          [labelKey]: g.name,
+          [key]: isAvg ? Number((g.sum / g.count).toFixed(2)) : Number(g.sum.toFixed(2)),
+        };
+      });
+    })();
+
     return (
       <div
         key={key}
@@ -369,7 +404,7 @@ export function FlatCharts({
                 <Bar dataKey="count" fill="#10b981" radius={[3, 3, 0, 0]} />
               </BarChart>
             ) : shouldRenderHorizontalBar ? (
-              <BarChart layout="vertical" data={chartData.data}>
+              <BarChart layout="vertical" data={barData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                 <XAxis type="number" stroke="#94a3b8" fontSize={9} tickLine={false} />
                 <YAxis type="category" dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={9} tickLine={false} width={100} />
@@ -384,7 +419,7 @@ export function FlatCharts({
                 <Bar dataKey={key} fill={color} radius={[0, 3, 3, 0]} />
               </BarChart>
             ) : (
-              <BarChart data={chartData.data}>
+              <BarChart data={barData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                 <XAxis dataKey={chartData.xAxisKey} stroke="#94a3b8" fontSize={9} tickLine={false} />
                 <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} domain={yAxisDomain} />
@@ -418,6 +453,9 @@ export function FlatCharts({
 
     return chartData.keys.filter((key) => {
       if (isFieldHidden(key)) return false;
+      // Do not render the grouping key as its own independent card in a grouped query
+      if (chartData.isGroupedQuery && key === chartData.xAxisKey) return false;
+
       const isColCategorical = typeof firstRow[key] === "string" || typeof firstRow[key] === "boolean";
       if (isColCategorical) {
         return chartData.data.some((d) => d[key] !== undefined && d[key] !== null && d[key] !== "");
@@ -428,7 +466,7 @@ export function FlatCharts({
         });
       }
     });
-  }, [chartData.keys, chartData.data]);
+  }, [chartData.keys, chartData.data, chartData.isGroupedQuery, chartData.xAxisKey]);
 
   const isMultiGrid = meaningfulKeys.length > 1;
 
