@@ -25,6 +25,12 @@ export const SCAN_FIELDS = [
     desc: "Attacker model used",
   },
   {
+    name: "judgeModel",
+    label: "Judge Model",
+    type: "string",
+    desc: "Judge model used for verdict assessment",
+  },
+  {
     name: "forbiddenTask",
     label: "Forbidden Task / Policy",
     type: "string",
