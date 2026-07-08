@@ -35,16 +35,19 @@ interface Message {
 }
 
 export default function ManualTestPage() {
-  // Config state
-  const [model, setModel] = useState("openai/gpt-4o-mini");
-  const [promptValues, setPromptValues] = useState<PromptFormSectionValues>({
+  const DEFAULT_CONFIG: PromptFormSectionValues = {
     systemPrompt: "You are a helpful assistant.",
     forbiddenTask: "",
     judgeInstructions: "",
     tools: "[]",
     mockResponses: "{}",
     allowNoToolsFallback: true,
-  });
+  };
+
+  // Config state
+  const [model, setModel] = useState("openai/gpt-4o-mini");
+  const [globalValues, setGlobalValues] = useState<PromptFormSectionValues>(DEFAULT_CONFIG);
+  const [promptValues, setPromptValues] = useState<PromptFormSectionValues>(DEFAULT_CONFIG);
 
   // UI state
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -81,8 +84,29 @@ export default function ManualTestPage() {
       })
       .catch(console.error);
 
+    // Load global values from localStorage
+    try {
+      const stored = localStorage.getItem("manual-test-global-config");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setGlobalValues(parsed);
+        setPromptValues(parsed);
+      }
+    } catch (e) {
+      console.error("Failed to load global config:", e);
+    }
+
     loadSavedConversations();
   }, []);
+
+  const handleGlobalValuesChange = (newValues: PromptFormSectionValues) => {
+    setGlobalValues(newValues);
+    try {
+      localStorage.setItem("manual-test-global-config", JSON.stringify(newValues));
+    } catch (e) {
+      console.error("Failed to save global config:", e);
+    }
+  };
 
   const loadSavedConversations = async () => {
     const list = await getManualConversations();
@@ -93,6 +117,7 @@ export default function ManualTestPage() {
     setActiveConvId(null);
     setChatName("New Conversation");
     setMessages([]);
+    setPromptValues(globalValues);
   };
 
   const loadConversation = (c: any) => {
@@ -106,7 +131,7 @@ export default function ManualTestPage() {
 
   // Auto-save conversation to IndexedDB when it changes
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (messages.length === 0 || loading) return;
 
     const performAutoSave = async () => {
       const id = activeConvId || `conv-${Date.now()}`;
@@ -141,7 +166,7 @@ export default function ManualTestPage() {
     // Debounce save action
     const timer = setTimeout(performAutoSave, 500);
     return () => clearTimeout(timer);
-  }, [messages, model, promptValues, chatName, activeConvId]);
+  }, [messages, model, promptValues, chatName, activeConvId, loading]);
 
   const deleteConversation = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -399,6 +424,28 @@ export default function ManualTestPage() {
     setMessages((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const handleRegenerate = async () => {
+    if (messages.length === 0 || loading) return;
+
+    // Find the last index of a user message
+    let lastUserIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        lastUserIdx = i;
+        break;
+      }
+    }
+
+    if (lastUserIdx === -1) return;
+
+    // Truncate messages history to keep up to that user message
+    const remainingMessages = messages.slice(0, lastUserIdx + 1);
+    setMessages(remainingMessages);
+
+    // Re-run assistant turn
+    await runAssistantTurn(remainingMessages);
+  };
+
   const clearChat = () => {
     setMessages([]);
     toast.info("Chat cleared");
@@ -457,12 +504,19 @@ export default function ManualTestPage() {
               onOpenChange={setIsConfigOpen}
               promptValues={promptValues}
               onPromptValuesChange={setPromptValues}
+              globalValues={globalValues}
+              onGlobalValuesChange={handleGlobalValuesChange}
             />
           </div>
         </div>
 
         {/* Conversation Thread */}
-        <ChatThread messages={messages} onRemoveMessage={handleRemoveMessage} />
+        <ChatThread 
+          messages={messages} 
+          onRemoveMessage={handleRemoveMessage} 
+          onRegenerate={handleRegenerate}
+          loading={loading}
+        />
 
         {/* Input area */}
         <div className="p-3 border-t border-white/10 bg-zinc-950/40">

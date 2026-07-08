@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Sparkles, Trash2, Wrench } from "lucide-react";
+import { Sparkles, Trash2, Wrench, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
 import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
 
 interface Message {
@@ -19,9 +18,16 @@ interface Message {
 interface ChatThreadProps {
   messages: Message[];
   onRemoveMessage: (idx: number) => void;
+  onRegenerate: () => void;
+  loading: boolean;
 }
 
-export function ChatThread({ messages, onRemoveMessage }: ChatThreadProps) {
+export function ChatThread({ 
+  messages, 
+  onRemoveMessage, 
+  onRegenerate, 
+  loading 
+}: ChatThreadProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,16 +72,26 @@ export function ChatThread({ messages, onRemoveMessage }: ChatThreadProps) {
               </Button>
             </div>
 
-            <div className={`p-3 rounded-lg border text-xs max-w-[90%] whitespace-pre-wrap leading-relaxed ${
+            <div className={`p-3 rounded-lg border text-xs max-w-[90%] whitespace-pre-wrap leading-relaxed relative ${
               m.role === "system" ? "bg-blue-500/5 border-blue-500/10 text-blue-200" :
               m.role === "user" ? "bg-amber-500/5 border-amber-500/10 text-amber-100 self-start" :
               m.role === "assistant" ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-100 self-start" :
               "bg-purple-500/5 border-purple-500/10 text-purple-200 self-start"
             }`}>
               {m.role === "assistant" && m.content ? (
-                <MarkdownRenderer content={m.content} />
+                <div className="inline">
+                  <MarkdownRenderer content={m.content} />
+                  {m.isStreaming && (
+                    <span className="inline-block w-1.5 h-3 ml-1 bg-emerald-400 animate-pulse align-middle" />
+                  )}
+                </div>
               ) : (
-                m.content || (m.toolCalls && m.toolCalls.length > 0 ? "Initiating tool execution..." : "")
+                <div className="inline">
+                  {m.content || (m.toolCalls && m.toolCalls.length > 0 ? "Initiating tool execution..." : "")}
+                  {m.isStreaming && (
+                    <span className="inline-block w-1.5 h-3 ml-1 bg-purple-400 animate-pulse align-middle" />
+                  )}
+                </div>
               )}
 
               {/* Render simulated tool calls */}
@@ -91,6 +107,21 @@ export function ChatThread({ messages, onRemoveMessage }: ChatThreadProps) {
                 </div>
               ))}
             </div>
+
+            {/* Regenerate Trigger */}
+            {idx === messages.length - 1 && !loading && (m.role === "assistant" || m.role === "tool") && (
+              <div className="flex justify-start pl-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={onRegenerate}
+                  className="h-6 text-[10px] text-muted-foreground hover:text-emerald-400 gap-1 px-2 hover:bg-white/5"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Regenerate Response
+                </Button>
+              </div>
+            )}
           </div>
         ))}
         <div ref={scrollRef} />
