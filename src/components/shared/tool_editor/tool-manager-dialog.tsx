@@ -39,6 +39,7 @@ import {
   compileParametersToSchema,
   validateNodes,
 } from "./recursive-parameter-compiler";
+import { MAX_EXTERNAL_TOOL_TIMEOUT } from "@/lib/model-utils";
 
 interface ToolManagerDialogProps {
   open: boolean;
@@ -86,6 +87,9 @@ export function ToolEditorDialog({
   const [mockString, setMockString] = useState("{}");
   const [mockError, setMockError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [headerRows, setHeaderRows] = useState<
+    { key: string; value: string }[]
+  >([]);
 
   // Initialize from tool when dialog opens
   useEffect(() => {
@@ -102,6 +106,26 @@ export function ToolEditorDialog({
       setMockString(JSON.stringify(mockResponse || {}, null, 2));
       setMockError(null);
       setValidationErrors([]);
+
+      // Initialize headerRows state
+      try {
+        if (
+          mockResponse &&
+          mockResponse.__type === "external_api" &&
+          mockResponse.headers
+        ) {
+          setHeaderRows(
+            Object.entries(mockResponse.headers).map(([k, v]) => ({
+              key: k,
+              value: String(v),
+            })),
+          );
+        } else {
+          setHeaderRows([]);
+        }
+      } catch {
+        setHeaderRows([]);
+      }
     }
   }, [open, tool]);
 
@@ -124,6 +148,130 @@ export function ToolEditorDialog({
     } catch (e: any) {
       setMockError(e.message);
     }
+  };
+
+  // Helper to check and parse external API configuration from mockString
+  const externalApiConfig = useMemo(() => {
+    try {
+      const parsed = JSON.parse(mockString);
+      if (parsed && parsed.__type === "external_api") {
+        return {
+          isExternal: true,
+          url: parsed.url || "",
+          timeoutMs: parsed.timeoutMs || 5000,
+          headers: parsed.headers || {},
+          fallback: parsed.fallback || {},
+        };
+      }
+    } catch {}
+    return {
+      isExternal: false,
+      url: "",
+      timeoutMs: 5000,
+      headers: {},
+      fallback: {},
+    };
+  }, [mockString]);
+
+  const updateExternalConfig = (
+    fields: Partial<{
+      url: string;
+      timeoutMs: number;
+      headers: any;
+      fallback: any;
+    }>,
+  ) => {
+    const current = externalApiConfig;
+    const next = {
+      __type: "external_api",
+      url: fields.url !== undefined ? fields.url : current.url,
+      timeoutMs:
+        fields.timeoutMs !== undefined ? fields.timeoutMs : current.timeoutMs,
+      headers: fields.headers !== undefined ? fields.headers : current.headers,
+      fallback:
+        fields.fallback !== undefined ? fields.fallback : current.fallback,
+    };
+    setMockString(JSON.stringify(next, null, 2));
+    setMockError(null);
+  };
+
+  const toggleExternal = (enable: boolean) => {
+    if (enable) {
+      let currentFallback = {};
+      let currentHeaders: { key: string; value: string }[] = [];
+      try {
+        const parsed = JSON.parse(mockString);
+        if (parsed && parsed.__type !== "external_api") {
+          currentFallback = parsed;
+        } else if (parsed && parsed.__type === "external_api") {
+          currentFallback = parsed.fallback || {};
+          currentHeaders = Object.entries(parsed.headers || {}).map(
+            ([k, v]) => ({
+              key: k,
+              value: String(v),
+            }),
+          );
+        }
+      } catch {}
+      setHeaderRows(currentHeaders);
+      const next = {
+        __type: "external_api",
+        url: "",
+        timeoutMs: 5000,
+        headers: Object.fromEntries(
+          currentHeaders
+            .filter((h) => h.key.trim() !== "")
+            .map((h) => [h.key, h.value]),
+        ),
+        fallback: currentFallback,
+      };
+      setMockString(JSON.stringify(next, null, 2));
+    } else {
+      const fallback = externalApiConfig.fallback;
+      setMockString(JSON.stringify(fallback || {}, null, 2));
+      setHeaderRows([]);
+    }
+    setMockError(null);
+  };
+
+  const handleHeaderChange = (index: number, key: string, value: string) => {
+    const updated = [...headerRows];
+    updated[index] = { key, value };
+    setHeaderRows(updated);
+
+    const obj: Record<string, string> = {};
+    for (const r of updated) {
+      if (r.key.trim() !== "") {
+        obj[r.key] = r.value;
+      }
+    }
+    updateExternalConfig({ headers: obj });
+  };
+
+  const handleAddHeader = (key = "", value = "") => {
+    const updated = [...headerRows, { key, value }];
+    setHeaderRows(updated);
+
+    const obj: Record<string, string> = {};
+    for (const r of updated) {
+      if (r.key.trim() !== "") {
+        obj[r.key] = r.value;
+      }
+    }
+    updateExternalConfig({ headers: obj });
+  };
+
+  const handleRemoveHeader = (index: number) => {
+    const updated = headerRows.filter((_, i) => i !== index);
+    setHeaderRows(updated);
+
+    const obj: Record<string, string> = {};
+    for (const r of updated) {
+      if (r.key.trim() !== "") {
+        obj[r.key] = r.value;
+      }
+    }
+    updateExternalConfig({ headers: obj });
   };
 
   // Compile recursive nodes to OpenAI schema
@@ -267,10 +415,34 @@ export function ToolEditorDialog({
               </TabsContent>
 
               {/* Mock Response */}
-              <TabsContent value="mock" className="flex-1 overflow-hidden">
-                <div className="space-y-2 h-full flex flex-col">
-                  <div className="flex items-center justify-between px-2 py-1">
-                    <div className="flex items-center gap-2">
+              <TabsContent
+                value="mock"
+                className="flex-1 overflow-hidden flex flex-col"
+              >
+                <div className="flex gap-2 mb-3 p-1 rounded-lg bg-slate-950/40 border border-slate-800 shrink-0">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleExternal(false)}
+                    className={`flex-1 text-[10px] h-7 py-1 px-3 ${!externalApiConfig.isExternal ? "bg-slate-800 text-white font-medium shadow-sm" : "text-slate-400 hover:text-white"}`}
+                  >
+                    Static Mock
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleExternal(true)}
+                    className={`flex-1 text-[10px] h-7 py-1 px-3 ${externalApiConfig.isExternal ? "bg-slate-800 text-white font-medium shadow-sm" : "text-slate-400 hover:text-white"}`}
+                  >
+                    External API Route
+                  </Button>
+                </div>
+
+                {!externalApiConfig.isExternal ? (
+                  <div className="space-y-2 h-full flex flex-col min-h-0">
+                    <div className="flex items-center justify-between px-2 py-0.5">
                       <span className="text-[10px] font-semibold text-slate-400">
                         Mock Response (JSON)
                       </span>
@@ -279,32 +451,152 @@ export function ToolEditorDialog({
                           variant="ghost"
                           size="sm"
                           onClick={handlePrettifyMock}
-                          className="h-5 text-[9px] text-slate-400400 px-1.5"
+                          className="h-5 text-[9px] text-slate-400 px-1.5"
                         >
                           <Code2 className="w-2.5 h-2.5 mr-0.5" />
                           Prettify
                         </Button>
                       )}
                     </div>
+                    <Textarea
+                      className="flex-1 text-xs font-mono bg-slate-900 border-slate-800 text-slate-200 focus-visible:ring-blue-500/30 resize-none min-h-0"
+                      placeholder='{"key": "value"}'
+                      value={mockString}
+                      onChange={(e) => handleMockChange(e.target.value)}
+                    />
                     {mockError && (
-                      <div className="flex items-center gap-1 text-red-400 text-[10px]">
-                        <AlertCircle className="w-3 h-3" />
-                        Invalid JSON
+                      <div className="text-[10px] text-red-400 px-2 mt-1">
+                        {mockError}
                       </div>
                     )}
                   </div>
-                  <Textarea
-                    className="flex-1 text-xs font-mono bg-slate-900 border-slate-800 text-slate-200 focus-visible:ring-blue-500/30 resize-none"
-                    placeholder='{"key": "value"}'
-                    value={mockString}
-                    onChange={(e) => handleMockChange(e.target.value)}
-                  />
-                  {mockError && (
-                    <div className="text-[10px] text-red-400 px-2">
-                      {mockError}
+                ) : (
+                  <div className="space-y-3 overflow-y-auto flex-1 pr-1 pb-2 min-h-0 text-slate-200">
+                    {/* API URL */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-400">
+                        API Endpoint URL
+                      </label>
+                      <input
+                        type="url"
+                        className="w-full text-xs bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500/50"
+                        placeholder="https://api.example.com/tools/resolve"
+                        value={externalApiConfig.url}
+                        onChange={(e) =>
+                          updateExternalConfig({ url: e.target.value })
+                        }
+                      />
                     </div>
-                  )}
-                </div>
+
+                    {/* Timeout */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-400">
+                        Timeout (ms) — Cap: {MAX_EXTERNAL_TOOL_TIMEOUT}ms
+                      </label>
+                      <input
+                        type="number"
+                        className="w-full text-xs bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500/50"
+                        placeholder="5000"
+                        value={externalApiConfig.timeoutMs}
+                        onChange={(e) =>
+                          updateExternalConfig({
+                            timeoutMs: parseInt(e.target.value) || 5000,
+                          })
+                        }
+                      />
+                    </div>
+                    {/* Headers */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-semibold text-slate-400">
+                          Custom Headers
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className="text-[9px] bg-slate-800 text-slate-300 hover:text-white px-2 py-0.5 rounded border border-slate-700 transition"
+                            onClick={() =>
+                              handleAddHeader("Authorization", "Bearer <token>")
+                            }
+                          >
+                            + Bearer Token
+                          </button>
+                          <button
+                            type="button"
+                            className="text-[9px] bg-slate-800 text-slate-300 hover:text-white px-2 py-0.5 rounded border border-slate-700 transition"
+                            onClick={() =>
+                              handleAddHeader("X-API-Key", "<key>")
+                            }
+                          >
+                            + API Key
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {headerRows.map(({ key, value }, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              className="flex-1 text-[11px] font-mono bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-blue-500/50"
+                              placeholder="Header-Name"
+                              value={key}
+                              onChange={(e) =>
+                                handleHeaderChange(idx, e.target.value, value)
+                              }
+                            />
+                            <input
+                              type="text"
+                              className="flex-[2] text-[11px] font-mono bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-blue-500/50"
+                              placeholder="value"
+                              value={value}
+                              onChange={(e) =>
+                                handleHeaderChange(idx, key, e.target.value)
+                              }
+                            />
+                            <button
+                              type="button"
+                              className="text-slate-400 hover:text-red-400 shrink-0 text-xs px-1"
+                              onClick={() => handleRemoveHeader(idx)}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+
+                        <button
+                          type="button"
+                          className="w-full text-[10px] py-1 border border-dashed border-slate-800 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 transition"
+                          onClick={() => handleAddHeader("", "")}
+                        >
+                          + Add custom row
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Fallback JSON */}
+                    <div className="space-y-1 flex-1 flex flex-col min-h-[120px]">
+                      <label className="text-[10px] font-semibold text-slate-400">
+                        Fallback Mock Response (JSON)
+                      </label>
+                      <Textarea
+                        className="w-full flex-1 text-[11px] font-mono bg-slate-900 border-slate-800 text-slate-200 focus-visible:ring-blue-500/30 resize-none min-h-0"
+                        placeholder='{"status": "fallback_success"}'
+                        value={JSON.stringify(
+                          externalApiConfig.fallback,
+                          null,
+                          2,
+                        )}
+                        onChange={(e) => {
+                          try {
+                            const parsed = JSON.parse(e.target.value);
+                            updateExternalConfig({ fallback: parsed });
+                          } catch {}
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>

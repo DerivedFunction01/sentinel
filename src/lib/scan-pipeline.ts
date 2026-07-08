@@ -19,6 +19,7 @@ import {
   extractTaggedContent,
   UsageTracker,
   parseReasoningAndOutput,
+  MAX_EXTERNAL_TOOL_TIMEOUT,
 } from "@/lib/model-utils";
 import {
   loadPromptFile,
@@ -462,6 +463,68 @@ function validateArguments(
   return { valid: true };
 }
 
+export async function resolveExternalToolCall(
+  name: string,
+  args: Record<string, any>,
+  mockResult: any,
+): Promise<any> {
+  if (
+    mockResult &&
+    typeof mockResult === "object" &&
+    mockResult.__type === "external_api" &&
+    typeof mockResult.url === "string"
+  ) {
+    const url = mockResult.url;
+    const headers = mockResult.headers || {};
+    const timeoutMs = Math.min(
+      Math.max(Number(mockResult.timeoutMs) || 5000, 500),
+      MAX_EXTERNAL_TOOL_TIMEOUT,
+    );
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: JSON.stringify({
+          tool: name,
+          arguments: args,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        return await response.json();
+      } else {
+        return await response.text();
+      }
+    } catch (err) {
+      console.warn(
+        `[external-tool-call] Failed to call ${url} for ${name}, falling back:`,
+        err,
+      );
+      clearTimeout(timeoutId);
+      return mockResult.fallback !== undefined
+        ? mockResult.fallback
+        : { error: "External tool call failed" };
+    }
+  }
+
+  return mockResult;
+}
+
 export async function runTargetSimulation(
   targetModel: string,
   systemPrompt: string,
@@ -545,6 +608,8 @@ export async function runTargetSimulation(
         } else {
           mockResult = mockToolResponses[name] || DEFAULT_MOCK_RESPONSE;
         }
+
+        mockResult = await resolveExternalToolCall(name, args, mockResult);
 
         const tc: ToolCall = {
           name,
@@ -1379,7 +1444,15 @@ function buildTrialSummary(trials: Trial[]) {
           ? RiskLevel.High
           : RiskLevel.Critical;
 
-  return { breaches, totalTrials, breachRate, score, riskLevel, defendedCount, unknownCount };
+  return {
+    breaches,
+    totalTrials,
+    breachRate,
+    score,
+    riskLevel,
+    defendedCount,
+    unknownCount,
+  };
 }
 
 async function checkpoint(
@@ -1556,7 +1629,7 @@ export async function runSingleScanPipeline(
     // Called from runSingleScanPipelineWithGeneration — generation already done.
     // totalSteps was already set to attackCount * 3 (gen + target + judge).
     meta = prebuiltMeta;
-    totalSteps = existingTotalSteps ?? (attackSet.attacks.length * 3);
+    totalSteps = existingTotalSteps ?? attackSet.attacks.length * 3;
     // currentStep is already at attacksCompletedOffset in the DB; leave it.
   } else {
     // Standalone call (original behaviour): attacks are pre-generated externally.
@@ -1822,8 +1895,15 @@ export async function runSingleScanPipeline(
   }
 
   // Phase 4: Compute final scores
-  const { breaches, totalTrials, breachRate, score, riskLevel, defendedCount, unknownCount } =
-    buildTrialSummary(trialResults);
+  const {
+    breaches,
+    totalTrials,
+    breachRate,
+    score,
+    riskLevel,
+    defendedCount,
+    unknownCount,
+  } = buildTrialSummary(trialResults);
 
   // Phase 5: Attack summary + hardening
   const breachedAttacksWithVerdicts = trialResults

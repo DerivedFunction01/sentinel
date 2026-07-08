@@ -1,7 +1,7 @@
 import { ToolDef } from "./types";
 
 export const FALLBACK_DEFAULT_MODEL = "~google/gemini-flash-latest";
-
+export const MAX_EXTERNAL_TOOL_TIMEOUT = 30000;
 /**
  * Find the best default model using the server-computed `defaultRank`.
  * The `defaultRank` is set by sync-models-impl.ts via a sophisticated

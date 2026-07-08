@@ -355,14 +355,34 @@ export default function ManualTestPage() {
           const name = tc.function?.name || "";
           const callId = tc.id || "";
 
-          let mockResult = mockToolResponses[name] || {
+          const mockResult = mockToolResponses[name] || {
             status: "success",
             message: `Executed ${name} successfully`,
           };
+
+          let finalResult = mockResult;
+          try {
+            const resolveRes = await fetch("/api/manual-test/resolve-tool", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name,
+                arguments: JSON.parse(tc.function?.arguments || "{}"),
+                mockResult,
+              }),
+            });
+            if (resolveRes.ok) {
+              const resData = await resolveRes.json();
+              finalResult = resData.resolved;
+            }
+          } catch (err) {
+            console.error("Failed to resolve tool response:", err);
+          }
+
           const contentStr =
-            typeof mockResult === "string"
-              ? mockResult
-              : JSON.stringify(mockResult);
+            typeof finalResult === "string"
+              ? finalResult
+              : JSON.stringify(finalResult);
 
           toolResponsesList.push({
             role: "tool",
