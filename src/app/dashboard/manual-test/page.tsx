@@ -1,12 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  Send, 
-  Save, 
-  Loader2,
-  Trash
-} from "lucide-react";
+import { Send, Save, Loader2, Trash } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +11,14 @@ import { formatTokens } from "@/lib/token-formatter";
 import {
   getManualConversations,
   saveManualConversation,
-  deleteManualConversation
+  deleteManualConversation,
 } from "@/lib/indexed-db";
+import { ModelSelector } from "@/components/shared/model-selector";
+import {
+  ModelSelectorRole,
+  findDefaultModel,
+  getMostUsedModelForRole,
+} from "@/lib/model-utils";
 
 // Sibling imports
 import { SavedPlaygrounds } from "./saved-playgrounds";
@@ -51,7 +52,7 @@ export default function ManualTestPage() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [chatName, setChatName] = useState("New Conversation");
-  
+
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
@@ -60,9 +61,23 @@ export default function ManualTestPage() {
   // Load user details & conversations
   useEffect(() => {
     fetch("/api/user")
-      .then(r => r.json())
-      .then(d => {
+      .then((r) => r.json())
+      .then((d) => {
         if (d.user) setUserTokens(d.user.scanTokens);
+      })
+      .catch(console.error);
+
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.models && d.models.length > 0) {
+          const fallbackModelId = findDefaultModel(d.models);
+          const cachedModel = getMostUsedModelForRole(
+            ModelSelectorRole.Target,
+            fallbackModelId,
+          );
+          setModel(cachedModel);
+        }
       })
       .catch(console.error);
 
@@ -117,7 +132,7 @@ export default function ManualTestPage() {
   // Run the simulation logic
   const handleSend = async () => {
     if (!inputMessage.trim() && messages.length === 0) return;
-    
+
     // Add user message if input is not empty
     let updatedMessages = [...messages];
     if (inputMessage.trim()) {
@@ -157,12 +172,12 @@ export default function ManualTestPage() {
       // Get clean messages for the API
       const chatMsgs = [
         { role: "system", content: promptValues.systemPrompt },
-        ...currentMsgs.map(m => ({ 
-          role: m.role, 
+        ...currentMsgs.map((m) => ({
+          role: m.role,
           content: m.content,
           name: m.name,
           tool_call_id: m.tool_call_id,
-          tool_calls: m.toolCalls
+          tool_calls: m.toolCalls,
         })),
       ];
 
@@ -191,7 +206,11 @@ export default function ManualTestPage() {
       if (!reader) throw new Error("No stream reader available");
 
       // Add dummy message to append content into
-      const streamMsg: Message = { role: "assistant", content: "", isStreaming: true };
+      const streamMsg: Message = {
+        role: "assistant",
+        content: "",
+        isStreaming: true,
+      };
       let newMessages = [...currentMsgs, streamMsg];
       setMessages(newMessages);
 
@@ -219,15 +238,19 @@ export default function ManualTestPage() {
 
               if (delta) {
                 responseText += delta;
-                newMessages = newMessages.map((m, idx) => 
-                  idx === newMessages.length - 1 ? { ...m, content: responseText } : m
+                newMessages = newMessages.map((m, idx) =>
+                  idx === newMessages.length - 1
+                    ? { ...m, content: responseText }
+                    : m,
                 );
                 setMessages(newMessages);
               }
               if (toolCalls) {
                 // Merge/accumulate tool calls
                 for (const tc of toolCalls) {
-                  const existingIdx = accumulatedToolCalls.findIndex(item => item.index === tc.index);
+                  const existingIdx = accumulatedToolCalls.findIndex(
+                    (item) => item.index === tc.index,
+                  );
                   if (existingIdx > -1) {
                     const existing = accumulatedToolCalls[existingIdx];
                     if (tc.function?.arguments) {
@@ -237,8 +260,10 @@ export default function ManualTestPage() {
                     accumulatedToolCalls.push(tc);
                   }
                 }
-                newMessages = newMessages.map((m, idx) => 
-                  idx === newMessages.length - 1 ? { ...m, toolCalls: accumulatedToolCalls } : m
+                newMessages = newMessages.map((m, idx) =>
+                  idx === newMessages.length - 1
+                    ? { ...m, toolCalls: accumulatedToolCalls }
+                    : m,
                 );
                 setMessages(newMessages);
               }
@@ -248,20 +273,25 @@ export default function ManualTestPage() {
       }
 
       // Finalize streaming state
-      const finalAssistantMsg = { 
-        role: "assistant" as const, 
-        content: responseText, 
-        toolCalls: accumulatedToolCalls.length > 0 ? accumulatedToolCalls : undefined,
-        isStreaming: false 
+      const finalAssistantMsg = {
+        role: "assistant" as const,
+        content: responseText,
+        toolCalls:
+          accumulatedToolCalls.length > 0 ? accumulatedToolCalls : undefined,
+        isStreaming: false,
       };
-      
-      const updatedList = newMessages.map((m, idx) => 
-        idx === newMessages.length - 1 ? finalAssistantMsg : m
+
+      const updatedList = newMessages.map((m, idx) =>
+        idx === newMessages.length - 1 ? finalAssistantMsg : m,
       );
       setMessages(updatedList);
 
       // Finalize token cost
-      await finalizeTokenCost(updatedList, holdAmount, responseText || JSON.stringify(accumulatedToolCalls));
+      await finalizeTokenCost(
+        updatedList,
+        holdAmount,
+        responseText || JSON.stringify(accumulatedToolCalls),
+      );
 
       // 3. Auto-handle tool calls if present
       if (accumulatedToolCalls.length > 0) {
@@ -274,15 +304,21 @@ export default function ManualTestPage() {
         for (const tc of accumulatedToolCalls) {
           const name = tc.function?.name || "";
           const callId = tc.id || "";
-          
-          let mockResult = mockToolResponses[name] || { status: "success", message: `Executed ${name} successfully` };
-          const contentStr = typeof mockResult === "string" ? mockResult : JSON.stringify(mockResult);
+
+          let mockResult = mockToolResponses[name] || {
+            status: "success",
+            message: `Executed ${name} successfully`,
+          };
+          const contentStr =
+            typeof mockResult === "string"
+              ? mockResult
+              : JSON.stringify(mockResult);
 
           toolResponsesList.push({
             role: "tool",
             name,
             tool_call_id: callId,
-            content: contentStr
+            content: contentStr,
           });
         }
 
@@ -294,7 +330,6 @@ export default function ManualTestPage() {
         toast.info("Auto-executing tool responses in agent loop...");
         await runAssistantTurn(nextList);
       }
-
     } catch (e: any) {
       console.error(e);
       toast.error(e.message || "Manual interaction run failed");
@@ -303,7 +338,11 @@ export default function ManualTestPage() {
     }
   };
 
-  const finalizeTokenCost = async (finalMessages: Message[], holdAmount: number, responseText: string) => {
+  const finalizeTokenCost = async (
+    finalMessages: Message[],
+    holdAmount: number,
+    responseText: string,
+  ) => {
     try {
       const refundRes = await fetch("/api/manual-test/refund", {
         method: "POST",
@@ -322,7 +361,9 @@ export default function ManualTestPage() {
         const { scanTokensRemaining, refundedAmount } = await refundRes.json();
         setUserTokens(scanTokensRemaining);
         if (refundedAmount > 0) {
-          toast.success(`Refunded ${formatTokens(refundedAmount)} scan tokens.`);
+          toast.success(
+            `Refunded ${formatTokens(refundedAmount)} scan tokens.`,
+          );
         }
       }
     } catch (err) {
@@ -331,7 +372,7 @@ export default function ManualTestPage() {
   };
 
   const handleRemoveMessage = (idx: number) => {
-    setMessages(prev => prev.filter((_, i) => i !== idx));
+    setMessages((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const clearChat = () => {
@@ -341,7 +382,6 @@ export default function ManualTestPage() {
 
   return (
     <div className="dark text-white grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-8rem)]">
-      
       {/* Sidebar - Saved Chats & Model details */}
       <div className="lg:col-span-1">
         <SavedPlaygrounds
@@ -358,7 +398,6 @@ export default function ManualTestPage() {
 
       {/* Main Area: Chat conversation playground */}
       <div className="lg:col-span-3 flex flex-col justify-between border border-white/10 bg-zinc-950/20 rounded-xl min-h-0 overflow-hidden relative">
-        
         {/* Top bar controls */}
         <div className="flex items-center justify-between p-3 border-b border-white/10 bg-zinc-950/40">
           <div className="flex items-center gap-3">
@@ -369,14 +408,22 @@ export default function ManualTestPage() {
               placeholder="Conversation Title"
             />
             {activeConvId && (
-              <Badge variant="secondary" className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <Badge
+                variant="secondary"
+                className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+              >
                 Saved (Local)
               </Badge>
             )}
           </div>
 
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={clearChat} className="h-8 text-xs border-white/10 gap-1.5 hover:bg-white/5">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={clearChat}
+              className="h-8 text-xs border-white/10 gap-1.5 hover:bg-white/5"
+            >
               <Trash className="h-3.5 w-3.5 text-red-400" />
               Clear
             </Button>
@@ -388,7 +435,11 @@ export default function ManualTestPage() {
               onPromptValuesChange={setPromptValues}
             />
 
-            <Button size="sm" onClick={saveCurrentConversation} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 gap-1.5 text-white">
+            <Button
+              size="sm"
+              onClick={saveCurrentConversation}
+              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 gap-1.5 text-white"
+            >
               <Save className="h-3.5 w-3.5" />
               Save Chat
             </Button>
@@ -396,10 +447,7 @@ export default function ManualTestPage() {
         </div>
 
         {/* Conversation Thread */}
-        <ChatThread
-          messages={messages}
-          onRemoveMessage={handleRemoveMessage}
-        />
+        <ChatThread messages={messages} onRemoveMessage={handleRemoveMessage} />
 
         {/* Input area */}
         <div className="p-3 border-t border-white/10 bg-zinc-950/40">
@@ -428,9 +476,7 @@ export default function ManualTestPage() {
             </Button>
           </div>
         </div>
-
       </div>
-
     </div>
   );
 }
