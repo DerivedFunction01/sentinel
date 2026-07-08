@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const { messages, targetModel, systemPrompt, tools } = await req.json().catch(() => ({}));
+  const { messages, targetModel, systemPrompt, tools, mockResponses } = await req.json().catch(() => ({}));
 
   if (!targetModel) {
     return NextResponse.json({ error: "Target model is required" }, { status: 400 });
@@ -34,6 +34,9 @@ export async function POST(req: Request) {
   }
   if (tools) {
     promptTokens += estimateTokens(typeof tools === "string" ? tools : JSON.stringify(tools));
+  }
+  if (mockResponses) {
+    promptTokens += estimateTokens(typeof mockResponses === "string" ? mockResponses : JSON.stringify(mockResponses));
   }
 
   // Calculate upfront hold: prompt tokens + buffer for response completions

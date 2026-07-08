@@ -1,5 +1,5 @@
 import { getEncoding } from "js-tiktoken";
-import { attack_patterns } from "./attack-templates";
+import { attack_patterns, patternWeights } from "./attack-templates";
 import { getPromptFile, PromptFileType } from "./prompt-loader";
 import { TOKEN_CONSTANTS } from "./token-constants";
 
@@ -134,11 +134,20 @@ export function calculateUpfrontScanHold(
     const sysPromptTokens = estimateTokens(prompt.systemPrompt || "");
     const forbiddenTokens = estimateTokens(prompt.forbiddenTask || "");
     const instructionsTokens = estimateTokens(prompt.judgeInstructions || "");
+    const toolsTokens = estimateTokens(prompt.tools || "");
+    const mockResponsesTokens = estimateTokens(prompt.mockResponses || "");
     const basePromptTokens =
-      sysPromptTokens + forbiddenTokens + instructionsTokens;
+      sysPromptTokens +
+      forbiddenTokens +
+      instructionsTokens +
+      toolsTokens +
+      mockResponsesTokens;
 
-    // Estimate trials dynamically instead of hardcoded 48
-    const patternsCount = attack_patterns.length;
+    // Estimate trials dynamically
+    const patternsCount = attack_patterns.reduce(
+      (sum, p) => sum + (patternWeights[p.patternId] ?? 1),
+      0,
+    );
     const totalTargetCount = patternsCount * 3;
     // Default to 4 when forbiddenTask is empty (matches the 4-item cap in suggestForbiddenTasks.md)
     let numThings = TOKEN_CONSTANTS.DEFAULT_NUM_THINGS;

@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { messages, targetModel, systemPrompt, tools, holdAmount, responseText } = await req.json().catch(() => ({}));
+  const { messages, targetModel, systemPrompt, tools, mockResponses, holdAmount, responseText } = await req.json().catch(() => ({}));
 
   if (!targetModel || typeof holdAmount !== "number") {
     return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
@@ -26,6 +26,9 @@ export async function POST(req: Request) {
   }
   if (tools) {
     promptTokens += estimateTokens(typeof tools === "string" ? tools : JSON.stringify(tools));
+  }
+  if (mockResponses) {
+    promptTokens += estimateTokens(typeof mockResponses === "string" ? mockResponses : JSON.stringify(mockResponses));
   }
 
   // Calculate actual completion tokens

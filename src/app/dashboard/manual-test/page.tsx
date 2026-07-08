@@ -207,6 +207,7 @@ export default function ManualTestPage() {
           targetModel: model,
           systemPrompt: promptValues.systemPrompt,
           tools: promptValues.tools,
+          mockResponses: promptValues.mockResponses,
         }),
       });
 
@@ -401,6 +402,7 @@ export default function ManualTestPage() {
           targetModel: model,
           systemPrompt: promptValues.systemPrompt,
           tools: promptValues.tools,
+          mockResponses: promptValues.mockResponses,
           holdAmount,
           responseText,
         }),
