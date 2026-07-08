@@ -108,7 +108,9 @@ export async function POST(
   const sysPromptTokens = estimateTokens(scanRow.systemPrompt || "");
   const forbiddenTokens = estimateTokens(scanRow.forbiddenTask || "");
   const instructionsTokens = estimateTokens(scanRow.judgeInstructions || "");
-  const basePromptTokens = sysPromptTokens + forbiddenTokens + instructionsTokens;
+  const toolsTokens = estimateTokens(scanRow.tools || "");
+  const mockResponsesTokens = estimateTokens(scanRow.mockToolResponses || "");
+  const basePromptTokens = sysPromptTokens + forbiddenTokens + instructionsTokens + toolsTokens + mockResponsesTokens;
 
   const isGenerative = metadata?.seedExtraction?.isGenerative ?? false;
 

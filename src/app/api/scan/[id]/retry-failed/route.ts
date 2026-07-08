@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { TrialVerdict, ScanStatus, RiskLevel } from "@/lib/enums";
 import type { Trial, ToolDef } from "@/lib/types";
 import { type UsageTracker } from "@/lib/model-utils";
-import { processRefund, calculateSingleReevalHold } from "@/lib/token-utils";
+import { processRefund, calculateSingleRetryHold, calculateSingleReevalHold } from "@/lib/token-utils";
 import { runTargetSimulation, runJudgeEvaluation } from "@/lib/scan-pipeline";
 import { getCachedDbModels } from "@/lib/models-cache";
 import { revalidateTag } from "next/cache";
@@ -86,10 +86,13 @@ export async function POST(
   const upfrontHold = unknownTrials.reduce((sum, trial) => {
     return (
       sum +
-      calculateSingleReevalHold(
-        trial,
-        [],
+      calculateSingleRetryHold(
+        trial.attack,
+        systemPrompt,
+        scan.tools || "[]",
+        scan.mockToolResponses || "{}",
         forbiddenTask,
+        targetModel,
         judgeModel,
         dbModels,
       )

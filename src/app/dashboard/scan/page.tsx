@@ -253,12 +253,16 @@ export default function PenTestScanPage() {
        (t.avgDomainTokens || 1000);
 
      for (const prompt of prompts) {
-       const userContent =
-         (prompt.systemPrompt || "") +
-         "\n" +
-         (prompt.forbiddenTask || "") +
-         "\n" +
-         (prompt.judgeInstructions || "");
+        const userContent =
+          (prompt.systemPrompt || "") +
+          "\n" +
+          (prompt.forbiddenTask || "") +
+          "\n" +
+          (prompt.judgeInstructions || "") +
+          "\n" +
+          (prompt.tools || "") +
+          "\n" +
+          (prompt.mockResponses || "");
 
        // Estimate trial count from forbidden task paragraphs
        // Default to 4 when forbiddenTask is empty (matches the 4-item cap in suggestForbiddenTasks.md)

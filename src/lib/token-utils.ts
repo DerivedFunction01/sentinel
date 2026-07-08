@@ -296,6 +296,60 @@ export function calculateSingleReevalHold(
   return upfrontHold;
 }
 
+/**
+ * Calculates the upfront token hold for retrying a single trial (Target Simulation + Judge Evaluation).
+ */
+export function calculateSingleRetryHold(
+  attack: string,
+  systemPrompt: string,
+  tools: string,
+  mockResponses: string,
+  forbiddenTask: string,
+  targetModel: string,
+  judgeModel: string,
+  dbModels: any[],
+): number {
+  const targetPrice = getModelPricing(targetModel, dbModels);
+  const judgePrice = getModelPricing(judgeModel, dbModels);
+
+  // Target model input tokens
+  const systemPromptTokens = estimateTokens(systemPrompt || "");
+  const attackTokens = estimateTokens(attack || "");
+  const toolsTokens = estimateTokens(tools || "");
+  const mockResponsesTokens = estimateTokens(mockResponses || "");
+  
+  const targetInputTokens =
+    systemPromptTokens +
+    attackTokens +
+    toolsTokens +
+    mockResponsesTokens +
+    TOKEN_CONSTANTS.TARGET_SIM_PROMPT_BUFFER;
+
+  const targetCost =
+    targetInputTokens * targetPrice.prompt +
+    TOKEN_CONSTANTS.TARGET_SIM_COMPLETION_BUFFER * targetPrice.completion;
+
+  // Judge model input tokens
+  const forbiddenTaskTokens = estimateTokens(forbiddenTask || "");
+  const judgeTemplateTokens =
+    estimateTokens(getPromptFile(PromptFileType.Judge)) +
+    estimateTokens(getPromptFile(PromptFileType.JudgeEvaluationSuffix));
+
+  const judgeInputTokens =
+    forbiddenTaskTokens +
+    attackTokens +
+    judgeTemplateTokens +
+    TOKEN_CONSTANTS.REEVAL_SYSTEM_PROMPT_OVERHEAD;
+
+  const judgeCost =
+    judgeInputTokens * judgePrice.prompt +
+    TOKEN_CONSTANTS.JUDGE_EVAL_COMPLETION_BUFFER * judgePrice.completion;
+
+  const totalCost = (targetCost + judgeCost) * TOKEN_CONSTANTS.TOKEN_HOLD_SCALE_MULTIPLIER;
+
+  return Math.ceil(totalCost * TOKEN_CONSTANTS.SAFETY_BUFFER_MULTIPLIER);
+}
+
 export interface CloneHoldParams {
   trialCount: number;
   basePromptTokens: number;
