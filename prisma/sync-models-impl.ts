@@ -465,6 +465,7 @@ export async function syncModels(db: PrismaClient): Promise<void> {
 
   let upserted = 0;
   let activeInSequence = 0;
+  const modelDataList: any[] = [];
 
   for (let i = 0; i < rawModels.length; i++) {
     const m = rawModels[i];
@@ -485,41 +486,22 @@ export async function syncModels(db: PrismaClient): Promise<void> {
     const popularityRank = i + 1;
     const supportsTools = m.supported_parameters?.includes("tools") ?? false;
 
-    await db.model.upsert({
-      where: { id: m.id },
-      create: {
-        id: m.id,
-        name: m.name,
-        description: m.description ?? null,
-        contextLength: m.context_length ?? null,
-        modality: m.architecture?.modality ?? null,
-        promptPrice: m.pricing?.prompt ?? null,
-        completionPrice: m.pricing?.completion ?? null,
-        isRecommended,
-        isLowCost,
-        isFree,
-        aiSuggest,
-        popularityRank,
-        supportsTools,
-        defaultRank,
-        multiplier: parsedMultiplier,
-      },
-      update: {
-        name: m.name,
-        description: m.description ?? null,
-        contextLength: m.context_length ?? null,
-        modality: m.architecture?.modality ?? null,
-        promptPrice: m.pricing?.prompt ?? null,
-        completionPrice: m.pricing?.completion ?? null,
-        isRecommended,
-        isLowCost,
-        isFree,
-        aiSuggest,
-        popularityRank,
-        supportsTools,
-        defaultRank,
-        multiplier: parsedMultiplier,
-      },
+    modelDataList.push({
+      id: m.id,
+      name: m.name,
+      description: m.description ?? null,
+      contextLength: m.context_length ?? null,
+      modality: m.architecture?.modality ?? null,
+      promptPrice: m.pricing?.prompt ?? null,
+      completionPrice: m.pricing?.completion ?? null,
+      isRecommended,
+      isLowCost,
+      isFree,
+      aiSuggest,
+      popularityRank,
+      supportsTools,
+      defaultRank,
+      multiplier: parsedMultiplier,
     });
 
     upserted++;
@@ -527,6 +509,12 @@ export async function syncModels(db: PrismaClient): Promise<void> {
       activeInSequence++;
     }
   }
+
+  // Clear table and recreate all entries in a single fast transaction
+  await db.$transaction([
+    db.model.deleteMany({}),
+    db.model.createMany({ data: modelDataList }),
+  ]);
 
   console.log(`✓ Sync Complete. Upserted ${upserted} models to the database.`);
   console.log(
