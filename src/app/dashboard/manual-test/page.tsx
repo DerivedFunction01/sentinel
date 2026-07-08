@@ -104,20 +104,44 @@ export default function ManualTestPage() {
     toast.success(`Loaded conversation: ${c.name}`);
   };
 
-  const saveCurrentConversation = async () => {
-    const id = activeConvId || `conv-${Date.now()}`;
-    const name = chatName.trim() || "Saved Chat";
-    const data = {
-      name,
-      messages,
-      model,
-      promptValues,
+  // Auto-save conversation to IndexedDB when it changes
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const performAutoSave = async () => {
+      const id = activeConvId || `conv-${Date.now()}`;
+      
+      // Determine the name: if it's default "New Conversation", name it after the first user prompt
+      let name = chatName;
+      if (name === "New Conversation" || name.trim() === "") {
+        const firstUserMsg = messages.find(m => m.role === "user");
+        if (firstUserMsg && firstUserMsg.content) {
+          const truncated = firstUserMsg.content.slice(0, 30).trim();
+          name = truncated + (firstUserMsg.content.length > 30 ? "..." : "");
+          setChatName(name);
+        } else {
+          name = "Playground Chat";
+        }
+      }
+
+      const data = {
+        name,
+        messages,
+        model,
+        promptValues,
+      };
+
+      await saveManualConversation(id, data);
+      if (!activeConvId) {
+        setActiveConvId(id);
+      }
+      loadSavedConversations();
     };
-    await saveManualConversation(id, data);
-    setActiveConvId(id);
-    loadSavedConversations();
-    toast.success("Conversation saved successfully");
-  };
+
+    // Debounce save action
+    const timer = setTimeout(performAutoSave, 500);
+    return () => clearTimeout(timer);
+  }, [messages, model, promptValues, chatName, activeConvId]);
 
   const deleteConversation = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -434,15 +458,6 @@ export default function ManualTestPage() {
               promptValues={promptValues}
               onPromptValuesChange={setPromptValues}
             />
-
-            <Button
-              size="sm"
-              onClick={saveCurrentConversation}
-              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 gap-1.5 text-white"
-            >
-              <Save className="h-3.5 w-3.5" />
-              Save Chat
-            </Button>
           </div>
         </div>
 
