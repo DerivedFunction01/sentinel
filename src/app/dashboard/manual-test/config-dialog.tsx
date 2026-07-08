@@ -70,6 +70,7 @@ export function ConfigDialog({
                 showCharCount: true,
                 showPrettify: true,
                 showToolManager: false,
+                hideForbiddenAndJudge: true,
               }}
             />
           </TabsContent>
@@ -87,6 +88,7 @@ export function ConfigDialog({
                 showCharCount: true,
                 showPrettify: true,
                 showToolManager: false,
+                hideForbiddenAndJudge: true,
               }}
             />
           </TabsContent>

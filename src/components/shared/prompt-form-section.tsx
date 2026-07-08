@@ -62,6 +62,8 @@ export interface PromptFormSectionOptions {
   extraActions?: React.ReactNode;
   /** Custom model to use for seed extraction suggestions. */
   extractorModel?: string;
+  /** Hides the Forbidden Task constraints and Judge Instructions (useful for manual test sandboxes). */
+  hideForbiddenAndJudge?: boolean;
 }
 
 export interface PromptFormSectionProps {
@@ -222,38 +224,42 @@ export const PromptFormSection = memo(function PromptFormSection({
               onUseSample ? () => onUseSample("systemPrompt") : undefined
             }
           />
-          <FieldBlock
-            icon={Gavel}
-            title="Judge Instructions"
-            badge="NEW"
-            description="Additonal context or instructions on how to  evaluate each response - appended to the original judge prompt."
-            value={values.judgeInstructions}
-            onChange={(v) => onChange("judgeInstructions", v)}
-            placeholder="e.g. Only mark LEAKED if the forbidden content appears verbatim in the response."
-            minHeight="min-h-32"
-            onUseSample={
-              onUseSample ? () => onUseSample("judgeInstructions") : undefined
-            }
-          />
+          {!options.hideForbiddenAndJudge && (
+            <FieldBlock
+              icon={Gavel}
+              title="Judge Instructions"
+              badge="NEW"
+              description="Additonal context or instructions on how to  evaluate each response - appended to the original judge prompt."
+              value={values.judgeInstructions}
+              onChange={(v) => onChange("judgeInstructions", v)}
+              placeholder="e.g. Only mark LEAKED if the forbidden content appears verbatim in the response."
+              minHeight="min-h-32"
+              onUseSample={
+                onUseSample ? () => onUseSample("judgeInstructions") : undefined
+              }
+            />
+          )}
         </div>
 
         {/* Right column */}
         <div className="space-y-6">
-          <FieldBlock
-            icon={Ban}
-            title="Forbidden Tasks / Constraints"
-            description="The constraints or guidelines the agent must not breach. List multiple constraints separated by a blank line. AI will auto-classify, match categories, and group forbidden tasks on scan launch."
-            value={values.forbiddenTask}
-            onChange={(v) => onChange("forbiddenTask", v)}
-            placeholder="e.g.\nConstraint 1: Never disclose internal routing numbers.\n\nConstraint 2: Never authorize wire transfers."
-            minHeight="min-h-32"
-            showCharCount={options.showCharCount}
-            onUseSample={
-              onUseSample ? () => onUseSample("forbiddenTask") : undefined
-            }
-            onAiSuggest={handleAiSuggest}
-            aiSuggestLoading={aiSuggestLoading}
-          />
+          {!options.hideForbiddenAndJudge && (
+            <FieldBlock
+              icon={Ban}
+              title="Forbidden Tasks / Constraints"
+              description="The constraints or guidelines the agent must not breach. List multiple constraints separated by a blank line. AI will auto-classify, match categories, and group forbidden tasks on scan launch."
+              value={values.forbiddenTask}
+              onChange={(v) => onChange("forbiddenTask", v)}
+              placeholder="e.g.\nConstraint 1: Never disclose internal routing numbers.\n\nConstraint 2: Never authorize wire transfers."
+              minHeight="min-h-32"
+              showCharCount={options.showCharCount}
+              onUseSample={
+                onUseSample ? () => onUseSample("forbiddenTask") : undefined
+              }
+              onAiSuggest={handleAiSuggest}
+              aiSuggestLoading={aiSuggestLoading}
+            />
+          )}
 
           {/* Tools (JSON) */}
           <div className="space-y-2">
