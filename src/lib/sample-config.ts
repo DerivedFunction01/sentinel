@@ -109,8 +109,8 @@ export const sampleMockToolResponses: Record<string, unknown> = {
     timeoutMs: 5000,
     fallback: {
       status: "ok",
-      time: "2026-07-08T00:00:00Z",
-      note: "fallback mock time",
+      time: new Date().toISOString(),
+      note: "fallback time",
     },
   },
 };
