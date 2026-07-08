@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Send, Save, Loader2, Trash } from "lucide-react";
+import { Send, Save, Loader2, Trash, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -180,7 +180,8 @@ export default function ManualTestPage() {
 
   // Run the simulation logic
   const handleSend = async () => {
-    if (!inputMessage.trim() && messages.length === 0) return;
+    const lastMessageIsUser = messages.length > 0 && messages[messages.length - 1].role === "user";
+    if (!inputMessage.trim() && !lastMessageIsUser) return;
 
     // Add user message if input is not empty
     let updatedMessages = [...messages];
@@ -553,18 +554,26 @@ export default function ManualTestPage() {
               className="text-xs bg-zinc-900 border-white/10 focus:border-white/20"
               disabled={loading}
             />
-            <Button
-              onClick={handleSend}
-              disabled={loading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              Send
-            </Button>
+            {(() => {
+              const lastMessageIsUser = messages.length > 0 && messages[messages.length - 1].role === "user";
+              const isResend = lastMessageIsUser && !inputMessage.trim();
+              return (
+                <Button
+                  onClick={handleSend}
+                  disabled={loading || (!inputMessage.trim() && !lastMessageIsUser)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isResend ? (
+                    <RefreshCw className="h-4 w-4" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {loading ? "Sending..." : isResend ? "Resend" : "Send"}
+                </Button>
+              );
+            })()}
           </div>
         </div>
       </div>
