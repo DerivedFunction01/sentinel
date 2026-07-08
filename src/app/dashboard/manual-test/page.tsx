@@ -491,7 +491,7 @@ export default function ManualTestPage() {
       </div>
 
       {/* Main Area: Chat conversation playground */}
-      <div className="lg:col-span-3 flex flex-col justify-between border border-white/10 bg-zinc-950/20 rounded-xl min-h-0 overflow-hidden relative">
+      <div className="lg:col-span-3 flex flex-col border border-white/10 bg-zinc-950/20 rounded-xl min-h-0 overflow-hidden relative">
         {/* Top bar controls */}
         <div className="flex items-center justify-between p-3 border-b border-white/10 bg-zinc-950/40">
           <div className="flex items-center gap-3">

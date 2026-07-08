@@ -102,7 +102,15 @@ export const sampleMockToolResponses: Record<string, unknown> = {
   },
   get_time: {
     __type: "external_api",
-    url: `${new URL(window.location.href).origin}/api/get-time`,
+    url: (() => {
+      if (process.env.NEXT_PUBLIC_APP_URL) {
+        return `${process.env.NEXT_PUBLIC_APP_URL}/api/get-time`;
+      }
+      if (typeof window !== "undefined") {
+        return `${new URL(window.location.href).origin}/api/get-time`;
+      }
+      return "http://localhost:3000/api/get-time";
+    })(),
     headers: {
       Authorization: "Bearer sp_live_replace_with_your_key",
     },
