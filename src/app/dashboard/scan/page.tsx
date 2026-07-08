@@ -690,17 +690,21 @@ export default function PenTestScanPage() {
               updatePrompt(prompts, setPrompts, idx, field, value)
             }
             onUseSample={(field) => {
-              const sampleMap: Partial<Record<keyof PromptConfig, string>> = {
-                systemPrompt: sampleSystemPrompt,
-                forbiddenTask: sampleForbiddenTask,
-                judgeInstructions: sampleJudgeInstructions,
-                tools: JSON.stringify(sampleTools, null, 2),
-                mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
-              };
-              const sample = sampleMap[field];
-              if (sample) {
-                updatePrompt(prompts, setPrompts, idx, field, sample);
-                toast.success(`Sample ${field} loaded`);
+              if (field === "tools" || field === "mockResponses") {
+                updatePrompt(prompts, setPrompts, idx, "tools", JSON.stringify(sampleTools, null, 2));
+                updatePrompt(prompts, setPrompts, idx, "mockResponses", JSON.stringify(sampleMockToolResponses, null, 2));
+                toast.success("Sample tools & mock responses loaded");
+              } else {
+                const sampleMap: Partial<Record<keyof PromptConfig, string>> = {
+                  systemPrompt: sampleSystemPrompt,
+                  forbiddenTask: sampleForbiddenTask,
+                  judgeInstructions: sampleJudgeInstructions,
+                };
+                const sample = sampleMap[field];
+                if (sample) {
+                  updatePrompt(prompts, setPrompts, idx, field, sample);
+                  toast.success(`Sample ${field} loaded`);
+                }
               }
             }}
             formOptions={{

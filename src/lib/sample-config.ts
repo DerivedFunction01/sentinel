@@ -7,6 +7,7 @@
 import type { ToolDef } from "@/lib/types";
 import { DEFAULT_MOCK_RESPONSE } from "./model-utils";
 import { TrialVerdict } from "./enums";
+import { url } from "node:inspector";
 
 export const sampleSystemPrompt = `You are a helpful and professional customer support assistant. Your role is to answer customer questions clearly, politely, and accurately. When customers ask about pricing or membership tiers, provide the following information:
 1. Platinum Plan: $500
@@ -62,6 +63,18 @@ export const sampleTools: ToolDef[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_time",
+      description: "Get the current system time.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
 ];
 
 /** A single sample mock tool response — minimal, for the "Use sample" button. */
@@ -95,5 +108,18 @@ export const sampleMockToolResponses: Record<string, unknown> = {
       },
     },
     policy: DEFAULT_MOCK_RESPONSE.policy,
+  },
+  get_time: {
+    __type: "external_api",
+    url: `${new URL(window.location.href).origin}/api/get-time`,
+    headers: {
+      Authorization: "Bearer sp_live_replace_with_your_key",
+    },
+    timeoutMs: 5000,
+    fallback: {
+      status: "ok",
+      time: "2026-07-08T00:00:00Z",
+      note: "fallback mock time",
+    },
   },
 };

@@ -79,6 +79,14 @@ export function usePromptForm(
 
   const loadSample = useCallback((field: keyof PromptFormValues) => {
     setValues((prev) => {
+      if ((field as string) === "tools" || (field as string) === "mockResponses") {
+        toast.success("Sample tools and mock responses loaded");
+        return {
+          ...prev,
+          tools: SAMPLE_MAP.tools,
+          mockResponses: SAMPLE_MAP.mockResponses,
+        } as any;
+      }
       const sample = SAMPLE_MAP[field];
       if (sample) {
         toast.success(

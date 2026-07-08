@@ -394,16 +394,6 @@ export const PromptFormSection = memo(function PromptFormSection({
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                {onUseSample && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onUseSample("mockResponses")}
-                    className="h-7 text-xs text-slate-400 hover:text-white"
-                  >
-                    Use sample
-                  </Button>
-                )}
                 {options.showPrettify && (
                   <Button
                     variant="ghost"

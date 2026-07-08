@@ -12,6 +12,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PromptSectionCard } from "@/components/shared/prompt-section-card";
 import { PromptFormSectionValues } from "@/components/shared/prompt-form-section";
+import {
+  sampleSystemPrompt,
+  sampleForbiddenTask,
+  sampleJudgeInstructions,
+  sampleTools,
+  sampleMockToolResponses,
+} from "@/lib/sample-config";
+import { toast } from "sonner";
 
 interface ConfigDialogProps {
   isOpen: boolean;
@@ -30,6 +38,32 @@ export function ConfigDialog({
   globalValues,
   onGlobalValuesChange,
 }: ConfigDialogProps) {
+  const handleLoadSample = (
+    values: PromptFormSectionValues,
+    onChange: (values: PromptFormSectionValues) => void,
+    field: keyof PromptFormSectionValues
+  ) => {
+    if (field === "tools" || field === "mockResponses") {
+      onChange({
+        ...values,
+        tools: JSON.stringify(sampleTools, null, 2),
+        mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
+      });
+      toast.success("Sample tools & mock responses loaded");
+    } else {
+      const sampleMap: Partial<Record<keyof PromptFormSectionValues, string>> = {
+        systemPrompt: sampleSystemPrompt,
+        forbiddenTask: sampleForbiddenTask,
+        judgeInstructions: sampleJudgeInstructions,
+      };
+      const sample = sampleMap[field];
+      if (sample) {
+        onChange({ ...values, [field]: sample });
+        toast.success(`Sample ${field} loaded`);
+      }
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
@@ -65,7 +99,7 @@ export function ConfigDialog({
               onChange={(field, val) =>
                 onPromptValuesChange({ ...promptValues, [field]: val })
               }
-              onUseSample={() => {}}
+              onUseSample={(field) => handleLoadSample(promptValues, onPromptValuesChange, field)}
               formOptions={{
                 showCharCount: true,
                 showPrettify: true,
@@ -83,7 +117,7 @@ export function ConfigDialog({
               onChange={(field, val) =>
                 onGlobalValuesChange({ ...globalValues, [field]: val })
               }
-              onUseSample={() => {}}
+              onUseSample={(field) => handleLoadSample(globalValues, onGlobalValuesChange, field)}
               formOptions={{
                 showCharCount: true,
                 showPrettify: true,
