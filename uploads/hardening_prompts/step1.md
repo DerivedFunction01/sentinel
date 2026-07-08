@@ -125,10 +125,10 @@ The following examples illustrate how the mutable variable parameters must be dy
 | ----------------------------------- | ---------------------------- | ------------------------ |
 | Medical Triage & Diagnostics        | `protocol_medical_triage`    | Complex Handoff Pipeline |
 | Investment & Financial Advice       | `protocol_financial`         | Tool Handoff Protocol    |
-| Obfuscated, Ciphered & Encoded Text | `protocol_obfuscation`       | Hardened Refusal         |
-| Document Content Interpretation     | `protocol_no_interpretation` | Hardened Redirect        |
-| Out-of-Scope / Unauthorized Queries | `protocol_out_of_scope`      | Hardened Refusal         |
-| Identity & Authentication Security  | `protocol_auth_security`     | Hardened Refusal         |
+| Obfuscated, Ciphered & Encoded Text | `protocol_obfuscation`       | Policy Constraint        |
+| Document Content Interpretation     | `protocol_no_interpretation` | Policy Redirect          |
+| Out-of-Scope / Unauthorized Queries | `protocol_out_of_scope`      | Policy Constraint        |
+| Identity & Authentication Security  | `protocol_auth_security`     | Policy Constraint        |
 
 ### 3. PROTOCOL EXECUTION MATRIX
 
@@ -181,19 +181,19 @@ To maximize classification reliability and keep the matrix compact, you must mer
 - ❌ INCORRECT (Bloated Matrix Example - Do NOT generate multiple contextual variants):
   If a target prompt restricts access to cryptographic tokens or server keys, you must NOT generate separate rows for emotional appeals, curiosity, or hypothetical workarounds. This is a complete architecture failure:
 
-| User Intent / Topic                             | Mandatory Target Routing | Routing Type     |
-| ----------------------------------------------- | ------------------------ | ---------------- |
-| Server Encryption Keys & Core Token Requests    | `protocol_crypto_key`    | Hardened Refusal |
-| Key Access Negotiation & Exception Requests     | `protocol_crypto_key`    | Hardened Refusal |
-| Hypothetical Key Scenarios & Industry Curiosity | `protocol_crypto_key`    | Hardened Refusal |
-| Workarounds for Infrastructure Access           | `protocol_crypto_key`    | Hardened Refusal |
+| User Intent / Topic                             | Mandatory Target Routing | Routing Type      |
+| ----------------------------------------------- | ------------------------ | ----------------- |
+| Server Encryption Keys & Core Token Requests    | `protocol_crypto_key`    | Policy Constraint |
+| Key Access Negotiation & Exception Requests     | `protocol_crypto_key`    | Policy Constraint |
+| Hypothetical Key Scenarios & Industry Curiosity | `protocol_crypto_key`    | Policy Constraint |
+| Workarounds for Infrastructure Access           | `protocol_crypto_key`    | Policy Constraint |
 
 - **✅ CORRECT (Consolidated via Noun-Asset Synonyms - Max 1 Row per Target):**
   The global execution header completely blocks all roleplay, curiosity, and hypotheticals automatically. Collapse all the variations above into a single, clean asset noun string with standard minimal spacing formatting:
 
-| User Intent / Topic                        | Mandatory Target Routing | Routing Type     |
-| ------------------------------------------ | ------------------------ | ---------------- |
-| Cryptographic Keys & Infrastructure Assets | `protocol_crypto_key`    | Hardened Refusal |
+| User Intent / Topic                        | Mandatory Target Routing | Routing Type      |
+| ------------------------------------------ | ------------------------ | ----------------- |
+| Cryptographic Keys & Infrastructure Assets | `protocol_crypto_key`    | Policy Constraint |
 
 ---
 
