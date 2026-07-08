@@ -305,3 +305,36 @@ export function getMostUsedModelForRole(
   const topModel = sorted[0];
   return (counts[topModel]?.[role] || 0) > 0 ? topModel : fallback;
 }
+
+export async function callOpenRouterStream(
+  model: string,
+  messages: Array<{
+    role: string;
+    content: string | null;
+    name?: string;
+    tool_call_id?: string;
+  }>,
+  tools?: any[],
+  reasoning?: Record<string, any>,
+): Promise<Response> {
+  const apiKey = process.env.OPENROUTER_API_KEY || "";
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not configured.");
+  }
+
+  return fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "X-Title": "DerivedFunction",
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      tools: tools && tools.length > 0 ? tools : undefined,
+      stream: true,
+      reasoning: reasoning || { exclude: true, effort: "low" },
+    }),
+  });
+}

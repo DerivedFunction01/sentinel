@@ -1,5 +1,5 @@
 const DB_NAME = "sentinel-reports-cache";
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 const STORE_SCANS_LIST = "scans-list";
 const STORE_SCAN_DETAILS = "scan-details";
 const STORE_TOOL_EXAMPLES = "tool-examples";
@@ -7,6 +7,7 @@ const STORE_USER_TAGS = "user-tags";
 const STORE_MODELS = "models";
 const STORE_SCAN_COST_ESTIMATES = "scan-cost-estimates";
 const STORE_SAVED_QUERIES = "saved-queries";
+export const STORE_MANUAL_CONVERSATIONS = "manual-conversations";
 
 function getDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -41,6 +42,9 @@ function getDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_SAVED_QUERIES)) {
         db.createObjectStore(STORE_SAVED_QUERIES);
+      }
+      if (!db.objectStoreNames.contains(STORE_MANUAL_CONVERSATIONS)) {
+        db.createObjectStore(STORE_MANUAL_CONVERSATIONS);
       }
     };
   });
@@ -431,5 +435,51 @@ export async function deleteSavedQuery(id: string): Promise<void> {
     });
   } catch (error) {
     console.error("IndexedDB deleteSavedQuery error:", error);
+  }
+}
+
+export async function getManualConversations(): Promise<any[]> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_MANUAL_CONVERSATIONS, "readonly");
+      const store = transaction.objectStore(STORE_MANUAL_CONVERSATIONS);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB getManualConversations error:", error);
+    return [];
+  }
+}
+
+export async function saveManualConversation(id: string, conversation: any): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_MANUAL_CONVERSATIONS, "readwrite");
+      const store = transaction.objectStore(STORE_MANUAL_CONVERSATIONS);
+      const request = store.put({ ...conversation, id, updatedAt: new Date().toISOString() }, id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB saveManualConversation error:", error);
+  }
+}
+
+export async function deleteManualConversation(id: string): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_MANUAL_CONVERSATIONS, "readwrite");
+      const store = transaction.objectStore(STORE_MANUAL_CONVERSATIONS);
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error("IndexedDB deleteManualConversation error:", error);
   }
 }
