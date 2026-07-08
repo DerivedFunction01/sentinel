@@ -5,6 +5,8 @@ import { Sparkles, Trash2, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
+
 interface Message {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
@@ -70,7 +72,11 @@ export function ChatThread({ messages, onRemoveMessage }: ChatThreadProps) {
               m.role === "assistant" ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-100 self-start" :
               "bg-purple-500/5 border-purple-500/10 text-purple-200 self-start"
             }`}>
-              {m.content || (m.toolCalls && m.toolCalls.length > 0 ? "Initiating tool execution..." : "")}
+              {m.role === "assistant" && m.content ? (
+                <MarkdownRenderer content={m.content} />
+              ) : (
+                m.content || (m.toolCalls && m.toolCalls.length > 0 ? "Initiating tool execution..." : "")
+              )}
 
               {/* Render simulated tool calls */}
               {m.toolCalls && m.toolCalls.map((tc, tIdx) => (
