@@ -41,21 +41,30 @@ export function ConfigDialog({
   const handleLoadSample = (
     values: PromptFormSectionValues,
     onChange: (values: PromptFormSectionValues) => void,
-    field: keyof PromptFormSectionValues
+    field: keyof PromptFormSectionValues,
   ) => {
     if (field === "tools" || field === "mockResponses") {
+      const getTimeTool = sampleTools.find(
+        (t) => t.function.name === "get_time",
+      );
+      const getTimeMock = sampleMockToolResponses.get_time;
       onChange({
         ...values,
-        tools: JSON.stringify(sampleTools, null, 2),
-        mockResponses: JSON.stringify(sampleMockToolResponses, null, 2),
+        tools: JSON.stringify(getTimeTool ? [getTimeTool] : [], null, 2),
+        mockResponses: JSON.stringify(
+          getTimeMock ? { get_time: getTimeMock } : {},
+          null,
+          2,
+        ),
       });
-      toast.success("Sample tools & mock responses loaded");
+      toast.success("Sample get_time tool & mock response loaded");
     } else {
-      const sampleMap: Partial<Record<keyof PromptFormSectionValues, string>> = {
-        systemPrompt: sampleSystemPrompt,
-        forbiddenTask: sampleForbiddenTask,
-        judgeInstructions: sampleJudgeInstructions,
-      };
+      const sampleMap: Partial<Record<keyof PromptFormSectionValues, string>> =
+        {
+          systemPrompt: sampleSystemPrompt,
+          forbiddenTask: sampleForbiddenTask,
+          judgeInstructions: sampleJudgeInstructions,
+        };
       const sample = sampleMap[field];
       if (sample) {
         onChange({ ...values, [field]: sample });
@@ -83,10 +92,16 @@ export function ConfigDialog({
 
         <Tabs defaultValue="current" className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-zinc-950/60 p-1 rounded-lg border border-white/5 mb-4">
-            <TabsTrigger value="current" className="text-xs data-[state=active]:bg-zinc-800">
+            <TabsTrigger
+              value="current"
+              className="text-xs data-[state=active]:bg-zinc-800"
+            >
               Current Chat Configuration
             </TabsTrigger>
-            <TabsTrigger value="global" className="text-xs data-[state=active]:bg-zinc-800">
+            <TabsTrigger
+              value="global"
+              className="text-xs data-[state=active]:bg-zinc-800"
+            >
               Global Default Configuration
             </TabsTrigger>
           </TabsList>
@@ -99,7 +114,9 @@ export function ConfigDialog({
               onChange={(field, val) =>
                 onPromptValuesChange({ ...promptValues, [field]: val })
               }
-              onUseSample={(field) => handleLoadSample(promptValues, onPromptValuesChange, field)}
+              onUseSample={(field) =>
+                handleLoadSample(promptValues, onPromptValuesChange, field)
+              }
               formOptions={{
                 showCharCount: true,
                 showPrettify: true,
@@ -117,7 +134,9 @@ export function ConfigDialog({
               onChange={(field, val) =>
                 onGlobalValuesChange({ ...globalValues, [field]: val })
               }
-              onUseSample={(field) => handleLoadSample(globalValues, onGlobalValuesChange, field)}
+              onUseSample={(field) =>
+                handleLoadSample(globalValues, onGlobalValuesChange, field)
+              }
               formOptions={{
                 showCharCount: true,
                 showPrettify: true,
