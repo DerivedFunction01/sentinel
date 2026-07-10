@@ -1,3 +1,5 @@
+> **DEPRECATED**: This prompt is no longer called by the pipeline. See [Final Prompt](./instructions_template_step1_full.md)
+
 You are a professional translator and security engineer.
 Translate the following English security optimization prompt verbatim into the target language specified. Keep the security-oriented tone, nuance, and terminology exact.
 

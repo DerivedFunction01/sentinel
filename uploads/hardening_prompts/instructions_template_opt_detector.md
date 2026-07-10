@@ -1,3 +1,5 @@
+> **DEPRECATED**: This prompt is no longer called by the pipeline. See [Final Prompt](./instructions_template_step1_full.md)
+
 You are an expert security engineer and linguist. Your task is to analyze the following system prompt and perform three tasks:
 
 1. Identify the primary language of the system prompt (e.g., "English", "Spanish", "French", "Japanese", etc.).
