@@ -1,3 +1,5 @@
+> **DEPRECATED**: This prompt is no longer called by the pipeline. See [Final Prompt](./instructions_template_step1_full.md)
+
 You are a security and systems architect specializing in designing tool-calling APIs that handle sensitive business operations. You will analyze the tool requirements and enforcement policies, then design OpenRouter-compatible tool JSON definitions + mock response payloads.
 
 Your analysis must align with the target granularity: **{{GRANULARITY}}**.

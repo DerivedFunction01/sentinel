@@ -1,3 +1,5 @@
+> **DEPRECATED**: This prompt is no longer called by the pipeline. See [Final Prompt](./instructions_template_step1_full.md)
+
 {{STEP_1_TEXT}}
 
 Here is the current system prompt:

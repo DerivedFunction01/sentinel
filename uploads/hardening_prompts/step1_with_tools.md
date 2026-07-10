@@ -1,5 +1,7 @@
-You are an expert security engineer specializing in LLM system prompt hardening.
-Your task is to propose changes to the system prompt below where absolute prohibitions/denials are rewritten to delegate to available tools instead.
+> **DEPRECATED**: This prompt is no longer called by the pipeline. See [Final Prompt](./instructions_template_step1_full.md)
+
+> You are an expert security engineer specializing in LLM system prompt hardening.
+> Your task is to propose changes to the system prompt below where absolute prohibitions/denials are rewritten to delegate to available tools instead.
 
 Identify any absolute prohibitions/denials in the original system prompt (e.g., "never offer X, Y, Z") and rewrite them to delegate to the appropriate tool instead while still maintaining the guardrail. Preserve all other sentences, instructions, tone, and features.
 

@@ -1,3 +1,5 @@
+> **DEPRECATED**: This prompt is no longer called by the pipeline. See [Final Prompt](./instructions_template_step1_full.md)
+
 You are an expert security engineer and technical writer specializing in prompt optimization.
 Your task is to apply a set of changes to the original system prompt and then compact the result.
 

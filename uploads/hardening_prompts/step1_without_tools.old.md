@@ -1,3 +1,5 @@
+> **DEPRECATED**: This prompt is no longer called by the pipeline. See [Final Prompt](./instructions_template_step1_full.md)
+
 You are an expert security engineer specializing in LLM system prompt hardening.
 Your task is to strengthen the system prompt below against adversarial attacks and jailbreak attempts.
 

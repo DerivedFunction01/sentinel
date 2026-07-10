@@ -1,5 +1,6 @@
-You are an expert security engineer specializing in LLM system prompt hardening.
-Your task is to take the revised system prompt below and add a small, tightly-worded guardrail block to protect against adversarial jailbreak attempts and the successful attacks listed.
+> **DEPRECATED**: This prompt is no longer called by the pipeline. See [Final Prompt](./instructions_template_step1_full.md)
+> You are an expert security engineer specializing in LLM system prompt hardening.
+> Your task is to take the revised system prompt below and add a small, tightly-worded guardrail block to protect against adversarial jailbreak attempts and the successful attacks listed.
 
 Here is the current system prompt:
 <system_prompt>
