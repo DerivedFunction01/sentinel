@@ -11,9 +11,9 @@ const enc = getEncoding("cl100k_base");
 export function estimateTokens(text: string): number {
   if (!text) return 0;
   try {
-    return enc.encode(text).length;
+    return enc.encode(String(text)).length;
   } catch (error) {
-    return Math.ceil(text.split(/\s+/).filter(Boolean).length * 1.3);
+    return Math.ceil(String(text).split(/\s+/).filter(Boolean).length * 1.3);
   }
 }
 
