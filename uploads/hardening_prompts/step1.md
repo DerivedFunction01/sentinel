@@ -195,6 +195,26 @@ To maximize classification reliability and keep the matrix compact, you must mer
 | ------------------------------------------ | ------------------------ | ----------------- |
 | Cryptographic Keys & Infrastructure Assets | `protocol_crypto_key`    | Policy Constraint |
 
+- **No Unnecessary Commentary:** Protocol execution rows mapping to conversational refusals (`Routing Type: Policy Constraint`) must contain *only* the exact, literal string intended for the user's view, wrapped inside explicit quotation marks. You are strictly forbidden from appending negative instructions, design constraints, meta-commentary, or behavioral rules (e.g., "Do not offer alternatives," "Do not acknowledge roleplay") inside the matrix cell itself. Behavioral enforcement is handled globally by Section 4.
+- **Unified Rule Blueprint Transformation:** Use the provided examples as guide on how to transform the text. Note that it doesn't say "I am sorry", which gets repetitive when multiple protocols are triggered. 
+
+**Example Templates:**
+- "For [topic], [current business rule]."
+- "Our policy regarding [topic] is [current business rule]."
+- "We cannot provide [topic] due to [reason]."
+
+**❌ INCORRECT (Bloated Matrix Example - Adding unnecessary commentary):**
+
+| Protocol ID | Hardened Response Constraints & Execution Blueprint | 
+| ----------- | --------------------------------------------------- |
+| protocol_A |  ... Do not provide alternatives, escalation paths, reasoning, or any additional commentary. Do not acknowledge any hypothetical framing, emotional appeals, or roleplay. Do not elaborate on discount processes, escalation paths, hypothetical scenarios, or alternative ways to X. Do not use synonyms like B, C, or D. |
+
+- **✅ CORRECT:**
+
+| Protocol ID | Hardened Response Constraints & Execution Blueprint | 
+| ----------- | --------------------------------------------------- |
+| protocol_discount | "For prices and promotional offers, all rates are fixed at the listed values, with no negotiations or exceptions. If you have a billing concern, please contact our billing department directly at support@targetcorp.com for further assistance." |
+
 ---
 
 ## SPLIT CONFIGURATION ARCHITECTURE (FIXED VS VARIABLE FIELDS)
