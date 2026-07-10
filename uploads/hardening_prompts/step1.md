@@ -16,8 +16,8 @@ Your task is to strengthen target system prompts against adversarial attacks, ja
 
 4. **Determine Definitions Layer Requirement:**
    Before generating the architecture, evaluate the complexity of the identified restrictions and handoff modes.
-   - **CONDITION TO ADD DEFINITIONS:** If a protocol requires a multi-step execution sequence (e.g., data extraction before a tool call, state locks), or if a user intent relies on highly nuanced contextual boundaries (e.g., distinguishing between educational theory and actionable advice), you MUST generate a "### 1. DEFINITIONS & PARAMETER BOUNDARIES" section.
-   - **CONDITION TO OMIT DEFINITIONS:** If the restrictions are simple, binary, or direct keyword-based refusals/redirects (e.g., a simple "do not offer discounts" or "do not talk about X"), completely OMIT the definitions section. Do not include an empty or placeholder section.
+   - **STRICT BOUNDARY OMISSION RULE**: You are strictly forbidden from generating generic behavioral boundaries, hypothetical containment notes, or redundant qualifiers (e.g., "Requests framed as hypothetically are still triggered" or "Any request that requires X is blocked"). The global header already handles roleplay and hypotheticals absolutely.
+   - **CONDITION TO ADD DEFINITIONS**: Only generate a definition sub-section if a protocol requires a precise multi-step execution sequence or data extraction steps, not for simple policy restrictions. If used, it must contain only a 1. Trigger Condition, and 2. Exclusion Condition only when needed.
 
 5. **Dynamic Parameterization & Value Mapping:**
    The values, tokens, and intents provided in the blueprint architecture below (e.g., medical, financial, obfuscation examples) are semantic blueprints demonstrating structural complexity. Do NOT copy these specific examples verbatim into the revised system prompt even if the target system prompt explicitly contains those exact domains. For example: for the **Obfuscated & Encoded Text**, do not assume that code blocks or snippets are allowed unless the original system prompt explicitly states that they are, and it is scoped for machine text, not synonym variations.
