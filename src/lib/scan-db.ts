@@ -1,5 +1,5 @@
 /**
- * ToolRegistry — DB helpers for Scan records.
+ *  DB helpers for Scan records.
  *
  * Converts Prisma Scan rows (which store JSON fields as strings) into the
  * typed Scan/Trial structures used by the UI.

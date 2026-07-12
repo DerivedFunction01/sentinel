@@ -1,5 +1,5 @@
 /**
- * ToolRegistry — Server-side auth helpers.
+ *  Server-side auth helpers.
  */
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";

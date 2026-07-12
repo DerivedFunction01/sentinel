@@ -1,4 +1,4 @@
-// ToolRegistry — Prisma schema
+//  Prisma schema
 
 generator client {
   provider = "prisma-client"

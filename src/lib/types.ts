@@ -1,5 +1,5 @@
 /**
- * ToolRegistry — Domain Types
+ *  Domain Types
  */
 import type {
   CredentialMode,

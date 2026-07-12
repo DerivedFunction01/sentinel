@@ -236,7 +236,7 @@ export function getModelUsageCounts(): Record<
 > {
   if (typeof window === "undefined") return {};
   try {
-    return JSON.parse(localStorage.getItem("ToolRegistry_model_usage") || "{}");
+    return JSON.parse(localStorage.getItem("model_usage") || "{}");
   } catch {
     return {};
   }
@@ -248,7 +248,7 @@ function saveModelUsageCounts(
 ): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem("ToolRegistry_model_usage", JSON.stringify(counts));
+    localStorage.setItem("model_usage", JSON.stringify(counts));
   } catch {}
 }
 

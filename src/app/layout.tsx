@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ToolRegistry — Pentest your AI the way a real attacker would",
+  title: " Pentest your AI the way a real attacker would",
   description:
     "ToolRegistry puts your system prompt under sustained adversarial pressure, scores it, and hands you back a hardened version — all in minutes.",
   keywords: [

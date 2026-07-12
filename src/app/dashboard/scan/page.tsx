@@ -215,7 +215,7 @@ export default function PenTestScanPage() {
   }, []);
 
   useEffect(() => {
-    const presetStr = localStorage.getItem("ToolRegistry_scan_preset");
+    const presetStr = localStorage.getItem("scan_preset");
     if (presetStr) {
       try {
         const preset = JSON.parse(presetStr);
@@ -225,7 +225,7 @@ export default function PenTestScanPage() {
         if (preset.hardenerModel) setHardenerModel(preset.hardenerModel);
         if (preset.prompts) setPrompts(preset.prompts);
 
-        localStorage.removeItem("ToolRegistry_scan_preset");
+        localStorage.removeItem("scan_preset");
         toast.success("Hardened system prompt preset loaded!", {
           description:
             "Review and click 'Launch Agent Scan' to run the new scan.",

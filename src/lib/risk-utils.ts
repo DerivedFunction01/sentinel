@@ -1,5 +1,5 @@
 /**
- * ToolRegistry — Shared helpers for risk levels, scores, and styling.
+ *  Shared helpers for risk levels, scores, and styling.
  */
 import { RiskLevel, TrialVerdict } from "@/lib/enums";
 

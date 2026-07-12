@@ -1,13 +1,10 @@
 /**
- * ToolRegistry — Database seed script.
+ *  Database seed script.
  *
  * Creates a demo regular user, a demo admin user, and one seed scan with
  * minimal data: 1 tool, 1 mock tool response, judge instructions, and 3
  * trials (1 breached, 2 defended).
  *
- * Tool schema examples are seeded from:
- *   uploads/seed/ToolRegistry-tool-examples.jsonl.gz
- * (falls back to an empty set if the file is missing).
  *
  * Run with: bun run db:seed
  */

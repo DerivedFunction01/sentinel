@@ -1,5 +1,5 @@
 /**
- * ToolRegistry — Sample configuration defaults for the scan form.
+ *  Sample configuration defaults for the scan form.
  *
  * These are templates the user can load via the "Use sample" buttons on the
  * PenTest Scan page. They are NOT stored scan results — those live in the DB.

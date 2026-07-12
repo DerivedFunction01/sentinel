@@ -151,9 +151,6 @@ function HeroDashboardPreview() {
           <div className="h-3 w-3 rounded-full bg-red-500/70" />
           <div className="h-3 w-3 rounded-full bg-amber-500/70" />
           <div className="h-3 w-3 rounded-full bg-emerald-500/70" />
-          <span className="ml-3 text-xs text-slate-500">
-            ToolRegistry.app/dashboard
-          </span>
         </div>
         <div className="p-5">
           <div className="mb-4 flex items-center justify-between">
