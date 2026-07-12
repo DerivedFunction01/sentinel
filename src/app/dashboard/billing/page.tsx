@@ -1,4 +1,6 @@
-"use client";
+"use client"
+import { APP_NAME } from "@/lib/constants";
+;
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -43,7 +45,7 @@ const PLANS: PricingPlan[] = [
     name: "Starter",
     price: 0,
     tokens: 0,
-    description: "For trying out ToolRegistry",
+    description: `For trying out ${APP_NAME}`,
     icon: Zap,
     features: [
       "0 scan tokens",

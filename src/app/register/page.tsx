@@ -1,4 +1,6 @@
-"use client";
+"use client"
+import { APP_NAME } from "@/lib/constants";
+;
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
@@ -57,7 +59,7 @@ export default function RegisterPage() {
         <div className="mx-auto w-full max-w-sm">
           <Link href="/" className="mb-10 flex items-center gap-2">
             <LogoIcon size="md" />
-            <span className="text-xl font-bold text-white">ToolRegistry</span>
+            <span className="text-xl font-bold text-white">{APP_NAME}</span>
           </Link>
 
           <h1 className="text-3xl font-bold tracking-tight text-white">

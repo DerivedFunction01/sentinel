@@ -1,4 +1,6 @@
-"use client";
+"use client"
+import { APP_NAME } from "@/lib/constants";
+;
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -634,7 +636,7 @@ export function ReportView({ scan, refreshing, onRefresh }: ReportViewProps) {
         },
       ],
     };
-    localStorage.setItem("ToolRegistry_scan_preset", JSON.stringify(preset));
+    localStorage.setItem(`${APP_NAME}_scan_preset`, JSON.stringify(preset));
     toast.success("Tools applied to scan configuration. Redirecting...");
     router.push("/dashboard/scan");
   };

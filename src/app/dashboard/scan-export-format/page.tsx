@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/constants";
 import { ScanExportDocs } from "@/components/shared/scan-export-docs";
 
 export default function ScanExportFormatPage() {
@@ -8,7 +9,7 @@ export default function ScanExportFormatPage() {
           Scan Export Format Guide
         </h1>
         <p className="text-sm text-muted-foreground">
-          Python snippets for loading, parsing, and analyzing ToolRegistry scan
+          Python snippets for loading, parsing, and analyzing {APP_NAME} scan
           exports (JSONL.gz).
         </p>
       </div>

@@ -1,4 +1,6 @@
-"use client";
+"use client"
+import { APP_NAME } from "@/lib/constants";
+;
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -224,7 +226,7 @@ export function ScanSummary({ scan, activeHardenedPrompt }: ScanSummaryProps) {
       ],
     };
 
-    localStorage.setItem("ToolRegistry_scan_preset", JSON.stringify(preset));
+    localStorage.setItem(`${APP_NAME}_scan_preset`, JSON.stringify(preset));
     toast.success("Hardened prompt applied. Redirecting to scanner...");
     router.push("/dashboard/scan");
   };

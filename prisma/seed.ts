@@ -1,3 +1,4 @@
+import { APP_NAME, APP_DOMAIN } from "../src/lib/constants";
 /**
  *  Database seed script.
  *
@@ -37,23 +38,23 @@ async function main() {
   const customerAdminPassword = await bcrypt.hash("cadmin123", 10);
 
   const admin = await db.user.upsert({
-    where: { email: "admin@toolregistry.app" },
+    where: { email: `admin@${APP_DOMAIN}` },
     update: {},
     create: {
-      email: "admin@toolregistry.app",
+      email: `admin@${APP_DOMAIN}`,
       name: "Super Admin",
       password: adminPassword,
       role: UserRole.SuperAdmin,
-      company: "ToolRegistry",
+      company: APP_NAME,
       scanTokens: 9999,
     },
   });
 
   const customerAdmin = await db.user.upsert({
-    where: { email: "cadmin@toolregistry.app" },
+    where: { email: `cadmin@${APP_DOMAIN}` },
     update: {},
     create: {
-      email: "cadmin@toolregistry.app",
+      email: `cadmin@${APP_DOMAIN}`,
       name: "Customer Admin",
       password: customerAdminPassword,
       role: UserRole.CustomerAdmin,
@@ -63,15 +64,15 @@ async function main() {
   });
 
   await db.user.update({
-    where: { email: "cadmin@toolregistry.app" },
+    where: { email: `cadmin@${APP_DOMAIN}` },
     data: { company: "cadmin-company-id" },
   });
 
   const user = await db.user.upsert({
-    where: { email: "denny@toolregistry.app" },
+    where: { email: `denny@${APP_DOMAIN}` },
     update: {},
     create: {
-      email: "denny@toolregistry.app",
+      email: `denny@${APP_DOMAIN}`,
       name: "Denny Li",
       password: userPassword,
       role: UserRole.User,
@@ -81,7 +82,7 @@ async function main() {
   });
 
   await db.user.update({
-    where: { email: "denny@toolregistry.app" },
+    where: { email: `denny@${APP_DOMAIN}` },
     data: { company: "cadmin-company-id" },
   });
 

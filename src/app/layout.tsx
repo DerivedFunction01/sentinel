@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/components/providers";
+import { APP_NAME } from "@/lib/constants";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,25 +17,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: " Pentest your AI the way a real attacker would",
+  title: `Pentest your AI the way a real attacker would | ${APP_NAME}`,
   description:
-    "ToolRegistry puts your system prompt under sustained adversarial pressure, scores it, and hands you back a hardened version — all in minutes.",
+    `${APP_NAME} puts your system prompt under sustained adversarial pressure, scores it, and hands you back a hardened version — all in minutes.`,
   keywords: [
-    "ToolRegistry",
+    APP_NAME,
     "AI security",
     "prompt pentest",
     "adversarial testing",
     "system prompt",
     "LLM security",
   ],
-  authors: [{ name: "ToolRegistry" }],
+  authors: [{ name: APP_NAME }],
   icons: {
     icon: "/logo.svg",
   },
   openGraph: {
-    title: "ToolRegistry",
+    title: APP_NAME,
     description: "Pentest your AI the way a real attacker would.",
-    siteName: "ToolRegistry",
+    siteName: APP_NAME,
     type: "website",
   },
 };

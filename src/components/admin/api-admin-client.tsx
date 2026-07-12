@@ -1,4 +1,6 @@
-"use client";
+"use client"
+import { APP_NAME } from "@/lib/constants";
+;
 
 import { useState } from "react";
 import {
@@ -103,7 +105,7 @@ export function ApiAdminClient({ initialKeys }: ApiAdminClientProps) {
           API Admin
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Generate API keys for programmatic access to the ToolRegistry scan
+          Generate API keys for programmatic access to the {APP_NAME} scan
           API.
         </p>
       </div>

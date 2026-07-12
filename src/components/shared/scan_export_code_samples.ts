@@ -27,6 +27,8 @@ export interface Section {
   description: string;
   code: string;
 }
+import { APP_NAME } from "@/lib/constants";
+
 export const SECTIONS: Section[] = [
   {
     id: "loading",
@@ -36,7 +38,7 @@ export const SECTIONS: Section[] = [
 import gzip
 from pathlib import Path
 
-FILENAME = "ToolRegistry-scans-${new Date().toISOString().split("T")[0]}.jsonl.gz"
+FILENAME = "${APP_NAME}-scans-${new Date().toISOString().split("T")[0]}.jsonl.gz"
 
 def load_scans(filepath):
     """Load scan objects from .jsonl.gz file."""

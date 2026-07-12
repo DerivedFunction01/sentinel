@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/constants";
 import {
   Document,
   Packer,
@@ -226,7 +227,7 @@ export async function generateScanReport(
                           new Paragraph({
                             children: [
                               new TextRun({
-                                text: "ToolRegistry   ·   SECURITY   INSIGHTS   REPORT   ·   ",
+                                text: `${APP_NAME}   ·   SECURITY   INSIGHTS   REPORT   ·   `,
                                 size: 14,
                                 color: "999999",
                               }),

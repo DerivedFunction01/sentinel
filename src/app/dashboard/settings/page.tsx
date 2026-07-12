@@ -1,4 +1,6 @@
-"use client";
+"use client"
+import { APP_NAME } from "@/lib/constants";
+;
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
@@ -195,7 +197,7 @@ export default function SettingsPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ToolRegistry-scans-${new Date().toISOString().slice(0, 10)}.jsonl.gz`;
+      a.download = `${APP_NAME}-scans-${new Date().toISOString().slice(0, 10)}.jsonl.gz`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

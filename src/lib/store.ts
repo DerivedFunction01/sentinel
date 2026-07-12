@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/constants";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -21,7 +22,7 @@ export const useAppStore = create<AppState>()(
         set({ openrouterConnected: connected }),
     }),
     {
-      name: "ToolRegistry-store",
+      name: `${APP_NAME}-store`,
     },
   ),
 );

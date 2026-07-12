@@ -1,4 +1,6 @@
-"use client";
+"use client"
+import { APP_NAME } from "@/lib/constants";
+;
 
 import { useState, useEffect, useCallback } from "react";
 import { CodeHighlight } from "@/components/shared/code-highlight";
@@ -715,7 +717,7 @@ function WorkflowExplanation({
             Tool Extraction & Hardening
           </h5>
           <p className="text-muted-foreground mb-2">
-            When hardening a system prompt, ToolRegistry can analyze the prompt
+            When hardening a system prompt, {APP_NAME} can analyze the prompt
             for embedded business logic and recommend moving it into structured
             tool definitions.
           </p>

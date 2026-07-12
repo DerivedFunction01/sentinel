@@ -1,4 +1,6 @@
-"use client";
+"use client"
+import { APP_NAME } from "@/lib/constants";
+;
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -89,7 +91,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
         <Link href="/" className="flex items-center gap-2">
           <LogoIcon size="sm" />
           <span className="text-base font-bold text-sidebar-foreground">
-            ToolRegistry
+            {APP_NAME}
           </span>
         </Link>
       </div>

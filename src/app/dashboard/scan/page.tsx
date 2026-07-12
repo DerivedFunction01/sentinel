@@ -1,4 +1,6 @@
-"use client";
+"use client"
+import { APP_NAME } from "@/lib/constants";
+;
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -530,7 +532,7 @@ export default function PenTestScanPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ToolRegistry-scan-config-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `${APP_NAME}-scan-config-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

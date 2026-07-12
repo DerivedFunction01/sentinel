@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/constants";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -81,7 +82,7 @@ export async function GET() {
   const gzipped = gzipSync(jsonl);
 
   const date = new Date().toISOString().slice(0, 10);
-  const filename = `ToolRegistry-scans-${date}.jsonl.gz`;
+  const filename = `${APP_NAME}-scans-${date}.jsonl.gz`;
 
   return new NextResponse(gzipped, {
     headers: {

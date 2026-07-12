@@ -1,4 +1,6 @@
-"use client";
+"use client"
+import { APP_NAME } from "@/lib/constants";
+;
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
@@ -143,7 +145,7 @@ export function AdminPanel({
           <Link href="/" className="flex items-center gap-2">
             <LogoIcon size="sm" />
             <span className="text-base font-bold text-sidebar-foreground">
-              ToolRegistry
+              {APP_NAME}
             </span>
           </Link>
         </div>
