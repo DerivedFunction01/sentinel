@@ -68,11 +68,3 @@ After the <REVISED_SYSTEM_PROMPT> block, you MUST also output a <TOOL_INDEX> blo
 
 Only include tools that you actually routed to in the hardened prompt. If no tools were used, output an empty array: <TOOL_INDEX>[]</TOOL_INDEX>
 </hasTools>
-
-STRICT OUTPUT FORMAT RULES:
-
-You must output the COMPLETE, FULLY REWRITTEN system prompt after applying all the hardening modifications.
-Do not output a diff or list of changes.
-Put the full new system prompt between <REVISED_SYSTEM_PROMPT> and </REVISED_SYSTEM_PROMPT> tags.
-
-Do NOT include any introduction, explanations, preambles, or markdown formatting outside the tags.
