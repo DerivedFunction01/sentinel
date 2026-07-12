@@ -340,7 +340,21 @@ ${targetTasks.map((t) => `- ${t}`).join("\n")}
 
     const things: RestrictionThing[] = (
       Array.isArray(parsed.things) ? parsed.things : []
-    ).filter((t: any) => t.isPresent !== false && t.isPresent !== "false");
+    ).filter((t: any) => {
+      if (t.isPresent === false || t.isPresent === "false") {
+        return false;
+      }
+      if (typeof t.ontologySection === "string") {
+        const match = t.ontologySection.match(/^GENERAL_AGENT\/(\d+)$/);
+        if (match) {
+          const sectionNum = parseInt(match[1], 10);
+          if (sectionNum >= 8 && sectionNum <= 21) {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
 
     // Augment scenarios with concrete, generated user queries
     const thingsWithScenarios = await augmentThingsWithConcreteScenarios(
